@@ -1,0 +1,730 @@
+local addonName, ns = ...
+
+-- ============================================================================
+-- Options_Bars.lua - Tab 2: Bars / Groups configuration
+-- ============================================================================
+
+local TRACK_MODES = { "Cooldown", "Buff", "Debuff", "Proc", "Item", "Custom" }
+local TARGET_UNITS = { "player", "target", "focus", "pet", "mouseover" }
+local PROGRESS_DIRS = { "LTR", "RTL" }
+local GROUP_LIST_HEIGHT = 16
+local BAR_LIST_HEIGHT = 16
+local MAX_GROUP_ROWS = 10
+local MAX_BAR_ROWS = 8
+
+-- Helper: create a new default bar table
+local function NewBar(name)
+    return {
+        name = name or "New Bar",
+        enabled = true,
+        trackMode = "Cooldown",
+        target = "player",
+        spellName = "",
+        spellId = nil,
+        itemId = nil,
+        onlyMine = true,
+        conditions = {
+            combatOnly = false,
+            outOfCombatOnly = false,
+            requireBuff = nil,
+            healthBelow = nil,
+            inGroup = false,
+            inRaid = false,
+            hideWhenInactive = false,
+            showEmpty = true,
+        },
+        display = {
+            progressDirection = "LTR",
+            lingerTime = 0,
+            showIcon = nil,
+            showText = nil,
+            textFormat = nil,
+            colorOverride = nil,
+            textureOverride = nil,
+            style = nil,
+        },
+    }
+end
+
+-- Helper: create a new default group (frame) table
+local function NewGroup(name)
+    return {
+        name = name or "New Group",
+        enabled = true,
+        locked = true,
+        visible = true,
+        position = { point = "CENTER", relativePoint = "CENTER", x = 0, y = 0 },
+        width = 200,
+        height = nil,
+        scale = 1.0,
+        bars = {},
+    }
+end
+
+-- ============================================================================
+-- Main Tab Creation
+-- ============================================================================
+
+local selectedGroupIndex = nil
+local selectedBarIndex = nil
+
+local function CreateBarsTab(parent)
+    local frame = CreateFrame("Frame", "BarWardenBarsTab", parent)
+    frame:SetAllPoints(parent)
+    frame:Hide()
+
+    -- ========================================================================
+    -- LEFT PANEL: Group List
+    -- ========================================================================
+    local leftPanel = CreateFrame("Frame", nil, frame)
+    leftPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -80)
+    leftPanel:SetSize(180, 360)
+
+    local groupHeader = leftPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    groupHeader:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", 0, 0)
+    groupHeader:SetText("Groups")
+
+    -- Group scroll frame
+    local groupScrollFrame = CreateFrame("ScrollFrame", "BarWardenGroupScroll", leftPanel, "FauxScrollFrameTemplate")
+    groupScrollFrame:SetPoint("TOPLEFT", groupHeader, "BOTTOMLEFT", 0, -6)
+    groupScrollFrame:SetSize(170, MAX_GROUP_ROWS * GROUP_LIST_HEIGHT)
+
+    local groupRows = {}
+    for i = 1, MAX_GROUP_ROWS do
+        local row = CreateFrame("Button", "BarWardenGroupRow" .. i, leftPanel)
+        row:SetSize(170, GROUP_LIST_HEIGHT)
+        if i == 1 then
+            row:SetPoint("TOPLEFT", groupScrollFrame, "TOPLEFT", 0, 0)
+        else
+            row:SetPoint("TOPLEFT", groupRows[i - 1], "BOTTOMLEFT", 0, 0)
+        end
+
+        local highlight = row:CreateTexture(nil, "HIGHLIGHT")
+        highlight:SetAllPoints()
+        highlight:SetTexture(1, 1, 1, 0.1)
+
+        local selected = row:CreateTexture(nil, "BACKGROUND")
+        selected:SetAllPoints()
+        selected:SetTexture(0.2, 0.4, 0.8, 0.3)
+        selected:Hide()
+        row.selected = selected
+
+        local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        text:SetPoint("LEFT", row, "LEFT", 4, 0)
+        text:SetJustifyH("LEFT")
+        text:SetWidth(160)
+        row.text = text
+
+        row:SetScript("OnClick", function(self)
+            selectedGroupIndex = self.index
+            selectedBarIndex = nil
+            frame:Refresh()
+        end)
+
+        groupRows[i] = row
+    end
+
+    -- Group buttons
+    local addGroupBtn = ns:CreateButton(leftPanel, "Add", 54, function()
+        local frames = BarWardenDB.frames
+        local group = NewGroup("Group " .. (#frames + 1))
+        table.insert(frames, group)
+        selectedGroupIndex = #frames
+        selectedBarIndex = nil
+        frame:Refresh()
+        ns:RebuildAllFrames()
+    end)
+    addGroupBtn:SetPoint("TOPLEFT", groupScrollFrame, "BOTTOMLEFT", 0, -4)
+
+    local deleteGroupBtn = ns:CreateButton(leftPanel, "Delete", 54, function()
+        if not selectedGroupIndex then return end
+        local frames = BarWardenDB.frames
+        local g = frames[selectedGroupIndex]
+        if not g then return end
+        local popup = StaticPopup_Show("BARWARDEN_CONFIRM_DELETE", g.name)
+        if popup then
+            popup.data = {
+                onAccept = function()
+                    table.remove(frames, selectedGroupIndex)
+                    if selectedGroupIndex > #frames then
+                        selectedGroupIndex = #frames > 0 and #frames or nil
+                    end
+                    selectedBarIndex = nil
+                    frame:Refresh()
+                    ns:RebuildAllFrames()
+                end,
+            }
+        end
+    end)
+    deleteGroupBtn:SetPoint("LEFT", addGroupBtn, "RIGHT", 2, 0)
+
+    local dupeGroupBtn = ns:CreateButton(leftPanel, "Dupe", 54, function()
+        if not selectedGroupIndex then return end
+        local frames = BarWardenDB.frames
+        local g = frames[selectedGroupIndex]
+        if not g then return end
+        local copy = ns:CopyTable(g)
+        copy.name = g.name .. " (copy)"
+        copy.position.x = copy.position.x + 20
+        copy.position.y = copy.position.y - 20
+        table.insert(frames, copy)
+        selectedGroupIndex = #frames
+        selectedBarIndex = nil
+        frame:Refresh()
+        ns:RebuildAllFrames()
+    end)
+    dupeGroupBtn:SetPoint("LEFT", deleteGroupBtn, "RIGHT", 2, 0)
+
+    -- Group name edit
+    local groupNameEdit = ns:CreateEditBox(leftPanel, "Group Name", 170, function(self, text)
+        if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
+            BarWardenDB.frames[selectedGroupIndex].name = text
+            frame:Refresh()
+            ns:RebuildAllFrames()
+        end
+    end)
+    groupNameEdit:SetPoint("TOPLEFT", addGroupBtn, "BOTTOMLEFT", 0, -20)
+
+    -- ========================================================================
+    -- RIGHT PANEL: Bar List + Bar Editor
+    -- ========================================================================
+    local rightPanel = CreateFrame("Frame", nil, frame)
+    rightPanel:SetPoint("TOPLEFT", leftPanel, "TOPRIGHT", 16, 0)
+    rightPanel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -16, 8)
+
+    local barHeader = rightPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    barHeader:SetPoint("TOPLEFT", rightPanel, "TOPLEFT", 0, 0)
+    barHeader:SetText("Bars")
+
+    -- Bar scroll frame
+    local barScrollFrame = CreateFrame("ScrollFrame", "BarWardenBarScroll", rightPanel, "FauxScrollFrameTemplate")
+    barScrollFrame:SetPoint("TOPLEFT", barHeader, "BOTTOMLEFT", 0, -6)
+    barScrollFrame:SetSize(360, MAX_BAR_ROWS * BAR_LIST_HEIGHT)
+
+    local barRows = {}
+    for i = 1, MAX_BAR_ROWS do
+        local row = CreateFrame("Button", "BarWardenBarRow" .. i, rightPanel)
+        row:SetSize(360, BAR_LIST_HEIGHT)
+        if i == 1 then
+            row:SetPoint("TOPLEFT", barScrollFrame, "TOPLEFT", 0, 0)
+        else
+            row:SetPoint("TOPLEFT", barRows[i - 1], "BOTTOMLEFT", 0, 0)
+        end
+
+        local highlight = row:CreateTexture(nil, "HIGHLIGHT")
+        highlight:SetAllPoints()
+        highlight:SetTexture(1, 1, 1, 0.1)
+
+        local selected = row:CreateTexture(nil, "BACKGROUND")
+        selected:SetAllPoints()
+        selected:SetTexture(0.2, 0.4, 0.8, 0.3)
+        selected:Hide()
+        row.selected = selected
+
+        local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        nameText:SetPoint("LEFT", row, "LEFT", 4, 0)
+        nameText:SetJustifyH("LEFT")
+        nameText:SetWidth(120)
+        row.nameText = nameText
+
+        local modeText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        modeText:SetPoint("LEFT", row, "LEFT", 128, 0)
+        modeText:SetJustifyH("LEFT")
+        modeText:SetWidth(70)
+        row.modeText = modeText
+
+        local targetText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        targetText:SetPoint("LEFT", row, "LEFT", 200, 0)
+        targetText:SetJustifyH("LEFT")
+        targetText:SetWidth(70)
+        row.targetText = targetText
+
+        local spellText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        spellText:SetPoint("LEFT", row, "LEFT", 274, 0)
+        spellText:SetJustifyH("LEFT")
+        spellText:SetWidth(80)
+        row.spellText = spellText
+
+        row:SetScript("OnClick", function(self)
+            selectedBarIndex = self.index
+            frame:Refresh()
+        end)
+
+        barRows[i] = row
+    end
+
+    -- Bar list buttons
+    local addBarBtn = ns:CreateButton(rightPanel, "Add Bar", 70, function()
+        if not selectedGroupIndex then return end
+        local g = BarWardenDB.frames[selectedGroupIndex]
+        if not g then return end
+        local bar = NewBar("Bar " .. (#g.bars + 1))
+        table.insert(g.bars, bar)
+        selectedBarIndex = #g.bars
+        frame:Refresh()
+        ns:RebuildAllFrames()
+    end)
+    addBarBtn:SetPoint("TOPLEFT", barScrollFrame, "BOTTOMLEFT", 0, -4)
+
+    local deleteBarBtn = ns:CreateButton(rightPanel, "Delete Bar", 70, function()
+        if not selectedGroupIndex or not selectedBarIndex then return end
+        local g = BarWardenDB.frames[selectedGroupIndex]
+        if not g then return end
+        local bar = g.bars[selectedBarIndex]
+        if not bar then return end
+        local popup = StaticPopup_Show("BARWARDEN_CONFIRM_DELETE", bar.name)
+        if popup then
+            popup.data = {
+                onAccept = function()
+                    table.remove(g.bars, selectedBarIndex)
+                    if selectedBarIndex > #g.bars then
+                        selectedBarIndex = #g.bars > 0 and #g.bars or nil
+                    end
+                    frame:Refresh()
+                    ns:RebuildAllFrames()
+                end,
+            }
+        end
+    end)
+    deleteBarBtn:SetPoint("LEFT", addBarBtn, "RIGHT", 2, 0)
+
+    local moveUpBtn = ns:CreateButton(rightPanel, "Up", 40, function()
+        if not selectedGroupIndex or not selectedBarIndex then return end
+        local bars = BarWardenDB.frames[selectedGroupIndex].bars
+        if selectedBarIndex <= 1 then return end
+        bars[selectedBarIndex], bars[selectedBarIndex - 1] = bars[selectedBarIndex - 1], bars[selectedBarIndex]
+        selectedBarIndex = selectedBarIndex - 1
+        frame:Refresh()
+        ns:RebuildAllFrames()
+    end)
+    moveUpBtn:SetPoint("LEFT", deleteBarBtn, "RIGHT", 2, 0)
+
+    local moveDownBtn = ns:CreateButton(rightPanel, "Down", 40, function()
+        if not selectedGroupIndex or not selectedBarIndex then return end
+        local bars = BarWardenDB.frames[selectedGroupIndex].bars
+        if selectedBarIndex >= #bars then return end
+        bars[selectedBarIndex], bars[selectedBarIndex + 1] = bars[selectedBarIndex + 1], bars[selectedBarIndex]
+        selectedBarIndex = selectedBarIndex + 1
+        frame:Refresh()
+        ns:RebuildAllFrames()
+    end)
+    moveDownBtn:SetPoint("LEFT", moveUpBtn, "RIGHT", 2, 0)
+
+    -- ========================================================================
+    -- BAR EDITOR SUB-PANEL
+    -- ========================================================================
+    local editorPanel = CreateFrame("Frame", nil, rightPanel)
+    editorPanel:SetPoint("TOPLEFT", addBarBtn, "BOTTOMLEFT", 0, -12)
+    editorPanel:SetPoint("BOTTOMRIGHT", rightPanel, "BOTTOMRIGHT", 0, 0)
+
+    local editorHeader = editorPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    editorHeader:SetPoint("TOPLEFT", editorPanel, "TOPLEFT", 0, 0)
+    editorHeader:SetText("Bar Settings")
+
+    -- Bar enabled checkbox
+    local barEnabledCB = ns:CreateCheckbox(editorPanel, "Enabled", "Enable or disable this bar", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.enabled = checked
+            ns:RebuildAllFrames()
+        end
+    end)
+    barEnabledCB:SetPoint("TOPLEFT", editorHeader, "BOTTOMLEFT", 0, -4)
+
+    -- Bar name
+    local barNameEdit = ns:CreateEditBox(editorPanel, "Bar Name", 140, function(self, text)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.name = text
+            frame:Refresh()
+        end
+    end)
+    barNameEdit:SetPoint("TOPLEFT", barEnabledCB, "BOTTOMLEFT", 0, -18)
+
+    -- Spell Name / ID
+    local spellEdit = ns:CreateEditBox(editorPanel, "Spell Name or ID", 140, function(self, text)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            local id = tonumber(text)
+            if id then
+                bar.spellId = id
+                bar.spellName = text
+            else
+                bar.spellId = nil
+                bar.spellName = text
+            end
+            ns:RebuildAllFrames()
+        end
+    end)
+    spellEdit:SetPoint("TOPLEFT", barNameEdit, "BOTTOMLEFT", 0, -18)
+
+    -- Only Mine checkbox
+    local onlyMineCB = ns:CreateCheckbox(editorPanel, "Only Mine", "Only track auras cast by you", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.onlyMine = checked
+            ns:RebuildAllFrames()
+        end
+    end)
+    onlyMineCB:SetPoint("TOPLEFT", spellEdit, "BOTTOMLEFT", 0, -6)
+
+    -- Track Mode dropdown
+    local trackModeDD = ns:CreateDropdown(editorPanel, "Track Mode", TRACK_MODES, function(dd, value, index)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.trackMode = value
+            ns:RebuildAllFrames()
+        end
+    end)
+    trackModeDD:SetPoint("TOPLEFT", barNameEdit, "TOPRIGHT", 20, 16)
+
+    -- Target dropdown
+    local targetDD = ns:CreateDropdown(editorPanel, "Target", TARGET_UNITS, function(dd, value, index)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.target = value
+            ns:RebuildAllFrames()
+        end
+    end)
+    targetDD:SetPoint("TOPLEFT", trackModeDD, "BOTTOMLEFT", 0, -18)
+
+    -- ========================================================================
+    -- CONDITIONS SECTION
+    -- ========================================================================
+    local condHeader = editorPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    condHeader:SetPoint("TOPLEFT", onlyMineCB, "BOTTOMLEFT", 0, -12)
+    condHeader:SetText("Conditions")
+
+    local combatOnlyCB = ns:CreateCheckbox(editorPanel, "Combat Only", "Show only in combat", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.conditions.combatOnly = checked end
+    end)
+    combatOnlyCB:SetPoint("TOPLEFT", condHeader, "BOTTOMLEFT", 0, -4)
+
+    local oocOnlyCB = ns:CreateCheckbox(editorPanel, "Out of Combat Only", "Show only out of combat", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.conditions.outOfCombatOnly = checked end
+    end)
+    oocOnlyCB:SetPoint("TOPLEFT", combatOnlyCB, "BOTTOMLEFT", 0, -2)
+
+    local inGroupCB = ns:CreateCheckbox(editorPanel, "In Group", "Show only when in a group", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.conditions.inGroup = checked end
+    end)
+    inGroupCB:SetPoint("TOPLEFT", oocOnlyCB, "BOTTOMLEFT", 0, -2)
+
+    local inRaidCB = ns:CreateCheckbox(editorPanel, "In Raid", "Show only when in a raid", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.conditions.inRaid = checked end
+    end)
+    inRaidCB:SetPoint("TOPLEFT", inGroupCB, "BOTTOMLEFT", 0, -2)
+
+    local hideInactiveCB = ns:CreateCheckbox(editorPanel, "Hide When Inactive", "Hide bar when not tracking", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.conditions.hideWhenInactive = checked end
+    end)
+    hideInactiveCB:SetPoint("TOPLEFT", inRaidCB, "BOTTOMLEFT", 0, -2)
+
+    local showEmptyCB = ns:CreateCheckbox(editorPanel, "Show Empty Bar", "Show bar even when not active", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.conditions.showEmpty = checked end
+    end)
+    showEmptyCB:SetPoint("TOPLEFT", hideInactiveCB, "BOTTOMLEFT", 0, -2)
+
+    local healthEdit = ns:CreateEditBox(editorPanel, "Health Below %", 60, function(self, text)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            local val = tonumber(text)
+            bar.conditions.healthBelow = (val and val > 0 and val <= 100) and val or nil
+        end
+    end)
+    healthEdit:SetPoint("TOPLEFT", showEmptyCB, "BOTTOMLEFT", 0, -18)
+
+    local requireBuffEdit = ns:CreateEditBox(editorPanel, "Require Buff", 140, function(self, text)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.conditions.requireBuff = (text and text ~= "") and text or nil
+        end
+    end)
+    requireBuffEdit:SetPoint("LEFT", healthEdit, "RIGHT", 16, 0)
+
+    -- ========================================================================
+    -- DISPLAY OPTIONS SECTION
+    -- ========================================================================
+    local displayHeader = editorPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    displayHeader:SetPoint("TOPLEFT", healthEdit, "BOTTOMLEFT", 0, -12)
+    displayHeader:SetText("Display Options")
+
+    local progressDD = ns:CreateDropdown(editorPanel, "Progress Direction", PROGRESS_DIRS, function(dd, value, index)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.display.progressDirection = value
+            ns:RebuildAllFrames()
+        end
+    end)
+    progressDD:SetPoint("TOPLEFT", displayHeader, "BOTTOMLEFT", -16, -4)
+
+    local lingerSlider = ns:CreateSlider(editorPanel, "Linger Time", 0, 5, 0.5, function(self, value)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.display.lingerTime = value end
+    end)
+    lingerSlider:SetPoint("TOPLEFT", progressDD, "TOPRIGHT", 20, -12)
+    lingerSlider:SetWidth(120)
+
+    local showIconCB = ns:CreateCheckbox(editorPanel, "Override Icon", "Override global icon setting", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.display.showIcon = checked or nil end
+    end)
+    showIconCB:SetPoint("TOPLEFT", progressDD, "BOTTOMLEFT", 16, -6)
+
+    local showTextCB = ns:CreateCheckbox(editorPanel, "Override Text", "Override global text setting", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.display.showText = checked or nil end
+    end)
+    showTextCB:SetPoint("TOPLEFT", showIconCB, "BOTTOMLEFT", 0, -2)
+
+    local colorSwatch = ns:CreateColorSwatch(editorPanel, "Color Override", { r = 1, g = 1, b = 1, a = 1 }, function(self, color)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.display.colorOverride = { r = color.r, g = color.g, b = color.b }
+            ns:RebuildAllFrames()
+        end
+    end)
+    colorSwatch:SetPoint("TOPLEFT", showTextCB, "BOTTOMLEFT", 0, -8)
+
+    -- ========================================================================
+    -- IMPORT / EXPORT BUTTONS
+    -- ========================================================================
+    local importBtn = ns:CreateButton(frame, "Import", 80, function()
+        local popup = StaticPopup_Show("BARWARDEN_IMPORT")
+        if popup then
+            popup.data = {
+                onAccept = function(text)
+                    local success, data = pcall(function() return ns:Deserialize(text) end)
+                    if success and data then
+                        if data.frames then
+                            for _, g in ipairs(data.frames) do
+                                table.insert(BarWardenDB.frames, g)
+                            end
+                        elseif data.bars then
+                            -- Importing bars into selected group
+                            if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
+                                for _, b in ipairs(data.bars) do
+                                    table.insert(BarWardenDB.frames[selectedGroupIndex].bars, b)
+                                end
+                            end
+                        end
+                        frame:Refresh()
+                        ns:RebuildAllFrames()
+                    end
+                end,
+            }
+        end
+    end)
+    importBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 16, 8)
+
+    local exportBtn = ns:CreateButton(frame, "Export", 80, function()
+        if not selectedGroupIndex then return end
+        local g = BarWardenDB.frames[selectedGroupIndex]
+        if not g then return end
+        local exportStr = ns:Serialize({ frames = { g } })
+        if exportStr then
+            local popup = StaticPopup_Show("BARWARDEN_EXPORT")
+            if popup then
+                popup.data = { exportString = exportStr }
+            end
+        end
+    end)
+    exportBtn:SetPoint("LEFT", importBtn, "RIGHT", 4, 0)
+
+    -- ========================================================================
+    -- HELPER: Get selected bar data
+    -- ========================================================================
+    function frame:GetSelectedBar()
+        if not selectedGroupIndex or not selectedBarIndex then return nil end
+        local g = BarWardenDB.frames[selectedGroupIndex]
+        if not g then return nil end
+        return g.bars[selectedBarIndex]
+    end
+
+    -- ========================================================================
+    -- REFRESH
+    -- ========================================================================
+    local function UpdateGroupList()
+        local frames = BarWardenDB and BarWardenDB.frames or {}
+        local offset = FauxScrollFrame_GetOffset(groupScrollFrame)
+        local total = #frames
+
+        FauxScrollFrame_Update(groupScrollFrame, total, MAX_GROUP_ROWS, GROUP_LIST_HEIGHT)
+
+        for i = 1, MAX_GROUP_ROWS do
+            local row = groupRows[i]
+            local idx = offset + i
+            if idx <= total then
+                local g = frames[idx]
+                row.text:SetText(g.name or ("Group " .. idx))
+                row.index = idx
+                row:Show()
+                if idx == selectedGroupIndex then
+                    row.selected:Show()
+                else
+                    row.selected:Hide()
+                end
+            else
+                row:Hide()
+            end
+        end
+    end
+
+    local function UpdateBarList()
+        local bars = {}
+        if selectedGroupIndex and BarWardenDB and BarWardenDB.frames[selectedGroupIndex] then
+            bars = BarWardenDB.frames[selectedGroupIndex].bars or {}
+        end
+        local offset = FauxScrollFrame_GetOffset(barScrollFrame)
+        local total = #bars
+
+        FauxScrollFrame_Update(barScrollFrame, total, MAX_BAR_ROWS, BAR_LIST_HEIGHT)
+
+        for i = 1, MAX_BAR_ROWS do
+            local row = barRows[i]
+            local idx = offset + i
+            if idx <= total then
+                local b = bars[idx]
+                row.nameText:SetText(b.name or "")
+                row.modeText:SetText(b.trackMode or "")
+                row.targetText:SetText(b.target or "")
+                row.spellText:SetText(b.spellName or "")
+                row.index = idx
+                row:Show()
+                if idx == selectedBarIndex then
+                    row.selected:Show()
+                else
+                    row.selected:Hide()
+                end
+            else
+                row:Hide()
+            end
+        end
+    end
+
+    local function UpdateBarEditor()
+        local bar = frame:GetSelectedBar()
+        if not bar then
+            editorPanel:Hide()
+            return
+        end
+        editorPanel:Show()
+
+        barEnabledCB:SetChecked(bar.enabled)
+        barNameEdit:SetText(bar.name or "")
+        spellEdit:SetText(bar.spellId and tostring(bar.spellId) or (bar.spellName or ""))
+        onlyMineCB:SetChecked(bar.onlyMine)
+
+        -- Track mode dropdown
+        for i, mode in ipairs(TRACK_MODES) do
+            if mode == bar.trackMode then
+                UIDropDownMenu_SetSelectedID(trackModeDD, i)
+                UIDropDownMenu_SetText(trackModeDD, mode)
+                break
+            end
+        end
+
+        -- Target dropdown
+        for i, unit in ipairs(TARGET_UNITS) do
+            if unit == bar.target then
+                UIDropDownMenu_SetSelectedID(targetDD, i)
+                UIDropDownMenu_SetText(targetDD, unit)
+                break
+            end
+        end
+
+        -- Conditions
+        combatOnlyCB:SetChecked(bar.conditions.combatOnly)
+        oocOnlyCB:SetChecked(bar.conditions.outOfCombatOnly)
+        inGroupCB:SetChecked(bar.conditions.inGroup)
+        inRaidCB:SetChecked(bar.conditions.inRaid)
+        hideInactiveCB:SetChecked(bar.conditions.hideWhenInactive)
+        showEmptyCB:SetChecked(bar.conditions.showEmpty)
+        healthEdit:SetText(bar.conditions.healthBelow and tostring(bar.conditions.healthBelow) or "")
+        requireBuffEdit:SetText(bar.conditions.requireBuff or "")
+
+        -- Display options
+        for i, dir in ipairs(PROGRESS_DIRS) do
+            if dir == bar.display.progressDirection then
+                UIDropDownMenu_SetSelectedID(progressDD, i)
+                UIDropDownMenu_SetText(progressDD, dir)
+                break
+            end
+        end
+        lingerSlider:SetValue(bar.display.lingerTime or 0)
+        showIconCB:SetChecked(bar.display.showIcon)
+        showTextCB:SetChecked(bar.display.showText)
+
+        if bar.display.colorOverride then
+            colorSwatch.color.r = bar.display.colorOverride.r
+            colorSwatch.color.g = bar.display.colorOverride.g
+            colorSwatch.color.b = bar.display.colorOverride.b
+            colorSwatch.swatch:SetTexture(bar.display.colorOverride.r, bar.display.colorOverride.g, bar.display.colorOverride.b, 1)
+        else
+            colorSwatch.swatch:SetTexture(1, 1, 1, 1)
+        end
+    end
+
+    local function UpdateGroupName()
+        if selectedGroupIndex and BarWardenDB and BarWardenDB.frames[selectedGroupIndex] then
+            groupNameEdit:SetText(BarWardenDB.frames[selectedGroupIndex].name or "")
+            groupNameEdit:Show()
+        else
+            groupNameEdit:SetText("")
+        end
+    end
+
+    function frame:Refresh()
+        if not BarWardenDB then return end
+
+        -- Validate selection
+        local frames = BarWardenDB.frames
+        if selectedGroupIndex and (selectedGroupIndex < 1 or selectedGroupIndex > #frames) then
+            selectedGroupIndex = #frames > 0 and 1 or nil
+        end
+        if selectedGroupIndex then
+            local bars = frames[selectedGroupIndex].bars
+            if selectedBarIndex and (selectedBarIndex < 1 or selectedBarIndex > #bars) then
+                selectedBarIndex = #bars > 0 and 1 or nil
+            end
+        else
+            selectedBarIndex = nil
+        end
+
+        UpdateGroupList()
+        UpdateGroupName()
+        UpdateBarList()
+        UpdateBarEditor()
+    end
+
+    frame.Refresh = frame.Refresh
+
+    -- FauxScrollFrame update hooks
+    groupScrollFrame:SetScript("OnVerticalScroll", function(self, offset)
+        FauxScrollFrame_OnVerticalScroll(self, offset, GROUP_LIST_HEIGHT, UpdateGroupList)
+    end)
+
+    barScrollFrame:SetScript("OnVerticalScroll", function(self, offset)
+        FauxScrollFrame_OnVerticalScroll(self, offset, BAR_LIST_HEIGHT, UpdateBarList)
+    end)
+
+    return frame
+end
+
+-- ============================================================================
+-- Register Tab
+-- ============================================================================
+
+local orig = ns.CreateOptionsPanel
+ns.CreateOptionsPanel = function(self)
+    local panel = orig(self)
+    local tab = CreateBarsTab(panel)
+    ns.optionsTabs[2] = tab
+    return panel
+end
