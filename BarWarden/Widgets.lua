@@ -26,7 +26,6 @@ function ns:CreateSlider(parent, label, min, max, step, onChange)
     _G[name .. "High"]:SetText(tostring(max))
     slider:SetMinMaxValues(min, max)
     slider:SetValueStep(step)
-    slider:SetObeyStepOnDrag(true)
     slider:HookScript("OnValueChanged", function(self, value)
         if onChange then onChange(self, value) end
     end)
