@@ -7,6 +7,44 @@ local addonName, ns = ...
 local coreFrame = CreateFrame("Frame", "BarWardenCoreFrame", UIParent)
 
 -- ----------------------------------------------------------------------------
+-- Print: Chat message helper
+-- ----------------------------------------------------------------------------
+
+function ns:Print(msg)
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden:|r " .. tostring(msg))
+end
+
+-- ----------------------------------------------------------------------------
+-- RefreshAllBars: Re-apply visual config to all existing bars and relayout
+-- ----------------------------------------------------------------------------
+
+function ns:RefreshAllBars()
+    for _, group in pairs(ns.groupFrames or {}) do
+        if group.bars then
+            for _, bar in ipairs(group.bars) do
+                if ns.ApplyVisualConfig then
+                    ns:ApplyVisualConfig(bar)
+                end
+            end
+        end
+        if ns.UpdateGroupLayout then
+            ns:UpdateGroupLayout(group)
+        end
+    end
+end
+
+-- ----------------------------------------------------------------------------
+-- ApplySettings: Apply current DB settings to live frames
+-- ----------------------------------------------------------------------------
+
+function ns:ApplySettings()
+    ns:RefreshAllBars()
+    if ns.UpdateMinimapButtonVisibility then
+        ns:UpdateMinimapButtonVisibility()
+    end
+end
+
+-- ----------------------------------------------------------------------------
 -- ADDON_LOADED: Initialize DB, options, frames, minimap, events
 -- ----------------------------------------------------------------------------
 

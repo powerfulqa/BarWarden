@@ -11,8 +11,8 @@ Utils.lua
 DB.lua
 Conditions.lua
 Events.lua
-BarPool.lua
 Bar.lua
+BarPool.lua
 BarEngine.lua
 Trackers.lua
 FrameManager.lua

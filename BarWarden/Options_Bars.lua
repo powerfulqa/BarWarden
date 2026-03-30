@@ -500,7 +500,7 @@ local function CreateBarsTab(parent)
         if popup then
             popup.data = {
                 onAccept = function(text)
-                    local success, data = ns:DeserializeProfile(text)
+                    local success, data = pcall(function() return ns:Deserialize(text) end)
                     if success and data then
                         if data.frames then
                             for _, g in ipairs(data.frames) do
@@ -527,7 +527,7 @@ local function CreateBarsTab(parent)
         if not selectedGroupIndex then return end
         local g = BarWardenDB.frames[selectedGroupIndex]
         if not g then return end
-        local exportStr = ns:SerializeProfile({ frames = { g } })
+        local exportStr = ns:Serialize({ frames = { g } })
         if exportStr then
             local popup = StaticPopup_Show("BARWARDEN_EXPORT")
             if popup then

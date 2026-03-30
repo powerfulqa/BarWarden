@@ -252,8 +252,8 @@ local function CreateProfilesTab(parent)
             if ns.ApplySettings then
                 ns:ApplySettings()
             end
-            if ns.RebuildFrames then
-                ns:RebuildFrames()
+            if ns.RebuildAllFrames then
+                ns:RebuildAllFrames()
             end
             frame:RefreshList()
         end
@@ -346,8 +346,8 @@ local function CreateProfilesTab(parent)
                 if ns.ApplySettings then
                     ns:ApplySettings()
                 end
-                if ns.RebuildFrames then
-                    ns:RebuildFrames()
+                if ns.RebuildAllFrames then
+                    ns:RebuildAllFrames()
                 end
                 frame:RefreshList()
             end,
