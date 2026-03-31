@@ -9,10 +9,11 @@ local function CreateVisualsTab(parent)
     frame:SetAllPoints(parent)
     frame:Hide()
 
-    -- Scroll frame so content doesn't clip at the bottom of the panel
+    -- Scroll frame so content doesn't clip at the bottom of the panel.
+    -- Start at -60 to sit below the panel title + subtitle (~54px combined).
     local scrollFrame = CreateFrame("ScrollFrame", "BarWardenVisualsScrollFrame", frame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT",     frame, "TOPLEFT",     4,   -4)
-    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28,  4)
+    scrollFrame:SetPoint("TOPLEFT",     frame, "TOPLEFT",     4,   -60)
+    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28,   4)
 
     local content = CreateFrame("Frame", nil, scrollFrame)
     content:SetWidth(544)

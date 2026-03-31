@@ -147,9 +147,22 @@ local function SlashHandler(msg)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw help        Show this message", 1, 1, 1)
     elseif cmd == "debug" then
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Debug:|r")
-        DEFAULT_CHAT_FRAME:AddMessage("  Enabled: " .. tostring(ns.db and ns.db.global.enabled))
-        DEFAULT_CHAT_FRAME:AddMessage("  Frames: " .. tostring(ns.groupFrames and #ns.groupFrames or 0))
         DEFAULT_CHAT_FRAME:AddMessage("  DB loaded: " .. tostring(ns.db ~= nil))
+        DEFAULT_CHAT_FRAME:AddMessage("  Enabled: " .. tostring(ns.db and ns.db.global.enabled))
+        DEFAULT_CHAT_FRAME:AddMessage("  ShowAll: " .. tostring(ns.db and ns.db.global.showAll))
+        DEFAULT_CHAT_FRAME:AddMessage("  Bars in cache: " .. tostring(#(ns.allBars or {})))
+        local gCount = 0
+        for _ in pairs(ns.groupFrames or {}) do gCount = gCount + 1 end
+        DEFAULT_CHAT_FRAME:AddMessage("  Group frames: " .. gCount)
+        -- Show first few bar configs to diagnose spell name issues
+        for i, bar in ipairs(ns.allBars or {}) do
+            if i > 3 then break end
+            local bd = bar.barData
+            if bd then
+                DEFAULT_CHAT_FRAME:AddMessage(string.format("  Bar %d: mode=%s spell=%s enabled=%s",
+                    i, tostring(bd.trackMode), tostring(bd.spellName or bd.spell or bd.spellId or "nil"), tostring(bd.enabled)))
+            end
+        end
     elseif cmd == "enable" then
         ns:SetEnabled(true)
         ns:Print("Addon enabled.")

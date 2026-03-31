@@ -141,7 +141,7 @@ local function CreateBarsTab(parent)
         local frames = BarWardenDB.frames
         local g = frames[selectedGroupIndex]
         if not g then return end
-        local popup = StaticPopup_Show("BARWARDEN_CONFIRM_DELETE", g.name)
+        local popup = StaticPopup_Show("BARWARDEN_CONFIRM_DELETE", g.name or "this group")
         if popup then
             popup.data = {
                 onAccept = function()
@@ -294,7 +294,7 @@ local function CreateBarsTab(parent)
         if not g then return end
         local bar = g.bars[selectedBarIndex]
         if not bar then return end
-        local popup = StaticPopup_Show("BARWARDEN_CONFIRM_DELETE", bar.name)
+        local popup = StaticPopup_Show("BARWARDEN_CONFIRM_DELETE", bar.name or "this bar")
         if popup then
             popup.data = {
                 onAccept = function()

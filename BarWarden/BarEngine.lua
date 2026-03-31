@@ -125,6 +125,18 @@ function ns:ActivateBar(bar, expirationTime, duration)
 
     -- Set OnUpdate handler
     bar:SetScript("OnUpdate", Bar_OnUpdate)
+
+    -- Ensure the parent group frame is visible (covers the showAll=false case)
+    local parent = bar:GetParent()
+    if parent and not parent:IsShown() then
+        parent:Show()
+        if ns.UpdateGroupLayout then
+            ns:UpdateGroupLayout(parent)
+        end
+    end
+
+    local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+    bar:SetAlpha(visual.activeAlpha or 1.0)
     bar:Show()
 
     -- Register in active bars
@@ -165,6 +177,23 @@ function ns:DeactivateBar(bar)
 
     -- Remove from active bars
     activeBars[bar] = nil
+
+    -- If showAll=false, hide the group frame once all its bars are inactive
+    if BarWardenDB and not BarWardenDB.global.showAll then
+        local parent = bar:GetParent()
+        if parent and parent.bars then
+            local anyActive = false
+            for _, b in ipairs(parent.bars) do
+                if activeBars[b] then
+                    anyActive = true
+                    break
+                end
+            end
+            if not anyActive then
+                parent:Hide()
+            end
+        end
+    end
 end
 
 -- ----------------------------------------------------------------------------

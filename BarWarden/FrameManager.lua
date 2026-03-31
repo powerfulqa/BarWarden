@@ -385,8 +385,16 @@ function ns:BuildBarsForFrame(frameIndex)
         bar.barData = barData
         bar.barIndex = i
         bar.frameIndex = frameIndex
+        bar.barState = ns.BAR_STATE and ns.BAR_STATE.INACTIVE or 0
+        -- Apply visual config and set initial inactive appearance
+        if ns.ApplyVisualConfig then
+            ns:ApplyVisualConfig(bar)
+        end
         if barData.enabled == false then
             bar:Hide()
+        else
+            local visual = BarWardenDB and BarWardenDB.visual or (ns.DEFAULTS and ns.DEFAULTS.visual) or {}
+            bar:SetAlpha(visual.inactiveAlpha or 0.3)
         end
         table.insert(frame.bars, bar)
     end
