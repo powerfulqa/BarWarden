@@ -91,6 +91,9 @@ local function Bar_OnUpdate(self, elapsed)
         else
             sparkX = barWidth * progress
         end
+        -- Clamp so the spark centre never goes outside bar bounds
+        local half = (self.sparkFrame:GetWidth() or 16) * 0.5
+        sparkX = math.max(half, math.min(barWidth - half, sparkX))
         self.sparkFrame:ClearAllPoints()
         self.sparkFrame:SetPoint("CENTER", self, "LEFT", sparkX, 0)
     end

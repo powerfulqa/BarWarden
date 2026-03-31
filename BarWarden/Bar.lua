@@ -82,9 +82,6 @@ function ns:CreateBarFrame(parent)
     bar:GetStatusBarTexture():SetHorizTile(false)
     bar:GetStatusBarTexture():SetVertTile(false)
 
-    -- Clip child frames (sparkFrame, iconFrame) to bar bounds
-    bar:SetClipsChildren(true)
-
     -- Store bar-specific data
     bar.barData = nil  -- will be set when assigned to a tracking entry
 
@@ -223,6 +220,10 @@ function ns:ApplyVisualConfig(bar, config)
     if bar.sparkFrame then
         if showSpark then
             bar.sparkFrame:SetHeight(barHeight)
+            -- Resize the spark texture to match bar height so it stays within bounds
+            if bar.spark then
+                bar.spark:SetHeight(barHeight)
+            end
             bar.sparkFrame:Show()
         else
             bar.sparkFrame:Hide()
