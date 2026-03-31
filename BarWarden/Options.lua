@@ -34,7 +34,7 @@ function ns:CreateOptionsPanel()
     -- Create tab buttons
     local tabs = {}
     for i, tabName in ipairs(TAB_NAMES) do
-        local tab = CreateFrame("Button", "BarWardenTab" .. i, panel, "CharacterFrameTabButtonTemplate")
+        local tab = CreateFrame("Button", panel:GetName() .. "Tab" .. i, panel, "CharacterFrameTabButtonTemplate")
         tab:SetText(tabName)
         tab:SetID(i)
         tab:SetScript("OnClick", function(self)
@@ -49,8 +49,8 @@ function ns:CreateOptionsPanel()
         end
         tabs[i] = tab
     end
-    panel.tabs = tabs
     PanelTemplates_SetNumTabs(panel, #TAB_NAMES)
+    panel.tabs = tabs
     PanelTemplates_SetTab(panel, 1)
 
     -- Panel callbacks
