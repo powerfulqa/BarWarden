@@ -137,6 +137,15 @@ function ns:ActivateBar(bar, expirationTime, duration)
 
     local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
     bar:SetAlpha(visual.activeAlpha or 1.0)
+
+    -- Update displayed name and icon
+    if bar.nameText then
+        local bd = bar.barData
+        local displayName = bd and (bd.spellName or bd.name or
+            (type(bd.spell) == "string" and bd.spell or nil) or "") or ""
+        bar.nameText:SetText(displayName)
+    end
+
     bar:Show()
 
     -- Register in active bars
@@ -161,7 +170,14 @@ function ns:DeactivateBar(bar)
 
     -- Reset bar display
     bar:SetValue(0)
-    if bar.timeText and bar.timeText:IsShown() then
+    -- Keep name visible so user can see which spell the bar tracks
+    if bar.nameText then
+        local bd = bar.barData
+        local displayName = bd and (bd.spellName or bd.name or
+            (type(bd.spell) == "string" and bd.spell or nil) or "") or ""
+        bar.nameText:SetText(displayName)
+    end
+    if bar.timeText then
         bar.timeText:SetText("")
     end
 

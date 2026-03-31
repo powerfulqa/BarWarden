@@ -390,6 +390,12 @@ function ns:BuildBarsForFrame(frameIndex)
         if ns.ApplyVisualConfig then
             ns:ApplyVisualConfig(bar)
         end
+        -- Set the bar name so it shows on the inactive bar
+        if bar.nameText then
+            local displayName = barData.spellName or barData.name or
+                (type(barData.spell) == "string" and barData.spell or nil) or ""
+            bar.nameText:SetText(displayName)
+        end
         if barData.enabled == false then
             bar:Hide()
         else
