@@ -136,12 +136,15 @@ local function SlashHandler(msg)
     local cmd = strtrim(msg):lower()
 
     if cmd == "help" then
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden|r commands:")
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw - Open configuration panel")
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw help - Show this help")
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw debug - Dump addon state")
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw enable - Enable the addon")
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw disable - Disable the addon")
+        ns:Print("BarWarden v1.0.0 commands:")
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw             Open configuration panel", 1, 1, 1)
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw enable      Enable the addon", 1, 1, 1)
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw disable     Disable the addon", 1, 1, 1)
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw lock        Toggle frame lock", 1, 1, 1)
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw show        Toggle frame visibility", 1, 1, 1)
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw reset       Reset all frame positions", 1, 1, 1)
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw debug       Dump addon state to chat", 1, 1, 1)
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw help        Show this message", 1, 1, 1)
     elseif cmd == "debug" then
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Debug:|r")
         DEFAULT_CHAT_FRAME:AddMessage("  Enabled: " .. tostring(ns.db and ns.db.global.enabled))
@@ -149,10 +152,29 @@ local function SlashHandler(msg)
         DEFAULT_CHAT_FRAME:AddMessage("  DB loaded: " .. tostring(ns.db ~= nil))
     elseif cmd == "enable" then
         ns:SetEnabled(true)
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden|r enabled.")
+        ns:Print("Addon enabled.")
     elseif cmd == "disable" then
         ns:SetEnabled(false)
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden|r disabled.")
+        ns:Print("Addon disabled.")
+    elseif cmd == "lock" then
+        if ns.db and ns.db.global.locked then
+            ns:UnlockAllFrames()
+            ns:Print("Frames unlocked.")
+        else
+            ns:LockAllFrames()
+            ns:Print("Frames locked.")
+        end
+    elseif cmd == "show" then
+        if ns.db and ns.db.global.showAll then
+            ns:HideAllFrames()
+            ns:Print("Frames hidden.")
+        else
+            ns:ShowAllFrames()
+            ns:Print("Frames shown.")
+        end
+    elseif cmd == "reset" then
+        ns:RebuildAllFrames()
+        ns:Print("Frame positions reset.")
     else
         -- No args or unknown: open config panel
         -- Call twice to work around Blizzard bug (Edge Case #10)

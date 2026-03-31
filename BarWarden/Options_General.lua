@@ -79,7 +79,7 @@ local function CreateGeneralTab(parent)
         "Toggle the BarWarden minimap button.",
         function(self, checked)
             BarWardenDB.global.minimapIcon = checked
-            ns:UpdateMinimapButton()
+            ns:UpdateMinimapButtonVisibility()
         end)
     minimapCB:SetPoint("TOPLEFT", gridSlider, "BOTTOMLEFT", -4, -24)
 

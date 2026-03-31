@@ -115,8 +115,9 @@ ns.DEFAULTS = {
 function ns:InitDB()
     if not BarWardenDB then
         BarWardenDB = ns:CopyTable(ns.DEFAULTS)
-        return
+    else
+        -- Deep-merge: add any new default keys missing from saved data
+        ns:MergeDefaults(BarWardenDB, ns.DEFAULTS)
     end
-    -- Deep-merge: add any new default keys missing from saved data
-    ns:MergeDefaults(BarWardenDB, ns.DEFAULTS)
+    ns.db = BarWardenDB
 end

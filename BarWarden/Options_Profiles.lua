@@ -364,10 +364,13 @@ local function CreateProfilesTab(parent)
 end
 
 -- ============================================================================
--- Register tab with Options system
+-- Register tab when options panel is created
 -- ============================================================================
-function ns:CreateProfilesOptionsTab(parent)
-    local tab = CreateProfilesTab(parent)
+local orig = ns.CreateOptionsPanel
+ns.CreateOptionsPanel = function(self)
+    local panel = orig(self)
+    local tab = CreateProfilesTab(panel)
     ns.optionsTabs[4] = tab
-    return tab
+    tab:Show()
+    return panel
 end
