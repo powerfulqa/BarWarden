@@ -51,12 +51,7 @@
                 <Size x="16" y="20"/>
                 <Layers>
                     <Layer level="OVERLAY">
-                        <Texture name="$parentSpark" file="Interface\CastingBar\UI-CastingBar-Spark">
-                            <Size x="16" y="32"/>
-                            <Anchors>
-                                <Anchor point="CENTER"/>
-                            </Anchors>
-                        </Texture>
+                        <Texture name="$parentSpark" file="Interface\CastingBar\UI-CastingBar-Spark" setAllPoints="true"/>
                     </Layer>
                 </Layers>
             </Frame>

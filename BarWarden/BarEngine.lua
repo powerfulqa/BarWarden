@@ -138,6 +138,11 @@ function ns:ActivateBar(bar, expirationTime, duration)
         end
     end
 
+    -- Apply visual config (texture, color, text) now that the bar is activating
+    if ns.ApplyVisualConfig then
+        ns:ApplyVisualConfig(bar)
+    end
+
     local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
     bar:SetAlpha(visual.activeAlpha or 1.0)
 

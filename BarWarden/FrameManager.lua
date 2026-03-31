@@ -386,10 +386,6 @@ function ns:BuildBarsForFrame(frameIndex)
         bar.barIndex = i
         bar.frameIndex = frameIndex
         bar.barState = ns.BAR_STATE and ns.BAR_STATE.INACTIVE or 0
-        -- Apply visual config and set initial inactive appearance
-        if ns.ApplyVisualConfig then
-            ns:ApplyVisualConfig(bar)
-        end
         -- Set the bar name so it shows on the inactive bar
         if bar.nameText then
             local displayName = barData.spellName or barData.name or

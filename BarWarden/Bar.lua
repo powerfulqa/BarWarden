@@ -219,11 +219,6 @@ function ns:ApplyVisualConfig(bar, config)
 
     if bar.sparkFrame then
         if showSpark then
-            bar.sparkFrame:SetHeight(barHeight)
-            -- Resize the spark texture to match bar height so it stays within bounds
-            if bar.spark then
-                bar.spark:SetHeight(barHeight)
-            end
             bar.sparkFrame:Show()
         else
             bar.sparkFrame:Hide()
