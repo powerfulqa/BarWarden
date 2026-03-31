@@ -9,7 +9,7 @@ local TARGET_UNITS = { "player", "target", "focus", "pet", "mouseover" }
 local PROGRESS_DIRS = { "LTR", "RTL" }
 local GROUP_LIST_HEIGHT = 16
 local BAR_LIST_HEIGHT = 16
-local MAX_GROUP_ROWS = 10
+local MAX_GROUP_ROWS = 5
 local MAX_BAR_ROWS = 8
 
 -- Helper: create a new default bar table
@@ -426,39 +426,68 @@ local function CreateBarsTab(parent)
     condHeader:SetPoint("TOPLEFT", onlyMineCB, "BOTTOMLEFT", 0, -12)
     condHeader:SetText("Conditions")
 
-    local combatOnlyCB = ns:CreateCheckbox(ec, "Combat Only", "Show only in combat", function(self, checked)
+    local combatOnlyCB
+    local oocOnlyCB
+
+    combatOnlyCB = ns:CreateCheckbox(ec, "Combat Only", "Show only in combat", function(self, checked)
         local bar = frame:GetSelectedBar()
-        if bar then bar.conditions.combatOnly = checked end
+        if bar then
+            if not bar.conditions then bar.conditions = {} end
+            bar.conditions.combatOnly = checked
+            if checked then
+                bar.conditions.outOfCombatOnly = false
+                oocOnlyCB:SetChecked(false)
+            end
+        end
     end)
     combatOnlyCB:SetPoint("TOPLEFT", condHeader, "BOTTOMLEFT", 0, -4)
 
-    local oocOnlyCB = ns:CreateCheckbox(ec, "Out of Combat Only", "Show only out of combat", function(self, checked)
+    oocOnlyCB = ns:CreateCheckbox(ec, "Out of Combat Only", "Show only out of combat", function(self, checked)
         local bar = frame:GetSelectedBar()
-        if bar then bar.conditions.outOfCombatOnly = checked end
+        if bar then
+            if not bar.conditions then bar.conditions = {} end
+            bar.conditions.outOfCombatOnly = checked
+            if checked then
+                bar.conditions.combatOnly = false
+                combatOnlyCB:SetChecked(false)
+            end
+        end
     end)
     oocOnlyCB:SetPoint("TOPLEFT", combatOnlyCB, "BOTTOMLEFT", 0, -2)
 
     local inGroupCB = ns:CreateCheckbox(ec, "In Group", "Show only when in a group", function(self, checked)
         local bar = frame:GetSelectedBar()
-        if bar then bar.conditions.inGroup = checked end
+        if bar then
+            if not bar.conditions then bar.conditions = {} end
+            bar.conditions.inGroup = checked
+        end
     end)
     inGroupCB:SetPoint("TOPLEFT", oocOnlyCB, "BOTTOMLEFT", 0, -2)
 
     local inRaidCB = ns:CreateCheckbox(ec, "In Raid", "Show only when in a raid", function(self, checked)
         local bar = frame:GetSelectedBar()
-        if bar then bar.conditions.inRaid = checked end
+        if bar then
+            if not bar.conditions then bar.conditions = {} end
+            bar.conditions.inRaid = checked
+        end
     end)
     inRaidCB:SetPoint("TOPLEFT", inGroupCB, "BOTTOMLEFT", 0, -2)
 
     local hideInactiveCB = ns:CreateCheckbox(ec, "Hide When Inactive", "Hide bar when not tracking", function(self, checked)
         local bar = frame:GetSelectedBar()
-        if bar then bar.conditions.hideWhenInactive = checked end
+        if bar then
+            if not bar.conditions then bar.conditions = {} end
+            bar.conditions.hideWhenInactive = checked
+        end
     end)
     hideInactiveCB:SetPoint("TOPLEFT", inRaidCB, "BOTTOMLEFT", 0, -2)
 
     local showEmptyCB = ns:CreateCheckbox(ec, "Show Empty Bar", "Show bar even when not active", function(self, checked)
         local bar = frame:GetSelectedBar()
-        if bar then bar.conditions.showEmpty = checked end
+        if bar then
+            if not bar.conditions then bar.conditions = {} end
+            bar.conditions.showEmpty = checked
+        end
     end)
     showEmptyCB:SetPoint("TOPLEFT", hideInactiveCB, "BOTTOMLEFT", 0, -2)
 
@@ -474,16 +503,17 @@ local function CreateBarsTab(parent)
     local requireBuffEdit = ns:CreateEditBox(ec, "Require Buff", 140, function(self, text)
         local bar = frame:GetSelectedBar()
         if bar then
+            if not bar.conditions then bar.conditions = {} end
             bar.conditions.requireBuff = (text and text ~= "") and text or nil
         end
     end)
-    requireBuffEdit:SetPoint("LEFT", healthEdit, "RIGHT", 16, 0)
+    requireBuffEdit:SetPoint("TOPLEFT", healthEdit, "BOTTOMLEFT", 0, -18)
 
     -- ========================================================================
     -- DISPLAY OPTIONS SECTION
     -- ========================================================================
     local displayHeader = ec:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    displayHeader:SetPoint("TOPLEFT", healthEdit, "BOTTOMLEFT", 0, -12)
+    displayHeader:SetPoint("TOPLEFT", requireBuffEdit, "BOTTOMLEFT", 0, -12)
     displayHeader:SetText("Display Options")
 
     local progressDD = ns:CreateDropdown(ec, "Progress Direction", PROGRESS_DIRS, function(dd, value, index)
@@ -526,7 +556,7 @@ local function CreateBarsTab(parent)
     -- ========================================================================
     -- IMPORT / EXPORT BUTTONS
     -- ========================================================================
-    local importBtn = ns:CreateButton(frame, "Import", 80, function()
+    local importBtn = ns:CreateButton(leftPanel, "Import", 82, function()
         local popup = StaticPopup_Show("BARWARDEN_IMPORT")
         if popup then
             popup.data = {
@@ -552,9 +582,9 @@ local function CreateBarsTab(parent)
             }
         end
     end)
-    importBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 16, 8)
+    importBtn:SetPoint("TOPLEFT", groupScaleSlider, "BOTTOMLEFT", -4, -12)
 
-    local exportBtn = ns:CreateButton(frame, "Export", 80, function()
+    local exportBtn = ns:CreateButton(leftPanel, "Export", 82, function()
         if not selectedGroupIndex then return end
         local g = BarWardenDB.frames[selectedGroupIndex]
         if not g then return end

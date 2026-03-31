@@ -153,9 +153,15 @@ function ns:DeactivateBar(bar)
         bar.timeText:SetText("")
     end
 
-    -- Apply inactive alpha
-    local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
-    bar:SetAlpha(visual.inactiveAlpha or 0.3)
+    -- Apply inactive alpha or hide if hideWhenInactive is set
+    local cond = bar.barData and bar.barData.conditions
+    if cond and cond.hideWhenInactive then
+        bar:Hide()
+    else
+        local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+        bar:SetAlpha(visual.inactiveAlpha or 0.3)
+        bar:Show()
+    end
 
     -- Remove from active bars
     activeBars[bar] = nil
@@ -172,32 +178,55 @@ function ns:DeactivateAllBars()
 end
 
 -- ----------------------------------------------------------------------------
+-- Condition helper: returns true if bar should be visible right now
+-- ----------------------------------------------------------------------------
+
+local function BarConditionsMet(bar)
+    if not bar.barData then return true end
+    local cond = bar.barData.conditions
+    if not cond then return true end
+    return ns:EvaluateConditions(bar.barData, cond)
+end
+
+-- Hide a bar that fails conditions without disrupting active tracking state
+local function HideBarForConditions(bar)
+    bar:Hide()
+    bar:SetScript("OnUpdate", nil)
+    activeBars[bar] = nil
+    bar.barState = BAR_STATE.INACTIVE
+end
+
+-- ----------------------------------------------------------------------------
 -- Per-Mode Scan Dispatchers
 -- ----------------------------------------------------------------------------
 
 local function ScanCooldownBars(bars)
     for _, bar in ipairs(bars) do
         if bar.barData and bar.barData.trackMode == "Cooldown" and bar.barData.enabled then
-            -- Support both old schema (.spell/.spellInput) and UI schema (.spellId/.spellName)
-            local spellInput = bar.barData.spellInput or bar.barData.spell
-                or bar.barData.spellId or bar.barData.spellName
-            if spellInput then
-                local start, duration, enabled = GetSpellCooldown(spellInput)
-                if enabled == 1 and duration and duration > GCD_THRESHOLD then
-                    local expirationTime = start + duration
-                    if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expirationTime then
-                        ns:ActivateBar(bar, expirationTime, duration)
-                    end
-                elseif bar.barState == BAR_STATE.ACTIVE then
-                    -- Cooldown ended or was GCD
-                    local display = bar.barData.display or {}
-                    local lingerTime = display.lingerTime or 0
-                    if lingerTime > 0 then
-                        bar.barState = BAR_STATE.LINGERING
-                        bar.lingerRemaining = lingerTime
-                        bar:SetValue(0)
-                    else
-                        ns:DeactivateBar(bar)
+            if not BarConditionsMet(bar) then
+                HideBarForConditions(bar)
+            else
+                -- Support both old schema (.spell/.spellInput) and UI schema (.spellId/.spellName)
+                local spellInput = bar.barData.spellInput or bar.barData.spell
+                    or bar.barData.spellId or bar.barData.spellName
+                if spellInput then
+                    local start, duration, enabled = GetSpellCooldown(spellInput)
+                    if enabled == 1 and duration and duration > GCD_THRESHOLD then
+                        local expirationTime = start + duration
+                        if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expirationTime then
+                            ns:ActivateBar(bar, expirationTime, duration)
+                        end
+                    elseif bar.barState == BAR_STATE.ACTIVE then
+                        -- Cooldown ended or was GCD
+                        local display = bar.barData.display or {}
+                        local lingerTime = display.lingerTime or 0
+                        if lingerTime > 0 then
+                            bar.barState = BAR_STATE.LINGERING
+                            bar.lingerRemaining = lingerTime
+                            bar:SetValue(0)
+                        else
+                            ns:DeactivateBar(bar)
+                        end
                     end
                 end
             end
@@ -210,24 +239,28 @@ local function ScanBuffBars(bars, unit)
         if bar.barData and bar.barData.trackMode == "Buff" and bar.barData.enabled then
             local targetUnit = bar.barData.unit or bar.barData.target or "player"
             if not unit or unit == targetUnit then
-                local spellName = bar.barData.spellName or bar.barData.spellInput or bar.barData.spell
-                if spellName then
-                    local found = false
-                    for i = 1, 40 do
-                        local name, _, _, _, _, duration, expTime = UnitBuff(targetUnit, i)
-                        if not name then break end
-                        if name == spellName then
-                            found = true
-                            if duration and duration > 0 then
-                                if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expTime then
-                                    ns:ActivateBar(bar, expTime, duration)
+                if not BarConditionsMet(bar) then
+                    HideBarForConditions(bar)
+                else
+                    local spellName = bar.barData.spellName or bar.barData.spellInput or bar.barData.spell
+                    if spellName then
+                        local found = false
+                        for i = 1, 40 do
+                            local name, _, _, _, _, duration, expTime = UnitBuff(targetUnit, i)
+                            if not name then break end
+                            if name == spellName then
+                                found = true
+                                if duration and duration > 0 then
+                                    if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expTime then
+                                        ns:ActivateBar(bar, expTime, duration)
+                                    end
                                 end
+                                break
                             end
-                            break
                         end
-                    end
-                    if not found and bar.barState == BAR_STATE.ACTIVE then
-                        ns:DeactivateBar(bar)
+                        if not found and bar.barState == BAR_STATE.ACTIVE then
+                            ns:DeactivateBar(bar)
+                        end
                     end
                 end
             end
@@ -240,24 +273,28 @@ local function ScanDebuffBars(bars, unit)
         if bar.barData and bar.barData.trackMode == "Debuff" and bar.barData.enabled then
             local targetUnit = bar.barData.unit or bar.barData.target or "target"
             if not unit or unit == targetUnit then
-                local spellName = bar.barData.spellName or bar.barData.spellInput or bar.barData.spell
-                if spellName then
-                    local found = false
-                    for i = 1, 40 do
-                        local name, _, _, _, _, duration, expTime = UnitDebuff(targetUnit, i)
-                        if not name then break end
-                        if name == spellName then
-                            found = true
-                            if duration and duration > 0 then
-                                if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expTime then
-                                    ns:ActivateBar(bar, expTime, duration)
+                if not BarConditionsMet(bar) then
+                    HideBarForConditions(bar)
+                else
+                    local spellName = bar.barData.spellName or bar.barData.spellInput or bar.barData.spell
+                    if spellName then
+                        local found = false
+                        for i = 1, 40 do
+                            local name, _, _, _, _, duration, expTime = UnitDebuff(targetUnit, i)
+                            if not name then break end
+                            if name == spellName then
+                                found = true
+                                if duration and duration > 0 then
+                                    if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expTime then
+                                        ns:ActivateBar(bar, expTime, duration)
+                                    end
                                 end
+                                break
                             end
-                            break
                         end
-                    end
-                    if not found and bar.barState == BAR_STATE.ACTIVE then
-                        ns:DeactivateBar(bar)
+                        if not found and bar.barState == BAR_STATE.ACTIVE then
+                            ns:DeactivateBar(bar)
+                        end
                     end
                 end
             end
@@ -268,17 +305,21 @@ end
 local function ScanItemBars(bars)
     for _, bar in ipairs(bars) do
         if bar.barData and bar.barData.trackMode == "Item" and bar.barData.enabled then
-            local itemId = bar.barData.itemId or bar.barData.spellInput
-                or bar.barData.spell or bar.barData.spellId or bar.barData.spellName
-            if itemId then
-                local start, duration, enabled = GetItemCooldown(itemId)
-                if enabled == 1 and duration and duration > GCD_THRESHOLD then
-                    local expirationTime = start + duration
-                    if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expirationTime then
-                        ns:ActivateBar(bar, expirationTime, duration)
+            if not BarConditionsMet(bar) then
+                HideBarForConditions(bar)
+            else
+                local itemId = bar.barData.itemId or bar.barData.spellInput
+                    or bar.barData.spell or bar.barData.spellId or bar.barData.spellName
+                if itemId then
+                    local start, duration, enabled = GetItemCooldown(itemId)
+                    if enabled == 1 and duration and duration > GCD_THRESHOLD then
+                        local expirationTime = start + duration
+                        if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expirationTime then
+                            ns:ActivateBar(bar, expirationTime, duration)
+                        end
+                    elseif bar.barState == BAR_STATE.ACTIVE then
+                        ns:DeactivateBar(bar)
                     end
-                elseif bar.barState == BAR_STATE.ACTIVE then
-                    ns:DeactivateBar(bar)
                 end
             end
         end
@@ -366,4 +407,23 @@ end
 
 function ns:OnPlayerEnteringWorld()
     ns:ScanAllBars()
+end
+
+function ns:OnCombatStateChanged(inCombat)
+    -- Re-evaluate conditions for combat-gated bars
+    ns:ScanAllBars()
+end
+
+function ns:OnGroupChanged()
+    -- Re-evaluate conditions for group/raid-gated bars
+    ns:ScanAllBars()
+end
+
+function ns:OnUnitHealth(unit)
+    -- Re-evaluate health-threshold conditions
+    local bars = ns:GetAllBars()
+    if bars and #bars > 0 then
+        ScanBuffBars(bars, unit)
+        ScanDebuffBars(bars, unit)
+    end
 end
