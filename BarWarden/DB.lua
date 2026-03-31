@@ -101,7 +101,30 @@ ns.DEFAULTS = {
     },
 
     -- Frames (groups of bars)
-    frames = {},
+    -- Default frame: one sample bar tracking Hearthstone cooldown (item 6948).
+    -- Every player has a Hearthstone so this gives immediate visual feedback.
+    -- Delete this frame or add more via the Bars/Groups tab in the options panel.
+    frames = {
+        {
+            name = "Sample Cooldowns",
+            enabled = true,
+            locked = false,
+            visible = true,
+            position = { point = "CENTER", relativePoint = "CENTER", x = 0, y = -100 },
+            width = 200,
+            scale = 1.0,
+            bars = {
+                {
+                    trackMode = "Item",
+                    spell = 6948,   -- Hearthstone
+                    unit = "player",
+                    onlyMine = true,
+                    enabled = true,
+                    display = {},
+                },
+            },
+        },
+    },
 
     -- Profiles
     profiles = {},

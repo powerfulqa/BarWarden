@@ -103,4 +103,10 @@ function ns:RefreshOptions()
     if ns.optionsPanel then
         PanelTemplates_SetTab(ns.optionsPanel, 1)
     end
+    -- Refresh all tab content so controls reflect current DB values
+    for _, tab in pairs(ns.optionsTabs) do
+        if tab and tab.Refresh then
+            tab:Refresh()
+        end
+    end
 end
