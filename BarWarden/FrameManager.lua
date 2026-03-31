@@ -424,4 +424,9 @@ function ns:RebuildAllFrames()
     if not BarWardenDB.global.showAll then
         ns:HideAllFrames()
     end
+
+    -- Rebuild the flat bar list used by the scan engine
+    if ns.RebuildAllBarsCache then
+        ns:RebuildAllBarsCache()
+    end
 end

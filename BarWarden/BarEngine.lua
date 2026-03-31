@@ -30,6 +30,12 @@ local GCD_THRESHOLD = 1.5  -- ignore GCD triggers
 local activeBars = {}
 ns.activeBars = activeBars
 
+-- Flat list of all bar WoW frames across all group frames.
+-- Rebuilt by ns:RebuildAllBarsCache() called from FrameManager after
+-- RebuildAllFrames. GetAllBars() returns this; without it every scan
+-- gets an empty table and nothing ever tracks.
+ns.allBars = {}
+
 -- ----------------------------------------------------------------------------
 -- Bar_OnUpdate: Smooth bar fill every frame, throttled text at 10 Hz
 -- ----------------------------------------------------------------------------
@@ -172,7 +178,9 @@ end
 local function ScanCooldownBars(bars)
     for _, bar in ipairs(bars) do
         if bar.barData and bar.barData.trackMode == "Cooldown" and bar.barData.enabled then
-            local spellInput = bar.barData.spellInput or bar.barData.spellId or bar.barData.spellName
+            -- Support both old schema (.spell/.spellInput) and UI schema (.spellId/.spellName)
+            local spellInput = bar.barData.spellInput or bar.barData.spell
+                or bar.barData.spellId or bar.barData.spellName
             if spellInput then
                 local start, duration, enabled = GetSpellCooldown(spellInput)
                 if enabled == 1 and duration and duration > GCD_THRESHOLD then
@@ -200,9 +208,9 @@ end
 local function ScanBuffBars(bars, unit)
     for _, bar in ipairs(bars) do
         if bar.barData and bar.barData.trackMode == "Buff" and bar.barData.enabled then
-            local targetUnit = bar.barData.unit or "player"
+            local targetUnit = bar.barData.unit or bar.barData.target or "player"
             if not unit or unit == targetUnit then
-                local spellName = bar.barData.spellName or bar.barData.spellInput
+                local spellName = bar.barData.spellName or bar.barData.spellInput or bar.barData.spell
                 if spellName then
                     local found = false
                     for i = 1, 40 do
@@ -230,9 +238,9 @@ end
 local function ScanDebuffBars(bars, unit)
     for _, bar in ipairs(bars) do
         if bar.barData and bar.barData.trackMode == "Debuff" and bar.barData.enabled then
-            local targetUnit = bar.barData.unit or "target"
+            local targetUnit = bar.barData.unit or bar.barData.target or "target"
             if not unit or unit == targetUnit then
-                local spellName = bar.barData.spellName or bar.barData.spellInput
+                local spellName = bar.barData.spellName or bar.barData.spellInput or bar.barData.spell
                 if spellName then
                     local found = false
                     for i = 1, 40 do
@@ -261,6 +269,7 @@ local function ScanItemBars(bars)
     for _, bar in ipairs(bars) do
         if bar.barData and bar.barData.trackMode == "Item" and bar.barData.enabled then
             local itemId = bar.barData.itemId or bar.barData.spellInput
+                or bar.barData.spell or bar.barData.spellId or bar.barData.spellName
             if itemId then
                 local start, duration, enabled = GetItemCooldown(itemId)
                 if enabled == 1 and duration and duration > GCD_THRESHOLD then
@@ -295,11 +304,22 @@ end
 -- Returns a flat list of all bar frames across all groups
 -- ----------------------------------------------------------------------------
 
-function ns:GetAllBars()
-    if ns.allBars then
-        return ns.allBars
+-- RebuildAllBarsCache: flatten all group frame bar lists into ns.allBars.
+-- Must be called after RebuildAllFrames / BuildBarsForFrame in FrameManager.
+function ns:RebuildAllBarsCache()
+    local flat = {}
+    for _, group in pairs(ns.groupFrames or {}) do
+        if group.bars then
+            for _, bar in ipairs(group.bars) do
+                flat[#flat + 1] = bar
+            end
+        end
     end
-    return {}
+    ns.allBars = flat
+end
+
+function ns:GetAllBars()
+    return ns.allBars or {}
 end
 
 -- ----------------------------------------------------------------------------

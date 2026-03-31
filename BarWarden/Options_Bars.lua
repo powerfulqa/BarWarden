@@ -493,7 +493,7 @@ local function CreateBarsTab(parent)
             ns:RebuildAllFrames()
         end
     end)
-    progressDD:SetPoint("TOPLEFT", displayHeader, "BOTTOMLEFT", -16, -4)
+    progressDD:SetPoint("TOPLEFT", displayHeader, "BOTTOMLEFT", -16, -20)
 
     local lingerSlider = ns:CreateSlider(ec, "Linger Time", 0, 5, 0.5, function(self, value)
         local bar = frame:GetSelectedBar()
