@@ -339,7 +339,7 @@ local function CreateBarsTab(parent)
     editorPanel:SetPoint("TOPLEFT", addBarBtn, "BOTTOMLEFT", 0, -12)
     editorPanel:SetPoint("BOTTOMRIGHT", rightPanel, "BOTTOMRIGHT", 0, 0)
 
-    local editorScroll = CreateFrame("ScrollFrame", nil, editorPanel, "UIPanelScrollFrameTemplate")
+    local editorScroll = CreateFrame("ScrollFrame", "BarWardenBarEditorScrollFrame", editorPanel, "UIPanelScrollFrameTemplate")
     editorScroll:SetPoint("TOPLEFT",     editorPanel, "TOPLEFT",     0,   0)
     editorScroll:SetPoint("BOTTOMRIGHT", editorPanel, "BOTTOMRIGHT", -24, 0)
 
@@ -670,15 +670,16 @@ local function CreateBarsTab(parent)
             end
         end
 
-        -- Conditions
-        combatOnlyCB:SetChecked(bar.conditions.combatOnly)
-        oocOnlyCB:SetChecked(bar.conditions.outOfCombatOnly)
-        inGroupCB:SetChecked(bar.conditions.inGroup)
-        inRaidCB:SetChecked(bar.conditions.inRaid)
-        hideInactiveCB:SetChecked(bar.conditions.hideWhenInactive)
-        showEmptyCB:SetChecked(bar.conditions.showEmpty)
-        healthEdit:SetText(bar.conditions.healthBelow and tostring(bar.conditions.healthBelow) or "")
-        requireBuffEdit:SetText(bar.conditions.requireBuff or "")
+        -- Conditions (guard: bars created outside the UI may lack this table)
+        local cond = bar.conditions or {}
+        combatOnlyCB:SetChecked(cond.combatOnly)
+        oocOnlyCB:SetChecked(cond.outOfCombatOnly)
+        inGroupCB:SetChecked(cond.inGroup)
+        inRaidCB:SetChecked(cond.inRaid)
+        hideInactiveCB:SetChecked(cond.hideWhenInactive)
+        showEmptyCB:SetChecked(cond.showEmpty)
+        healthEdit:SetText(cond.healthBelow and tostring(cond.healthBelow) or "")
+        requireBuffEdit:SetText(cond.requireBuff or "")
 
         -- Display options
         for i, dir in ipairs(PROGRESS_DIRS) do

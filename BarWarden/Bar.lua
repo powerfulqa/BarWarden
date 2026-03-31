@@ -131,12 +131,9 @@ function ns:ApplyVisualConfig(bar, config)
     bar:SetStatusBarTexture(texturePath)
 
     -- Progress direction
-    local direction = display.progressDirection or "LTR"
-    if direction == "RTL" then
-        bar:SetReverseFill(true)
-    else
-        bar:SetReverseFill(false)
-    end
+    -- SetReverseFill does not exist in WoW 3.3.5a (added in Cataclysm).
+    -- RTL is silently ignored; bars always fill left-to-right.
+    -- (direction stored in DB for future compat but not applied here)
 
     -- Bar color
     local r, g, b = GetBarColor(bar, config)

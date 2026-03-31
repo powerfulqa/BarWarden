@@ -10,7 +10,7 @@ local function CreateVisualsTab(parent)
     frame:Hide()
 
     -- Scroll frame so content doesn't clip at the bottom of the panel
-    local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    local scrollFrame = CreateFrame("ScrollFrame", "BarWardenVisualsScrollFrame", frame, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT",     frame, "TOPLEFT",     4,   -4)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28,  4)
 
