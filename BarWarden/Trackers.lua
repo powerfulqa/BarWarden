@@ -8,11 +8,34 @@ local addonName, ns = ...
 local GCD_THRESHOLD = 1.5
 
 -- ----------------------------------------------------------------------------
+-- Field normalization helpers
+-- Options_Bars.lua stores user-created bars with fields: spellName, spellId,
+-- target. The original schema used: spell, unit. Support both so bars created
+-- via the UI and bars defined directly in DB both work.
+-- ----------------------------------------------------------------------------
+local function getSpell(barConfig)
+    if barConfig.spell and barConfig.spell ~= "" then
+        return barConfig.spell
+    end
+    if barConfig.spellId then
+        return tostring(barConfig.spellId)
+    end
+    if barConfig.spellName and barConfig.spellName ~= "" then
+        return barConfig.spellName
+    end
+    return nil
+end
+
+local function getUnit(barConfig, default)
+    return barConfig.unit or barConfig.target or default
+end
+
+-- ----------------------------------------------------------------------------
 -- Cooldown Tracker
 -- ----------------------------------------------------------------------------
 
 local function CheckCooldown(barConfig)
-    local spell = barConfig.spell
+    local spell = getSpell(barConfig)
     if not spell then
         return false, 0, 0, nil, nil, 0
     end
@@ -57,8 +80,8 @@ end
 -- ----------------------------------------------------------------------------
 
 local function CheckBuff(barConfig)
-    local spell = barConfig.spell
-    local unit = barConfig.unit or "player"
+    local spell = getSpell(barConfig)
+    local unit = getUnit(barConfig, "player")
     if not spell then
         return false, 0, 0, nil, nil, 0
     end
@@ -97,8 +120,8 @@ end
 -- ----------------------------------------------------------------------------
 
 local function CheckDebuff(barConfig)
-    local spell = barConfig.spell
-    local unit = barConfig.unit or "target"
+    local spell = getSpell(barConfig)
+    local unit = getUnit(barConfig, "target")
     if not spell then
         return false, 0, 0, nil, nil, 0
     end
@@ -146,7 +169,7 @@ end
 -- ----------------------------------------------------------------------------
 
 local function CheckProc(barConfig)
-    local spell = barConfig.spell
+    local spell = getSpell(barConfig)
     if not spell then
         return false, 0, 0, nil, nil, 0
     end
@@ -185,7 +208,7 @@ end
 -- ----------------------------------------------------------------------------
 
 local function CheckItem(barConfig)
-    local itemRef = barConfig.spell  -- reuse spell field for item ID/name
+    local itemRef = getSpell(barConfig)  -- reuse spell field for item ID/name
     if not itemRef then
         return false, 0, 0, nil, nil, 0
     end

@@ -185,6 +185,28 @@ local function CreateBarsTab(parent)
     end)
     groupNameEdit:SetPoint("TOPLEFT", addGroupBtn, "BOTTOMLEFT", 0, -20)
 
+    -- Group width slider
+    local groupWidthSlider = ns:CreateSlider(leftPanel, "Width", 50, 400, 5, function(self, value)
+        if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
+            BarWardenDB.frames[selectedGroupIndex].width = value
+            ns:RebuildAllFrames()
+        end
+    end)
+    groupWidthSlider:SetPoint("TOPLEFT", groupNameEdit, "BOTTOMLEFT", 4, -24)
+    groupWidthSlider:SetWidth(160)
+
+    -- Group scale slider
+    local groupScaleSlider = ns:CreateSlider(leftPanel, "Scale", 0.5, 2.0, 0.1, function(self, value)
+        if selectedGroupIndex then
+            ns:SetFrameScale(selectedGroupIndex, value)
+            if BarWardenDB.frames[selectedGroupIndex] then
+                BarWardenDB.frames[selectedGroupIndex].scale = value
+            end
+        end
+    end)
+    groupScaleSlider:SetPoint("TOPLEFT", groupWidthSlider, "BOTTOMLEFT", 0, -30)
+    groupScaleSlider:SetWidth(160)
+
     -- ========================================================================
     -- RIGHT PANEL: Bar List + Bar Editor
     -- ========================================================================
@@ -311,18 +333,27 @@ local function CreateBarsTab(parent)
     moveDownBtn:SetPoint("LEFT", moveUpBtn, "RIGHT", 2, 0)
 
     -- ========================================================================
-    -- BAR EDITOR SUB-PANEL
+    -- BAR EDITOR SUB-PANEL (scroll frame so content doesn't clip)
     -- ========================================================================
     local editorPanel = CreateFrame("Frame", nil, rightPanel)
     editorPanel:SetPoint("TOPLEFT", addBarBtn, "BOTTOMLEFT", 0, -12)
     editorPanel:SetPoint("BOTTOMRIGHT", rightPanel, "BOTTOMRIGHT", 0, 0)
 
-    local editorHeader = editorPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    editorHeader:SetPoint("TOPLEFT", editorPanel, "TOPLEFT", 0, 0)
+    local editorScroll = CreateFrame("ScrollFrame", nil, editorPanel, "UIPanelScrollFrameTemplate")
+    editorScroll:SetPoint("TOPLEFT",     editorPanel, "TOPLEFT",     0,   0)
+    editorScroll:SetPoint("BOTTOMRIGHT", editorPanel, "BOTTOMRIGHT", -24, 0)
+
+    local ec = CreateFrame("Frame", nil, editorScroll)  -- ec = editor content (scroll child)
+    ec:SetWidth(340)
+    ec:SetHeight(500)
+    editorScroll:SetScrollChild(ec)
+
+    local editorHeader = ec:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    editorHeader:SetPoint("TOPLEFT", ec, "TOPLEFT", 0, 0)
     editorHeader:SetText("Bar Settings")
 
     -- Bar enabled checkbox
-    local barEnabledCB = ns:CreateCheckbox(editorPanel, "Enabled", "Enable or disable this bar", function(self, checked)
+    local barEnabledCB = ns:CreateCheckbox(ec, "Enabled", "Enable or disable this bar", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.enabled = checked
@@ -332,7 +363,7 @@ local function CreateBarsTab(parent)
     barEnabledCB:SetPoint("TOPLEFT", editorHeader, "BOTTOMLEFT", 0, -4)
 
     -- Bar name
-    local barNameEdit = ns:CreateEditBox(editorPanel, "Bar Name", 140, function(self, text)
+    local barNameEdit = ns:CreateEditBox(ec, "Bar Name", 140, function(self, text)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.name = text
@@ -342,7 +373,7 @@ local function CreateBarsTab(parent)
     barNameEdit:SetPoint("TOPLEFT", barEnabledCB, "BOTTOMLEFT", 0, -18)
 
     -- Spell Name / ID
-    local spellEdit = ns:CreateEditBox(editorPanel, "Spell Name or ID", 140, function(self, text)
+    local spellEdit = ns:CreateEditBox(ec, "Spell Name or ID", 140, function(self, text)
         local bar = frame:GetSelectedBar()
         if bar then
             local id = tonumber(text)
@@ -359,7 +390,7 @@ local function CreateBarsTab(parent)
     spellEdit:SetPoint("TOPLEFT", barNameEdit, "BOTTOMLEFT", 0, -18)
 
     -- Only Mine checkbox
-    local onlyMineCB = ns:CreateCheckbox(editorPanel, "Only Mine", "Only track auras cast by you", function(self, checked)
+    local onlyMineCB = ns:CreateCheckbox(ec, "Only Mine", "Only track auras cast by you", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.onlyMine = checked
@@ -369,7 +400,7 @@ local function CreateBarsTab(parent)
     onlyMineCB:SetPoint("TOPLEFT", spellEdit, "BOTTOMLEFT", 0, -6)
 
     -- Track Mode dropdown
-    local trackModeDD = ns:CreateDropdown(editorPanel, "Track Mode", TRACK_MODES, function(dd, value, index)
+    local trackModeDD = ns:CreateDropdown(ec, "Track Mode", TRACK_MODES, function(dd, value, index)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.trackMode = value
@@ -379,7 +410,7 @@ local function CreateBarsTab(parent)
     trackModeDD:SetPoint("TOPLEFT", barNameEdit, "TOPRIGHT", 20, 16)
 
     -- Target dropdown
-    local targetDD = ns:CreateDropdown(editorPanel, "Target", TARGET_UNITS, function(dd, value, index)
+    local targetDD = ns:CreateDropdown(ec, "Target", TARGET_UNITS, function(dd, value, index)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.target = value
@@ -391,47 +422,47 @@ local function CreateBarsTab(parent)
     -- ========================================================================
     -- CONDITIONS SECTION
     -- ========================================================================
-    local condHeader = editorPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local condHeader = ec:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     condHeader:SetPoint("TOPLEFT", onlyMineCB, "BOTTOMLEFT", 0, -12)
     condHeader:SetText("Conditions")
 
-    local combatOnlyCB = ns:CreateCheckbox(editorPanel, "Combat Only", "Show only in combat", function(self, checked)
+    local combatOnlyCB = ns:CreateCheckbox(ec, "Combat Only", "Show only in combat", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then bar.conditions.combatOnly = checked end
     end)
     combatOnlyCB:SetPoint("TOPLEFT", condHeader, "BOTTOMLEFT", 0, -4)
 
-    local oocOnlyCB = ns:CreateCheckbox(editorPanel, "Out of Combat Only", "Show only out of combat", function(self, checked)
+    local oocOnlyCB = ns:CreateCheckbox(ec, "Out of Combat Only", "Show only out of combat", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then bar.conditions.outOfCombatOnly = checked end
     end)
     oocOnlyCB:SetPoint("TOPLEFT", combatOnlyCB, "BOTTOMLEFT", 0, -2)
 
-    local inGroupCB = ns:CreateCheckbox(editorPanel, "In Group", "Show only when in a group", function(self, checked)
+    local inGroupCB = ns:CreateCheckbox(ec, "In Group", "Show only when in a group", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then bar.conditions.inGroup = checked end
     end)
     inGroupCB:SetPoint("TOPLEFT", oocOnlyCB, "BOTTOMLEFT", 0, -2)
 
-    local inRaidCB = ns:CreateCheckbox(editorPanel, "In Raid", "Show only when in a raid", function(self, checked)
+    local inRaidCB = ns:CreateCheckbox(ec, "In Raid", "Show only when in a raid", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then bar.conditions.inRaid = checked end
     end)
     inRaidCB:SetPoint("TOPLEFT", inGroupCB, "BOTTOMLEFT", 0, -2)
 
-    local hideInactiveCB = ns:CreateCheckbox(editorPanel, "Hide When Inactive", "Hide bar when not tracking", function(self, checked)
+    local hideInactiveCB = ns:CreateCheckbox(ec, "Hide When Inactive", "Hide bar when not tracking", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then bar.conditions.hideWhenInactive = checked end
     end)
     hideInactiveCB:SetPoint("TOPLEFT", inRaidCB, "BOTTOMLEFT", 0, -2)
 
-    local showEmptyCB = ns:CreateCheckbox(editorPanel, "Show Empty Bar", "Show bar even when not active", function(self, checked)
+    local showEmptyCB = ns:CreateCheckbox(ec, "Show Empty Bar", "Show bar even when not active", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then bar.conditions.showEmpty = checked end
     end)
     showEmptyCB:SetPoint("TOPLEFT", hideInactiveCB, "BOTTOMLEFT", 0, -2)
 
-    local healthEdit = ns:CreateEditBox(editorPanel, "Health Below %", 60, function(self, text)
+    local healthEdit = ns:CreateEditBox(ec, "Health Below %", 60, function(self, text)
         local bar = frame:GetSelectedBar()
         if bar then
             local val = tonumber(text)
@@ -440,7 +471,7 @@ local function CreateBarsTab(parent)
     end)
     healthEdit:SetPoint("TOPLEFT", showEmptyCB, "BOTTOMLEFT", 0, -18)
 
-    local requireBuffEdit = ns:CreateEditBox(editorPanel, "Require Buff", 140, function(self, text)
+    local requireBuffEdit = ns:CreateEditBox(ec, "Require Buff", 140, function(self, text)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.conditions.requireBuff = (text and text ~= "") and text or nil
@@ -451,11 +482,11 @@ local function CreateBarsTab(parent)
     -- ========================================================================
     -- DISPLAY OPTIONS SECTION
     -- ========================================================================
-    local displayHeader = editorPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local displayHeader = ec:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     displayHeader:SetPoint("TOPLEFT", healthEdit, "BOTTOMLEFT", 0, -12)
     displayHeader:SetText("Display Options")
 
-    local progressDD = ns:CreateDropdown(editorPanel, "Progress Direction", PROGRESS_DIRS, function(dd, value, index)
+    local progressDD = ns:CreateDropdown(ec, "Progress Direction", PROGRESS_DIRS, function(dd, value, index)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.display.progressDirection = value
@@ -464,26 +495,26 @@ local function CreateBarsTab(parent)
     end)
     progressDD:SetPoint("TOPLEFT", displayHeader, "BOTTOMLEFT", -16, -4)
 
-    local lingerSlider = ns:CreateSlider(editorPanel, "Linger Time", 0, 5, 0.5, function(self, value)
+    local lingerSlider = ns:CreateSlider(ec, "Linger Time", 0, 5, 0.5, function(self, value)
         local bar = frame:GetSelectedBar()
         if bar then bar.display.lingerTime = value end
     end)
     lingerSlider:SetPoint("TOPLEFT", progressDD, "TOPRIGHT", 20, -12)
     lingerSlider:SetWidth(120)
 
-    local showIconCB = ns:CreateCheckbox(editorPanel, "Override Icon", "Override global icon setting", function(self, checked)
+    local showIconCB = ns:CreateCheckbox(ec, "Override Icon", "Override global icon setting", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then bar.display.showIcon = checked or nil end
     end)
     showIconCB:SetPoint("TOPLEFT", progressDD, "BOTTOMLEFT", 16, -6)
 
-    local showTextCB = ns:CreateCheckbox(editorPanel, "Override Text", "Override global text setting", function(self, checked)
+    local showTextCB = ns:CreateCheckbox(ec, "Override Text", "Override global text setting", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then bar.display.showText = checked or nil end
     end)
     showTextCB:SetPoint("TOPLEFT", showIconCB, "BOTTOMLEFT", 0, -2)
 
-    local colorSwatch = ns:CreateColorSwatch(editorPanel, "Color Override", { r = 1, g = 1, b = 1, a = 1 }, function(self, color)
+    local colorSwatch = ns:CreateColorSwatch(ec, "Color Override", { r = 1, g = 1, b = 1, a = 1 }, function(self, color)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.display.colorOverride = { r = color.r, g = color.g, b = color.b }
@@ -673,8 +704,11 @@ local function CreateBarsTab(parent)
 
     local function UpdateGroupName()
         if selectedGroupIndex and BarWardenDB and BarWardenDB.frames[selectedGroupIndex] then
-            groupNameEdit:SetText(BarWardenDB.frames[selectedGroupIndex].name or "")
+            local g = BarWardenDB.frames[selectedGroupIndex]
+            groupNameEdit:SetText(g.name or "")
             groupNameEdit:Show()
+            groupWidthSlider:SetValue(g.width or 200)
+            groupScaleSlider:SetValue(g.scale or 1.0)
         else
             groupNameEdit:SetText("")
         end
