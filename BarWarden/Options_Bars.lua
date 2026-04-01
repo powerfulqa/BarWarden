@@ -10,7 +10,7 @@ local PROGRESS_DIRS = { "LTR", "RTL" }
 local GROUP_LIST_HEIGHT = 16
 local BAR_LIST_HEIGHT = 16
 local MAX_GROUP_ROWS = 5
-local MAX_BAR_ROWS = 8
+local MAX_BAR_ROWS = 5
 
 -- Helper: create a new default bar table
 local function NewBar(name)

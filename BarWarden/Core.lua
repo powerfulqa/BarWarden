@@ -6,6 +6,21 @@ local addonName, ns = ...
 
 local coreFrame = CreateFrame("Frame", "BarWardenCoreFrame", UIParent)
 
+-- Periodic scan: reliable fallback for cooldowns already active on login/reload
+-- or when game events are missed (e.g. returning from AFK, zoning).
+local SCAN_INTERVAL = 0.5
+local scanTimer = 0
+coreFrame:SetScript("OnUpdate", function(self, elapsed)
+    if not ns.db or not ns.db.global.enabled then return end
+    scanTimer = scanTimer + elapsed
+    if scanTimer >= SCAN_INTERVAL then
+        scanTimer = 0
+        if ns.ScanAllBars then
+            ns:ScanAllBars()
+        end
+    end
+end)
+
 -- ----------------------------------------------------------------------------
 -- Print: Chat message helper
 -- ----------------------------------------------------------------------------

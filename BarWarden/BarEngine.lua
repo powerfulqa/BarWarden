@@ -250,6 +250,29 @@ local function HideBarForConditions(bar)
 end
 
 -- ----------------------------------------------------------------------------
+-- Spell resolution helper
+-- Resolves a spell name string to its numeric ID via GetSpellInfo so that
+-- GetSpellCooldown gets the most reliable input in WoW 3.3.5a.
+-- ----------------------------------------------------------------------------
+
+local spellIdCache = {}
+
+local function ResolveSpell(spellInput)
+    if not spellInput then return nil end
+    if type(spellInput) == "number" then return spellInput end
+    -- Check cache first
+    if spellIdCache[spellInput] then return spellIdCache[spellInput] end
+    -- Resolve name → ID
+    local spellId = select(7, GetSpellInfo(spellInput))
+    if spellId then
+        spellIdCache[spellInput] = spellId
+        return spellId
+    end
+    -- Fall back to raw string if GetSpellInfo didn't find it
+    return spellInput
+end
+
+-- ----------------------------------------------------------------------------
 -- Per-Mode Scan Dispatchers
 -- ----------------------------------------------------------------------------
 
@@ -263,7 +286,8 @@ local function ScanCooldownBars(bars)
                 local spellInput = bar.barData.spellInput or bar.barData.spell
                     or bar.barData.spellId or bar.barData.spellName
                 if spellInput then
-                    local start, duration, enabled = GetSpellCooldown(spellInput)
+                    local resolved = ResolveSpell(spellInput)
+                    local start, duration, enabled = GetSpellCooldown(resolved)
                     if enabled == 1 and duration and duration > GCD_THRESHOLD then
                         local expirationTime = start + duration
                         if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expirationTime then
@@ -296,6 +320,10 @@ local function ScanBuffBars(bars, unit)
                     HideBarForConditions(bar)
                 else
                     local spellName = bar.barData.spellName or bar.barData.spellInput or bar.barData.spell
+                    -- Also try resolving to canonical name via GetSpellInfo
+                    if spellName and type(spellName) ~= "string" then
+                        spellName = select(1, GetSpellInfo(spellName)) or tostring(spellName)
+                    end
                     if spellName then
                         local found = false
                         for i = 1, 40 do
@@ -330,6 +358,9 @@ local function ScanDebuffBars(bars, unit)
                     HideBarForConditions(bar)
                 else
                     local spellName = bar.barData.spellName or bar.barData.spellInput or bar.barData.spell
+                    if spellName and type(spellName) ~= "string" then
+                        spellName = select(1, GetSpellInfo(spellName)) or tostring(spellName)
+                    end
                     if spellName then
                         local found = false
                         for i = 1, 40 do
