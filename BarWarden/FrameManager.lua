@@ -110,7 +110,8 @@ function ns:CreateGroupFrame(groupData, frameIndex)
 
     -- Set backdrop
     frame:SetBackdrop(GROUP_BACKDROP)
-    frame:SetBackdropColor(0, 0, 0, 0.6)
+    local bgAlpha = groupData.bgAlpha ~= nil and groupData.bgAlpha or 0.6
+    frame:SetBackdropColor(0, 0, 0, bgAlpha)
     frame:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
 
     -- Size from visual settings
@@ -175,33 +176,36 @@ function ns:UpdateGroupLayout(group)
     local barWidth = visual.barWidth or 200
     local titleOffset = 16  -- space for title bar
 
-    -- Get frame data for width override
+    -- Get frame data for width and column override
     local frameData = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[group.frameIndex]
     if frameData and frameData.width then
         barWidth = frameData.width
     end
+    local columns = (frameData and frameData.columns and frameData.columns > 0) and frameData.columns or 1
 
-    local yOffset = -titleOffset
     local visibleCount = 0
 
     for i, bar in ipairs(group.bars) do
         if bar:IsShown() then
+            local col = visibleCount % columns
+            local row = math.floor(visibleCount / columns)
+            local xOff = 4 + col * (barWidth + spacing)
+            local yOff = -(titleOffset + row * (barHeight + spacing))
             bar:ClearAllPoints()
-            bar:SetPoint("TOPLEFT", group, "TOPLEFT", 4, yOffset)
+            bar:SetPoint("TOPLEFT", group, "TOPLEFT", xOff, yOff)
             bar:SetWidth(barWidth)
             bar:SetHeight(barHeight)
-            yOffset = yOffset - barHeight - spacing
             visibleCount = visibleCount + 1
         end
     end
 
-    -- Update frame height
-    local totalHeight = titleOffset + (visibleCount * (barHeight + spacing)) + 4
-    if visibleCount == 0 then
-        totalHeight = titleOffset + barHeight + 4  -- minimum height for empty frame
-    end
+    -- Update frame size to fit all columns and rows
+    local rowCount = math.ceil(visibleCount / columns)
+    if rowCount == 0 then rowCount = 1 end
+    local totalHeight = titleOffset + (rowCount * (barHeight + spacing)) + 4
+    local totalWidth = columns * barWidth + (columns - 1) * spacing + 8
     group:SetHeight(totalHeight)
-    group:SetWidth(barWidth + 8)
+    group:SetWidth(totalWidth)
 end
 
 -- ----------------------------------------------------------------------------
@@ -216,6 +220,29 @@ function ns:SetFrameScale(frameIndex, scale)
     if BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex] then
         BarWardenDB.frames[frameIndex].scale = scale
     end
+end
+
+-- ----------------------------------------------------------------------------
+-- SetGroupColumns: Set column count for a group and relayout immediately
+-- ----------------------------------------------------------------------------
+function ns:SetGroupColumns(frameIndex, columns)
+    columns = math.max(1, math.min(4, columns))
+    if BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex] then
+        BarWardenDB.frames[frameIndex].columns = columns
+    end
+    local frame = ns.groupFrames[frameIndex]
+    if frame then ns:UpdateGroupLayout(frame) end
+end
+
+-- ----------------------------------------------------------------------------
+-- SetGroupBgAlpha: Set background opacity for a group frame
+-- ----------------------------------------------------------------------------
+function ns:SetGroupBgAlpha(frameIndex, alpha)
+    if BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex] then
+        BarWardenDB.frames[frameIndex].bgAlpha = alpha
+    end
+    local frame = ns.groupFrames[frameIndex]
+    if frame then frame:SetBackdropColor(0, 0, 0, alpha) end
 end
 
 -- ----------------------------------------------------------------------------
@@ -281,9 +308,11 @@ local function DestroyGroupFrame(frameIndex)
     local frame = ns.groupFrames[frameIndex]
     if not frame then return end
 
-    -- Release all bars back to pool
+    -- Deactivate then release all bars back to pool.
+    -- DeactivateBar must come first to clear activeBars[] and remove OnUpdate.
     if frame.bars then
         for i = #frame.bars, 1, -1 do
+            ns:DeactivateBar(frame.bars[i])
             ns:ReleaseBar(frame.bars[i])
             frame.bars[i] = nil
         end
@@ -309,6 +338,8 @@ function ns:CreateFrame(name)
         visible = true,
         position = { point = "CENTER", relativePoint = "CENTER", x = 0, y = 0 },
         width = BarWardenDB.visual.barWidth or 200,
+        columns = 1,
+        bgAlpha = 0.6,
         scale = 1.0,
         bars = {},
     }

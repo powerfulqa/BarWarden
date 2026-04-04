@@ -55,6 +55,9 @@ ns.VISUAL_PRESETS = {
 -- ----------------------------------------------------------------------------
 
 ns.DEFAULTS = {
+    -- Schema version: increment when a migration pass is needed
+    schemaVersion = 1,
+
     -- Global settings
     global = {
         enabled = true,
@@ -75,6 +78,7 @@ ns.DEFAULTS = {
         barHeight = 20,
         iconSize = 20,
         showIcon = true,
+        iconPosition = "LEFT",
         borderSize = 1,
         barSpacing = 2,
         font = "Fonts\\FRIZQT__.TTF",
@@ -112,6 +116,8 @@ ns.DEFAULTS = {
             visible = true,
             position = { point = "CENTER", relativePoint = "CENTER", x = 0, y = -100 },
             width = 200,
+            columns = 1,
+            bgAlpha = 0.6,
             scale = 1.0,
             bars = {
                 {
@@ -145,12 +151,61 @@ ns.DEFAULTS = {
 -- InitDB: Initialize or migrate SavedVariables
 -- ----------------------------------------------------------------------------
 
+-- ----------------------------------------------------------------------------
+-- MigrateDB: One-time migration to canonicalize legacy field names.
+-- Runs only when BarWardenDB.schemaVersion is absent or below current.
+-- Safe: only writes to nil keys, never overwrites non-nil user data.
+-- ----------------------------------------------------------------------------
+local CURRENT_SCHEMA = 1
+
+local function MigrateDB()
+    local savedVersion = BarWardenDB.schemaVersion or 0
+    if savedVersion >= CURRENT_SCHEMA then return end
+
+    -- v0 → v1: rename legacy bar config fields to canonical names.
+    --   spell (number) → spellId / itemId   spell (string) → spellName
+    --   spellInput → spellName   target → unit
+    if savedVersion < 1 then
+        for _, frameData in ipairs(BarWardenDB.frames or {}) do
+            for _, bar in ipairs(frameData.bars or {}) do
+                -- Migrate spell field
+                local s = bar.spell
+                if s ~= nil then
+                    if type(s) == "number" then
+                        if bar.trackMode == "Item" then
+                            if bar.itemId == nil then bar.itemId = s end
+                        else
+                            if bar.spellId == nil then bar.spellId = s end
+                        end
+                    elseif type(s) == "string" and s ~= "" then
+                        if bar.spellName == nil then bar.spellName = s end
+                    end
+                    bar.spell = nil
+                end
+                -- Migrate spellInput field
+                if bar.spellInput ~= nil then
+                    if bar.spellName == nil then bar.spellName = bar.spellInput end
+                    bar.spellInput = nil
+                end
+                -- Migrate target → unit
+                if bar.target ~= nil then
+                    if bar.unit == nil then bar.unit = bar.target end
+                    bar.target = nil
+                end
+            end
+        end
+    end
+
+    BarWardenDB.schemaVersion = CURRENT_SCHEMA
+end
+
 function ns:InitDB()
     if not BarWardenDB then
         BarWardenDB = ns:CopyTable(ns.DEFAULTS)
     else
         -- Deep-merge: add any new default keys missing from saved data
         ns:MergeDefaults(BarWardenDB, ns.DEFAULTS)
+        MigrateDB()
     end
     ns.db = BarWardenDB
 end

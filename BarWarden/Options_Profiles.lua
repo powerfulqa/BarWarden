@@ -5,7 +5,7 @@ local addonName, ns = ...
 -- ============================================================================
 
 local PROFILE_ROW_HEIGHT = 20
-local MAX_PROFILE_ROWS = 10
+local MAX_PROFILE_ROWS = 5
 local selectedProfileName = nil
 
 -- ============================================================================

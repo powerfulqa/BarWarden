@@ -1,33 +1,78 @@
 local addonName, ns = ...
 
 -- ============================================================================
--- Trackers.lua - Tracking mode implementations (Cooldown, Buff, Debuff, Proc,
--- Item, Custom). Each returns (isActive, value, maxValue, icon, name, stacks).
+-- Trackers.lua - Canonical tracking mode implementations.
+-- Each checker returns (isActive, remaining, duration, icon, name, stacks).
+-- Called exclusively via ns:CheckTracker(barConfig) from BarEngine.lua.
 -- ============================================================================
 
 local GCD_THRESHOLD = 1.5
 
 -- ----------------------------------------------------------------------------
--- Field normalization helpers
--- Options_Bars.lua stores user-created bars with fields: spellName, spellId,
--- target. The original schema used: spell, unit. Support both so bars created
--- via the UI and bars defined directly in DB both work.
+-- Module-level state tables
 -- ----------------------------------------------------------------------------
+
+-- stableExpiry: prevents bar jitter from server expiration time fluctuations.
+-- Key: "unit:spellId_or_name". If the server returns a shorter expiration
+-- than what we last saw, we keep the longer cached value.
+local stableExpiry = {}
+
+-- customFuncCache: compiled loadstring results for Custom tracker expressions.
+-- Key: expression string. Avoids recompiling on every 0.5s scan.
+local customFuncCache = {}
+
+-- ----------------------------------------------------------------------------
+-- Field normalization helpers
+-- After schema migration (DB.lua v1) new bars use spellName/spellId/itemId.
+-- Legacy fields (spell, spellInput) are kept here as fallbacks during
+-- the transition window.
+-- ----------------------------------------------------------------------------
+
 local function getSpell(barConfig)
-    if barConfig.spell and barConfig.spell ~= "" then
-        return barConfig.spell
+    if barConfig.spellName and barConfig.spellName ~= "" then
+        return barConfig.spellName
     end
     if barConfig.spellId then
         return tostring(barConfig.spellId)
     end
-    if barConfig.spellName and barConfig.spellName ~= "" then
-        return barConfig.spellName
+    -- Legacy fallbacks (removed by migration but kept for safety)
+    if barConfig.spell and barConfig.spell ~= "" then
+        return tostring(barConfig.spell)
+    end
+    if barConfig.spellInput and barConfig.spellInput ~= "" then
+        return barConfig.spellInput
     end
     return nil
 end
 
 local function getUnit(barConfig, default)
     return barConfig.unit or barConfig.target or default
+end
+
+-- getSpellTokens: split a (possibly comma-separated) spell string into a list.
+-- Supports: "Rupture" → {"Rupture"}
+--           "Rupture, Garrote" → {"Rupture", "Garrote"}
+local function getSpellTokens(spell)
+    if not spell then return nil end
+    local tokens = {}
+    for token in spell:gmatch("([^,]+)") do
+        local t = token:match("^%s*(.-)%s*$")  -- trim whitespace
+        if t and t ~= "" then
+            tokens[#tokens + 1] = t
+        end
+    end
+    return #tokens > 0 and tokens or nil
+end
+
+-- smoothExpiry: apply stable-expiry smoothing.
+-- Returns the effective expiration time (never moves backward).
+local function smoothExpiry(key, expirationTime)
+    local cached = stableExpiry[key]
+    if cached and expirationTime < cached then
+        return cached
+    end
+    stableExpiry[key] = expirationTime
+    return expirationTime
 end
 
 -- ----------------------------------------------------------------------------
@@ -40,7 +85,6 @@ local function CheckCooldown(barConfig)
         return false, 0, 0, nil, nil, 0
     end
 
-    -- Resolve spell: prefer spellID if numeric
     local spellID = tonumber(spell)
     local spellName, _, spellIcon
 
@@ -60,7 +104,6 @@ local function CheckCooldown(barConfig)
         return false, 0, 0, spellIcon, spellName, 0
     end
 
-    -- Filter GCD: ignore cooldowns with duration <= 1.5s
     if duration <= GCD_THRESHOLD then
         return false, 0, 0, spellIcon, spellName, 0
     end
@@ -77,6 +120,8 @@ end
 
 -- ----------------------------------------------------------------------------
 -- Buff Tracker
+-- Supports comma-separated spell names and numeric spell IDs.
+-- Applies expiration time smoothing to prevent bar jitter.
 -- ----------------------------------------------------------------------------
 
 local function CheckBuff(barConfig)
@@ -86,29 +131,43 @@ local function CheckBuff(barConfig)
         return false, 0, 0, nil, nil, 0
     end
 
-    local target = tonumber(spell)
+    -- Parse spell string into tokens (handles "Spell A, Spell B")
+    local numericId = tonumber(spell)
+    local tokens = (not numericId) and getSpellTokens(spell) or nil
 
     for i = 1, 40 do
         local name, _, icon, count, _, duration, expirationTime, _, _, _, spellId = UnitBuff(unit, i)
-        if not name then
-            break
-        end
+        if not name then break end
 
         local match = false
-        if target then
-            match = (spellId == target)
-        else
-            match = (name == spell)
+        if numericId then
+            match = (spellId == numericId)
+        elseif tokens then
+            for _, token in ipairs(tokens) do
+                if name == token then match = true; break end
+            end
         end
 
         if match then
             local remaining = 0
             local maxVal = 0
             if duration and duration > 0 and expirationTime then
-                remaining = expirationTime - GetTime()
+                local key = unit .. ":" .. tostring(spellId or name)
+                local stableExp = smoothExpiry(key, expirationTime)
+                remaining = stableExp - GetTime()
+                if remaining < 0 then remaining = 0 end
                 maxVal = duration
             end
             return true, remaining, maxVal, icon, name, count or 0
+        end
+    end
+
+    -- No match found; clear any cached expiry for this bar's tracked name
+    if numericId then
+        stableExpiry[unit .. ":" .. tostring(numericId)] = nil
+    elseif tokens then
+        for _, token in ipairs(tokens) do
+            stableExpiry[unit .. ":" .. token] = nil
         end
     end
 
@@ -117,6 +176,8 @@ end
 
 -- ----------------------------------------------------------------------------
 -- Debuff Tracker
+-- Supports comma-separated spell names, numeric spell IDs, and onlyMine filter.
+-- Applies expiration time smoothing.
 -- ----------------------------------------------------------------------------
 
 local function CheckDebuff(barConfig)
@@ -126,34 +187,36 @@ local function CheckDebuff(barConfig)
         return false, 0, 0, nil, nil, 0
     end
 
-    local target = tonumber(spell)
+    local onlyMine = barConfig.onlyMine
+    if onlyMine == nil then onlyMine = true end
+
+    local numericId = tonumber(spell)
+    local tokens = (not numericId) and getSpellTokens(spell) or nil
 
     for i = 1, 40 do
         local name, _, icon, count, _, duration, expirationTime, caster, _, _, spellId = UnitDebuff(unit, i)
-        if not name then
-            break
-        end
+        if not name then break end
 
         local match = false
-        if target then
-            match = (spellId == target)
-        else
-            match = (name == spell)
+        if numericId then
+            match = (spellId == numericId)
+        elseif tokens then
+            for _, token in ipairs(tokens) do
+                if name == token then match = true; break end
+            end
         end
 
-        -- Only track debuffs cast by the player (onlyMine default true)
         if match then
-            local onlyMine = barConfig.onlyMine
-            if onlyMine == nil then
-                onlyMine = true
-            end
             if onlyMine and caster ~= "player" then
-                -- Skip this match, keep scanning
+                -- This aura matches but wasn't cast by the player; keep scanning
             else
                 local remaining = 0
                 local maxVal = 0
                 if duration and duration > 0 and expirationTime then
-                    remaining = expirationTime - GetTime()
+                    local key = unit .. ":" .. tostring(spellId or name)
+                    local stableExp = smoothExpiry(key, expirationTime)
+                    remaining = stableExp - GetTime()
+                    if remaining < 0 then remaining = 0 end
                     maxVal = duration
                 end
                 return true, remaining, maxVal, icon, name, count or 0
@@ -161,42 +224,12 @@ local function CheckDebuff(barConfig)
         end
     end
 
-    return false, 0, 0, nil, spell, 0
-end
-
--- ----------------------------------------------------------------------------
--- Proc Tracker (short-duration player buffs, e.g. Art of War, Missile Barrage)
--- ----------------------------------------------------------------------------
-
-local function CheckProc(barConfig)
-    local spell = getSpell(barConfig)
-    if not spell then
-        return false, 0, 0, nil, nil, 0
-    end
-
-    local target = tonumber(spell)
-
-    for i = 1, 40 do
-        local name, _, icon, count, _, duration, expirationTime, _, _, _, spellId = UnitBuff("player", i)
-        if not name then
-            break
-        end
-
-        local match = false
-        if target then
-            match = (spellId == target)
-        else
-            match = (name == spell)
-        end
-
-        if match then
-            local remaining = 0
-            local maxVal = 0
-            if duration and duration > 0 and expirationTime then
-                remaining = expirationTime - GetTime()
-                maxVal = duration
-            end
-            return true, remaining, maxVal, icon, name, count or 0
+    -- No match; clear cached expiry
+    if numericId then
+        stableExpiry[unit .. ":" .. tostring(numericId)] = nil
+    elseif tokens then
+        for _, token in ipairs(tokens) do
+            stableExpiry[unit .. ":" .. token] = nil
         end
     end
 
@@ -208,7 +241,8 @@ end
 -- ----------------------------------------------------------------------------
 
 local function CheckItem(barConfig)
-    local itemRef = getSpell(barConfig)  -- reuse spell field for item ID/name
+    -- itemId takes priority; fall back to spellName/spellId for legacy configs
+    local itemRef = barConfig.itemId or getSpell(barConfig)
     if not itemRef then
         return false, 0, 0, nil, nil, 0
     end
@@ -217,19 +251,15 @@ local function CheckItem(barConfig)
     local itemName, itemIcon
 
     if itemID then
-        -- GetItemInfo may return nil if item not in cache
         itemName = GetItemInfo(itemID)
-        -- GetItemIcon is more reliable for icons
         itemIcon = GetItemIcon(itemID)
     else
         itemName = itemRef
         itemIcon = GetItemIcon(itemRef)
     end
 
-    -- Use itemRef as display name if GetItemInfo returned nil
-    local displayName = itemName or itemRef
+    local displayName = itemName or tostring(itemRef)
 
-    -- Try GetItemCooldown (works for equipped/inventory items)
     local start, duration, enabled
     if itemID then
         start, duration, enabled = GetItemCooldown(itemID)
@@ -237,7 +267,7 @@ local function CheckItem(barConfig)
         start, duration, enabled = GetItemCooldown(itemRef)
     end
 
-    if start and duration and duration > 0 and enabled == 1 then
+    if start and duration and duration > GCD_THRESHOLD and enabled == 1 then
         local now = GetTime()
         local remaining = (start + duration) - now
         if remaining > 0 then
@@ -249,85 +279,96 @@ local function CheckItem(barConfig)
 end
 
 -- ----------------------------------------------------------------------------
--- Custom Tracker (user-defined condition expression)
+-- Custom Tracker (user-defined Lua expression evaluated in a sandbox)
+-- The compiled function is cached by expression string to avoid calling
+-- loadstring() on every scan.
 -- ----------------------------------------------------------------------------
+
+local CUSTOM_SANDBOX = {
+    UnitBuff = UnitBuff,
+    UnitDebuff = UnitDebuff,
+    UnitHealth = UnitHealth,
+    UnitHealthMax = UnitHealthMax,
+    UnitPower = UnitPower,
+    UnitPowerMax = UnitPowerMax,
+    UnitAffectingCombat = UnitAffectingCombat,
+    UnitExists = UnitExists,
+    GetSpellCooldown = GetSpellCooldown,
+    GetSpellInfo = GetSpellInfo,
+    GetTime = GetTime,
+    GetItemCooldown = GetItemCooldown,
+    GetItemInfo = GetItemInfo,
+    GetComboPoints = GetComboPoints,
+    UnitMana = UnitMana,
+    UnitManaMax = UnitManaMax,
+    pairs = pairs,
+    ipairs = ipairs,
+    tonumber = tonumber,
+    tostring = tostring,
+    select = select,
+    math = math,
+    string = string,
+}
+CUSTOM_SANDBOX.__index = function() return nil end
+local CUSTOM_ENV_META = { __index = function() return nil end }
 
 local function CheckCustom(barConfig)
     local expression = barConfig.customExpression
     if not expression or expression == "" then
-        return false, 0, 0, nil, barConfig.spell or "Custom", 0
+        return false, 0, 0, nil, barConfig.spellName or "Custom", 0
     end
 
-    -- Evaluate the custom expression in a safe environment
-    local func, err = loadstring("return " .. expression)
+    -- Cache compiled function by expression string
+    local func = customFuncCache[expression]
     if not func then
-        return false, 0, 0, nil, barConfig.spell or "Custom", 0
+        local err
+        func, err = loadstring("return " .. expression)
+        if not func then
+            return false, 0, 0, nil, barConfig.spellName or "Custom", 0
+        end
+        customFuncCache[expression] = func
     end
 
-    -- Sandbox: give access to common WoW API functions
-    local env = setmetatable({
-        UnitBuff = UnitBuff,
-        UnitDebuff = UnitDebuff,
-        UnitHealth = UnitHealth,
-        UnitHealthMax = UnitHealthMax,
-        UnitPower = UnitPower,
-        UnitPowerMax = UnitPowerMax,
-        UnitAffectingCombat = UnitAffectingCombat,
-        UnitExists = UnitExists,
-        GetSpellCooldown = GetSpellCooldown,
-        GetSpellInfo = GetSpellInfo,
-        GetTime = GetTime,
-        GetItemCooldown = GetItemCooldown,
-        GetItemInfo = GetItemInfo,
-        GetComboPoints = GetComboPoints,
-        UnitMana = UnitMana,
-        UnitManaMax = UnitManaMax,
-        pairs = pairs,
-        ipairs = ipairs,
-        tonumber = tonumber,
-        tostring = tostring,
-        select = select,
-        math = math,
-        string = string,
-    }, { __index = function() return nil end })
-
+    -- Build a fresh environment table each call (setfenv mutates in Lua 5.1)
+    local env = setmetatable({}, CUSTOM_ENV_META)
+    for k, v in pairs(CUSTOM_SANDBOX) do env[k] = v end
     setfenv(func, env)
 
     local ok, result = pcall(func)
     if not ok or not result then
-        return false, 0, 0, nil, barConfig.spell or "Custom", 0
+        return false, 0, 0, nil, barConfig.spellName or "Custom", 0
     end
 
-    -- Custom can return: true (simple boolean) or a table {value, maxValue, icon, name, stacks}
     if type(result) == "table" then
         return true,
             result.value or result[1] or 0,
             result.maxValue or result[2] or 0,
             result.icon or result[3],
-            result.name or result[4] or barConfig.spell or "Custom",
+            result.name or result[4] or barConfig.spellName or "Custom",
             result.stacks or result[5] or 0
     end
 
-    -- Simple boolean result
-    return true, 0, 0, nil, barConfig.spell or "Custom", 0
+    return true, 0, 0, nil, barConfig.spellName or "Custom", 0
 end
 
 -- ----------------------------------------------------------------------------
 -- Dispatch Table
+-- Proc is Buff restricted to "player" unit; CheckBuff defaults unit to "player"
+-- via getUnit(barConfig, "player"), so no separate function is needed.
 -- ----------------------------------------------------------------------------
 
 ns.TRACKERS = {
     ["Cooldown"] = CheckCooldown,
     ["Buff"]     = CheckBuff,
     ["Debuff"]   = CheckDebuff,
-    ["Proc"]     = CheckProc,
+    ["Proc"]     = CheckBuff,
     ["Item"]     = CheckItem,
     ["Custom"]   = CheckCustom,
 }
 
 --- Check tracking state for a bar based on its trackMode.
 -- @param barConfig table - The bar configuration
--- @return isActive, value, maxValue, icon, name, stacks
+-- @return isActive, remaining, duration, icon, name, stacks
 function ns:CheckTracker(barConfig)
     local trackMode = barConfig.trackMode
     if not trackMode then

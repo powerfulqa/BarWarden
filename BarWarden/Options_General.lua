@@ -17,8 +17,7 @@ local function CreateGeneralTab(parent)
     local enableCB = ns:CreateCheckbox(frame, "Enable BarWarden",
         "Globally enable or disable BarWarden. When disabled, all frames are hidden and events are unregistered.",
         function(self, checked)
-            BarWardenDB.global.enabled = checked
-            ns:SetAddonEnabled(checked)
+            ns:SetEnabled(checked)
             if checked then
                 ns:RebuildAllFrames()
             end

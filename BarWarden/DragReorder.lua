@@ -260,7 +260,11 @@ function ns:EnableDragReorder(groupFrame)
         bar:EnableMouse(true)
         bar:SetScript("OnMouseDown", Bar_OnMouseDown)
         bar:SetScript("OnMouseUp", Bar_OnMouseUp)
-        bar:SetScript("OnUpdate", Bar_OnUpdate)
+        -- Only set drag OnUpdate on inactive bars; active bars must keep
+        -- BarEngine's Bar_OnUpdate for smooth fill. MouseDown/Up still fire.
+        if bar.barState ~= ns.BAR_STATE.ACTIVE then
+            bar:SetScript("OnUpdate", Bar_OnUpdate)
+        end
         bar.dragEnabled = true
     end
 end
@@ -274,9 +278,12 @@ function ns:DisableDragReorder(groupFrame)
     for _, bar in ipairs(groupFrame.bars) do
         bar:SetScript("OnMouseDown", nil)
         bar:SetScript("OnMouseUp", nil)
-        -- Preserve OnUpdate if bar engine needs it; only remove drag flag
         if bar.dragEnabled then
-            bar:SetScript("OnUpdate", nil)
+            -- Only clear OnUpdate on inactive bars; active bars are running
+            -- BarEngine's Bar_OnUpdate and must not have it cleared here.
+            if bar.barState ~= ns.BAR_STATE.ACTIVE then
+                bar:SetScript("OnUpdate", nil)
+            end
             bar.dragEnabled = false
         end
     end

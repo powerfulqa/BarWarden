@@ -18,7 +18,7 @@
                     <Color r="0" g="0" b="0" a="0.8"/>
                 </Texture>
             </Layer>
-            <!-- Overlay layer: text elements -->
+        <!-- Overlay layer: text elements -->
             <Layer level="OVERLAY">
                 <FontString name="$parentNameText" inherits="GameFontHighlightSmall" justifyH="LEFT">
                     <Anchors>
@@ -32,7 +32,7 @@
                     </Anchors>
                 </FontString>
             </Layer>
-        </Layers>
+            </Layers>
         <Frames>
             <!-- Icon frame on the left -->
             <Frame name="$parentIcon">
@@ -46,7 +46,7 @@
                     </Layer>
                 </Layers>
             </Frame>
-            <!-- Spark texture (bright line at the bar's current value) -->
+            <!-- Spark frame: frameLevel +3 above parent bar -->
             <Frame name="$parentSparkFrame" frameLevel="3">
                 <Size x="16" y="20"/>
                 <Layers>

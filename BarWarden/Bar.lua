@@ -73,6 +73,14 @@ function ns:CreateBarFrame(parent)
     bar.sparkFrame   = _G[name .. "SparkFrame"]
     bar.spark        = _G[name .. "SparkFrameSpark"]
 
+    -- Ensure text always renders above child frames (e.g. sparkFrame)
+    if bar.nameText then bar.nameText:SetDrawLayer("HIGHLIGHT") end
+    if bar.timeText then bar.timeText:SetDrawLayer("HIGHLIGHT") end
+
+    -- Spark texture must use additive blending; without it the alpha channel
+    -- renders as solid black rather than transparent.
+    if bar.spark then bar.spark:SetBlendMode("ADD") end
+
     -- Set default StatusBar range
     bar:SetMinMaxValues(0, 1)
     bar:SetValue(0)
@@ -118,10 +126,6 @@ function ns:ApplyVisualConfig(bar, config)
         fontSize  = 0
     end
 
-    -- Set bar size
-    bar:SetWidth(barWidth)
-    bar:SetHeight(barHeight)
-
     -- Resolve texture
     local textureName = display.textureOverride or visual.texture or "Flat"
     if textureName == "Custom" and visual.customTexture and visual.customTexture ~= "" then
@@ -154,7 +158,7 @@ function ns:ApplyVisualConfig(bar, config)
         end
     end
 
-    -- Icon visibility
+    -- Icon visibility and position
     local showIcon = visual.showIcon
     if display.showIcon ~= nil then
         showIcon = display.showIcon
@@ -163,11 +167,19 @@ function ns:ApplyVisualConfig(bar, config)
         showIcon = false
     end
 
+    local iconOnRight = (visual.iconPosition == "RIGHT")
+
     if bar.icon then
         if showIcon and iconSize > 0 then
             bar.icon:Show()
             bar.icon:SetWidth(iconSize)
             bar.icon:SetHeight(iconSize)
+            bar.icon:ClearAllPoints()
+            if iconOnRight then
+                bar.icon:SetPoint("RIGHT", bar, "RIGHT", 0, 0)
+            else
+                bar.icon:SetPoint("LEFT", bar, "LEFT", 0, 0)
+            end
         else
             bar.icon:Hide()
         end
@@ -185,16 +197,20 @@ function ns:ApplyVisualConfig(bar, config)
     local textPosition = visual.textPosition or "INSIDE_LEFT"
     local font = visual.font or "Fonts\\FRIZQT__.TTF"
 
+    -- Calculate offsets based on icon position
+    local iconActive = showIcon and iconSize > 0
+    local leftOffset  = (iconActive and not iconOnRight) and (iconSize + 4) or 4
+    local rightOffset = (iconActive and iconOnRight) and -(iconSize + 4) or -4
+    -- nameText right edge: leave room for timeText (~40px) plus icon if on right
+    local nameRightOffset = rightOffset - 40
+
     if bar.nameText then
         if showText and fontSize > 0 and textPosition ~= "NONE" then
             bar.nameText:Show()
             bar.nameText:SetFont(font, fontSize, "OUTLINE")
-
-            -- Anchor name text based on icon visibility
             bar.nameText:ClearAllPoints()
-            local leftOffset = (showIcon and iconSize > 0) and (iconSize + 4) or 4
-            bar.nameText:SetPoint("LEFT", bar, "LEFT", leftOffset, 0)
-            bar.nameText:SetPoint("RIGHT", bar, "RIGHT", -44, 0)
+            bar.nameText:SetPoint("LEFT",  bar, "LEFT",  leftOffset,     0)
+            bar.nameText:SetPoint("RIGHT", bar, "RIGHT", nameRightOffset, 0)
         else
             bar.nameText:Hide()
         end
@@ -205,7 +221,7 @@ function ns:ApplyVisualConfig(bar, config)
             bar.timeText:Show()
             bar.timeText:SetFont(font, fontSize, "OUTLINE")
             bar.timeText:ClearAllPoints()
-            bar.timeText:SetPoint("RIGHT", bar, "RIGHT", -4, 0)
+            bar.timeText:SetPoint("RIGHT", bar, "RIGHT", rightOffset, 0)
         else
             bar.timeText:Hide()
         end
@@ -226,99 +242,3 @@ function ns:ApplyVisualConfig(bar, config)
     end
 end
 
--- ----------------------------------------------------------------------------
--- UpdateBarDisplay: Update the bar's visual state (value, text, spark position)
--- Called each frame or when bar data changes.
--- ----------------------------------------------------------------------------
-function ns:UpdateBarDisplay(bar)
-    if not bar or not bar.barData then return end
-
-    local data = bar.barData
-    local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
-    local display = data.display or {}
-
-    -- Calculate progress (0-1)
-    local duration = data.duration or 0
-    local remaining = data.remaining or 0
-    local progress = 0
-    if duration > 0 then
-        progress = remaining / duration
-        if progress < 0 then progress = 0 end
-        if progress > 1 then progress = 1 end
-    end
-
-    bar:SetMinMaxValues(0, 1)
-    bar:SetValue(progress)
-
-    -- Update bar color (may change with track mode)
-    local r, g, b = GetBarColor(bar)
-    bar:SetStatusBarColor(r, g, b)
-
-    -- Update icon texture
-    if bar.icon and bar.icon:IsShown() and bar.iconTexture then
-        local icon = data.icon
-        if icon then
-            bar.iconTexture:SetTexture(icon)
-        end
-    end
-
-    -- Update text
-    local textFormat = display.textFormat or visual.textFormat or "NAME_DURATION"
-    local spellName = data.spellName or data.name or ""
-
-    if bar.nameText and bar.nameText:IsShown() then
-        if textFormat == "NAME_ONLY" or textFormat == "NAME_DURATION" or textFormat == "NAME_STACKS" then
-            bar.nameText:SetText(spellName)
-        elseif textFormat == "DURATION" then
-            bar.nameText:SetText(ns:FormatTime(remaining))
-        elseif textFormat == "STACKS" then
-            bar.nameText:SetText(data.stacks and tostring(data.stacks) or "")
-        elseif textFormat == "CUSTOM" then
-            local fmt = display.customTextFormat or visual.customTextFormat or "%n %d"
-            local text = fmt:gsub("%%n", spellName):gsub("%%d", ns:FormatTime(remaining))
-            if data.stacks then
-                text = text:gsub("%%s", tostring(data.stacks))
-            else
-                text = text:gsub("%%s", "")
-            end
-            bar.nameText:SetText(text)
-        elseif textFormat == "NONE" then
-            bar.nameText:SetText("")
-        else
-            bar.nameText:SetText(spellName)
-        end
-    end
-
-    if bar.timeText and bar.timeText:IsShown() then
-        if textFormat == "NAME_DURATION" or textFormat == "DURATION" then
-            bar.timeText:SetText(ns:FormatTime(remaining))
-        elseif textFormat == "NAME_STACKS" or textFormat == "STACKS" then
-            bar.timeText:SetText(data.stacks and tostring(data.stacks) or "")
-        else
-            bar.timeText:SetText("")
-        end
-    end
-
-    -- Update spark position
-    if bar.sparkFrame and bar.sparkFrame:IsShown() then
-        local barWidth = bar:GetWidth()
-        local direction = display.progressDirection or "LTR"
-        local sparkX
-        if direction == "RTL" then
-            sparkX = barWidth * (1 - progress)
-        else
-            sparkX = barWidth * progress
-        end
-        bar.sparkFrame:ClearAllPoints()
-        bar.sparkFrame:SetPoint("CENTER", bar, "LEFT", sparkX, 0)
-    end
-
-    -- Alpha handling
-    local activeAlpha = visual.activeAlpha or 1.0
-    local inactiveAlpha = visual.inactiveAlpha or 0.3
-    if remaining > 0 then
-        bar:SetAlpha(activeAlpha)
-    else
-        bar:SetAlpha(inactiveAlpha)
-    end
-end

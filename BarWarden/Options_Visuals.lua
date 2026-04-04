@@ -34,6 +34,11 @@ local function CreateVisualsTab(parent)
 
     local barWidthSlider = ns:CreateSlider(content, "Bar Width", 50, 400, 5, function(self, value)
         BarWardenDB.visual.barWidth = value
+        if BarWardenDB.frames then
+            for _, f in ipairs(BarWardenDB.frames) do
+                f.width = value
+            end
+        end
         ns:RefreshAllBars()
     end)
     barWidthSlider:SetPoint("TOPLEFT", dimHeader, "BOTTOMLEFT", 4, -20)
@@ -53,11 +58,22 @@ local function CreateVisualsTab(parent)
     iconSizeSlider:SetPoint("TOPLEFT", barHeightSlider, "BOTTOMLEFT", 0, -30)
     iconSizeSlider:SetWidth(200)
 
+    -- Icon position toggle (below icon size slider in left column)
+    local iconPosItems = {
+        { text = "Left",  value = "LEFT" },
+        { text = "Right", value = "RIGHT" },
+    }
+    local iconPosDD = ns:CreateDropdown(content, "Icon Position", iconPosItems, function(dd, value)
+        BarWardenDB.visual.iconPosition = value
+        ns:RefreshAllBars()
+    end)
+    iconPosDD:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -16, -36)
+
     local borderSizeSlider = ns:CreateSlider(content, "Border Size", 0, 4, 1, function(self, value)
         BarWardenDB.visual.borderSize = value
         ns:RefreshAllBars()
     end)
-    borderSizeSlider:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", 0, -30)
+    borderSizeSlider:SetPoint("TOPLEFT", iconPosDD, "BOTTOMLEFT", 20, -24)
     borderSizeSlider:SetWidth(200)
 
     local barSpacingSlider = ns:CreateSlider(content, "Bar Spacing", 0, 10, 1, function(self, value)
@@ -91,7 +107,7 @@ local function CreateVisualsTab(parent)
         end
         ns:RefreshAllBars()
     end)
-    colorModeDD:SetPoint("TOPLEFT", colorHeader, "BOTTOMLEFT", -16, -8)
+    colorModeDD:SetPoint("TOPLEFT", colorHeader, "BOTTOMLEFT", -16, -28)
 
     colorSwatch = ns:CreateColorSwatch(content, "Default Bar Color",
         nil,
@@ -275,7 +291,7 @@ local function CreateVisualsTab(parent)
         end
         ns:RefreshAllBars()
     end)
-    textureDD:SetPoint("TOPLEFT", texHeader, "BOTTOMLEFT", -16, -8)
+    textureDD:SetPoint("TOPLEFT", texHeader, "BOTTOMLEFT", -16, -28)
 
     customTexBox = ns:CreateEditBox(content, "Custom Texture Filename", 150, function(self, text)
         BarWardenDB.visual.customTexture = text
@@ -299,6 +315,13 @@ local function CreateVisualsTab(parent)
         barWidthSlider:SetValue(v.barWidth or 200)
         barHeightSlider:SetValue(v.barHeight or 20)
         iconSizeSlider:SetValue(v.iconSize or 20)
+        for i, item in ipairs(iconPosItems) do
+            if item.value == (v.iconPosition or "LEFT") then
+                UIDropDownMenu_SetSelectedID(iconPosDD, i)
+                UIDropDownMenu_SetText(iconPosDD, item.text)
+                break
+            end
+        end
         borderSizeSlider:SetValue(v.borderSize or 1)
         barSpacingSlider:SetValue(v.barSpacing or 2)
 

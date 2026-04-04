@@ -6,7 +6,6 @@ local addonName, ns = ...
 
 local TRACK_MODES = { "Cooldown", "Buff", "Debuff", "Proc", "Item", "Custom" }
 local TARGET_UNITS = { "player", "target", "focus", "pet", "mouseover" }
-local PROGRESS_DIRS = { "LTR", "RTL" }
 local GROUP_LIST_HEIGHT = 16
 local BAR_LIST_HEIGHT = 16
 local MAX_GROUP_ROWS = 5
@@ -55,7 +54,8 @@ local function NewGroup(name)
         visible = true,
         position = { point = "CENTER", relativePoint = "CENTER", x = 0, y = 0 },
         width = 200,
-        height = nil,
+        columns = 1,
+        bgAlpha = 0.6,
         scale = 1.0,
         bars = {},
     }
@@ -179,8 +179,9 @@ local function CreateBarsTab(parent)
     local groupNameEdit = ns:CreateEditBox(leftPanel, "Group Name", 170, function(self, text)
         if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
             BarWardenDB.frames[selectedGroupIndex].name = text
+            local gf = ns.groupFrames[selectedGroupIndex]
+            if gf and gf.titleText then gf.titleText:SetText(text) end
             frame:Refresh()
-            ns:RebuildAllFrames()
         end
     end)
     groupNameEdit:SetPoint("TOPLEFT", addGroupBtn, "BOTTOMLEFT", 0, -20)
@@ -189,7 +190,8 @@ local function CreateBarsTab(parent)
     local groupWidthSlider = ns:CreateSlider(leftPanel, "Width", 50, 400, 5, function(self, value)
         if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
             BarWardenDB.frames[selectedGroupIndex].width = value
-            ns:RebuildAllFrames()
+            local gf = ns.groupFrames[selectedGroupIndex]
+            if gf then ns:UpdateGroupLayout(gf) end
         end
     end)
     groupWidthSlider:SetPoint("TOPLEFT", groupNameEdit, "BOTTOMLEFT", 4, -24)
@@ -206,6 +208,24 @@ local function CreateBarsTab(parent)
     end)
     groupScaleSlider:SetPoint("TOPLEFT", groupWidthSlider, "BOTTOMLEFT", 0, -30)
     groupScaleSlider:SetWidth(160)
+
+    -- Group columns slider (1-4)
+    local groupColumnsSlider = ns:CreateSlider(leftPanel, "Columns", 1, 4, 1, function(self, value)
+        if selectedGroupIndex then
+            ns:SetGroupColumns(selectedGroupIndex, value)
+        end
+    end)
+    groupColumnsSlider:SetPoint("TOPLEFT", groupScaleSlider, "BOTTOMLEFT", 0, -30)
+    groupColumnsSlider:SetWidth(160)
+
+    -- Group background opacity slider
+    local groupBgAlphaSlider = ns:CreateSlider(leftPanel, "Background Opacity", 0, 1, 0.05, function(self, value)
+        if selectedGroupIndex then
+            ns:SetGroupBgAlpha(selectedGroupIndex, value)
+        end
+    end)
+    groupBgAlphaSlider:SetPoint("TOPLEFT", groupColumnsSlider, "BOTTOMLEFT", 0, -30)
+    groupBgAlphaSlider:SetWidth(160)
 
     -- ========================================================================
     -- RIGHT PANEL: Bar List + Bar Editor
@@ -357,7 +377,21 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.enabled = checked
-            ns:RebuildAllFrames()
+            for _, liveBar in ipairs(ns:GetAllBars()) do
+                if liveBar.barData == bar then
+                    if checked then
+                        local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+                        liveBar:SetAlpha(visual.inactiveAlpha or 0.3)
+                        liveBar:Show()
+                    else
+                        ns:DeactivateBar(liveBar)
+                        liveBar:Hide()
+                    end
+                    break
+                end
+            end
+            local gf = selectedGroupIndex and ns.groupFrames[selectedGroupIndex]
+            if gf then ns:UpdateGroupLayout(gf) end
         end
     end)
     barEnabledCB:SetPoint("TOPLEFT", editorHeader, "BOTTOMLEFT", 0, -4)
@@ -370,21 +404,24 @@ local function CreateBarsTab(parent)
             frame:Refresh()
         end
     end)
-    barNameEdit:SetPoint("TOPLEFT", barEnabledCB, "BOTTOMLEFT", 0, -18)
+    barNameEdit:SetPoint("TOPLEFT", barEnabledCB, "BOTTOMLEFT", 6, -18)
 
     -- Spell Name / ID
     local spellEdit = ns:CreateEditBox(ec, "Spell Name or ID", 140, function(self, text)
         local bar = frame:GetSelectedBar()
         if bar then
+            -- Clear all legacy fields so old values don't override the new one
+            bar.spell = nil
+            bar.spellInput = nil
             local id = tonumber(text)
             if id then
                 bar.spellId = id
-                bar.spellName = text
+                bar.spellName = nil
             else
                 bar.spellId = nil
                 bar.spellName = text
             end
-            ns:RebuildAllFrames()
+            ns:ScanAllBars()
         end
     end)
     spellEdit:SetPoint("TOPLEFT", barNameEdit, "BOTTOMLEFT", 0, -18)
@@ -394,7 +431,7 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.onlyMine = checked
-            ns:RebuildAllFrames()
+            ns:ScanAllBars()
         end
     end)
     onlyMineCB:SetPoint("TOPLEFT", spellEdit, "BOTTOMLEFT", 0, -6)
@@ -404,7 +441,7 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.trackMode = value
-            ns:RebuildAllFrames()
+            ns:ScanAllBars()
         end
     end)
     trackModeDD:SetPoint("TOPLEFT", barNameEdit, "TOPRIGHT", 20, 16)
@@ -413,8 +450,9 @@ local function CreateBarsTab(parent)
     local targetDD = ns:CreateDropdown(ec, "Target", TARGET_UNITS, function(dd, value, index)
         local bar = frame:GetSelectedBar()
         if bar then
-            bar.target = value
-            ns:RebuildAllFrames()
+            bar.unit = value
+            bar.target = nil  -- clear legacy field so unit takes effect
+            ns:ScanAllBars()
         end
     end)
     targetDD:SetPoint("TOPLEFT", trackModeDD, "BOTTOMLEFT", 0, -18)
@@ -498,7 +536,7 @@ local function CreateBarsTab(parent)
             bar.conditions.healthBelow = (val and val > 0 and val <= 100) and val or nil
         end
     end)
-    healthEdit:SetPoint("TOPLEFT", showEmptyCB, "BOTTOMLEFT", 0, -18)
+    healthEdit:SetPoint("TOPLEFT", showEmptyCB, "BOTTOMLEFT", 6, -18)
 
     local requireBuffEdit = ns:CreateEditBox(ec, "Require Buff", 140, function(self, text)
         local bar = frame:GetSelectedBar()
@@ -516,29 +554,22 @@ local function CreateBarsTab(parent)
     displayHeader:SetPoint("TOPLEFT", requireBuffEdit, "BOTTOMLEFT", 0, -12)
     displayHeader:SetText("Display Options")
 
-    local progressDD = ns:CreateDropdown(ec, "Progress Direction", PROGRESS_DIRS, function(dd, value, index)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.progressDirection = value
-            ns:RebuildAllFrames()
-        end
-    end)
-    progressDD:SetPoint("TOPLEFT", displayHeader, "BOTTOMLEFT", -16, -20)
-
-    local lingerSlider = ns:CreateSlider(ec, "Linger Time", 0, 5, 0.5, function(self, value)
+    local lingerSlider = ns:CreateSlider(ec, "Linger Time (sec)", 0, 5, 0.5, function(self, value)
         local bar = frame:GetSelectedBar()
         if bar then bar.display.lingerTime = value end
     end)
-    lingerSlider:SetPoint("TOPLEFT", progressDD, "TOPRIGHT", 20, -12)
-    lingerSlider:SetWidth(120)
+    lingerSlider:SetPoint("TOPLEFT", displayHeader, "BOTTOMLEFT", 4, -24)
+    lingerSlider:SetWidth(180)
 
-    local showIconCB = ns:CreateCheckbox(ec, "Override Icon", "Override global icon setting", function(self, checked)
+    local showIconCB = ns:CreateCheckbox(ec, "Force Show Icon",
+        "Force this bar to show its icon regardless of the global icon setting.", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then bar.display.showIcon = checked or nil end
     end)
-    showIconCB:SetPoint("TOPLEFT", progressDD, "BOTTOMLEFT", 16, -6)
+    showIconCB:SetPoint("TOPLEFT", lingerSlider, "BOTTOMLEFT", 0, -24)
 
-    local showTextCB = ns:CreateCheckbox(ec, "Override Text", "Override global text setting", function(self, checked)
+    local showTextCB = ns:CreateCheckbox(ec, "Force Show Text",
+        "Force this bar to show its name/timer text regardless of the global text setting.", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then bar.display.showText = checked or nil end
     end)
@@ -548,7 +579,7 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.display.colorOverride = { r = color.r, g = color.g, b = color.b }
-            ns:RebuildAllFrames()
+            ns:RefreshAllBars()
         end
     end)
     colorSwatch:SetPoint("TOPLEFT", showTextCB, "BOTTOMLEFT", 0, -8)
@@ -582,7 +613,7 @@ local function CreateBarsTab(parent)
             }
         end
     end)
-    importBtn:SetPoint("TOPLEFT", groupScaleSlider, "BOTTOMLEFT", -4, -12)
+    importBtn:SetPoint("TOPLEFT", groupBgAlphaSlider, "BOTTOMLEFT", -4, -12)
 
     local exportBtn = ns:CreateButton(leftPanel, "Export", 82, function()
         if not selectedGroupIndex then return end
@@ -691,9 +722,10 @@ local function CreateBarsTab(parent)
             end
         end
 
-        -- Target dropdown
+        -- Target dropdown (bar.unit is canonical after migration; bar.target is legacy fallback)
+        local barUnit = bar.unit or bar.target or "player"
         for i, unit in ipairs(TARGET_UNITS) do
-            if unit == bar.target then
+            if unit == barUnit then
                 UIDropDownMenu_SetSelectedID(targetDD, i)
                 UIDropDownMenu_SetText(targetDD, unit)
                 break
@@ -712,13 +744,6 @@ local function CreateBarsTab(parent)
         requireBuffEdit:SetText(cond.requireBuff or "")
 
         -- Display options
-        for i, dir in ipairs(PROGRESS_DIRS) do
-            if dir == bar.display.progressDirection then
-                UIDropDownMenu_SetSelectedID(progressDD, i)
-                UIDropDownMenu_SetText(progressDD, dir)
-                break
-            end
-        end
         lingerSlider:SetValue(bar.display.lingerTime or 0)
         showIconCB:SetChecked(bar.display.showIcon)
         showTextCB:SetChecked(bar.display.showText)
@@ -740,6 +765,8 @@ local function CreateBarsTab(parent)
             groupNameEdit:Show()
             groupWidthSlider:SetValue(g.width or 200)
             groupScaleSlider:SetValue(g.scale or 1.0)
+            groupColumnsSlider:SetValue(g.columns or 1)
+            groupBgAlphaSlider:SetValue(g.bgAlpha ~= nil and g.bgAlpha or 0.6)
         else
             groupNameEdit:SetText("")
         end

@@ -80,22 +80,17 @@ local function Bar_OnUpdate(self, elapsed)
     self:SetMinMaxValues(0, 1)
     self:SetValue(progress)
 
-    -- Spark position update (every frame)
+    -- Spark position: manual calculation.
+    -- GetStatusBarTexture():RIGHT does not track the fill edge in WoW 3.3.5a —
+    -- the texture anchor reflects the full region, not the clipped fill width.
+    -- Multiplying barWidth * progress gives the correct pixel offset every frame,
+    -- and correctly follows mid-flight duration reductions (haste, talents, etc.).
     if self.sparkFrame and self.sparkFrame:IsShown() then
         local barWidth = self:GetWidth()
-        local display = self.barData and self.barData.display or {}
-        local direction = display.progressDirection or "LTR"
-        local sparkX
-        if direction == "RTL" then
-            sparkX = barWidth * (1 - progress)
-        else
-            sparkX = barWidth * progress
+        if barWidth and barWidth > 0 then
+            self.sparkFrame:ClearAllPoints()
+            self.sparkFrame:SetPoint("CENTER", self, "LEFT", barWidth * progress, 0)
         end
-        -- Clamp so the spark centre never goes outside bar bounds
-        local half = (self.sparkFrame:GetWidth() or 16) * 0.5
-        sparkX = math.max(half, math.min(barWidth - half, sparkX))
-        self.sparkFrame:ClearAllPoints()
-        self.sparkFrame:SetPoint("CENTER", self, "LEFT", sparkX, 0)
     end
 
     -- Throttled: expensive text formatting
@@ -129,28 +124,31 @@ function ns:ActivateBar(bar, expirationTime, duration)
     -- Set OnUpdate handler
     bar:SetScript("OnUpdate", Bar_OnUpdate)
 
-    -- Ensure the parent group frame is visible (covers the showAll=false case)
-    local parent = bar:GetParent()
-    if parent and not parent:IsShown() then
-        parent:Show()
-        if ns.UpdateGroupLayout then
-            ns:UpdateGroupLayout(parent)
-        end
-    end
-
     -- Apply visual config (texture, color, text) now that the bar is activating
     if ns.ApplyVisualConfig then
         ns:ApplyVisualConfig(bar)
     end
 
+    -- Icon and name are set by the caller (ScanBar) from CheckTracker results.
+
+    -- Ensure the parent group frame is visible and layout is updated
+    local parent = bar:GetParent()
+    if parent then
+        if not parent:IsShown() then
+            parent:Show()
+        end
+        if ns.UpdateGroupLayout then
+            ns:UpdateGroupLayout(parent)
+        end
+    end
+
     local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
     bar:SetAlpha(visual.activeAlpha or 1.0)
 
-    -- Update displayed name and icon
-    if bar.nameText then
+    -- Name is set by caller; here we ensure the field is non-nil at minimum.
+    if bar.nameText and bar.nameText:GetText() == "" then
         local bd = bar.barData
-        local displayName = bd and (bd.spellName or bd.name or
-            (type(bd.spell) == "string" and bd.spell or nil) or "") or ""
+        local displayName = (bd and (bd.spellName or bd.name)) or ""
         bar.nameText:SetText(displayName)
     end
 
@@ -178,6 +176,14 @@ function ns:DeactivateBar(bar)
 
     -- Reset bar display
     bar:SetValue(0)
+
+    -- Reset spark to the left edge so it doesn't float mid-bar on an inactive bar.
+    -- OnUpdate is already stopped so nothing will reposition it until reactivation.
+    if bar.sparkFrame then
+        bar.sparkFrame:ClearAllPoints()
+        bar.sparkFrame:SetPoint("CENTER", bar, "LEFT", 0, 0)
+    end
+
     -- Keep name visible so user can see which spell the bar tracks
     if bar.nameText then
         local bd = bar.barData
@@ -243,185 +249,98 @@ end
 
 -- Hide a bar that fails conditions without disrupting active tracking state
 local function HideBarForConditions(bar)
+    if bar.barState == BAR_STATE.ACTIVE then
+        bar:SetScript("OnUpdate", nil)
+        activeBars[bar] = nil
+        bar.barState = BAR_STATE.INACTIVE
+        bar:SetValue(0)
+    end
     bar:Hide()
-    bar:SetScript("OnUpdate", nil)
-    activeBars[bar] = nil
-    bar.barState = BAR_STATE.INACTIVE
 end
 
--- ----------------------------------------------------------------------------
--- Spell resolution helper
--- Resolves a spell name string to its numeric ID via GetSpellInfo so that
--- GetSpellCooldown gets the most reliable input in WoW 3.3.5a.
--- ----------------------------------------------------------------------------
-
-local spellIdCache = {}
-
-local function ResolveSpell(spellInput)
-    if not spellInput then return nil end
-    if type(spellInput) == "number" then return spellInput end
-    -- Check cache first
-    if spellIdCache[spellInput] then return spellIdCache[spellInput] end
-    -- Resolve name → ID
-    local spellId = select(7, GetSpellInfo(spellInput))
-    if spellId then
-        spellIdCache[spellInput] = spellId
-        return spellId
+-- Ensure a bar is shown at inactive alpha (restores it when conditions become met)
+local function EnsureBarVisible(bar)
+    if bar:IsShown() then return end
+    local cond = bar.barData and bar.barData.conditions
+    if cond and cond.hideWhenInactive then return end
+    local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+    bar:SetAlpha(visual.inactiveAlpha or 0.3)
+    bar:Show()
+    -- If showAll=true the group should always be visible
+    local parent = bar:GetParent()
+    if parent and not parent:IsShown() and BarWardenDB and BarWardenDB.global.showAll then
+        parent:Show()
+        if ns.UpdateGroupLayout then ns:UpdateGroupLayout(parent) end
     end
-    -- Fall back to raw string if GetSpellInfo didn't find it
-    return spellInput
 end
 
 -- ----------------------------------------------------------------------------
--- Per-Mode Scan Dispatchers
+-- ScanBar: Evaluate one bar against current game state via Trackers.lua.
+-- unitFilter: if set, Buff/Debuff/Proc bars targeting other units are skipped.
 -- ----------------------------------------------------------------------------
 
-local function ScanCooldownBars(bars)
-    for _, bar in ipairs(bars) do
-        if bar.barData and bar.barData.trackMode == "Cooldown" and bar.barData.enabled then
-            if not BarConditionsMet(bar) then
-                HideBarForConditions(bar)
-            else
-                -- Support both old schema (.spell/.spellInput) and UI schema (.spellId/.spellName)
-                local spellInput = bar.barData.spellInput or bar.barData.spell
-                    or bar.barData.spellId or bar.barData.spellName
-                if spellInput then
-                    local resolved = ResolveSpell(spellInput)
-                    local start, duration, enabled = GetSpellCooldown(resolved)
-                    if enabled == 1 and duration and duration > GCD_THRESHOLD then
-                        local expirationTime = start + duration
-                        if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expirationTime then
-                            ns:ActivateBar(bar, expirationTime, duration)
-                        end
-                    elseif bar.barState == BAR_STATE.ACTIVE then
-                        -- Cooldown ended or was GCD
-                        local display = bar.barData.display or {}
-                        local lingerTime = display.lingerTime or 0
-                        if lingerTime > 0 then
-                            bar.barState = BAR_STATE.LINGERING
-                            bar.lingerRemaining = lingerTime
-                            bar:SetValue(0)
-                        else
-                            ns:DeactivateBar(bar)
-                        end
-                    end
-                end
-            end
+local function ScanBar(bar, unitFilter)
+    local bd = bar.barData
+    if not bd or bd.enabled == false then return end
+
+    -- Unit filter: skip Buff/Debuff/Proc bars not matching the event's unit
+    if unitFilter then
+        local mode = bd.trackMode
+        if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
+            local defaultUnit = (mode == "Debuff") and "target" or "player"
+            local barUnit = bd.unit or defaultUnit
+            if barUnit ~= unitFilter then return end
         end
     end
-end
 
-local function ScanBuffBars(bars, unit)
-    for _, bar in ipairs(bars) do
-        if bar.barData and bar.barData.trackMode == "Buff" and bar.barData.enabled then
-            local targetUnit = bar.barData.unit or bar.barData.target or "player"
-            if not unit or unit == targetUnit then
-                if not BarConditionsMet(bar) then
-                    HideBarForConditions(bar)
-                else
-                    local spellName = bar.barData.spellName or bar.barData.spellInput or bar.barData.spell
-                    -- Also try resolving to canonical name via GetSpellInfo
-                    if spellName and type(spellName) ~= "string" then
-                        spellName = select(1, GetSpellInfo(spellName)) or tostring(spellName)
-                    end
-                    if spellName then
-                        local found = false
-                        for i = 1, 40 do
-                            local name, _, _, _, _, duration, expTime = UnitBuff(targetUnit, i)
-                            if not name then break end
-                            if name == spellName then
-                                found = true
-                                if duration and duration > 0 then
-                                    if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expTime then
-                                        ns:ActivateBar(bar, expTime, duration)
-                                    end
-                                end
-                                break
-                            end
-                        end
-                        if not found and bar.barState == BAR_STATE.ACTIVE then
-                            ns:DeactivateBar(bar)
-                        end
-                    end
-                end
-            end
-        end
+    -- Condition check: hide bar without disrupting tracking state
+    if not BarConditionsMet(bar) then
+        HideBarForConditions(bar)
+        return
     end
-end
+    EnsureBarVisible(bar)
 
-local function ScanDebuffBars(bars, unit)
-    for _, bar in ipairs(bars) do
-        if bar.barData and bar.barData.trackMode == "Debuff" and bar.barData.enabled then
-            local targetUnit = bar.barData.unit or bar.barData.target or "target"
-            if not unit or unit == targetUnit then
-                if not BarConditionsMet(bar) then
-                    HideBarForConditions(bar)
-                else
-                    local spellName = bar.barData.spellName or bar.barData.spellInput or bar.barData.spell
-                    if spellName and type(spellName) ~= "string" then
-                        spellName = select(1, GetSpellInfo(spellName)) or tostring(spellName)
-                    end
-                    if spellName then
-                        local found = false
-                        for i = 1, 40 do
-                            local name, _, _, _, _, duration, expTime = UnitDebuff(targetUnit, i)
-                            if not name then break end
-                            if name == spellName then
-                                found = true
-                                if duration and duration > 0 then
-                                    if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expTime then
-                                        ns:ActivateBar(bar, expTime, duration)
-                                    end
-                                end
-                                break
-                            end
-                        end
-                        if not found and bar.barState == BAR_STATE.ACTIVE then
-                            ns:DeactivateBar(bar)
-                        end
-                    end
-                end
-            end
+    -- Dispatch to canonical tracker (Trackers.lua)
+    local isActive, remaining, duration, icon, name = ns:CheckTracker(bd)
+
+    if isActive and remaining and remaining > 0 then
+        local expirationTime = GetTime() + remaining
+        -- Use 0.05s tolerance to suppress redundant ActivateBar calls from server jitter,
+        -- but always sync icon and name so spell changes take effect immediately.
+        if bar.barState ~= BAR_STATE.ACTIVE
+           or math.abs((bar.expirationTime or 0) - expirationTime) > 0.05 then
+            ns:ActivateBar(bar, expirationTime, duration or remaining)
         end
-    end
-end
-
-local function ScanItemBars(bars)
-    for _, bar in ipairs(bars) do
-        if bar.barData and bar.barData.trackMode == "Item" and bar.barData.enabled then
-            if not BarConditionsMet(bar) then
-                HideBarForConditions(bar)
-            else
-                local itemId = bar.barData.itemId or bar.barData.spellInput
-                    or bar.barData.spell or bar.barData.spellId or bar.barData.spellName
-                if itemId then
-                    local start, duration, enabled = GetItemCooldown(itemId)
-                    if enabled == 1 and duration and duration > GCD_THRESHOLD then
-                        local expirationTime = start + duration
-                        if bar.barState ~= BAR_STATE.ACTIVE or bar.expirationTime ~= expirationTime then
-                            ns:ActivateBar(bar, expirationTime, duration)
-                        end
-                    elseif bar.barState == BAR_STATE.ACTIVE then
-                        ns:DeactivateBar(bar)
-                    end
-                end
-            end
+        if bar.iconTexture and icon then
+            bar.iconTexture:SetTexture(icon)
+        end
+        if bar.nameText and name then
+            bar.nameText:SetText(name)
+        end
+    elseif bar.barState == BAR_STATE.ACTIVE then
+        local lingerTime = (bd.display and bd.display.lingerTime) or 0
+        if lingerTime > 0 then
+            bar.barState = BAR_STATE.LINGERING
+            bar.lingerRemaining = lingerTime
+            bar:SetValue(0)
+            if bar.timeText then bar.timeText:SetText("0.0") end
+        else
+            ns:DeactivateBar(bar)
         end
     end
 end
 
 -- ----------------------------------------------------------------------------
--- ScanAllBars: Check all registered bars against current game state
+-- ScanAllBars: Check all registered bars against current game state.
+-- unit: optional unit filter passed to ScanBar for Buff/Debuff/Proc bars.
 -- ----------------------------------------------------------------------------
 
 function ns:ScanAllBars(unit)
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
-
-    ScanCooldownBars(bars)
-    ScanBuffBars(bars, unit)
-    ScanDebuffBars(bars, unit)
-    ScanItemBars(bars)
+    for _, bar in ipairs(bars) do
+        ScanBar(bar, unit)
+    end
 end
 
 -- ----------------------------------------------------------------------------
@@ -449,43 +368,59 @@ end
 
 -- ----------------------------------------------------------------------------
 -- Event Handler Hooks (called from Events.lua dispatch)
+-- Each handler filters bars by relevant track mode(s) to avoid wasteful scans.
 -- ----------------------------------------------------------------------------
 
 function ns:OnSpellCooldownUpdate()
     local bars = ns:GetAllBars()
-    if bars and #bars > 0 then
-        ScanCooldownBars(bars)
+    if not bars or #bars == 0 then return end
+    for _, bar in ipairs(bars) do
+        if bar.barData and bar.barData.trackMode == "Cooldown" then
+            ScanBar(bar, nil)
+        end
     end
 end
 
 function ns:OnUnitAura(unit)
     local bars = ns:GetAllBars()
-    if bars and #bars > 0 then
-        ScanBuffBars(bars, unit)
-        ScanDebuffBars(bars, unit)
+    if not bars or #bars == 0 then return end
+    for _, bar in ipairs(bars) do
+        local mode = bar.barData and bar.barData.trackMode
+        if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
+            ScanBar(bar, unit)
+        end
     end
 end
 
-function ns:OnTargetChanged(unit)
+function ns:OnTargetChanged()
     local bars = ns:GetAllBars()
-    if bars and #bars > 0 then
-        ScanDebuffBars(bars, "target")
-        ScanBuffBars(bars, "target")
+    if not bars or #bars == 0 then return end
+    for _, bar in ipairs(bars) do
+        local mode = bar.barData and bar.barData.trackMode
+        if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
+            ScanBar(bar, "target")
+        end
     end
 end
 
-function ns:OnFocusChanged(unit)
+function ns:OnFocusChanged()
     local bars = ns:GetAllBars()
-    if bars and #bars > 0 then
-        ScanDebuffBars(bars, "focus")
-        ScanBuffBars(bars, "focus")
+    if not bars or #bars == 0 then return end
+    for _, bar in ipairs(bars) do
+        local mode = bar.barData and bar.barData.trackMode
+        if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
+            ScanBar(bar, "focus")
+        end
     end
 end
 
 function ns:OnBagCooldownUpdate()
     local bars = ns:GetAllBars()
-    if bars and #bars > 0 then
-        ScanItemBars(bars)
+    if not bars or #bars == 0 then return end
+    for _, bar in ipairs(bars) do
+        if bar.barData and bar.barData.trackMode == "Item" then
+            ScanBar(bar, nil)
+        end
     end
 end
 
@@ -504,10 +439,6 @@ function ns:OnGroupChanged()
 end
 
 function ns:OnUnitHealth(unit)
-    -- Re-evaluate health-threshold conditions
-    local bars = ns:GetAllBars()
-    if bars and #bars > 0 then
-        ScanBuffBars(bars, unit)
-        ScanDebuffBars(bars, unit)
-    end
+    -- Re-evaluate health-threshold conditions (unit may affect requireBuff check)
+    ns:ScanAllBars()
 end

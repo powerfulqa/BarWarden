@@ -87,12 +87,6 @@ local function OnUnitAura(event, unit)
     end
 end
 
-local function OnCombatLogEvent(event, ...)
-    if ns.OnCombatLogEvent then
-        ns:OnCombatLogEvent(...)
-    end
-end
-
 local function OnTargetChanged(event, ...)
     if ns.OnTargetChanged then
         ns:OnTargetChanged("target")
@@ -149,7 +143,6 @@ local GAMEPLAY_EVENTS = {
     { "SPELL_UPDATE_COOLDOWN",          OnSpellCooldownUpdate },
     { "ACTIONBAR_UPDATE_COOLDOWN",      OnActionbarCooldownUpdate },
     { "UNIT_AURA",                      OnUnitAura },
-    { "COMBAT_LOG_EVENT_UNFILTERED",    OnCombatLogEvent },
     { "PLAYER_TARGET_CHANGED",          OnTargetChanged },
     { "PLAYER_FOCUS_CHANGED",           OnFocusChanged },
     { "PLAYER_REGEN_ENABLED",           OnCombatStateChanged },

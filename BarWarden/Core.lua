@@ -40,6 +40,12 @@ function ns:RefreshAllBars()
                 if ns.ApplyVisualConfig then
                     ns:ApplyVisualConfig(bar)
                 end
+                local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+                if bar.barState == ns.BAR_STATE.ACTIVE then
+                    bar:SetAlpha(visual.activeAlpha or 1.0)
+                else
+                    bar:SetAlpha(visual.inactiveAlpha or 0.3)
+                end
             end
         end
         if ns.UpdateGroupLayout then
@@ -159,23 +165,92 @@ local function SlashHandler(msg)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw show        Toggle frame visibility", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw reset       Reset all frame positions", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw debug       Dump addon state to chat", 1, 1, 1)
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw scan        Live-test spell/item lookups for all bars", 1, 1, 1)
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw trackers    Show live tracker state for all bars", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw help        Show this message", 1, 1, 1)
     elseif cmd == "debug" then
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Debug:|r")
         DEFAULT_CHAT_FRAME:AddMessage("  DB loaded: " .. tostring(ns.db ~= nil))
         DEFAULT_CHAT_FRAME:AddMessage("  Enabled: " .. tostring(ns.db and ns.db.global.enabled))
         DEFAULT_CHAT_FRAME:AddMessage("  ShowAll: " .. tostring(ns.db and ns.db.global.showAll))
+        DEFAULT_CHAT_FRAME:AddMessage("  Schema version: " .. tostring(ns.db and ns.db.schemaVersion or "nil"))
         DEFAULT_CHAT_FRAME:AddMessage("  Bars in cache: " .. tostring(#(ns.allBars or {})))
         local gCount = 0
         for _ in pairs(ns.groupFrames or {}) do gCount = gCount + 1 end
         DEFAULT_CHAT_FRAME:AddMessage("  Group frames: " .. gCount)
-        -- Show first few bar configs to diagnose spell name issues
         for i, bar in ipairs(ns.allBars or {}) do
-            if i > 3 then break end
             local bd = bar.barData
             if bd then
-                DEFAULT_CHAT_FRAME:AddMessage(string.format("  Bar %d: mode=%s spell=%s enabled=%s",
-                    i, tostring(bd.trackMode), tostring(bd.spellName or bd.spell or bd.spellId or "nil"), tostring(bd.enabled)))
+                DEFAULT_CHAT_FRAME:AddMessage(string.format("  Bar %d: mode=%s spell=%s state=%s",
+                    i, tostring(bd.trackMode), tostring(bd.spellName or bd.spellId or bd.itemId or "nil"),
+                    tostring(bar.barState)))
+            end
+        end
+    elseif cmd == "scan" then
+        -- Live diagnostic: test GetSpellInfo and GetSpellCooldown for each bar
+        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Scan:|r")
+        local bars = ns.allBars or {}
+        if #bars == 0 then
+            DEFAULT_CHAT_FRAME:AddMessage("  No bars in cache. Try /reload then /bw scan.")
+            return
+        end
+        for i, bar in ipairs(bars) do
+            local bd = bar.barData
+            if not bd then
+                DEFAULT_CHAT_FRAME:AddMessage(string.format("  Bar %d: no barData", i))
+            else
+                local spellInput = bd.spellId or bd.spellName or bd.spellInput or bd.spell
+                local mode = bd.trackMode or "?"
+                if mode == "Cooldown" then
+                    local resolvedId = nil
+                    local siName = nil
+                    if spellInput then
+                        siName, _, _, _, _, _, resolvedId = GetSpellInfo(spellInput)
+                    end
+                    -- Mirror ResolveSpell: treat id=0 as invalid, fall back to name string
+                    local cdInput = (resolvedId and resolvedId ~= 0) and resolvedId or spellInput
+                    local cdStart, cdDur, cdEnabled = nil, nil, nil
+                    if cdInput then
+                        cdStart, cdDur, cdEnabled = GetSpellCooldown(cdInput)
+                    end
+                    DEFAULT_CHAT_FRAME:AddMessage(string.format(
+                        "  Bar %d [CD] input=%s siName=%s id=%s cdInput=%s | start=%.1f dur=%.1f en=%s",
+                        i, tostring(spellInput), tostring(siName), tostring(resolvedId), tostring(cdInput),
+                        cdStart or 0, cdDur or 0, tostring(cdEnabled)))
+                elseif mode == "Item" then
+                    local itemId = bd.itemId or spellInput
+                    local cdStart, cdDur, cdEnabled = nil, nil, nil
+                    if itemId then
+                        cdStart, cdDur, cdEnabled = GetItemCooldown(itemId)
+                    end
+                    DEFAULT_CHAT_FRAME:AddMessage(string.format(
+                        "  Bar %d [Item] id=%s | start=%.1f dur=%.1f en=%s",
+                        i, tostring(itemId), cdStart or 0, cdDur or 0, tostring(cdEnabled)))
+                else
+                    DEFAULT_CHAT_FRAME:AddMessage(string.format(
+                        "  Bar %d [%s] spell=%s", i, mode, tostring(spellInput)))
+                end
+            end
+        end
+    elseif cmd == "trackers" then
+        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Trackers:|r")
+        local bars = ns.allBars or {}
+        if #bars == 0 then
+            DEFAULT_CHAT_FRAME:AddMessage("  No bars in cache. Try /reload then /bw trackers.")
+            return
+        end
+        for i, bar in ipairs(bars) do
+            local bd = bar.barData
+            if bd then
+                local isActive, remaining, duration = ns:CheckTracker(bd)
+                DEFAULT_CHAT_FRAME:AddMessage(string.format(
+                    "  Bar %d [%s] %s | active=%s remaining=%.1f duration=%.1f",
+                    i,
+                    tostring(bd.trackMode or "?"),
+                    tostring(bd.spellName or bd.spellId or bd.itemId or "?"),
+                    tostring(isActive),
+                    remaining or 0,
+                    duration or 0))
             end
         end
     elseif cmd == "enable" then
