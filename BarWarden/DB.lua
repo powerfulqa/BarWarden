@@ -31,7 +31,7 @@ ns.VISUAL_PRESETS = {
         barSpacing = 2,
         fontSize = 11,
         textPosition = "INSIDE_LEFT",
-        texture = "Smooth",
+        texture = "Flat",
         showSpark = true,
         defaultColor = { r = 0.2, g = 0.6, b = 1.0 },
     },
@@ -118,7 +118,6 @@ ns.DEFAULTS = {
             width = 200,
             columns = 1,
             bgAlpha = 0.6,
-            borderAlpha = 0.8,
             scale = 1.0,
             bars = {
                 {
@@ -157,7 +156,7 @@ ns.DEFAULTS = {
 -- Runs only when BarWardenDB.schemaVersion is absent or below current.
 -- Safe: only writes to nil keys, never overwrites non-nil user data.
 -- ----------------------------------------------------------------------------
-local CURRENT_SCHEMA = 2
+local CURRENT_SCHEMA = 1
 
 local function MigrateDB()
     local savedVersion = BarWardenDB.schemaVersion or 0
@@ -169,6 +168,7 @@ local function MigrateDB()
     if savedVersion < 1 then
         for _, frameData in ipairs(BarWardenDB.frames or {}) do
             for _, bar in ipairs(frameData.bars or {}) do
+                -- Migrate spell field
                 local s = bar.spell
                 if s ~= nil then
                     if type(s) == "number" then
@@ -182,31 +182,15 @@ local function MigrateDB()
                     end
                     bar.spell = nil
                 end
+                -- Migrate spellInput field
                 if bar.spellInput ~= nil then
                     if bar.spellName == nil then bar.spellName = bar.spellInput end
                     bar.spellInput = nil
                 end
+                -- Migrate target → unit
                 if bar.target ~= nil then
                     if bar.unit == nil then bar.unit = bar.target end
                     bar.target = nil
-                end
-            end
-        end
-    end
-
-    -- v1 → v2: fix saves corrupted by MergeDefaults recursing into user frames.
-    -- The old InitDB merged the sample default frame (spell=6948 Hearthstone)
-    -- into user bars. v1 migration then turned that into spellId=6948 on
-    -- Cooldown bars even when the user had set spellName (e.g. "Evasion").
-    -- Fix: for non-Item bars, if both spellName and spellId are set, the spellId
-    -- was injected by the bug (the UI only sets one or the other). Clear it.
-    if savedVersion < 2 then
-        for _, frameData in ipairs(BarWardenDB.frames or {}) do
-            for _, bar in ipairs(frameData.bars or {}) do
-                if bar.trackMode ~= "Item"
-                    and bar.spellName and bar.spellName ~= ""
-                    and bar.spellId ~= nil then
-                    bar.spellId = nil
                 end
             end
         end
@@ -219,27 +203,8 @@ function ns:InitDB()
     if not BarWardenDB then
         BarWardenDB = ns:CopyTable(ns.DEFAULTS)
     else
-        -- Merge only 'global' and 'visual' — these may have new keys added
-        -- across versions and need default values filled in for them.
-        -- NEVER recurse into 'frames' or 'profiles': those are user data.
-        -- Merging the sample default frame into user frames corrupts bar configs.
-        if type(BarWardenDB.global) ~= "table" then
-            BarWardenDB.global = ns:CopyTable(ns.DEFAULTS.global)
-        else
-            ns:MergeDefaults(BarWardenDB.global, ns.DEFAULTS.global)
-        end
-        if type(BarWardenDB.visual) ~= "table" then
-            BarWardenDB.visual = ns:CopyTable(ns.DEFAULTS.visual)
-        else
-            ns:MergeDefaults(BarWardenDB.visual, ns.DEFAULTS.visual)
-        end
-        -- Only initialize frames/profiles if completely absent
-        if type(BarWardenDB.frames) ~= "table" then
-            BarWardenDB.frames = ns:CopyTable(ns.DEFAULTS.frames)
-        end
-        if type(BarWardenDB.profiles) ~= "table" then
-            BarWardenDB.profiles = {}
-        end
+        -- Deep-merge: add any new default keys missing from saved data
+        ns:MergeDefaults(BarWardenDB, ns.DEFAULTS)
         MigrateDB()
     end
     ns.db = BarWardenDB

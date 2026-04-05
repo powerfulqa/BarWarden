@@ -56,7 +56,6 @@ local function NewGroup(name)
         width = 200,
         columns = 1,
         bgAlpha = 0.6,
-        borderAlpha = 0.8,
         scale = 1.0,
         bars = {},
     }
@@ -78,8 +77,8 @@ local function CreateBarsTab(parent)
     -- LEFT PANEL: Group List
     -- ========================================================================
     local leftPanel = CreateFrame("Frame", nil, frame)
-    leftPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -76)
-    leftPanel:SetSize(180, 420)
+    leftPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -80)
+    leftPanel:SetSize(180, 360)
 
     local groupHeader = leftPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     groupHeader:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", 0, 0)
@@ -185,7 +184,7 @@ local function CreateBarsTab(parent)
             frame:Refresh()
         end
     end)
-    groupNameEdit:SetPoint("TOPLEFT", addGroupBtn, "BOTTOMLEFT", 0, -10)
+    groupNameEdit:SetPoint("TOPLEFT", addGroupBtn, "BOTTOMLEFT", 0, -20)
 
     -- Group width slider
     local groupWidthSlider = ns:CreateSlider(leftPanel, "Width", 50, 400, 5, function(self, value)
@@ -195,7 +194,7 @@ local function CreateBarsTab(parent)
             if gf then ns:UpdateGroupLayout(gf) end
         end
     end)
-    groupWidthSlider:SetPoint("TOPLEFT", groupNameEdit, "BOTTOMLEFT", 4, -18)
+    groupWidthSlider:SetPoint("TOPLEFT", groupNameEdit, "BOTTOMLEFT", 4, -24)
     groupWidthSlider:SetWidth(160)
 
     -- Group scale slider
@@ -207,7 +206,7 @@ local function CreateBarsTab(parent)
             end
         end
     end)
-    groupScaleSlider:SetPoint("TOPLEFT", groupWidthSlider, "BOTTOMLEFT", 0, -18)
+    groupScaleSlider:SetPoint("TOPLEFT", groupWidthSlider, "BOTTOMLEFT", 0, -30)
     groupScaleSlider:SetWidth(160)
 
     -- Group columns slider (1-4)
@@ -216,7 +215,7 @@ local function CreateBarsTab(parent)
             ns:SetGroupColumns(selectedGroupIndex, value)
         end
     end)
-    groupColumnsSlider:SetPoint("TOPLEFT", groupScaleSlider, "BOTTOMLEFT", 0, -18)
+    groupColumnsSlider:SetPoint("TOPLEFT", groupScaleSlider, "BOTTOMLEFT", 0, -30)
     groupColumnsSlider:SetWidth(160)
 
     -- Group background opacity slider
@@ -225,17 +224,8 @@ local function CreateBarsTab(parent)
             ns:SetGroupBgAlpha(selectedGroupIndex, value)
         end
     end)
-    groupBgAlphaSlider:SetPoint("TOPLEFT", groupColumnsSlider, "BOTTOMLEFT", 0, -18)
+    groupBgAlphaSlider:SetPoint("TOPLEFT", groupColumnsSlider, "BOTTOMLEFT", 0, -30)
     groupBgAlphaSlider:SetWidth(160)
-
-    -- Group border opacity slider
-    local groupBorderAlphaSlider = ns:CreateSlider(leftPanel, "Border Opacity", 0, 1, 0.05, function(self, value)
-        if selectedGroupIndex then
-            ns:SetGroupBorderAlpha(selectedGroupIndex, value)
-        end
-    end)
-    groupBorderAlphaSlider:SetPoint("TOPLEFT", groupBgAlphaSlider, "BOTTOMLEFT", 0, -18)
-    groupBorderAlphaSlider:SetWidth(160)
 
     -- ========================================================================
     -- RIGHT PANEL: Bar List + Bar Editor
@@ -276,25 +266,25 @@ local function CreateBarsTab(parent)
         local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         nameText:SetPoint("LEFT", row, "LEFT", 4, 0)
         nameText:SetJustifyH("LEFT")
-        nameText:SetWidth(110)
+        nameText:SetWidth(120)
         row.nameText = nameText
 
         local modeText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        modeText:SetPoint("LEFT", row, "LEFT", 118, 0)
+        modeText:SetPoint("LEFT", row, "LEFT", 128, 0)
         modeText:SetJustifyH("LEFT")
-        modeText:SetWidth(62)
+        modeText:SetWidth(70)
         row.modeText = modeText
 
         local targetText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        targetText:SetPoint("LEFT", row, "LEFT", 184, 0)
+        targetText:SetPoint("LEFT", row, "LEFT", 200, 0)
         targetText:SetJustifyH("LEFT")
-        targetText:SetWidth(46)
+        targetText:SetWidth(70)
         row.targetText = targetText
 
         local spellText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        spellText:SetPoint("LEFT", row, "LEFT", 234, 0)
+        spellText:SetPoint("LEFT", row, "LEFT", 274, 0)
         spellText:SetJustifyH("LEFT")
-        spellText:SetWidth(120)
+        spellText:SetWidth(80)
         row.spellText = spellText
 
         row:SetScript("OnClick", function(self)
@@ -361,7 +351,6 @@ local function CreateBarsTab(parent)
         ns:RebuildAllFrames()
     end)
     moveDownBtn:SetPoint("LEFT", moveUpBtn, "RIGHT", 2, 0)
-
 
     -- ========================================================================
     -- BAR EDITOR SUB-PANEL (scroll frame so content doesn't clip)
@@ -595,6 +584,50 @@ local function CreateBarsTab(parent)
     end)
     colorSwatch:SetPoint("TOPLEFT", showTextCB, "BOTTOMLEFT", 0, -8)
 
+    -- ========================================================================
+    -- IMPORT / EXPORT BUTTONS
+    -- ========================================================================
+    local importBtn = ns:CreateButton(leftPanel, "Import", 82, function()
+        local popup = StaticPopup_Show("BARWARDEN_IMPORT")
+        if popup then
+            popup.data = {
+                onAccept = function(text)
+                    local success, data = pcall(function() return ns:Deserialize(text) end)
+                    if success and data then
+                        if data.frames then
+                            for _, g in ipairs(data.frames) do
+                                table.insert(BarWardenDB.frames, g)
+                            end
+                        elseif data.bars then
+                            -- Importing bars into selected group
+                            if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
+                                for _, b in ipairs(data.bars) do
+                                    table.insert(BarWardenDB.frames[selectedGroupIndex].bars, b)
+                                end
+                            end
+                        end
+                        frame:Refresh()
+                        ns:RebuildAllFrames()
+                    end
+                end,
+            }
+        end
+    end)
+    importBtn:SetPoint("TOPLEFT", groupBgAlphaSlider, "BOTTOMLEFT", -4, -12)
+
+    local exportBtn = ns:CreateButton(leftPanel, "Export", 82, function()
+        if not selectedGroupIndex then return end
+        local g = BarWardenDB.frames[selectedGroupIndex]
+        if not g then return end
+        local exportStr = ns:Serialize({ frames = { g } })
+        if exportStr then
+            local popup = StaticPopup_Show("BARWARDEN_EXPORT")
+            if popup then
+                popup.data = { exportString = exportStr }
+            end
+        end
+    end)
+    exportBtn:SetPoint("LEFT", importBtn, "RIGHT", 4, 0)
 
     -- ========================================================================
     -- HELPER: Get selected bar data
@@ -734,7 +767,6 @@ local function CreateBarsTab(parent)
             groupScaleSlider:SetValue(g.scale or 1.0)
             groupColumnsSlider:SetValue(g.columns or 1)
             groupBgAlphaSlider:SetValue(g.bgAlpha ~= nil and g.bgAlpha or 0.6)
-            groupBorderAlphaSlider:SetValue(g.borderAlpha ~= nil and g.borderAlpha or 0.8)
         else
             groupNameEdit:SetText("")
         end
