@@ -1,75 +1,103 @@
 # BarWarden
 
-BarWarden is a customizable cooldown, buff, and debuff bar tracking addon for World of Warcraft 3.3.5a (Wrath of the Lich King). It displays timed bars for spells, buffs, debuffs, procs, and item cooldowns in movable frames that you arrange anywhere on screen. Each bar shows the spell name, remaining time, icon, and a spark indicator as the timer counts down.
+BarWarden is a bar tracking addon for World of Warcraft 3.3.5a (Wrath of the Lich King). It lets you create timer bars that track your spell cooldowns, buffs, debuffs, procs, and item cooldowns. You can organise bars into groups, move them anywhere on screen, and customise how they look.
+
+When a spell goes on cooldown or a buff is applied, the matching bar fills up and counts down so you always know exactly when something is ready or about to expire.
+
+---
+
+## What Can It Do?
+
+- **Track your abilities** with 6 different modes: Cooldown, Buff, Debuff, Proc, Item, and Custom
+- **Organise bars into groups** like "Cooldowns", "Target Debuffs", or "Buffs" (up to 20 groups, 30 bars each)
+- **Multi-column layouts** so you can display bars in 1 to 4 columns per group
+- **13 bar textures** to choose from, including Flat, Smooth, Gloss, Aluminium, and more
+- **15 fonts** including 5 built-in WoW fonts and 10 custom ones like Adventure, Heroic, and Transformers
+- **3 style presets** for quick setup: Rogue, NeedToKnow, and Minimalist
+- **Colour your bars** by class, by tracking mode, or pick your own colour (with per-bar overrides)
+- **Choose how text appears** with Left, Centre, or Right alignment and 6 format options
+- **Set conditions** on bars so they only show in combat, below a health threshold, in a group, and more
+- **Save and load profiles** to switch between setups for raiding, PvP, or different specs
+- **Drag bars to reorder** them within a group when frames are unlocked
+- **Animated spark** that follows the bar as it counts down
+- **Smooth fading** between active and inactive states
+- **Bar linger effect** so bars stay visible briefly after a cooldown or buff expires
+- **Minimap button** you can drag around your minimap for quick access
+- **Track multiple spells on one bar** using commas, like `Rupture, Garrote`
+- **Settings saved per character** so each of your characters can have their own layout
 
 ---
 
 ## Installation
 
 1. Download or clone this repository.
-2. Copy the **inner `BarWarden` folder** — not the repository root — into your WoW AddOns directory:
+2. Copy the **inner `BarWarden` folder** (not the repository root) into your WoW AddOns directory:
    ```
    World of Warcraft/Interface/AddOns/BarWarden/
    ```
-   The final path to the addon manifest must be:
+   The final path should look like this:
    ```
    Interface/AddOns/BarWarden/BarWarden.toc
    ```
-   > **Common mistake:** If you copy the entire repository folder, you end up with `AddOns/barwarden/BarWarden/BarWarden.toc` — one folder too deep. WoW will not detect the addon. Only the inner `BarWarden` folder belongs in AddOns.
+   > **Watch out:** If you copy the entire repository folder you will end up with `AddOns/barwarden/BarWarden/BarWarden.toc`, which is one folder too deep. WoW will not find the addon. Make sure only the inner `BarWarden` folder goes into AddOns.
 3. Start or restart World of Warcraft.
-4. At the character select screen, click **AddOns** and ensure **BarWarden** is checked.
-5. Log in. The BarWarden minimap button will appear, and typing `/bw` will open the configuration panel.
+4. At the character select screen, click **AddOns** and make sure **BarWarden** is ticked.
+5. Log in. You will see a BarWarden minimap button appear, and you can type `/bw` to open the settings.
 
 ---
 
 ## Getting Started
 
-### Opening the options panel
+### Opening the settings
 
-- Click the **BarWarden minimap button** (a green leaf icon near your minimap).
+- Click the **BarWarden minimap button** near your minimap.
 - Or type `/bw` in chat.
 
-### Creating your first frame
+### Creating a group
 
-Frames are containers that hold bars. Think of a frame as a group — for example, "My Cooldowns" or "Target Debuffs".
+Groups are containers that hold your bars. Think of a group as a category, for example "Cooldowns", "Target Debuffs", or "Buffs".
 
-1. Open the options panel (`/bw`).
-2. Go to the **Bars/Groups** tab.
-3. Click **New Frame**. A new frame appears on screen, labeled with a default name.
-4. Rename it if you like, then click **Add Bar** to create your first tracking bar.
+1. Open the settings panel with `/bw`.
+2. Go to the **Bars / Groups** tab.
+3. Click **Add** to create a new group. It will appear on screen with a default name.
+4. Give it a name in the Group Name field and tweak the width, scale, columns, and background opacity to your liking.
 
 ### Adding a bar
 
 Each bar tracks one spell, buff, debuff, proc, or item:
 
-1. In the **Bars/Groups** tab, select a frame and click **Add Bar**.
-2. Set the **Track Mode** (see [Tracking Modes](#tracking-modes) below).
-3. Enter the spell name or spell ID in the **Spell** field.
-4. Click **Save**. The bar will activate the next time the tracked event is active.
+1. Select a group on the left, then click **Add Bar** on the right.
+2. Pick a **Track Mode** from the dropdown (Cooldown, Buff, Debuff, Proc, Item, or Custom).
+3. Choose a **Target** (player, target, focus, pet, or mouseover).
+4. Type the spell name or spell ID into the **Spell Name or ID** field.
+5. The bar will start tracking automatically the next time that spell or effect is active.
 
-### Moving frames
+### Moving groups around
 
-Frames are locked by default. To move them:
+Groups are locked in place by default so you don't accidentally move them during gameplay. To reposition them:
 
-- Type `/bw lock` to unlock all frames, then drag them where you want.
-- Type `/bw lock` again to re-lock.
+- Type `/bw lock` to unlock everything, then drag groups wherever you want.
+- Type `/bw lock` again to lock them back in place.
+- You can also turn on **Snap to Grid** in the General tab if you want neat, aligned positioning.
 
 ---
 
 ## Slash Commands
 
-| Command | Description |
+| Command | What it does |
 |---------|-------------|
-| `/bw` | Open the configuration panel |
-| `/bw enable` | Enable the addon |
-| `/bw disable` | Disable the addon |
-| `/bw lock` | Toggle frame lock (locked frames cannot be dragged) |
-| `/bw show` | Toggle visibility of all frames |
-| `/bw reset` | Rebuild all frames (resets positions to saved values) |
-| `/bw debug` | Print addon state to chat (useful for bug reports) |
-| `/bw help` | Show this command list in chat |
+| `/bw` | Opens the settings panel |
+| `/bw enable` | Turns the addon on |
+| `/bw disable` | Turns the addon off |
+| `/bw lock` | Toggles frame lock (locked frames cannot be dragged) |
+| `/bw show` | Toggles visibility of all groups |
+| `/bw reset` | Rebuilds all frames and resets positions |
+| `/bw debug` | Prints addon state to chat (handy for bug reports) |
+| `/bw scan` | Tests spell lookups for each bar and prints results |
+| `/bw trackers` | Shows live tracker state for all bars |
+| `/bw help` | Lists all available commands |
 
-`/barwarden` is an alias for `/bw` and works identically.
+You can also use `/barwarden` instead of `/bw` if you prefer.
 
 ---
 
@@ -77,49 +105,46 @@ Frames are locked by default. To move them:
 
 ### Cooldown
 
-Tracks a spell's cooldown timer. The bar fills as the cooldown expires. Global cooldown (GCD) events under 1.5 seconds are automatically filtered out so the bar only activates for meaningful cooldowns.
+Tracks when one of your spells is on cooldown. The bar fills and counts down until the spell is ready again. Short global cooldown (GCD) triggers under 1.5 seconds are automatically ignored so the bar only reacts to real cooldowns.
 
-**Example:** Track Kidney Shot (Rogue finishing move).
-- Track Mode: `Cooldown`
-- Spell: `Kidney Shot` or `408`
+**Example:** Track Evasion.
+- Track Mode: `Cooldown` | Target: `player` | Spell: `Evasion`
 
 ### Buff
 
-Tracks a buff on the player. The bar shows the remaining duration of the buff.
+Tracks a buff on you or another unit. The bar shows how long the buff has left and its stack count.
 
-**Example:** Track Slice and Dice.
-- Track Mode: `Buff`
-- Spell: `Slice and Dice`
+**Example:** Track Slice and Dice on yourself.
+- Track Mode: `Buff` | Target: `player` | Spell: `Slice and Dice`
+
+You can track multiple buffs on one bar by separating them with commas: `Slice and Dice, Recuperate`
 
 ### Debuff
 
-Tracks a debuff on the current target. By default only debuffs cast by you are tracked. Toggle **Only Mine** off to track debuffs from any source.
+Tracks a debuff on your target or another unit. By default it only shows debuffs you applied. Untick **Only Mine** if you want to see debuffs from all sources.
 
 **Example:** Track Rupture on your target.
-- Track Mode: `Debuff`
-- Spell: `Rupture`
+- Track Mode: `Debuff` | Target: `target` | Spell: `Rupture`
 
 ### Proc
 
-Tracks short-duration proc buffs (typically 3–15 seconds). Procs are treated the same as buffs internally but are intended for reactive abilities that require fast recognition.
+Tracks short-lived proc buffs on your character. This works the same as Buff mode but always targets yourself, making it handy for reactive abilities.
 
 **Example:** Track the Art of War proc (Paladin).
-- Track Mode: `Proc`
-- Spell: `The Art of War`
+- Track Mode: `Proc` | Spell: `The Art of War`
 
 ### Item
 
-Tracks an item's cooldown by item ID. The bar fills as the item becomes available again.
+Tracks an item's cooldown using its item ID or name. Useful for trinkets, engineering tinkers, or your Hearthstone.
 
-**Example:** Track Hyperspeed Accelerators (engineering glove tinker).
-- Track Mode: `Item`
-- Spell: `54998` (item ID)
+**Example:** Track Hearthstone cooldown.
+- Track Mode: `Item` | Spell: `6948`
 
-To find an item ID, hover over it in your bags and look it up on a WoW database site.
+To find an item ID, hover over the item and look it up on a WoW database site like Wowhead.
 
 ### Custom
 
-Tracks any condition using a Lua expression. The expression must return up to six values: `isActive, remaining, duration, icon, name, stacks`. Use this for advanced tracking not covered by the other modes.
+For advanced users. Tracks any condition using a Lua expression that returns: `isActive, remaining, duration, icon, name, stacks`.
 
 **Example:** Show a bar when your target is below 20% health.
 ```lua
@@ -130,113 +155,109 @@ if max > 0 and hp / max < 0.2 then
 end
 ```
 
-Available globals in custom expressions: `UnitBuff`, `UnitDebuff`, `UnitHealth`, `UnitHealthMax`, `UnitPower`, `UnitPowerMax`, `GetSpellCooldown`, `GetItemCooldown`, `GetTime`, `UnitExists`, `UnitIsUnit`.
+Available functions in custom expressions include `UnitBuff`, `UnitDebuff`, `UnitHealth`, `UnitHealthMax`, `UnitPower`, `UnitPowerMax`, `GetSpellCooldown`, `GetSpellInfo`, `GetItemCooldown`, `GetItemInfo`, `GetComboPoints`, `GetTime`, `UnitExists`, `UnitAffectingCombat`, `pairs`, `ipairs`, `tonumber`, `tostring`, `select`, `math`, and `string`.
 
 ---
 
-## Visual Settings
+## Settings Tabs
 
-Open the **Visuals** tab in the options panel to configure how bars look.
+### General
 
-### Bar textures
+- Turn the addon on or off
+- Lock or unlock all group frames
+- Show or hide all frames at once
+- Toggle snap-to-grid with a configurable grid size
+- Show or hide the minimap button
+
+### Bars / Groups
+
+**Left panel (Group settings):**
+- Add, Delete, or Duplicate groups
+- Set the group name, width, scale (0.5x to 2.0x), columns (1 to 4), and background opacity
+
+**Right panel (Bar list and editor):**
+- Add Bar, Delete Bar, and reorder bars with Up/Down buttons
+- Configure bar name, spell name or ID, track mode, and target unit
+- Toggle "Only Mine" filtering for debuffs
+- Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide When Inactive, Show Empty, Health Below %, Require Buff
+- Per-bar display overrides: Linger Time, Force Show Icon, Force Show Text, Colour Override
+
+### Visuals
+
+**Frame Dimensions:**
+Bar Width (50 to 400), Bar Height (4 to 60), Border Size (0 to 8), Bar Spacing (0 to 30)
+
+**Icon:**
+Icon Size (0 to 60), Icon Position (Left or Right)
+
+**Bar Colour:**
+Choose between Class Colour, Track Mode Colour, or Custom Colour. When using Custom, a colour swatch lets you pick any colour. You can also enable per-bar colour overrides so individual bars can have their own colour.
+
+**Text Options:**
+Toggle bar text on or off, pick a text position (Left, Centre, Right, or None), choose from 15 fonts, set the font size (6 to 24), and pick a text format: Name + Duration, Name Only, Duration Only, Name + Stacks, Stacks Only, or None.
+
+**Style Presets:**
+One-click buttons for Rogue, NeedToKnow, and Minimalist presets that configure everything at once.
+
+**Bar Texture:**
+Pick from 13 textures or enter a custom texture path.
+
+**Opacity:**
+Set Active and Inactive opacity (0 to 1), toggle Fade When Inactive, and adjust the Fade Speed (0.1 to 2.0).
+
+### Profiles
+
+- Save your current setup under a name
+- Load a saved profile to switch layouts
+- Delete or rename profiles
+- Reset everything back to factory defaults
+
+---
+
+## Available Bar Textures
 
 | Texture | Description |
 |---------|-------------|
-| Flat | Solid single-color fill |
-| Glow | Soft gradient with a glow effect |
-| Metal | Metallic sheen |
-| Leather | Earthy, textured look |
-
-### Presets
-
-Apply a preset to quickly configure bar size, icon, text, and texture:
-
-| Preset | Bar size | Icon | Text | Spark |
-|--------|----------|------|------|-------|
-| Rogue | 160 × 14 | Yes | Yes | No |
-| NeedToKnow | 220 × 22 | Yes | Yes | Yes |
-| Minimalist | 180 × 8 | No | No | No |
-
-### Color modes
-
-| Mode | Description |
-|------|-------------|
-| Class | Bars use your character's class color |
-| Track Mode | Each tracking mode (Cooldown, Buff, etc.) has its own color |
-| Custom | All bars use a single color you choose |
-
----
-
-## Frame Groups
-
-A **frame** is a container that holds one or more bars. Each frame can be independently positioned, scaled, and shown or hidden.
-
-### Creating and managing frames
-
-All frame management is in the **Bars/Groups** tab:
-
-- **New Frame** — Create a new empty frame.
-- **Duplicate** — Copy a frame and all its bars to a new frame offset slightly on screen.
-- **Delete** — Remove a frame and all its bars permanently.
-
-### Locking and unlocking
-
-Locked frames cannot be dragged. Use `/bw lock` or the checkbox in the General tab to toggle.
-
-When unlocked, you can drag frames freely. Enable **Snap to Grid** in General settings to snap positions to a configurable grid increment.
-
-### Scaling
-
-Each frame has an independent scale (0.5× to 2.0×). Set it per-frame in the Bars/Groups tab.
-
-### Reordering bars
-
-While frames are unlocked, you can drag individual bars up and down within a frame to reorder them.
-
----
-
-## Profile System
-
-Profiles let you save your entire configuration under a name and switch between setups — for example, a raiding layout vs. a PvP layout.
-
-All profile management is in the **Profiles** tab:
-
-1. **Save Profile** — Enter a name and click Save. The current settings (frames, bars, visuals) are stored under that name.
-2. **Load Profile** — Select a saved profile from the list and click Load. Your current settings are replaced.
-3. **Import / Export** — Use the text box to copy a profile as text (Export) or paste one in from another character (Import).
-4. **Reset to Defaults** — Wipe all frames and profiles and return to factory defaults.
-
-Profiles are saved per-character in `BarWardenDB` inside `WTF/Account/.../SavedVariables/`.
+| Flat | Solid single-colour fill |
+| Smooth | Smooth gradient finish |
+| Gloss | Glossy, reflective look |
+| Aluminium | Metallic aluminium |
+| Armory | WoW Armoury style |
+| Graphite | Dark graphite |
+| Otravi | Classic Otravi bar texture |
+| Striped | Horizontal striped pattern |
+| Canvas | Textured canvas material |
+| LiteStep | LiteStep UI style |
+| Glow | Soft gradient glow |
+| Metal | Metal plate |
+| Leather | Earthy leather texture |
 
 ---
 
 ## Troubleshooting
 
-**Addon does not appear in the Interface > AddOns menu**
+**Addon does not appear in the AddOns menu**
 
-The most common cause is incorrect folder nesting. Verify the path is:
-```
-Interface/AddOns/BarWarden/BarWarden.toc
-```
-Not:
-```
-Interface/AddOns/barwarden/BarWarden/BarWarden.toc   (wrong — extra level)
-```
+Make sure the path is `Interface/AddOns/BarWarden/BarWarden.toc` and not nested one level deeper inside another folder.
 
 **Bars are not showing**
 
-1. Check the addon is enabled — type `/bw enable`.
-2. Check frames are visible — type `/bw show`.
-3. A frame may be positioned off-screen. Type `/bw reset` to rebuild frames at their saved positions.
-4. Make sure you have cast the tracked spell at least once this session so WoW provides cooldown data.
+1. Make sure the addon is enabled: `/bw enable`
+2. Make sure frames are visible: `/bw show`
+3. Your group might have been dragged off screen. Type `/bw reset` to rebuild everything.
+4. Check that the bar is enabled and has a valid spell name entered.
+
+**A spell is not being tracked**
+
+Some private servers use different spell IDs than you might expect. Try using the spell name (like `Evasion`) instead of a numeric ID. You can run `/bw scan` to see exactly what the game returns for each bar's spell lookup.
 
 **Minimap button is missing**
 
-Open the options panel with `/bw`, go to the **General** tab, and ensure **Show Minimap Icon** is checked.
+Open `/bw`, go to the **General** tab, and tick **Show Minimap Icon**.
 
-**Lua errors in chat**
+**Lua errors showing up**
 
-Type `/bw debug` and note the output. Include this output when reporting issues. To reset to factory defaults, delete `WTF/Account/<your-account>/SavedVariables/BarWardenDB.lua` and reload.
+Type `/bw debug` and include the output if you need to report a problem. If things are really broken, you can reset to factory defaults by deleting `WTF/Account/<your-account>/SavedVariables/BarWardenDB.lua` and reloading.
 
 ---
 
@@ -247,4 +268,4 @@ Type `/bw debug` and note the output. Include this output when reporting issues.
 
 ---
 
-*Author: Serv — Version 1.0.0*
+*Author: Serv | Version 1.0.0*
