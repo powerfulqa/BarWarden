@@ -1,5 +1,7 @@
 # BarWarden
 
+[![Download Latest](https://img.shields.io/github/v/release/powerfulqa/BarWarden?label=Download&style=for-the-badge)](https://github.com/powerfulqa/BarWarden/releases/latest/download/BarWarden.zip)
+
 BarWarden is a bar tracking addon for World of Warcraft 3.3.5a (Wrath of the Lich King). It lets you create timer bars that track your spell cooldowns, buffs, debuffs, procs, and item cooldowns. You can organise bars into groups, move them anywhere on screen, and customise how they look.
 
 When a spell goes on cooldown or a buff is applied, the matching bar fills up and counts down so you always know exactly when something is ready or about to expire.
