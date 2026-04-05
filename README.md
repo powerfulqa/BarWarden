@@ -31,15 +31,14 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 ## Installation
 
 1. Download or clone this repository.
-2. Copy the **inner `BarWarden` folder** (not the repository root) into your WoW AddOns directory:
+2. Copy the repository folder into your WoW AddOns directory and make sure it is named `BarWarden`:
    ```
    World of Warcraft/Interface/AddOns/BarWarden/
    ```
-   The final path should look like this:
+   The path to the `.toc` file should look like this:
    ```
    Interface/AddOns/BarWarden/BarWarden.toc
    ```
-   > **Watch out:** If you copy the entire repository folder you will end up with `AddOns/barwarden/BarWarden/BarWarden.toc`, which is one folder too deep. WoW will not find the addon. Make sure only the inner `BarWarden` folder goes into AddOns.
 3. Start or restart World of Warcraft.
 4. At the character select screen, click **AddOns** and make sure **BarWarden** is ticked.
 5. Log in. You will see a BarWarden minimap button appear, and you can type `/bw` to open the settings.
