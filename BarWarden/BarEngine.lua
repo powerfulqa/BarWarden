@@ -93,12 +93,23 @@ local function Bar_OnUpdate(self, elapsed)
         end
     end
 
-    -- Throttled: expensive text formatting
+    -- Throttled: expensive text formatting (10 Hz)
     self.textElapsed = (self.textElapsed or 0) + elapsed
     if self.textElapsed >= TEXT_THROTTLE then
         self.textElapsed = 0
-        if self.timeText and self.timeText:IsShown() then
-            self.timeText:SetFormattedText("%.1f", remaining)
+        local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+        local textFormat = visual.textFormat or "NAME_DURATION"
+
+        if textFormat == "NAME_STACKS" or textFormat == "STACKS" then
+            if self.timeText and self.timeText:IsShown() then
+                local stacks = self.stacks or 0
+                self.timeText:SetText(stacks > 0 and tostring(stacks) or "")
+            end
+        elseif textFormat ~= "NAME_ONLY" then
+            -- NAME_DURATION, DURATION, or anything else: show seconds countdown
+            if self.timeText and self.timeText:IsShown() then
+                self.timeText:SetFormattedText("%.1f", remaining)
+            end
         end
     end
 end
@@ -301,7 +312,14 @@ local function ScanBar(bar, unitFilter)
     EnsureBarVisible(bar)
 
     -- Dispatch to canonical tracker (Trackers.lua)
-    local isActive, remaining, duration, icon, name = ns:CheckTracker(bd)
+    local isActive, remaining, duration, icon, name, stacks = ns:CheckTracker(bd)
+
+    -- Always apply icon and name whenever the tracker resolves them — even when
+    -- the spell is inactive. This ensures the icon shows on login without needing
+    -- the ability to be on cooldown/active first.
+    if bar.iconTexture and icon then
+        bar.iconTexture:SetTexture(icon)
+    end
 
     if isActive and remaining and remaining > 0 then
         local expirationTime = GetTime() + remaining
@@ -311,9 +329,7 @@ local function ScanBar(bar, unitFilter)
            or math.abs((bar.expirationTime or 0) - expirationTime) > 0.05 then
             ns:ActivateBar(bar, expirationTime, duration or remaining)
         end
-        if bar.iconTexture and icon then
-            bar.iconTexture:SetTexture(icon)
-        end
+        bar.stacks = stacks or 0
         if bar.nameText and name then
             bar.nameText:SetText(name)
         end

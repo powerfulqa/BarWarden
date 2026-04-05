@@ -4,12 +4,23 @@ local addonName, ns = ...
 -- Bar.lua - Bar frame construction and visual configuration
 -- ============================================================================
 
--- Texture lookup table
+-- Texture lookup table — all files live in BarWarden/Textures/
+local T = "Interface\\AddOns\\BarWarden\\Textures\\"
+
 local TEXTURES = {
-    ["Flat"]    = "Interface\\Buttons\\WHITE8x8",
-    ["Glow"]    = "Interface\\AddOns\\BarWarden\\Textures\\Glow",
-    ["Metal"]   = "Interface\\AddOns\\BarWarden\\Textures\\Metal",
-    ["Leather"] = "Interface\\AddOns\\BarWarden\\Textures\\Leather",
+    ["Flat"]     = "Interface\\Buttons\\WHITE8x8",  -- engine built-in, always available
+    ["Smooth"]   = T .. "Smooth.tga",
+    ["Gloss"]    = T .. "Gloss.tga",
+    ["Aluminum"] = T .. "Aluminum.tga",
+    ["Armory"]   = T .. "Armory.tga",
+    ["Graphite"] = T .. "Graphite.tga",
+    ["Otravi"]   = T .. "Otravi.tga",
+    ["Striped"]  = T .. "Striped.tga",
+    ["Canvas"]   = T .. "Canvas.tga",
+    ["LiteStep"] = T .. "LiteStep.tga",
+    ["Glow"]     = T .. "Glow.tga",
+    ["Metal"]    = T .. "Metal.tga",
+    ["Leather"]  = T .. "Leather.tga",
 }
 
 -- ----------------------------------------------------------------------------
@@ -63,23 +74,34 @@ function ns:CreateBarFrame(parent)
     local name = "BarWardenBar" .. barCount
     local bar = CreateFrame("StatusBar", name, parent or UIParent, "BarWardenBarTemplate")
 
-    -- Cache child references
+    -- Cache child Frame references (these ARE globally registered)
     bar.background   = _G[name .. "Background"]
     bar.border       = _G[name .. "Border"]
-    bar.nameText     = _G[name .. "NameText"]
-    bar.timeText     = _G[name .. "TimeText"]
     bar.icon         = _G[name .. "Icon"]
     bar.iconTexture  = _G[name .. "IconIconTexture"]
-    bar.sparkFrame   = _G[name .. "SparkFrame"]
-    bar.spark        = _G[name .. "SparkFrameSpark"]
 
-    -- Ensure text always renders above child frames (e.g. sparkFrame)
-    if bar.nameText then bar.nameText:SetDrawLayer("HIGHLIGHT") end
-    if bar.timeText then bar.timeText:SetDrawLayer("HIGHLIGHT") end
+    -- Create spark first in OVERLAY so text FontStrings (also OVERLAY, created after)
+    -- render on top of it. Within the same draw layer, WoW renders in creation order.
+    bar.sparkFrame = bar:CreateTexture(nil, "OVERLAY")
+    bar.sparkFrame:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
+    bar.sparkFrame:SetBlendMode("ADD")
+    bar.sparkFrame:SetWidth(16)
+    bar.sparkFrame:SetHeight(32)
+    bar.sparkFrame:SetPoint("CENTER", bar, "LEFT", 0, 0)
+    bar.sparkFrame:Hide()
 
-    -- Spark texture must use additive blending; without it the alpha channel
-    -- renders as solid black rather than transparent.
-    if bar.spark then bar.spark:SetBlendMode("ADD") end
+    -- Create text FontStrings in OVERLAY after spark so they render on top of it.
+    -- FontStrings declared inside a StatusBar <Layer> block in Templates.xml are
+    -- NOT registered as globals in WoW 3.3.5a — _G lookups return nil.
+    -- Creating them here guarantees bar.nameText / bar.timeText are never nil.
+    bar.nameText = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    bar.nameText:SetJustifyH("LEFT")
+    bar.nameText:SetPoint("LEFT",  bar, "LEFT",  24,  0)
+    bar.nameText:SetPoint("RIGHT", bar, "RIGHT", -40, 0)
+
+    bar.timeText = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    bar.timeText:SetJustifyH("RIGHT")
+    bar.timeText:SetPoint("RIGHT", bar, "RIGHT", -4, 0)
 
     -- Set default StatusBar range
     bar:SetMinMaxValues(0, 1)
@@ -148,10 +170,14 @@ function ns:ApplyVisualConfig(bar, config)
         bar.background:SetVertexColor(0, 0, 0, 0.6)
     end
 
-    -- Border
+    -- Border: extend the border texture outward by borderSize pixels so it forms
+    -- a visible ring around the bar. At borderSize=0 the border is hidden entirely.
     if bar.border then
         if borderSize > 0 then
             bar.border:Show()
+            bar.border:ClearAllPoints()
+            bar.border:SetPoint("TOPLEFT",     bar, "TOPLEFT",     -borderSize,  borderSize)
+            bar.border:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT",  borderSize, -borderSize)
             bar.border:SetVertexColor(0, 0, 0, 0.8)
         else
             bar.border:Hide()
@@ -185,43 +211,72 @@ function ns:ApplyVisualConfig(bar, config)
         end
     end
 
-    -- Text visibility and positioning
+    -- Text visibility, positioning, and format
     local showText = visual.textEnabled ~= false
     if display.showText ~= nil then
         showText = display.showText
     end
-    if style == "ComboPoint" then
-        showText = false
-    end
+    if style == "ComboPoint" then showText = false end
 
     local textPosition = visual.textPosition or "INSIDE_LEFT"
-    local font = visual.font or "Fonts\\FRIZQT__.TTF"
+    local textFormat   = visual.textFormat   or "NAME_DURATION"
+    local font         = visual.font         or "Fonts\\FRIZQT__.TTF"
 
-    -- Calculate offsets based on icon position
-    local iconActive = showIcon and iconSize > 0
-    local leftOffset  = (iconActive and not iconOnRight) and (iconSize + 4) or 4
-    local rightOffset = (iconActive and iconOnRight) and -(iconSize + 4) or -4
-    -- nameText right edge: leave room for timeText (~40px) plus icon if on right
+    -- Determine which elements to show based on format
+    local showNameText = showText and fontSize > 0 and textPosition ~= "NONE"
+    local showTimeText = showText and fontSize > 0 and textPosition ~= "NONE"
+    if textFormat == "NAME_ONLY" then
+        showTimeText = false
+    elseif textFormat == "DURATION" or textFormat == "STACKS" then
+        showNameText = false
+    elseif textFormat == "NONE" then
+        showNameText = false
+        showTimeText = false
+    end
+
+    -- Icon offset calculation
+    local iconActive      = showIcon and iconSize > 0
+    local leftOffset      = (iconActive and not iconOnRight) and (iconSize + 4) or 4
+    local rightOffset     = (iconActive and iconOnRight) and -(iconSize + 4) or -4
     local nameRightOffset = rightOffset - 40
 
     if bar.nameText then
-        if showText and fontSize > 0 and textPosition ~= "NONE" then
+        if showNameText then
             bar.nameText:Show()
             bar.nameText:SetFont(font, fontSize, "OUTLINE")
             bar.nameText:ClearAllPoints()
-            bar.nameText:SetPoint("LEFT",  bar, "LEFT",  leftOffset,     0)
-            bar.nameText:SetPoint("RIGHT", bar, "RIGHT", nameRightOffset, 0)
+            if textPosition == "CENTER" then
+                bar.nameText:SetJustifyH("CENTER")
+                bar.nameText:SetPoint("LEFT",  bar, "LEFT",  leftOffset,      0)
+                bar.nameText:SetPoint("RIGHT", bar, "RIGHT", nameRightOffset, 0)
+            elseif textPosition == "INSIDE_RIGHT" then
+                -- Mirror of INSIDE_LEFT: name right-justified near icon, time on left
+                bar.nameText:SetJustifyH("RIGHT")
+                bar.nameText:SetPoint("LEFT",  bar, "LEFT",  leftOffset + 40, 0)
+                bar.nameText:SetPoint("RIGHT", bar, "RIGHT", rightOffset,     0)
+            else  -- INSIDE_LEFT (default)
+                bar.nameText:SetJustifyH("LEFT")
+                bar.nameText:SetPoint("LEFT",  bar, "LEFT",  leftOffset,      0)
+                bar.nameText:SetPoint("RIGHT", bar, "RIGHT", nameRightOffset, 0)
+            end
         else
             bar.nameText:Hide()
         end
     end
 
     if bar.timeText then
-        if showText and fontSize > 0 and textPosition ~= "NONE" then
+        if showTimeText then
             bar.timeText:Show()
             bar.timeText:SetFont(font, fontSize, "OUTLINE")
             bar.timeText:ClearAllPoints()
-            bar.timeText:SetPoint("RIGHT", bar, "RIGHT", rightOffset, 0)
+            if textPosition == "INSIDE_RIGHT" then
+                -- Mirror: time on left side
+                bar.timeText:SetJustifyH("LEFT")
+                bar.timeText:SetPoint("LEFT", bar, "LEFT", leftOffset, 0)
+            else  -- INSIDE_LEFT (default)
+                bar.timeText:SetJustifyH("RIGHT")
+                bar.timeText:SetPoint("RIGHT", bar, "RIGHT", rightOffset, 0)
+            end
         else
             bar.timeText:Hide()
         end
