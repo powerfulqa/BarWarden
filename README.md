@@ -237,7 +237,7 @@ Set Active and Inactive opacity (0 to 1), toggle Fade When Inactive, and adjust 
 
 **Addon does not appear in the AddOns menu**
 
-Make sure the path is `Interface/AddOns/BarWarden/BarWarden.toc` and not nested one level deeper inside another folder.
+Make sure the path is `Interface/AddOns/BarWarden/BarWarden.toc`. If the folder you copied has a different name (like `barwarden-main` from a GitHub download), rename it to `BarWarden`.
 
 **Bars are not showing**
 
