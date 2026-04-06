@@ -141,8 +141,7 @@ ns.DEFAULTS = {
         },
     },
 
-    -- Profiles
-    profiles = {},
+    -- Active profile name (profiles themselves are stored account-wide in BarWardenAccountDB)
     activeProfile = nil,
 }
 
@@ -207,4 +206,25 @@ function ns:InitDB()
         MigrateDB()
     end
     ns.db = BarWardenDB
+
+    -- Account-wide profile storage (shared across all characters)
+    if not BarWardenAccountDB then
+        BarWardenAccountDB = { profiles = {} }
+    end
+    if not BarWardenAccountDB.profiles then
+        BarWardenAccountDB.profiles = {}
+    end
+
+    -- One-time migration: move any per-character profiles into the account store
+    if BarWardenDB.profiles then
+        for name, profile in pairs(BarWardenDB.profiles) do
+            if not BarWardenAccountDB.profiles[name] then
+                BarWardenAccountDB.profiles[name] = profile
+            end
+        end
+        BarWardenDB.profiles = nil
+    end
+
+    -- Point ns.profiles at the account-wide table for all profile operations
+    ns.profiles = BarWardenAccountDB.profiles
 end

@@ -27,6 +27,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Minimap button** you can drag around your minimap for quick access
 - **Track multiple spells on one bar** using commas, like `Rupture, Garrote`
 - **Settings saved per character** so each of your characters can have their own layout
+- **Account-wide profiles** so you can save a setup on one character and load it on another
 
 ---
 
@@ -193,6 +194,8 @@ Set Active and Inactive opacity (0 to 1), toggle Fade When Inactive, and adjust 
 
 ### Profiles
 
+Profiles are stored account-wide, so any profile you create on one character is available on all your other characters.
+
 - Save your current setup under a name
 - Load a saved profile to switch layouts
 - Delete or rename profiles
@@ -221,6 +224,10 @@ Set Active and Inactive opacity (0 to 1), toggle Fade When Inactive, and adjust 
 ---
 
 ## Changelog
+
+### 1.0.3
+
+- **Account-wide profiles:** Profiles are now stored account-wide so any profile created on one character is available on all your other characters. Existing per-character profiles are automatically migrated on first login.
 
 ### 1.0.2
 
@@ -272,4 +279,4 @@ Type `/bw debug` and include the output if you need to report a problem. If thin
 
 ---
 
-*Author: Serv | Version 1.0.2*
+*Author: Serv | Version 1.0.3*

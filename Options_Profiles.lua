@@ -13,8 +13,8 @@ local selectedProfileName = nil
 -- ============================================================================
 local function GetSortedProfileNames()
     local names = {}
-    if ns.db and ns.db.profiles then
-        for name in pairs(ns.db.profiles) do
+    if ns.db and ns.profiles then
+        for name in pairs(ns.profiles) do
             names[#names + 1] = name
         end
     end
@@ -46,7 +46,7 @@ local function CreateProfilesTab(parent)
 
     local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-    desc:SetText("Save and load configuration profiles. Export/import to share between characters.")
+    desc:SetText("Save and load configuration profiles. Profiles are shared account-wide across all characters.")
 
     -- ========================================================================
     -- Profile List (FauxScrollFrame)
@@ -121,7 +121,7 @@ local function CreateProfilesTab(parent)
             local index = i + offset
             if index <= #names then
                 local name = names[index]
-                local profile = ns.db.profiles[name]
+                local profile = ns.profiles[name]
                 row.profileName = name
                 row.nameText:SetText(name)
                 row.descText:SetText(profile.description or "")
@@ -165,8 +165,8 @@ local function CreateProfilesTab(parent)
         StaticPopup_Show("BARWARDEN_RENAME", nil, nil, {
             currentName = "New Profile",
             onAccept = function(text)
-                if not ns.db.profiles[text] then
-                    ns.db.profiles[text] = {
+                if not ns.profiles[text] then
+                    ns.profiles[text] = {
                         description = "",
                         lastModified = time(),
                         data = {
@@ -187,7 +187,7 @@ local function CreateProfilesTab(parent)
         local name = selectedProfileName
         StaticPopup_Show("BARWARDEN_CONFIRM_DELETE", name, nil, {
             onAccept = function()
-                ns.db.profiles[name] = nil
+                ns.profiles[name] = nil
                 if ns.db.activeProfile == name then
                     ns.db.activeProfile = nil
                 end
@@ -199,15 +199,15 @@ local function CreateProfilesTab(parent)
     deleteBtn:SetPoint("LEFT", createBtn, "RIGHT", 4, 0)
 
     local duplicateBtn = ns:CreateButton(frame, "Duplicate", 80, function()
-        if not selectedProfileName or not ns.db.profiles[selectedProfileName] then return end
-        local src = ns.db.profiles[selectedProfileName]
+        if not selectedProfileName or not ns.profiles[selectedProfileName] then return end
+        local src = ns.profiles[selectedProfileName]
         local newName = selectedProfileName .. " (Copy)"
         local i = 2
-        while ns.db.profiles[newName] do
+        while ns.profiles[newName] do
             newName = selectedProfileName .. " (Copy " .. i .. ")"
             i = i + 1
         end
-        ns.db.profiles[newName] = {
+        ns.profiles[newName] = {
             description = src.description or "",
             lastModified = time(),
             data = ns:CopyTable(src.data),
@@ -223,9 +223,9 @@ local function CreateProfilesTab(parent)
         StaticPopup_Show("BARWARDEN_RENAME", nil, nil, {
             currentName = oldName,
             onAccept = function(newName)
-                if newName ~= oldName and not ns.db.profiles[newName] then
-                    ns.db.profiles[newName] = ns.db.profiles[oldName]
-                    ns.db.profiles[oldName] = nil
+                if newName ~= oldName and not ns.profiles[newName] then
+                    ns.profiles[newName] = ns.profiles[oldName]
+                    ns.profiles[oldName] = nil
                     if ns.db.activeProfile == oldName then
                         ns.db.activeProfile = newName
                     end
@@ -239,8 +239,8 @@ local function CreateProfilesTab(parent)
 
     -- Second row of buttons
     local loadBtn = ns:CreateButton(frame, "Load", 80, function()
-        if not selectedProfileName or not ns.db.profiles[selectedProfileName] then return end
-        local profile = ns.db.profiles[selectedProfileName]
+        if not selectedProfileName or not ns.profiles[selectedProfileName] then return end
+        local profile = ns.profiles[selectedProfileName]
         if profile.data then
             if profile.data.frames then
                 ns.db.frames = ns:CopyTable(profile.data.frames)
@@ -261,8 +261,8 @@ local function CreateProfilesTab(parent)
     loadBtn:SetPoint("TOPLEFT", createBtn, "BOTTOMLEFT", 0, -4)
 
     local saveBtn = ns:CreateButton(frame, "Save", 80, function()
-        if not selectedProfileName or not ns.db.profiles[selectedProfileName] then return end
-        local profile = ns.db.profiles[selectedProfileName]
+        if not selectedProfileName or not ns.profiles[selectedProfileName] then return end
+        local profile = ns.profiles[selectedProfileName]
         profile.data = {
             frames = ns:CopyTable(ns.db.frames),
             visual = ns:CopyTable(ns.db.visual),
@@ -273,8 +273,8 @@ local function CreateProfilesTab(parent)
     saveBtn:SetPoint("LEFT", loadBtn, "RIGHT", 4, 0)
 
     local exportBtn = ns:CreateButton(frame, "Export", 80, function()
-        if not selectedProfileName or not ns.db.profiles[selectedProfileName] then return end
-        local profile = ns.db.profiles[selectedProfileName]
+        if not selectedProfileName or not ns.profiles[selectedProfileName] then return end
+        local profile = ns.profiles[selectedProfileName]
         local serialized = ns:Serialize(profile.data or {})
         local encoded = ns.Base64Encode(serialized)
         local exportString = "BarWarden:v1:" .. encoded
@@ -315,11 +315,11 @@ local function CreateProfilesTab(parent)
                 -- Create a new profile from the imported data
                 local newName = "Imported"
                 local i = 2
-                while ns.db.profiles[newName] do
+                while ns.profiles[newName] do
                     newName = "Imported " .. i
                     i = i + 1
                 end
-                ns.db.profiles[newName] = {
+                ns.profiles[newName] = {
                     description = "Imported profile",
                     lastModified = time(),
                     data = data,
@@ -340,7 +340,7 @@ local function CreateProfilesTab(parent)
             onAccept = function()
                 ns.db.frames = ns:CopyTable(ns.DEFAULTS.frames)
                 ns.db.visual = ns:CopyTable(ns.DEFAULTS.visual)
-                ns.db.profiles = {}
+                wipe(ns.profiles)
                 ns.db.activeProfile = nil
                 selectedProfileName = nil
                 if ns.ApplySettings then
