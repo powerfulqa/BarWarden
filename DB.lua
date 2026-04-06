@@ -201,8 +201,27 @@ function ns:InitDB()
     if not BarWardenDB then
         BarWardenDB = ns:CopyTable(ns.DEFAULTS)
     else
-        -- Deep-merge: add any new default keys missing from saved data
-        ns:MergeDefaults(BarWardenDB, ns.DEFAULTS)
+        -- Merge only config tables (global, visual) so new settings added in
+        -- future versions are picked up.  Do NOT merge into "frames" — that is
+        -- user data (an array) and MergeDefaults would corrupt it by injecting
+        -- the sample-frame defaults into the user's first group/bar.
+        if type(BarWardenDB.global) ~= "table" then
+            BarWardenDB.global = ns:CopyTable(ns.DEFAULTS.global)
+        else
+            ns:MergeDefaults(BarWardenDB.global, ns.DEFAULTS.global)
+        end
+        if type(BarWardenDB.visual) ~= "table" then
+            BarWardenDB.visual = ns:CopyTable(ns.DEFAULTS.visual)
+        else
+            ns:MergeDefaults(BarWardenDB.visual, ns.DEFAULTS.visual)
+        end
+        -- Ensure frames array exists (but never merge into it)
+        if type(BarWardenDB.frames) ~= "table" then
+            BarWardenDB.frames = ns:CopyTable(ns.DEFAULTS.frames)
+        end
+        if BarWardenDB.schemaVersion == nil then
+            BarWardenDB.schemaVersion = ns.DEFAULTS.schemaVersion
+        end
         MigrateDB()
     end
     ns.db = BarWardenDB
@@ -215,8 +234,10 @@ function ns:InitDB()
         BarWardenAccountDB.profiles = {}
     end
 
-    -- One-time migration: move any per-character profiles into the account store
-    if BarWardenDB.profiles then
+    -- One-time migration: move any per-character profiles into the account store.
+    -- Check with next() because an empty table {} is truthy in Lua but has nothing
+    -- to migrate — we still clear the key so it isn't re-checked every login.
+    if type(BarWardenDB.profiles) == "table" then
         for name, profile in pairs(BarWardenDB.profiles) do
             if not BarWardenAccountDB.profiles[name] then
                 BarWardenAccountDB.profiles[name] = profile

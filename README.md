@@ -225,6 +225,11 @@ Profiles are stored account-wide, so any profile you create on one character is 
 
 ## Changelog
 
+### 1.0.4
+
+- **Fixed bar width resetting on addon update:** The defaults-merge system was recursing into the frames array on every login, injecting sample-frame data into the user's first group. The merge now only applies to config tables (global settings, visual settings) and never touches user frame data.
+- **Fixed account-wide profiles not visible on other characters:** Improved the profile migration to handle edge cases with empty profile tables from prior versions.
+
 ### 1.0.3
 
 - **Account-wide profiles:** Profiles are now stored account-wide so any profile created on one character is available on all your other characters. Existing per-character profiles are automatically migrated on first login.
@@ -279,4 +284,4 @@ Type `/bw debug` and include the output if you need to report a problem. If thin
 
 ---
 
-*Author: Serv | Version 1.0.3*
+*Author: Serv | Version 1.0.4*
