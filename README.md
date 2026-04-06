@@ -10,7 +10,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 
 ## What Can It Do?
 
-- **Track your abilities** with 6 different modes: Cooldown, Buff, Debuff, Proc, Item, and Custom
+- **Track your abilities** with 5 different modes: Cooldown, Buff, Debuff, Proc, and Item
 - **Organise bars into groups** like "Cooldowns", "Target Debuffs", or "Buffs" (up to 20 groups, 30 bars each)
 - **Multi-column layouts** so you can display bars in 1 to 4 columns per group
 - **13 bar textures** to choose from, including Flat, Smooth, Gloss, Aluminium, and more
@@ -68,7 +68,7 @@ Groups are containers that hold your bars. Think of a group as a category, for e
 Each bar tracks one spell, buff, debuff, proc, or item:
 
 1. Select a group on the left, then click **Add Bar** on the right.
-2. Pick a **Track Mode** from the dropdown (Cooldown, Buff, Debuff, Proc, Item, or Custom).
+2. Pick a **Track Mode** from the dropdown (Cooldown, Buff, Debuff, Proc, or Item).
 3. Choose a **Target** (player, target, focus, pet, or mouseover).
 4. Type the spell name or spell ID into the **Spell Name or ID** field.
 5. The bar will start tracking automatically the next time that spell or effect is active.
@@ -142,21 +142,6 @@ Tracks an item's cooldown using its item ID or name. Useful for trinkets, engine
 - Track Mode: `Item` | Spell: `6948`
 
 To find an item ID, hover over the item and look it up on a WoW database site like Wowhead.
-
-### Custom
-
-For advanced users. Tracks any condition using a Lua expression that returns: `isActive, remaining, duration, icon, name, stacks`.
-
-**Example:** Show a bar when your target is below 20% health.
-```lua
-local hp = UnitHealth("target")
-local max = UnitHealthMax("target")
-if max > 0 and hp / max < 0.2 then
-    return true, hp / max * 10, 10, nil, "Execute Range"
-end
-```
-
-Available functions in custom expressions include `UnitBuff`, `UnitDebuff`, `UnitHealth`, `UnitHealthMax`, `UnitPower`, `UnitPowerMax`, `GetSpellCooldown`, `GetSpellInfo`, `GetItemCooldown`, `GetItemInfo`, `GetComboPoints`, `GetTime`, `UnitExists`, `UnitAffectingCombat`, `pairs`, `ipairs`, `tonumber`, `tostring`, `select`, `math`, and `string`.
 
 ---
 
@@ -235,6 +220,18 @@ Set Active and Inactive opacity (0 to 1), toggle Fade When Inactive, and adjust 
 
 ---
 
+## Changelog
+
+### 1.0.1
+
+- **Fixed bar layout during raids:** Bars could appear to resize or revert to default dimensions when raid events fired (players joining, leaving, or changing groups). The group layout now recalculates whenever any bar changes visibility, whether from conditions toggling, bars deactivating, or the Hide When Inactive setting.
+- **Fixed Force Show Icon and Force Show Text:** These per-bar overrides now truly force the icon or text to display, even when global settings such as text position "None", font size 0, or icon size 0 would otherwise hide them.
+- **Fixed Force Show checkboxes not applying immediately:** Toggling Force Show Icon or Force Show Text now refreshes bars straight away instead of requiring another action to take effect.
+- **Fixed `/bw lock` and `/bw show` not saving state:** These slash commands now persist the lock and visibility toggles to saved variables so the setting survives a `/reload` or relog.
+- **Removed Custom track mode:** The Custom (Lua expression) track mode has been removed. The five supported modes are Cooldown, Buff, Debuff, Proc, and Item.
+
+---
+
 ## Troubleshooting
 
 **Addon does not appear in the AddOns menu**
@@ -269,4 +266,4 @@ Type `/bw debug` and include the output if you need to report a problem. If thin
 
 ---
 
-*Author: Serv | Version 1.0.0*
+*Author: Serv | Version 1.0.1*

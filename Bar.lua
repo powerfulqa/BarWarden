@@ -159,12 +159,18 @@ function ns:ApplyVisualConfig(bar, config)
     end
 
     -- Icon visibility and position
+    local forceIcon = display.showIcon == true
     local showIcon = visual.showIcon
     if display.showIcon ~= nil then
         showIcon = display.showIcon
     end
-    if style == "ComboPoint" then
+    if style == "ComboPoint" and not forceIcon then
         showIcon = false
+    end
+
+    -- When Force Show Icon is on, guarantee a visible icon size
+    if forceIcon and iconSize <= 0 then
+        iconSize = barHeight
     end
 
     local iconOnRight = (visual.iconPosition == "RIGHT")
@@ -186,15 +192,21 @@ function ns:ApplyVisualConfig(bar, config)
     end
 
     -- Text visibility and positioning
+    local forceText = display.showText == true
     local showText = visual.textEnabled ~= false
     if display.showText ~= nil then
         showText = display.showText
     end
-    if style == "ComboPoint" then
+    if style == "ComboPoint" and not forceText then
         showText = false
     end
 
-    local textPosition = visual.textPosition or "INSIDE_LEFT"
+    -- When Force Show Text is on, guarantee visible text settings
+    if forceText then
+        if fontSize <= 0 then fontSize = 11 end
+        if textPosition == "NONE" then textPosition = "INSIDE_LEFT" end
+    end
+
     local font = visual.font or "Fonts\\FRIZQT__.TTF"
 
     -- Calculate offsets based on icon position

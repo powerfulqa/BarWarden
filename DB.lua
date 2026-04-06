@@ -95,7 +95,6 @@ ns.DEFAULTS = {
             Debuff   = { r = 1.0, g = 0.2, b = 0.2 },
             Proc     = { r = 1.0, g = 0.8, b = 0.0 },
             Item     = { r = 0.6, g = 0.2, b = 0.8 },
-            Custom   = { r = 0.5, g = 0.5, b = 0.5 },
         },
         activeAlpha = 1.0,
         inactiveAlpha = 0.3,

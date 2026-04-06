@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- Options_Bars.lua - Tab 2: Bars / Groups configuration
 -- ============================================================================
 
-local TRACK_MODES = { "Cooldown", "Buff", "Debuff", "Proc", "Item", "Custom" }
+local TRACK_MODES = { "Cooldown", "Buff", "Debuff", "Proc", "Item" }
 local TARGET_UNITS = { "player", "target", "focus", "pet", "mouseover" }
 local GROUP_LIST_HEIGHT = 16
 local BAR_LIST_HEIGHT = 16
@@ -564,14 +564,20 @@ local function CreateBarsTab(parent)
     local showIconCB = ns:CreateCheckbox(ec, "Force Show Icon",
         "Force this bar to show its icon regardless of the global icon setting.", function(self, checked)
         local bar = frame:GetSelectedBar()
-        if bar then bar.display.showIcon = checked or nil end
+        if bar then
+            bar.display.showIcon = checked or nil
+            ns:RefreshAllBars()
+        end
     end)
     showIconCB:SetPoint("TOPLEFT", lingerSlider, "BOTTOMLEFT", 0, -24)
 
     local showTextCB = ns:CreateCheckbox(ec, "Force Show Text",
         "Force this bar to show its name/timer text regardless of the global text setting.", function(self, checked)
         local bar = frame:GetSelectedBar()
-        if bar then bar.display.showText = checked or nil end
+        if bar then
+            bar.display.showText = checked or nil
+            ns:RefreshAllBars()
+        end
     end)
     showTextCB:SetPoint("TOPLEFT", showIconCB, "BOTTOMLEFT", 0, -2)
 

@@ -208,9 +208,15 @@ function ns:DeactivateBar(bar)
     -- Remove from active bars
     activeBars[bar] = nil
 
+    -- Re-layout the group so bars reposition after this bar changed state.
+    -- Must run before the showAll check below which may hide the whole group.
+    local parent = bar:GetParent()
+    if parent and parent:IsShown() and ns.UpdateGroupLayout then
+        ns:UpdateGroupLayout(parent)
+    end
+
     -- If showAll=false, hide the group frame once all its bars are inactive
     if BarWardenDB and not BarWardenDB.global.showAll then
-        local parent = bar:GetParent()
         if parent and parent.bars then
             local anyActive = false
             for _, b in ipairs(parent.bars) do
@@ -256,6 +262,12 @@ local function HideBarForConditions(bar)
         bar:SetValue(0)
     end
     bar:Hide()
+
+    -- Re-layout so remaining visible bars reposition correctly
+    local parent = bar:GetParent()
+    if parent and parent:IsShown() and ns.UpdateGroupLayout then
+        ns:UpdateGroupLayout(parent)
+    end
 end
 
 -- Ensure a bar is shown at inactive alpha (restores it when conditions become met)
@@ -266,11 +278,18 @@ local function EnsureBarVisible(bar)
     local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
     bar:SetAlpha(visual.inactiveAlpha or 0.3)
     bar:Show()
-    -- If showAll=true the group should always be visible
+
     local parent = bar:GetParent()
-    if parent and not parent:IsShown() and BarWardenDB and BarWardenDB.global.showAll then
-        parent:Show()
-        if ns.UpdateGroupLayout then ns:UpdateGroupLayout(parent) end
+    if parent then
+        -- Ensure the group frame is visible
+        if not parent:IsShown() and BarWardenDB and BarWardenDB.global.showAll then
+            parent:Show()
+        end
+        -- Always re-layout when a bar transitions from hidden to shown so the
+        -- group frame resizes and bars reposition to account for the new bar.
+        if ns.UpdateGroupLayout then
+            ns:UpdateGroupLayout(parent)
+        end
     end
 end
 

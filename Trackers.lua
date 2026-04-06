@@ -17,10 +17,6 @@ local GCD_THRESHOLD = 1.5
 -- than what we last saw, we keep the longer cached value.
 local stableExpiry = {}
 
--- customFuncCache: compiled loadstring results for Custom tracker expressions.
--- Key: expression string. Avoids recompiling on every 0.5s scan.
-local customFuncCache = {}
-
 -- ----------------------------------------------------------------------------
 -- Field normalization helpers
 -- After schema migration (DB.lua v1) new bars use spellName/spellId/itemId.
@@ -279,79 +275,6 @@ local function CheckItem(barConfig)
 end
 
 -- ----------------------------------------------------------------------------
--- Custom Tracker (user-defined Lua expression evaluated in a sandbox)
--- The compiled function is cached by expression string to avoid calling
--- loadstring() on every scan.
--- ----------------------------------------------------------------------------
-
-local CUSTOM_SANDBOX = {
-    UnitBuff = UnitBuff,
-    UnitDebuff = UnitDebuff,
-    UnitHealth = UnitHealth,
-    UnitHealthMax = UnitHealthMax,
-    UnitPower = UnitPower,
-    UnitPowerMax = UnitPowerMax,
-    UnitAffectingCombat = UnitAffectingCombat,
-    UnitExists = UnitExists,
-    GetSpellCooldown = GetSpellCooldown,
-    GetSpellInfo = GetSpellInfo,
-    GetTime = GetTime,
-    GetItemCooldown = GetItemCooldown,
-    GetItemInfo = GetItemInfo,
-    GetComboPoints = GetComboPoints,
-    UnitMana = UnitMana,
-    UnitManaMax = UnitManaMax,
-    pairs = pairs,
-    ipairs = ipairs,
-    tonumber = tonumber,
-    tostring = tostring,
-    select = select,
-    math = math,
-    string = string,
-}
-CUSTOM_SANDBOX.__index = function() return nil end
-local CUSTOM_ENV_META = { __index = function() return nil end }
-
-local function CheckCustom(barConfig)
-    local expression = barConfig.customExpression
-    if not expression or expression == "" then
-        return false, 0, 0, nil, barConfig.spellName or "Custom", 0
-    end
-
-    -- Cache compiled function by expression string
-    local func = customFuncCache[expression]
-    if not func then
-        local err
-        func, err = loadstring("return " .. expression)
-        if not func then
-            return false, 0, 0, nil, barConfig.spellName or "Custom", 0
-        end
-        customFuncCache[expression] = func
-    end
-
-    -- Build a fresh environment table each call (setfenv mutates in Lua 5.1)
-    local env = setmetatable({}, CUSTOM_ENV_META)
-    for k, v in pairs(CUSTOM_SANDBOX) do env[k] = v end
-    setfenv(func, env)
-
-    local ok, result = pcall(func)
-    if not ok or not result then
-        return false, 0, 0, nil, barConfig.spellName or "Custom", 0
-    end
-
-    if type(result) == "table" then
-        return true,
-            result.value or result[1] or 0,
-            result.maxValue or result[2] or 0,
-            result.icon or result[3],
-            result.name or result[4] or barConfig.spellName or "Custom",
-            result.stacks or result[5] or 0
-    end
-
-    return true, 0, 0, nil, barConfig.spellName or "Custom", 0
-end
-
--- ----------------------------------------------------------------------------
 -- Dispatch Table
 -- Proc is Buff restricted to "player" unit; CheckBuff defaults unit to "player"
 -- via getUnit(barConfig, "player"), so no separate function is needed.
@@ -363,7 +286,6 @@ ns.TRACKERS = {
     ["Debuff"]   = CheckDebuff,
     ["Proc"]     = CheckBuff,
     ["Item"]     = CheckItem,
-    ["Custom"]   = CheckCustom,
 }
 
 --- Check tracking state for a bar based on its trackMode.

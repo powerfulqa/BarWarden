@@ -261,17 +261,21 @@ local function SlashHandler(msg)
         ns:Print("Addon disabled.")
     elseif cmd == "lock" then
         if ns.db and ns.db.global.locked then
+            ns.db.global.locked = false
             ns:UnlockAllFrames()
             ns:Print("Frames unlocked.")
         else
+            if ns.db then ns.db.global.locked = true end
             ns:LockAllFrames()
             ns:Print("Frames locked.")
         end
     elseif cmd == "show" then
         if ns.db and ns.db.global.showAll then
+            ns.db.global.showAll = false
             ns:HideAllFrames()
             ns:Print("Frames hidden.")
         else
+            if ns.db then ns.db.global.showAll = true end
             ns:ShowAllFrames()
             ns:Print("Frames shown.")
         end
