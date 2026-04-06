@@ -222,6 +222,12 @@ Set Active and Inactive opacity (0 to 1), toggle Fade When Inactive, and adjust 
 
 ## Changelog
 
+### 1.0.2
+
+- **Fixed bars resizing during combat:** Bars with Hide When Inactive would appear at the wrong size (200x20 template default) when activating because the layout ran before the bar was shown. Bars are now shown before the layout pass so they are always sized correctly.
+- **Deferred layout updates:** Layout recalculations are now batched to the end of each scan pass instead of firing after every individual bar change. This eliminates layout thrashing during combat when many bars change state rapidly.
+- **Fixed missing text position variable:** A regression in 1.0.1 dropped the text position setting, causing bar text to ignore the configured position. Restored.
+
 ### 1.0.1
 
 - **Fixed bar layout during raids:** Bars could appear to resize or revert to default dimensions when raid events fired (players joining, leaving, or changing groups). The group layout now recalculates whenever any bar changes visibility, whether from conditions toggling, bars deactivating, or the Hide When Inactive setting.
@@ -266,4 +272,4 @@ Type `/bw debug` and include the output if you need to report a problem. If thin
 
 ---
 
-*Author: Serv | Version 1.0.1*
+*Author: Serv | Version 1.0.2*

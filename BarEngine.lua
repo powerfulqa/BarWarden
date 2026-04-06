@@ -37,6 +37,50 @@ ns.activeBars = activeBars
 ns.allBars = {}
 
 -- ----------------------------------------------------------------------------
+-- Deferred Layout
+-- During a scan pass many bars may change visibility in the same group.
+-- Rather than calling UpdateGroupLayout after every individual change
+-- (which thrashes the layout and can size bars before they are shown),
+-- we mark groups dirty and flush once at the end of the scan.
+-- Code paths that run OUTSIDE a scan (e.g. Bar_OnUpdate expiry, manual
+-- refresh) call UpdateGroupLayout directly.
+-- ----------------------------------------------------------------------------
+
+local dirtyGroups = {}
+local scanDepth = 0  -- >0 means we are inside a scan pass
+
+local function MarkGroupDirty(group)
+    if not group then return end
+    if scanDepth > 0 then
+        dirtyGroups[group] = true
+    else
+        -- Outside a scan pass: apply immediately
+        if ns.UpdateGroupLayout then
+            ns:UpdateGroupLayout(group)
+        end
+    end
+end
+
+local function FlushDirtyLayouts()
+    for group in pairs(dirtyGroups) do
+        if ns.UpdateGroupLayout then
+            ns:UpdateGroupLayout(group)
+        end
+    end
+    wipe(dirtyGroups)
+end
+
+-- Wrap a scan body: increment depth, run fn, decrement, flush on exit.
+local function RunScan(fn, ...)
+    scanDepth = scanDepth + 1
+    fn(...)
+    scanDepth = scanDepth - 1
+    if scanDepth == 0 then
+        FlushDirtyLayouts()
+    end
+end
+
+-- ----------------------------------------------------------------------------
 -- Bar_OnUpdate: Smooth bar fill every frame, throttled text at 10 Hz
 -- ----------------------------------------------------------------------------
 
@@ -131,17 +175,6 @@ function ns:ActivateBar(bar, expirationTime, duration)
 
     -- Icon and name are set by the caller (ScanBar) from CheckTracker results.
 
-    -- Ensure the parent group frame is visible and layout is updated
-    local parent = bar:GetParent()
-    if parent then
-        if not parent:IsShown() then
-            parent:Show()
-        end
-        if ns.UpdateGroupLayout then
-            ns:UpdateGroupLayout(parent)
-        end
-    end
-
     local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
     bar:SetAlpha(visual.activeAlpha or 1.0)
 
@@ -152,10 +185,23 @@ function ns:ActivateBar(bar, expirationTime, duration)
         bar.nameText:SetText(displayName)
     end
 
+    -- Show the bar BEFORE requesting layout so that UpdateGroupLayout includes
+    -- this bar when computing positions and sizes.  The previous ordering called
+    -- UpdateGroupLayout while the bar was still hidden, causing it to appear at
+    -- the stale template size (200x20) until the next layout pass.
     bar:Show()
 
     -- Register in active bars
     activeBars[bar] = true
+
+    -- Ensure the parent group frame is visible and request layout
+    local parent = bar:GetParent()
+    if parent then
+        if not parent:IsShown() then
+            parent:Show()
+        end
+        MarkGroupDirty(parent)
+    end
 end
 
 -- ----------------------------------------------------------------------------
@@ -209,10 +255,12 @@ function ns:DeactivateBar(bar)
     activeBars[bar] = nil
 
     -- Re-layout the group so bars reposition after this bar changed state.
-    -- Must run before the showAll check below which may hide the whole group.
+    -- DeactivateBar can fire outside scan passes (from Bar_OnUpdate when a
+    -- cooldown expires), so MarkGroupDirty handles both cases: inside a scan
+    -- it defers; outside it applies immediately.
     local parent = bar:GetParent()
-    if parent and parent:IsShown() and ns.UpdateGroupLayout then
-        ns:UpdateGroupLayout(parent)
+    if parent and parent:IsShown() then
+        MarkGroupDirty(parent)
     end
 
     -- If showAll=false, hide the group frame once all its bars are inactive
@@ -263,10 +311,10 @@ local function HideBarForConditions(bar)
     end
     bar:Hide()
 
-    -- Re-layout so remaining visible bars reposition correctly
+    -- Mark the parent group for re-layout
     local parent = bar:GetParent()
-    if parent and parent:IsShown() and ns.UpdateGroupLayout then
-        ns:UpdateGroupLayout(parent)
+    if parent and parent:IsShown() then
+        MarkGroupDirty(parent)
     end
 end
 
@@ -285,11 +333,8 @@ local function EnsureBarVisible(bar)
         if not parent:IsShown() and BarWardenDB and BarWardenDB.global.showAll then
             parent:Show()
         end
-        -- Always re-layout when a bar transitions from hidden to shown so the
-        -- group frame resizes and bars reposition to account for the new bar.
-        if ns.UpdateGroupLayout then
-            ns:UpdateGroupLayout(parent)
-        end
+        -- Mark for re-layout so the group resizes and bars reposition
+        MarkGroupDirty(parent)
     end
 end
 
@@ -357,9 +402,11 @@ end
 function ns:ScanAllBars(unit)
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
-    for _, bar in ipairs(bars) do
-        ScanBar(bar, unit)
-    end
+    RunScan(function()
+        for _, bar in ipairs(bars) do
+            ScanBar(bar, unit)
+        end
+    end)
 end
 
 -- ----------------------------------------------------------------------------
@@ -393,54 +440,64 @@ end
 function ns:OnSpellCooldownUpdate()
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
-    for _, bar in ipairs(bars) do
-        if bar.barData and bar.barData.trackMode == "Cooldown" then
-            ScanBar(bar, nil)
+    RunScan(function()
+        for _, bar in ipairs(bars) do
+            if bar.barData and bar.barData.trackMode == "Cooldown" then
+                ScanBar(bar, nil)
+            end
         end
-    end
+    end)
 end
 
 function ns:OnUnitAura(unit)
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
-    for _, bar in ipairs(bars) do
-        local mode = bar.barData and bar.barData.trackMode
-        if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
-            ScanBar(bar, unit)
+    RunScan(function()
+        for _, bar in ipairs(bars) do
+            local mode = bar.barData and bar.barData.trackMode
+            if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
+                ScanBar(bar, unit)
+            end
         end
-    end
+    end)
 end
 
 function ns:OnTargetChanged()
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
-    for _, bar in ipairs(bars) do
-        local mode = bar.barData and bar.barData.trackMode
-        if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
-            ScanBar(bar, "target")
+    RunScan(function()
+        for _, bar in ipairs(bars) do
+            local mode = bar.barData and bar.barData.trackMode
+            if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
+                ScanBar(bar, "target")
+            end
         end
-    end
+    end)
 end
 
 function ns:OnFocusChanged()
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
-    for _, bar in ipairs(bars) do
-        local mode = bar.barData and bar.barData.trackMode
-        if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
-            ScanBar(bar, "focus")
+    RunScan(function()
+        for _, bar in ipairs(bars) do
+            local mode = bar.barData and bar.barData.trackMode
+            if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
+                ScanBar(bar, "focus")
+            end
         end
-    end
+    end)
 end
 
 function ns:OnBagCooldownUpdate()
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
-    for _, bar in ipairs(bars) do
-        if bar.barData and bar.barData.trackMode == "Item" then
-            ScanBar(bar, nil)
+    RunScan(function()
+        for _, bar in ipairs(bars) do
+            if bar.barData and bar.barData.trackMode == "Item" then
+                ScanBar(bar, nil)
+            end
         end
-    end
+    end)
 end
 
 function ns:OnPlayerEnteringWorld()

@@ -193,6 +193,7 @@ function ns:ApplyVisualConfig(bar, config)
 
     -- Text visibility and positioning
     local forceText = display.showText == true
+    local textPosition = visual.textPosition or "INSIDE_LEFT"
     local showText = visual.textEnabled ~= false
     if display.showText ~= nil then
         showText = display.showText
