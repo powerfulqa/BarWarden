@@ -225,6 +225,10 @@ Profiles are stored account-wide, so any profile you create on one character is 
 
 ## Changelog
 
+### 1.0.5
+
+- **Default starter profile:** New accounts now start with a "Default" profile in the account-wide profile list so there is always something available to load or build from.
+
 ### 1.0.4
 
 - **Fixed bar width resetting on addon update:** The defaults-merge system was recursing into the frames array on every login, injecting sample-frame data into the user's first group. The merge now only applies to config tables (global settings, visual settings) and never touches user frame data.
@@ -284,4 +288,4 @@ Type `/bw debug` and include the output if you need to report a problem. If thin
 
 ---
 
-*Author: Serv | Version 1.0.4*
+*Author: Serv | Version 1.0.5*

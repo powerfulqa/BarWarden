@@ -228,7 +228,18 @@ function ns:InitDB()
 
     -- Account-wide profile storage (shared across all characters)
     if not BarWardenAccountDB then
-        BarWardenAccountDB = { profiles = {} }
+        BarWardenAccountDB = {
+            profiles = {
+                ["Default"] = {
+                    description = "Default starter profile",
+                    lastModified = time(),
+                    data = {
+                        frames = ns:CopyTable(ns.DEFAULTS.frames),
+                        visual = ns:CopyTable(ns.DEFAULTS.visual),
+                    },
+                },
+            },
+        }
     end
     if not BarWardenAccountDB.profiles then
         BarWardenAccountDB.profiles = {}
