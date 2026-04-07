@@ -262,16 +262,23 @@ local function CreateVisualsTab(parent)
     end)
     iconPosDD:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -16, -30)
 
-    -- Section: Opacity
+    -- Section: Bar Opacity
     local opacityHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     opacityHeader:SetPoint("TOPLEFT", iconPosDD, "BOTTOMLEFT", 16, -30)
-    opacityHeader:SetText("Opacity")
+    opacityHeader:SetText("Bar Opacity")
+
+    local barFillAlphaSlider = ns:CreateSlider(content, "Bar Fill Opacity", 0, 1, 0.05, function(self, value)
+        BarWardenDB.visual.barFillAlpha = value
+        ns:RefreshAllBars()
+    end)
+    barFillAlphaSlider:SetPoint("TOPLEFT", opacityHeader, "BOTTOMLEFT", 4, -20)
+    barFillAlphaSlider:SetWidth(200)
 
     local activeAlphaSlider = ns:CreateSlider(content, "Active Opacity", 0, 1, 0.05, function(self, value)
         BarWardenDB.visual.activeAlpha = value
         ns:RefreshAllBars()
     end)
-    activeAlphaSlider:SetPoint("TOPLEFT", opacityHeader, "BOTTOMLEFT", 4, -20)
+    activeAlphaSlider:SetPoint("TOPLEFT", barFillAlphaSlider, "BOTTOMLEFT", 0, -30)
     activeAlphaSlider:SetWidth(200)
 
     local inactiveAlphaSlider = ns:CreateSlider(content, "Inactive Opacity", 0, 1, 0.05, function(self, value)
@@ -383,7 +390,8 @@ local function CreateVisualsTab(parent)
             end
         end
 
-        -- Opacity
+        -- Bar Opacity
+        barFillAlphaSlider:SetValue(v.barFillAlpha or 1.0)
         activeAlphaSlider:SetValue(v.activeAlpha or 1.0)
         inactiveAlphaSlider:SetValue(v.inactiveAlpha or 0.3)
         fadeInactiveCB:SetChecked(v.fadeWhenInactive)

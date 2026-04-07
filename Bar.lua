@@ -206,9 +206,10 @@ function ns:ApplyVisualConfig(bar, config)
     -- RTL is silently ignored; bars always fill left-to-right.
     -- (direction stored in DB for future compat but not applied here)
 
-    -- Bar color
+    -- Bar color and fill opacity
     local r, g, b = GetBarColor(bar, config)
-    bar:SetStatusBarColor(r, g, b)
+    local barFillAlpha = visual.barFillAlpha or 1.0
+    bar:SetStatusBarColor(r, g, b, barFillAlpha)
 
     -- Background
     if bar.background then
