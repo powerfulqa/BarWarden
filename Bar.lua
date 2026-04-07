@@ -13,6 +13,34 @@ local TEXTURES = {
 }
 
 -- ----------------------------------------------------------------------------
+-- ResolveBarIcon: Look up the spell/item icon from bar configuration.
+-- Returns the icon texture path or nil if nothing can be resolved.
+-- ----------------------------------------------------------------------------
+local function ResolveBarIcon(barData)
+    if not barData then return nil end
+
+    local mode = barData.trackMode
+    local input = barData.spellName or barData.spellId or barData.spell
+
+    if mode == "Item" then
+        local itemId = barData.itemId or input
+        if itemId then
+            local _, _, _, _, _, _, _, _, _, icon = GetItemInfo(itemId)
+            if icon then return icon end
+        end
+    else
+        if input then
+            local _, _, icon = GetSpellInfo(input)
+            if icon then return icon end
+        end
+    end
+
+    return nil
+end
+
+ns.ResolveBarIcon = ResolveBarIcon
+
+-- ----------------------------------------------------------------------------
 -- ResolveTexture: Get texture path from name or return custom path
 -- ----------------------------------------------------------------------------
 local function ResolveTexture(name)
@@ -185,6 +213,14 @@ function ns:ApplyVisualConfig(bar, config)
                 bar.icon:SetPoint("RIGHT", bar, "RIGHT", 0, 0)
             else
                 bar.icon:SetPoint("LEFT", bar, "LEFT", 0, 0)
+            end
+            -- Ensure the icon texture is set even on inactive bars so
+            -- Force Show Icon displays the correct spell/item icon.
+            if bar.iconTexture and not bar.iconTexture:GetTexture() then
+                local icon = ResolveBarIcon(bar.barData)
+                if icon then
+                    bar.iconTexture:SetTexture(icon)
+                end
             end
         else
             bar.icon:Hide()

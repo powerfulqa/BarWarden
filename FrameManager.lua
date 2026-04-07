@@ -436,6 +436,13 @@ function ns:BuildBarsForFrame(frameIndex)
                 (type(barData.spell) == "string" and barData.spell or nil) or ""
             bar.nameText:SetText(displayName)
         end
+        -- Pre-resolve the spell/item icon so it shows on inactive bars
+        if bar.iconTexture and ns.ResolveBarIcon then
+            local icon = ns.ResolveBarIcon(barData)
+            if icon then
+                bar.iconTexture:SetTexture(icon)
+            end
+        end
         if barData.enabled == false then
             bar:Hide()
         else
