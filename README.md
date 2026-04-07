@@ -225,6 +225,11 @@ Profiles are stored account-wide, so any profile you create on one character is 
 
 ## Changelog
 
+### 1.0.7
+
+- **Restored per-group Border Opacity slider:** The border opacity setting was lost during a previous restructure. Groups now have a Border Opacity slider (0 to 1) below Background Opacity, allowing the group frame border to be dimmed or fully hidden.
+- **Fixed Import/Export buttons overlapping tabs:** The Import and Export buttons on the Bars/Groups tab were anchored to the wrong control after the border slider was removed, causing them to overlap the tab bar. They are now correctly anchored below the Border Opacity slider.
+
 ### 1.0.6
 
 - **Version now managed automatically:** The version displayed in-game (options panel, `/bw help`) is read from the TOC at runtime via `GetAddOnMetadata`, and the CI pipeline stamps the TOC version from the git tag at build time. No more manual version bumps across multiple files.

@@ -117,6 +117,7 @@ ns.DEFAULTS = {
             width = 200,
             columns = 1,
             bgAlpha = 0.6,
+            borderAlpha = 0.8,
             scale = 1.0,
             bars = {
                 {

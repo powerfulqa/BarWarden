@@ -112,7 +112,8 @@ function ns:CreateGroupFrame(groupData, frameIndex)
     frame:SetBackdrop(GROUP_BACKDROP)
     local bgAlpha = groupData.bgAlpha ~= nil and groupData.bgAlpha or 0.6
     frame:SetBackdropColor(0, 0, 0, bgAlpha)
-    frame:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
+    local borderAlpha = groupData.borderAlpha ~= nil and groupData.borderAlpha or 0.8
+    frame:SetBackdropBorderColor(0.3, 0.3, 0.3, borderAlpha)
 
     -- Size from visual settings
     local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
@@ -246,6 +247,17 @@ function ns:SetGroupBgAlpha(frameIndex, alpha)
 end
 
 -- ----------------------------------------------------------------------------
+-- SetGroupBorderAlpha: Set border opacity for a group frame
+-- ----------------------------------------------------------------------------
+function ns:SetGroupBorderAlpha(frameIndex, alpha)
+    if BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex] then
+        BarWardenDB.frames[frameIndex].borderAlpha = alpha
+    end
+    local frame = ns.groupFrames[frameIndex]
+    if frame then frame:SetBackdropBorderColor(0.3, 0.3, 0.3, alpha) end
+end
+
+-- ----------------------------------------------------------------------------
 -- LockAllFrames / UnlockAllFrames: Toggle drag support
 -- ----------------------------------------------------------------------------
 function ns:LockAllFrames()
@@ -340,6 +352,7 @@ function ns:CreateFrame(name)
         width = BarWardenDB.visual.barWidth or 200,
         columns = 1,
         bgAlpha = 0.6,
+        borderAlpha = 0.8,
         scale = 1.0,
         bars = {},
     }
