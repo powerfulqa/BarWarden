@@ -132,11 +132,9 @@ local function CreateVisualsTab(parent)
     textEnabledCB:SetPoint("TOPLEFT", textHeader, "BOTTOMLEFT", 0, -8)
 
     local textPosItems = {
-        { text = "Top",          value = "TOP" },
-        { text = "Bottom",       value = "BOTTOM" },
-        { text = "Inside Left",  value = "INSIDE_LEFT" },
-        { text = "Inside Right", value = "INSIDE_RIGHT" },
-        { text = "None",         value = "NONE" },
+        { text = "Left",   value = "INSIDE_LEFT" },
+        { text = "Right",  value = "INSIDE_RIGHT" },
+        { text = "None",   value = "NONE" },
     }
 
     local textPosDD = ns:CreateDropdown(content, "Text Position", textPosItems, function(dd, value)

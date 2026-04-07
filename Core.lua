@@ -78,6 +78,7 @@ local function OnAddonLoaded(event, loadedName)
     ns:InitDB()
     ns:CreateOptionsPanel()
     ns:RebuildAllFrames()
+    ns:RefreshAllBars()
     ns:InitMinimapButton()
 
     -- Register gameplay events if addon is enabled
