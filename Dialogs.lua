@@ -1,5 +1,11 @@
 local addonName, ns = ...
 
+-- All BarWarden dialogs use preferredIndex = 4 (STATICPOPUP_NUMDIALOGS)
+-- to occupy the highest popup slot and minimise taint propagation to
+-- Blizzard's protected StaticPopup code.  OnHide handlers that modify
+-- Blizzard frames are avoided entirely — they extend the taint chain
+-- and can block protected functions like CancelLogout().
+
 -- Confirm Delete (group or bar)
 StaticPopupDialogs["BARWARDEN_CONFIRM_DELETE"] = {
     text = "Are you sure you want to delete \"%s\"?",
@@ -13,7 +19,7 @@ StaticPopupDialogs["BARWARDEN_CONFIRM_DELETE"] = {
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
-    preferredIndex = 3,
+    preferredIndex = 4,
 }
 
 -- Rename (groups/profiles)
@@ -50,10 +56,10 @@ StaticPopupDialogs["BARWARDEN_RENAME"] = {
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
-    preferredIndex = 3,
+    preferredIndex = 4,
 }
 
--- Import (multi-line text input for pasting export strings)
+-- Import (text input for pasting export strings)
 StaticPopupDialogs["BARWARDEN_IMPORT"] = {
     text = "Paste import string below:",
     button1 = "Import",
@@ -63,9 +69,7 @@ StaticPopupDialogs["BARWARDEN_IMPORT"] = {
     OnShow = function(self)
         self.editBox:SetText("")
         self.editBox:SetFocus()
-        self.editBox:SetMultiLine(true)
         self.editBox:SetMaxLetters(0)
-        self.editBox:SetHeight(60)
     end,
     OnAccept = function(self)
         local text = self.editBox:GetText()
@@ -73,19 +77,16 @@ StaticPopupDialogs["BARWARDEN_IMPORT"] = {
             self.data.onAccept(text)
         end
     end,
-    OnHide = function(self)
-        self.editBox:SetMultiLine(false)
-    end,
     EditBoxOnEscapePressed = function(self)
         self:GetParent():Hide()
     end,
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
-    preferredIndex = 3,
+    preferredIndex = 4,
 }
 
--- Export (multi-line read-only text display with select-all)
+-- Export (read-only text display with select-all)
 StaticPopupDialogs["BARWARDEN_EXPORT"] = {
     text = "Copy the export string below (Ctrl+A to select all):",
     button1 = "Close",
@@ -95,14 +96,9 @@ StaticPopupDialogs["BARWARDEN_EXPORT"] = {
         if self.data and self.data.exportString then
             self.editBox:SetText(self.data.exportString)
         end
-        self.editBox:SetMultiLine(true)
         self.editBox:SetMaxLetters(0)
-        self.editBox:SetHeight(60)
         self.editBox:HighlightText()
         self.editBox:SetFocus()
-    end,
-    OnHide = function(self)
-        self.editBox:SetMultiLine(false)
     end,
     EditBoxOnEscapePressed = function(self)
         self:GetParent():Hide()
@@ -110,7 +106,7 @@ StaticPopupDialogs["BARWARDEN_EXPORT"] = {
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
-    preferredIndex = 3,
+    preferredIndex = 4,
 }
 
 -- Confirm Reset to defaults
@@ -126,5 +122,5 @@ StaticPopupDialogs["BARWARDEN_CONFIRM_RESET"] = {
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
-    preferredIndex = 3,
+    preferredIndex = 4,
 }
