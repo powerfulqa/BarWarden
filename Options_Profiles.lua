@@ -46,7 +46,7 @@ local function CreateProfilesTab(parent)
 
     local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-    desc:SetText("Save and load configuration profiles. Profiles are shared account-wide across all characters.")
+    desc:SetText("Save and Load bar layouts. Profiles are account-wide.")
 
     -- ========================================================================
     -- Profile List (FauxScrollFrame)

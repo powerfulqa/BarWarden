@@ -258,25 +258,25 @@ local function CreateBarsTab(parent)
         local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         nameText:SetPoint("LEFT", row, "LEFT", 4, 0)
         nameText:SetJustifyH("LEFT")
-        nameText:SetWidth(120)
+        nameText:SetWidth(90)
         row.nameText = nameText
 
         local modeText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        modeText:SetPoint("LEFT", row, "LEFT", 128, 0)
+        modeText:SetPoint("LEFT", nameText, "RIGHT", 4, 0)
         modeText:SetJustifyH("LEFT")
-        modeText:SetWidth(70)
+        modeText:SetWidth(60)
         row.modeText = modeText
 
         local targetText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        targetText:SetPoint("LEFT", row, "LEFT", 200, 0)
+        targetText:SetPoint("LEFT", modeText, "RIGHT", 4, 0)
         targetText:SetJustifyH("LEFT")
-        targetText:SetWidth(70)
+        targetText:SetWidth(50)
         row.targetText = targetText
 
         local spellText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        spellText:SetPoint("LEFT", row, "LEFT", 274, 0)
+        spellText:SetPoint("LEFT", targetText, "RIGHT", 4, 0)
+        spellText:SetPoint("RIGHT", row, "RIGHT", -4, 0)
         spellText:SetJustifyH("LEFT")
-        spellText:SetWidth(80)
         row.spellText = spellText
 
         row:SetScript("OnClick", function(self)

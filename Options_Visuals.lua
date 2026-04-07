@@ -193,9 +193,31 @@ local function CreateVisualsTab(parent)
     end)
     textFormatDD:SetPoint("TOPLEFT", fontSizeSlider, "BOTTOMLEFT", -16, -24)
 
+    -- Section: Icon
+    local iconHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    iconHeader:SetPoint("TOPLEFT", textFormatDD, "BOTTOMLEFT", 16, -30)
+    iconHeader:SetText("Icon")
+
+    local iconSizeSlider = ns:CreateSlider(content, "Icon Size", 0, 60, 1, function(self, value)
+        BarWardenDB.visual.iconSize = value
+        ns:RefreshAllBars()
+    end)
+    iconSizeSlider:SetPoint("TOPLEFT", iconHeader, "BOTTOMLEFT", 4, -20)
+    iconSizeSlider:SetWidth(200)
+
+    local iconPosItems = {
+        { text = "Left",  value = "LEFT" },
+        { text = "Right", value = "RIGHT" },
+    }
+    local iconPosDD = ns:CreateDropdown(content, "Icon Position", iconPosItems, function(dd, value)
+        BarWardenDB.visual.iconPosition = value
+        ns:RefreshAllBars()
+    end)
+    iconPosDD:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -16, -30)
+
     -- Section: Opacity
     local opacityHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    opacityHeader:SetPoint("TOPLEFT", textFormatDD, "BOTTOMLEFT", 16, -30)
+    opacityHeader:SetPoint("TOPLEFT", iconPosDD, "BOTTOMLEFT", 16, -30)
     opacityHeader:SetText("Opacity")
 
     local activeAlphaSlider = ns:CreateSlider(content, "Active Opacity", 0, 1, 0.05, function(self, value)
@@ -227,66 +249,8 @@ local function CreateVisualsTab(parent)
     fadeSpeedSlider:SetWidth(200)
 
     -- -----------------------------------------------------------------------
-    -- RIGHT COLUMN (x = 280): Style Presets → Icon → Texture
+    -- RIGHT COLUMN (x = 280): Texture
     -- -----------------------------------------------------------------------
-
-    -- Section: Style Presets (horizontal row)
-    local presetHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    presetHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 280, yOffset)
-    presetHeader:SetText("Style Presets")
-
-    local function ApplyPreset(presetName)
-        local preset = ns.VISUAL_PRESETS[presetName]
-        if not preset then return end
-        local v = BarWardenDB.visual
-        for key, value in pairs(preset) do
-            if type(value) == "table" then
-                v[key] = ns:CopyTable(value)
-            else
-                v[key] = value
-            end
-        end
-        v.preset = presetName
-        ns:RefreshAllBars()
-        if frame.Refresh then frame:Refresh() end
-    end
-
-    local rogueBtn = ns:CreateButton(content, "Rogue", 80, function()
-        ApplyPreset("Rogue")
-    end)
-    rogueBtn:SetPoint("TOPLEFT", presetHeader, "BOTTOMLEFT", 0, -10)
-
-    local ntkBtn = ns:CreateButton(content, "NeedToKnow", 80, function()
-        ApplyPreset("NeedToKnow")
-    end)
-    ntkBtn:SetPoint("LEFT", rogueBtn, "RIGHT", 4, 0)
-
-    local minBtn = ns:CreateButton(content, "Minimalist", 80, function()
-        ApplyPreset("Minimalist")
-    end)
-    minBtn:SetPoint("LEFT", ntkBtn, "RIGHT", 4, 0)
-
-    -- Section: Icon
-    local iconHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    iconHeader:SetPoint("TOPLEFT", rogueBtn, "BOTTOMLEFT", 0, -24)
-    iconHeader:SetText("Icon")
-
-    local iconSizeSlider = ns:CreateSlider(content, "Icon Size", 0, 60, 1, function(self, value)
-        BarWardenDB.visual.iconSize = value
-        ns:RefreshAllBars()
-    end)
-    iconSizeSlider:SetPoint("TOPLEFT", iconHeader, "BOTTOMLEFT", 4, -20)
-    iconSizeSlider:SetWidth(200)
-
-    local iconPosItems = {
-        { text = "Left",  value = "LEFT" },
-        { text = "Right", value = "RIGHT" },
-    }
-    local iconPosDD = ns:CreateDropdown(content, "Icon Position", iconPosItems, function(dd, value)
-        BarWardenDB.visual.iconPosition = value
-        ns:RefreshAllBars()
-    end)
-    iconPosDD:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -16, -30)
 
     -- Section: Texture
     local textureItems = {
@@ -322,7 +286,7 @@ local function CreateVisualsTab(parent)
         end
         ns:RefreshAllBars()
     end)
-    textureDD:SetPoint("TOPLEFT", iconPosDD, "BOTTOMLEFT", 0, -24)
+    textureDD:SetPoint("TOPLEFT", content, "TOPLEFT", 264, yOffset - 20)
 
     customTexBox = ns:CreateEditBox(content, "Custom Texture Filename", 150, function(self, text)
         BarWardenDB.visual.customTexture = text
@@ -344,6 +308,7 @@ local function CreateVisualsTab(parent)
         local v = BarWardenDB.visual
 
         barHeightSlider:SetValue(v.barHeight or 20)
+        barSpacingSlider:SetValue(v.barSpacing or 2)
         -- Read opacity from the first group (all groups share the same value)
         local firstFrame = BarWardenDB.frames and BarWardenDB.frames[1]
         groupBgAlphaSlider:SetValue(firstFrame and firstFrame.bgAlpha ~= nil and firstFrame.bgAlpha or 0.6)
@@ -356,7 +321,6 @@ local function CreateVisualsTab(parent)
                 break
             end
         end
-        barSpacingSlider:SetValue(v.barSpacing or 2)
 
         -- Texture dropdown
         for i, item in ipairs(textureItems) do
