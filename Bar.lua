@@ -209,7 +209,13 @@ function ns:ApplyVisualConfig(bar, config)
     -- Bar color and fill opacity
     local r, g, b = GetBarColor(bar, config)
     local barFillAlpha = visual.barFillAlpha or 1.0
-    bar:SetStatusBarColor(r, g, b, barFillAlpha)
+    bar:SetStatusBarColor(r, g, b)
+    -- In WoW 3.3.5a, SetStatusBarColor ignores the alpha argument.
+    -- Set alpha directly on the StatusBar texture instead.
+    local sbTex = bar:GetStatusBarTexture()
+    if sbTex then
+        sbTex:SetAlpha(barFillAlpha)
+    end
 
     -- Background
     if bar.background then
