@@ -53,19 +53,14 @@ ns.ResolveBarIcon = ResolveBarIcon
 
 -- ----------------------------------------------------------------------------
 -- GetBarDisplayName: Resolve the text shown on a bar.
--- By default uses the user-entered Bar Name. If display.useSpellName is set,
--- uses the spell/item name instead.
+-- Always uses the user-entered Bar Name field.
 -- ----------------------------------------------------------------------------
 function ns.GetBarDisplayName(barData)
     if not barData then return "" end
-    if barData.display and barData.display.useSpellName then
-        return barData.spellName or barData.name or ""
-    end
-    -- Default: prefer the bar name the user typed
     if barData.name and barData.name ~= "" then
         return barData.name
     end
-    return barData.spellName or ""
+    return ""
 end
 
 -- ----------------------------------------------------------------------------
@@ -225,8 +220,11 @@ function ns:ApplyVisualConfig(bar, config)
         end
     end
 
-    -- Icon visibility and position (controlled globally via Visuals → Show Icon)
+    -- Icon visibility and position (per-bar showIcon overrides global)
     local showIcon = visual.showIcon ~= false
+    if display.showIcon ~= nil then
+        showIcon = display.showIcon
+    end
     if style == "ComboPoint" then
         showIcon = false
     end
@@ -256,8 +254,12 @@ function ns:ApplyVisualConfig(bar, config)
         end
     end
 
-    -- Text visibility, positioning, and format (controlled globally via Visuals)
+    -- Text visibility, positioning, and format
+    -- Per-bar showName overrides the global textEnabled setting
     local showText = visual.textEnabled ~= false
+    if display.showName ~= nil then
+        showText = display.showName
+    end
     if style == "ComboPoint" then
         showText = false
     end

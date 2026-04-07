@@ -35,7 +35,8 @@ local function NewBar(name)
         display = {
             progressDirection = "LTR",
             lingerTime = 0,
-            useSpellName = nil,
+            showName = nil,
+            showIcon = nil,
             textFormat = nil,
             colorOverride = nil,
             textureOverride = nil,
@@ -570,16 +571,25 @@ local function CreateBarsTab(parent)
     lingerSlider:SetPoint("TOPLEFT", displayHeader, "BOTTOMLEFT", 4, -24)
     lingerSlider:SetWidth(180)
 
-    local useSpellNameCB = ns:CreateCheckbox(ec, "Use Spell Name as Label",
-        "When checked, the bar displays the spell name instead of the Bar Name field.", function(self, checked)
+    local showBarNameCB = ns:CreateCheckbox(ec, "Show Bar Name",
+        "Display the Bar Name text on this bar.", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then
-            bar.display.useSpellName = checked or nil
-            frame:Refresh()
+            bar.display.showName = checked or nil
             ns:RebuildAllFrames()
         end
     end)
-    useSpellNameCB:SetPoint("TOPLEFT", lingerSlider, "BOTTOMLEFT", 0, -24)
+    showBarNameCB:SetPoint("TOPLEFT", lingerSlider, "BOTTOMLEFT", 0, -24)
+
+    local showBarIconCB = ns:CreateCheckbox(ec, "Show Icon",
+        "Display the spell icon on this bar.", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.display.showIcon = checked or nil
+            ns:RebuildAllFrames()
+        end
+    end)
+    showBarIconCB:SetPoint("TOPLEFT", showBarNameCB, "BOTTOMLEFT", 0, -2)
 
     local colorSwatch = ns:CreateColorSwatch(ec, "Color Override", { r = 1, g = 1, b = 1, a = 1 }, function(self, color)
         local bar = frame:GetSelectedBar()
@@ -588,7 +598,7 @@ local function CreateBarsTab(parent)
             ns:RefreshAllBars()
         end
     end)
-    colorSwatch:SetPoint("TOPLEFT", useSpellNameCB, "BOTTOMLEFT", 0, -8)
+    colorSwatch:SetPoint("TOPLEFT", showBarIconCB, "BOTTOMLEFT", 0, -8)
 
     -- ========================================================================
     -- HELPER: Get selected bar data
@@ -706,7 +716,8 @@ local function CreateBarsTab(parent)
 
         -- Display options
         lingerSlider:SetValue(bar.display.lingerTime or 0)
-        useSpellNameCB:SetChecked(bar.display.useSpellName)
+        showBarNameCB:SetChecked(bar.display.showName)
+        showBarIconCB:SetChecked(bar.display.showIcon)
 
         if bar.display.colorOverride then
             colorSwatch.color.r = bar.display.colorOverride.r

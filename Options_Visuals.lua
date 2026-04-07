@@ -272,19 +272,11 @@ local function CreateVisualsTab(parent)
     iconHeader:SetPoint("TOPLEFT", rogueBtn, "BOTTOMLEFT", 0, -24)
     iconHeader:SetText("Icon")
 
-    local showIconCB = ns:CreateCheckbox(content, "Show Icon",
-        "Toggle spell icon display on bars.",
-        function(self, checked)
-            BarWardenDB.visual.showIcon = checked
-            ns:RefreshAllBars()
-        end)
-    showIconCB:SetPoint("TOPLEFT", iconHeader, "BOTTOMLEFT", 0, -8)
-
     local iconSizeSlider = ns:CreateSlider(content, "Icon Size", 0, 60, 1, function(self, value)
         BarWardenDB.visual.iconSize = value
         ns:RefreshAllBars()
     end)
-    iconSizeSlider:SetPoint("TOPLEFT", showIconCB, "BOTTOMLEFT", 4, -20)
+    iconSizeSlider:SetPoint("TOPLEFT", iconHeader, "BOTTOMLEFT", 4, -20)
     iconSizeSlider:SetWidth(200)
 
     local iconPosItems = {
@@ -354,7 +346,6 @@ local function CreateVisualsTab(parent)
 
         barWidthSlider:SetValue(v.barWidth or 200)
         barHeightSlider:SetValue(v.barHeight or 20)
-        showIconCB:SetChecked(v.showIcon ~= false)
         iconSizeSlider:SetValue(v.iconSize or 20)
         for i, item in ipairs(iconPosItems) do
             if item.value == (v.iconPosition or "LEFT") then

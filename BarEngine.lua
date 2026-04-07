@@ -385,12 +385,7 @@ local function ScanBar(bar, unitFilter)
             bar.iconTexture:SetTexture(icon)
         end
         if bar.nameText then
-            local bd = bar.barData
-            if bd and bd.display and bd.display.useSpellName and name then
-                bar.nameText:SetText(name)
-            else
-                bar.nameText:SetText(ns.GetBarDisplayName(bd))
-            end
+            bar.nameText:SetText(ns.GetBarDisplayName(bar.barData))
         end
     elseif bar.barState == BAR_STATE.ACTIVE then
         local lingerTime = (bd.display and bd.display.lingerTime) or 0
