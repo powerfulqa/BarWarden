@@ -140,25 +140,16 @@ local function CreateVisualsTab(parent)
     textHeader:SetPoint("TOPLEFT", perBarOverrideCB, "BOTTOMLEFT", 0, -24)
     textHeader:SetText("Text Options")
 
-    local textEnabledCB = ns:CreateCheckbox(content, "Show Bar Text",
-        "Toggle text display on bars.",
-        function(self, checked)
-            BarWardenDB.visual.textEnabled = checked
-            ns:RefreshAllBars()
-        end)
-    textEnabledCB:SetPoint("TOPLEFT", textHeader, "BOTTOMLEFT", 0, -8)
-
     local textPosItems = {
         { text = "Left",   value = "INSIDE_LEFT" },
         { text = "Right",  value = "INSIDE_RIGHT" },
-        { text = "None",   value = "NONE" },
     }
 
     local textPosDD = ns:CreateDropdown(content, "Text Position", textPosItems, function(dd, value)
         BarWardenDB.visual.textPosition = value
         ns:RefreshAllBars()
     end)
-    textPosDD:SetPoint("TOPLEFT", textEnabledCB, "BOTTOMLEFT", -16, -24)
+    textPosDD:SetPoint("TOPLEFT", textHeader, "BOTTOMLEFT", -16, -24)
 
     local BW_FONT = "Interface\\AddOns\\BarWarden\\Fonts\\"
     local fontItems = {
@@ -414,8 +405,6 @@ local function CreateVisualsTab(parent)
         perBarOverrideCB:SetChecked(v.perBarColorOverride)
 
         -- Text options
-        textEnabledCB:SetChecked(v.textEnabled)
-
         for i, item in ipairs(textPosItems) do
             if item.value == v.textPosition then
                 UIDropDownMenu_SetSelectedID(textPosDD, i)
