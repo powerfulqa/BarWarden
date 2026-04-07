@@ -25,21 +25,6 @@ local function CreateGeneralTab(parent)
     enableCB:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, yOffset)
 
     -- -----------------------------------------------------------------------
-    -- Show/Hide All
-    -- -----------------------------------------------------------------------
-    local showAllCB = ns:CreateCheckbox(frame, "Show All Frames",
-        "Toggle visibility of all bar frames.",
-        function(self, checked)
-            BarWardenDB.global.showAll = checked
-            if checked then
-                ns:ShowAllFrames()
-            else
-                ns:HideAllFrames()
-            end
-        end)
-    showAllCB:SetPoint("TOPLEFT", enableCB, "BOTTOMLEFT", 0, -8)
-
-    -- -----------------------------------------------------------------------
     -- Lock/Unlock All
     -- -----------------------------------------------------------------------
     local lockCB = ns:CreateCheckbox(frame, "Lock All Frames",
@@ -52,7 +37,7 @@ local function CreateGeneralTab(parent)
                 ns:UnlockAllFrames()
             end
         end)
-    lockCB:SetPoint("TOPLEFT", showAllCB, "BOTTOMLEFT", 0, -8)
+    lockCB:SetPoint("TOPLEFT", enableCB, "BOTTOMLEFT", 0, -8)
 
     -- -----------------------------------------------------------------------
     -- Snap to Grid
@@ -95,7 +80,6 @@ local function CreateGeneralTab(parent)
     helpText:SetText(
         "|cffffd200/bw|r or |cffffd200/barwarden|r - Open configuration panel\n" ..
         "|cffffd200/bw lock|r - Toggle frame lock\n" ..
-        "|cffffd200/bw show|r - Toggle frame visibility\n" ..
         "|cffffd200/bw reset|r - Reset frame positions"
     )
 
@@ -110,7 +94,6 @@ local function CreateGeneralTab(parent)
         if not BarWardenDB then return end
         local g = BarWardenDB.global
         enableCB:SetChecked(g.enabled)
-        showAllCB:SetChecked(g.showAll)
         lockCB:SetChecked(g.locked)
         snapCB:SetChecked(g.snapToGrid)
         gridSlider:SetValue(g.gridSize or 8)

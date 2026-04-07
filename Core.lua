@@ -166,7 +166,6 @@ local function SlashHandler(msg)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw enable      Enable the addon", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw disable     Disable the addon", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw lock        Toggle frame lock", 1, 1, 1)
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw show        Toggle frame visibility", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw reset       Reset all frame positions", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw debug       Dump addon state to chat", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw scan        Live-test spell/item lookups for all bars", 1, 1, 1)
@@ -272,16 +271,6 @@ local function SlashHandler(msg)
             if ns.db then ns.db.global.locked = true end
             ns:LockAllFrames()
             ns:Print("Frames locked.")
-        end
-    elseif cmd == "show" then
-        if ns.db and ns.db.global.showAll then
-            ns.db.global.showAll = false
-            ns:HideAllFrames()
-            ns:Print("Frames hidden.")
-        else
-            if ns.db then ns.db.global.showAll = true end
-            ns:ShowAllFrames()
-            ns:Print("Frames shown.")
         end
     elseif cmd == "reset" then
         ns:RebuildAllFrames()
