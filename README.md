@@ -225,6 +225,37 @@ Profiles are stored account-wide, so any profile you create on one character is 
 
 ## Changelog
 
+### 1.0.13
+
+- **Fixed text format setting having no effect:** The Text Format dropdown (Name Only, Stacks Only, Name + Stacks, Duration Only, etc.) was completely ignored since the restructure. All bars showed a duration countdown regardless of the setting. The format-aware display logic has been restored.
+- **Fixed corrupted bar data from old versions:** Restored the schema v2 migration that cleans up bogus spell IDs injected into bar configs by a previous bug. Existing corrupted saves are repaired automatically on login.
+- **Restored Border Size slider range:** Maximum increased from 4 back to 8.
+- **Restored Bar Spacing slider range:** Maximum increased from 10 back to 30.
+- **Fixed Visuals tab not fully scrollable:** Scroll content height restored so all controls are reachable.
+
+### 1.0.12
+
+- **Restored all 13 bar textures:** Smooth, Gloss, Aluminum, Armory, Graphite, Otravi, Striped, Canvas, and LiteStep were missing since the restructure. All textures are back.
+- **Restored all 15 fonts:** 5 built-in WoW fonts and 10 custom fonts (Adventure, Bazooka, Cooline, Diogenes, Ginko, Heroic, Porky, Talisman, Transformers, Yellow Jacket) were reduced to just 4. All fonts are back.
+- **Removed Custom text format option:** The "Custom" entry in the Text Format dropdown was re-added by mistake during the restructure and has been removed again.
+
+### 1.0.11
+
+- **Fixed Force Show Icon on inactive bars:** The icon frame was shown but had no texture until the spell was actually used. Icons now resolve from the bar's spell/item config immediately so they display on inactive bars.
+
+### 1.0.10
+
+- **Fixed Visuals tab layout regressions:** Style presets are now in a horizontal row. Icon Size and Icon Position moved to their own section in the right column, out of Frame Dimensions. Texture dropdown label corrected.
+- **Adaptive panel width:** The Visuals content area now adapts to the scroll frame width on show, so the layout works at different UI scales.
+
+### 1.0.9
+
+- **Fixed group settings clipping below tab bar:** Tightened vertical spacing in the Bars/Groups left panel so all controls including Border Opacity fit within the panel.
+
+### 1.0.8
+
+- **Removed Import/Export from Bars/Groups tab:** Redundant with the Profiles tab export/import feature.
+
 ### 1.0.7
 
 - **Restored per-group Border Opacity slider:** The border opacity setting was lost during a previous restructure. Groups now have a Border Opacity slider (0 to 1) below Background Opacity, allowing the group frame border to be dimmed or fully hidden.
