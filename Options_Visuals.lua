@@ -58,36 +58,9 @@ local function CreateVisualsTab(parent)
     barSpacingSlider:SetPoint("TOPLEFT", barHeightSlider, "BOTTOMLEFT", 0, -30)
     barSpacingSlider:SetWidth(200)
 
-    -- Section: Group Opacity
-    local groupOpacityHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    groupOpacityHeader:SetPoint("TOPLEFT", barSpacingSlider, "BOTTOMLEFT", -4, -30)
-    groupOpacityHeader:SetText("Group Opacity")
-
-    local groupBgAlphaSlider = ns:CreateSlider(content, "Background Opacity", 0, 1, 0.05, function(self, value)
-        if BarWardenDB and BarWardenDB.frames then
-            for i, f in ipairs(BarWardenDB.frames) do
-                f.bgAlpha = value
-                ns:SetGroupBgAlpha(i, value)
-            end
-        end
-    end)
-    groupBgAlphaSlider:SetPoint("TOPLEFT", groupOpacityHeader, "BOTTOMLEFT", 4, -20)
-    groupBgAlphaSlider:SetWidth(200)
-
-    local groupBorderAlphaSlider = ns:CreateSlider(content, "Border Opacity", 0, 1, 0.05, function(self, value)
-        if BarWardenDB and BarWardenDB.frames then
-            for i, f in ipairs(BarWardenDB.frames) do
-                f.borderAlpha = value
-                ns:SetGroupBorderAlpha(i, value)
-            end
-        end
-    end)
-    groupBorderAlphaSlider:SetPoint("TOPLEFT", groupBgAlphaSlider, "BOTTOMLEFT", 0, -30)
-    groupBorderAlphaSlider:SetWidth(200)
-
     -- Section: Bar Visuals (color + texture)
     local colorHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    colorHeader:SetPoint("TOPLEFT", groupBorderAlphaSlider, "BOTTOMLEFT", -4, -30)
+    colorHeader:SetPoint("TOPLEFT", barSpacingSlider, "BOTTOMLEFT", -4, -30)
     colorHeader:SetText("Bar Visuals")
 
     local colorModeItems = {
@@ -267,18 +240,11 @@ local function CreateVisualsTab(parent)
     opacityHeader:SetPoint("TOPLEFT", iconPosDD, "BOTTOMLEFT", 16, -30)
     opacityHeader:SetText("Bar Opacity")
 
-    local barFillAlphaSlider = ns:CreateSlider(content, "Bar Fill Opacity", 0, 1, 0.05, function(self, value)
-        BarWardenDB.visual.barFillAlpha = value
-        ns:RefreshAllBars()
-    end)
-    barFillAlphaSlider:SetPoint("TOPLEFT", opacityHeader, "BOTTOMLEFT", 4, -20)
-    barFillAlphaSlider:SetWidth(200)
-
     local activeAlphaSlider = ns:CreateSlider(content, "Active Opacity", 0, 1, 0.05, function(self, value)
         BarWardenDB.visual.activeAlpha = value
         ns:RefreshAllBars()
     end)
-    activeAlphaSlider:SetPoint("TOPLEFT", barFillAlphaSlider, "BOTTOMLEFT", 0, -30)
+    activeAlphaSlider:SetPoint("TOPLEFT", opacityHeader, "BOTTOMLEFT", 4, -20)
     activeAlphaSlider:SetWidth(200)
 
     local inactiveAlphaSlider = ns:CreateSlider(content, "Inactive Opacity", 0, 1, 0.05, function(self, value)
@@ -312,10 +278,6 @@ local function CreateVisualsTab(parent)
 
         barHeightSlider:SetValue(v.barHeight or 20)
         barSpacingSlider:SetValue(v.barSpacing or 2)
-        -- Read opacity from the first group (all groups share the same value)
-        local firstFrame = BarWardenDB.frames and BarWardenDB.frames[1]
-        groupBgAlphaSlider:SetValue(firstFrame and firstFrame.bgAlpha ~= nil and firstFrame.bgAlpha or 0.6)
-        groupBorderAlphaSlider:SetValue(firstFrame and firstFrame.borderAlpha ~= nil and firstFrame.borderAlpha or 0.8)
         iconSizeSlider:SetValue(v.iconSize or 20)
         for i, item in ipairs(iconPosItems) do
             if item.value == (v.iconPosition or "LEFT") then
@@ -391,7 +353,6 @@ local function CreateVisualsTab(parent)
         end
 
         -- Bar Opacity
-        barFillAlphaSlider:SetValue(v.barFillAlpha or 1.0)
         activeAlphaSlider:SetValue(v.activeAlpha or 1.0)
         inactiveAlphaSlider:SetValue(v.inactiveAlpha or 0.3)
         fadeInactiveCB:SetChecked(v.fadeWhenInactive)

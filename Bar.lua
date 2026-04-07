@@ -206,13 +206,9 @@ function ns:ApplyVisualConfig(bar, config)
     -- RTL is silently ignored; bars always fill left-to-right.
     -- (direction stored in DB for future compat but not applied here)
 
-    -- Bar color and fill opacity
-    -- In WoW 3.3.5a, SetStatusBarColor ignores the alpha argument and
-    -- SetAlpha on the StatusBar texture may not work.  Apply alpha via
-    -- SetVertexColor directly on the texture which does support it.
+    -- Bar color
     local r, g, b = GetBarColor(bar, config)
-    local barFillAlpha = visual.barFillAlpha or 1.0
-    bar:SetStatusBarColor(r * barFillAlpha, g * barFillAlpha, b * barFillAlpha)
+    bar:SetStatusBarColor(r, g, b)
 
     -- Background
     if bar.background then
