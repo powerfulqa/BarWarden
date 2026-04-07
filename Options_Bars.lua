@@ -35,6 +35,7 @@ local function NewBar(name)
         display = {
             progressDirection = "LTR",
             lingerTime = 0,
+            barAlpha = 0.6,
             showName = nil,
             showIcon = nil,
             textFormat = nil,
@@ -600,6 +601,16 @@ local function CreateBarsTab(parent)
     end)
     showBarIconCB:SetPoint("TOPLEFT", showBarNameCB, "BOTTOMLEFT", 0, -2)
 
+    local barOpacitySlider = ns:CreateSlider(ec, "Bar Opacity", 0, 1, 0.05, function(self, value)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.display.barAlpha = value
+            ns:RebuildAllFrames()
+        end
+    end)
+    barOpacitySlider:SetPoint("TOPLEFT", showBarIconCB, "BOTTOMLEFT", 4, -24)
+    barOpacitySlider:SetWidth(180)
+
     local colorSwatch = ns:CreateColorSwatch(ec, "Color Override", { r = 1, g = 1, b = 1, a = 1 }, function(self, color)
         local bar = frame:GetSelectedBar()
         if bar then
@@ -607,7 +618,7 @@ local function CreateBarsTab(parent)
             ns:RefreshAllBars()
         end
     end)
-    colorSwatch:SetPoint("TOPLEFT", showBarIconCB, "BOTTOMLEFT", 0, -8)
+    colorSwatch:SetPoint("TOPLEFT", barOpacitySlider, "BOTTOMLEFT", -4, -8)
 
     -- ========================================================================
     -- HELPER: Get selected bar data
@@ -727,6 +738,7 @@ local function CreateBarsTab(parent)
         lingerSlider:SetValue(bar.display.lingerTime or 0)
         showBarNameCB:SetChecked(bar.display.showName)
         showBarIconCB:SetChecked(bar.display.showIcon)
+        barOpacitySlider:SetValue(bar.display.barAlpha or 0.6)
 
         if bar.display.colorOverride then
             colorSwatch.color.r = bar.display.colorOverride.r

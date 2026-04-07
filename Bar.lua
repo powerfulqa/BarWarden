@@ -210,9 +210,10 @@ function ns:ApplyVisualConfig(bar, config)
     local r, g, b = GetBarColor(bar, config)
     bar:SetStatusBarColor(r, g, b)
 
-    -- Background
+    -- Background (per-bar opacity via display.barAlpha)
     if bar.background then
-        bar.background:SetVertexColor(0, 0, 0, 0.6)
+        local barAlpha = display.barAlpha or 0.6
+        bar.background:SetVertexColor(0, 0, 0, barAlpha)
     end
 
     -- Border
