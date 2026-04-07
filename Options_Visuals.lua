@@ -20,6 +20,16 @@ local function CreateVisualsTab(parent)
     content:SetHeight(600)
     scrollFrame:SetScrollChild(content)
 
+    -- Resize content to match the scroll frame when the panel is shown,
+    -- so the layout adapts to different UI scale / panel widths.
+    frame:SetScript("OnShow", function()
+        local w = scrollFrame:GetWidth()
+        if w and w > 100 then
+            content:SetWidth(w)
+        end
+        if frame.Refresh then frame:Refresh() end
+    end)
+
     -- All controls are placed on 'content'. yOffset begins near the top.
     local yOffset = -10
 
@@ -51,29 +61,11 @@ local function CreateVisualsTab(parent)
     barHeightSlider:SetPoint("TOPLEFT", barWidthSlider, "BOTTOMLEFT", 0, -30)
     barHeightSlider:SetWidth(200)
 
-    local iconSizeSlider = ns:CreateSlider(content, "Icon Size", 0, 60, 1, function(self, value)
-        BarWardenDB.visual.iconSize = value
-        ns:RefreshAllBars()
-    end)
-    iconSizeSlider:SetPoint("TOPLEFT", barHeightSlider, "BOTTOMLEFT", 0, -30)
-    iconSizeSlider:SetWidth(200)
-
-    -- Icon position toggle (below icon size slider in left column)
-    local iconPosItems = {
-        { text = "Left",  value = "LEFT" },
-        { text = "Right", value = "RIGHT" },
-    }
-    local iconPosDD = ns:CreateDropdown(content, "Icon Position", iconPosItems, function(dd, value)
-        BarWardenDB.visual.iconPosition = value
-        ns:RefreshAllBars()
-    end)
-    iconPosDD:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -16, -36)
-
     local borderSizeSlider = ns:CreateSlider(content, "Border Size", 0, 4, 1, function(self, value)
         BarWardenDB.visual.borderSize = value
         ns:RefreshAllBars()
     end)
-    borderSizeSlider:SetPoint("TOPLEFT", iconPosDD, "BOTTOMLEFT", 20, -24)
+    borderSizeSlider:SetPoint("TOPLEFT", barHeightSlider, "BOTTOMLEFT", 0, -30)
     borderSizeSlider:SetWidth(200)
 
     local barSpacingSlider = ns:CreateSlider(content, "Bar Spacing", 0, 10, 1, function(self, value)
@@ -223,10 +215,10 @@ local function CreateVisualsTab(parent)
     fadeSpeedSlider:SetWidth(200)
 
     -- -----------------------------------------------------------------------
-    -- RIGHT COLUMN (x = 280): Style Presets → Texture
+    -- RIGHT COLUMN (x = 280): Style Presets → Icon → Texture
     -- -----------------------------------------------------------------------
 
-    -- Section: Style Presets
+    -- Section: Style Presets (horizontal row)
     local presetHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     presetHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 280, yOffset)
     presetHeader:SetText("Style Presets")
@@ -247,24 +239,46 @@ local function CreateVisualsTab(parent)
         if frame.Refresh then frame:Refresh() end
     end
 
-    local rogueBtn = ns:CreateButton(content, "Rogue Style", 140, function()
+    local rogueBtn = ns:CreateButton(content, "Rogue", 80, function()
         ApplyPreset("Rogue")
     end)
     rogueBtn:SetPoint("TOPLEFT", presetHeader, "BOTTOMLEFT", 0, -10)
 
-    local ntkBtn = ns:CreateButton(content, "NeedToKnow-like", 140, function()
+    local ntkBtn = ns:CreateButton(content, "NeedToKnow", 80, function()
         ApplyPreset("NeedToKnow")
     end)
-    ntkBtn:SetPoint("TOPLEFT", rogueBtn, "BOTTOMLEFT", 0, -6)
+    ntkBtn:SetPoint("LEFT", rogueBtn, "RIGHT", 4, 0)
 
-    local minBtn = ns:CreateButton(content, "Minimalist", 140, function()
+    local minBtn = ns:CreateButton(content, "Minimalist", 80, function()
         ApplyPreset("Minimalist")
     end)
-    minBtn:SetPoint("TOPLEFT", ntkBtn, "BOTTOMLEFT", 0, -6)
+    minBtn:SetPoint("LEFT", ntkBtn, "RIGHT", 4, 0)
+
+    -- Section: Icon
+    local iconHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    iconHeader:SetPoint("TOPLEFT", rogueBtn, "BOTTOMLEFT", 0, -24)
+    iconHeader:SetText("Icon")
+
+    local iconSizeSlider = ns:CreateSlider(content, "Icon Size", 0, 60, 1, function(self, value)
+        BarWardenDB.visual.iconSize = value
+        ns:RefreshAllBars()
+    end)
+    iconSizeSlider:SetPoint("TOPLEFT", iconHeader, "BOTTOMLEFT", 4, -20)
+    iconSizeSlider:SetWidth(200)
+
+    local iconPosItems = {
+        { text = "Left",  value = "LEFT" },
+        { text = "Right", value = "RIGHT" },
+    }
+    local iconPosDD = ns:CreateDropdown(content, "Icon Position", iconPosItems, function(dd, value)
+        BarWardenDB.visual.iconPosition = value
+        ns:RefreshAllBars()
+    end)
+    iconPosDD:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -16, -30)
 
     -- Section: Texture
     local texHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    texHeader:SetPoint("TOPLEFT", minBtn, "BOTTOMLEFT", 0, -24)
+    texHeader:SetPoint("TOPLEFT", iconPosDD, "BOTTOMLEFT", 20, -24)
     texHeader:SetText("Texture")
 
     local textureItems = {
@@ -278,7 +292,7 @@ local function CreateVisualsTab(parent)
     local customTexBox
     local fallbackWarning
 
-    local textureDD = ns:CreateDropdown(content, "Bar Texture", textureItems, function(dd, value, index)
+    local textureDD = ns:CreateDropdown(content, "Texture", textureItems, function(dd, value, index)
         BarWardenDB.visual.texture = value
         if customTexBox then
             if value == "Custom" then
