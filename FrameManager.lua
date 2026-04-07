@@ -430,7 +430,13 @@ function ns:BuildBarsForFrame(frameIndex)
         bar.barIndex = i
         bar.frameIndex = frameIndex
         bar.barState = ns.BAR_STATE and ns.BAR_STATE.INACTIVE or 0
-        -- Set the bar name so it shows on the inactive bar
+        -- Apply visual config immediately so font, texture, icon position, and
+        -- text settings are correct on login — not just when the bar activates.
+        if ns.ApplyVisualConfig then
+            ns:ApplyVisualConfig(bar)
+        end
+        -- Set the bar name AFTER ApplyVisualConfig because SetFont can clear
+        -- existing text content in WoW 3.3.5a.
         if bar.nameText then
             local displayName = barData.spellName or barData.name or
                 (type(barData.spell) == "string" and barData.spell or nil) or ""
