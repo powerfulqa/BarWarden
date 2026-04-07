@@ -85,10 +85,10 @@ local function CreateVisualsTab(parent)
     groupBorderAlphaSlider:SetPoint("TOPLEFT", groupBgAlphaSlider, "BOTTOMLEFT", 0, -30)
     groupBorderAlphaSlider:SetWidth(200)
 
-    -- Section: Bar Color
+    -- Section: Bar Visuals (color + texture)
     local colorHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     colorHeader:SetPoint("TOPLEFT", groupBorderAlphaSlider, "BOTTOMLEFT", -4, -30)
-    colorHeader:SetText("Bar Color")
+    colorHeader:SetText("Bar Visuals")
 
     local colorModeItems = {
         { text = "Class Color",      value = "CLASS" },
@@ -128,9 +128,56 @@ local function CreateVisualsTab(parent)
         end)
     perBarOverrideCB:SetPoint("TOPLEFT", colorSwatch, "BOTTOMLEFT", -4, -12)
 
+    local textureItems = {
+        { text = "Flat",      value = "Flat"     },
+        { text = "Smooth",    value = "Smooth"   },
+        { text = "Gloss",     value = "Gloss"    },
+        { text = "Aluminum",  value = "Aluminum" },
+        { text = "Armory",    value = "Armory"   },
+        { text = "Graphite",  value = "Graphite" },
+        { text = "Otravi",    value = "Otravi"   },
+        { text = "Striped",   value = "Striped"  },
+        { text = "Canvas",    value = "Canvas"   },
+        { text = "LiteStep",  value = "LiteStep" },
+        { text = "Glow",      value = "Glow"     },
+        { text = "Metal",     value = "Metal"    },
+        { text = "Leather",   value = "Leather"  },
+        { text = "Custom",    value = "Custom"   },
+    }
+
+    local customTexBox
+    local fallbackWarning
+
+    local textureDD = ns:CreateDropdown(content, "Bar Texture", textureItems, function(dd, value, index)
+        BarWardenDB.visual.texture = value
+        if customTexBox then
+            if value == "Custom" then
+                customTexBox:Show()
+                if fallbackWarning then fallbackWarning:Show() end
+            else
+                customTexBox:Hide()
+                if fallbackWarning then fallbackWarning:Hide() end
+            end
+        end
+        ns:RefreshAllBars()
+    end)
+    textureDD:SetPoint("TOPLEFT", perBarOverrideCB, "BOTTOMLEFT", -16, -24)
+
+    customTexBox = ns:CreateEditBox(content, "Custom Texture Filename", 150, function(self, text)
+        BarWardenDB.visual.customTexture = text
+        ns:RefreshAllBars()
+    end)
+    customTexBox:SetPoint("TOPLEFT", textureDD, "BOTTOMLEFT", 20, -8)
+    customTexBox:Hide()
+
+    fallbackWarning = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    fallbackWarning:SetPoint("TOPLEFT", customTexBox, "BOTTOMLEFT", 0, -4)
+    fallbackWarning:SetText("|cffff8800Warning: If file not found, Flat texture will be used.|r")
+    fallbackWarning:Hide()
+
     -- Section: Text Options
     local textHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    textHeader:SetPoint("TOPLEFT", perBarOverrideCB, "BOTTOMLEFT", 0, -24)
+    textHeader:SetPoint("TOPLEFT", textureDD, "BOTTOMLEFT", 16, -30)
     textHeader:SetText("Text Options")
 
     local textPosItems = {
@@ -248,57 +295,6 @@ local function CreateVisualsTab(parent)
     fadeSpeedSlider:SetPoint("TOPLEFT", fadeInactiveCB, "BOTTOMLEFT", 4, -24)
     fadeSpeedSlider:SetWidth(200)
 
-    -- -----------------------------------------------------------------------
-    -- RIGHT COLUMN (x = 280): Texture
-    -- -----------------------------------------------------------------------
-
-    -- Section: Texture
-    local textureItems = {
-        { text = "Flat",      value = "Flat"     },
-        { text = "Smooth",    value = "Smooth"   },
-        { text = "Gloss",     value = "Gloss"    },
-        { text = "Aluminum",  value = "Aluminum" },
-        { text = "Armory",    value = "Armory"   },
-        { text = "Graphite",  value = "Graphite" },
-        { text = "Otravi",    value = "Otravi"   },
-        { text = "Striped",   value = "Striped"  },
-        { text = "Canvas",    value = "Canvas"   },
-        { text = "LiteStep",  value = "LiteStep" },
-        { text = "Glow",      value = "Glow"     },
-        { text = "Metal",     value = "Metal"    },
-        { text = "Leather",   value = "Leather"  },
-        { text = "Custom",    value = "Custom"   },
-    }
-
-    local customTexBox
-    local fallbackWarning
-
-    local textureDD = ns:CreateDropdown(content, "Bar Texture", textureItems, function(dd, value, index)
-        BarWardenDB.visual.texture = value
-        if customTexBox then
-            if value == "Custom" then
-                customTexBox:Show()
-                if fallbackWarning then fallbackWarning:Show() end
-            else
-                customTexBox:Hide()
-                if fallbackWarning then fallbackWarning:Hide() end
-            end
-        end
-        ns:RefreshAllBars()
-    end)
-    textureDD:SetPoint("TOPLEFT", content, "TOPLEFT", 264, yOffset - 20)
-
-    customTexBox = ns:CreateEditBox(content, "Custom Texture Filename", 150, function(self, text)
-        BarWardenDB.visual.customTexture = text
-        ns:RefreshAllBars()
-    end)
-    customTexBox:SetPoint("TOPLEFT", textureDD, "BOTTOMLEFT", 20, -8)
-    customTexBox:Hide()
-
-    fallbackWarning = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    fallbackWarning:SetPoint("TOPLEFT", customTexBox, "BOTTOMLEFT", 0, -4)
-    fallbackWarning:SetText("|cffff8800Warning: If file not found, Flat texture will be used.|r")
-    fallbackWarning:Hide()
 
     -- -----------------------------------------------------------------------
     -- Refresh function
