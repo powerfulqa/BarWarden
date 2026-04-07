@@ -2,6 +2,12 @@ local addonName, ns = ...
 
 local widgetCount = 0
 
+-- Guard flag: when true, slider/checkbox OnValueChanged callbacks are
+-- suppressed.  Set during programmatic SetValue calls (e.g. Refresh)
+-- so that restoring UI state doesn't write back to the DB and overwrite
+-- per-group settings with global defaults.
+ns.suppressCallbacks = false
+
 local function NextName(prefix)
     widgetCount = widgetCount + 1
     return "BarWarden" .. prefix .. widgetCount
@@ -13,6 +19,7 @@ function ns:CreateCheckbox(parent, label, tooltip, onClick)
     _G[name .. "Text"]:SetText(label)
     cb.tooltipText = tooltip
     cb:HookScript("OnClick", function(self)
+        if ns.suppressCallbacks then return end
         if onClick then onClick(self, self:GetChecked() == 1) end
     end)
     return cb
@@ -27,6 +34,7 @@ function ns:CreateSlider(parent, label, min, max, step, onChange)
     slider:SetMinMaxValues(min, max)
     slider:SetValueStep(step)
     slider:HookScript("OnValueChanged", function(self, value)
+        if ns.suppressCallbacks then return end
         if onChange then onChange(self, value) end
     end)
     return slider

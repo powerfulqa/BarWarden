@@ -103,10 +103,14 @@ function ns:RefreshOptions()
     if ns.optionsPanel then
         PanelTemplates_SetTab(ns.optionsPanel, 1)
     end
-    -- Refresh all tab content so controls reflect current DB values
+    -- Suppress widget callbacks while restoring UI state so that
+    -- programmatic SetValue / SetChecked calls don't write back to DB
+    -- and overwrite per-group settings with global defaults.
+    ns.suppressCallbacks = true
     for _, tab in pairs(ns.optionsTabs) do
         if tab and tab.Refresh then
             tab:Refresh()
         end
     end
+    ns.suppressCallbacks = false
 end

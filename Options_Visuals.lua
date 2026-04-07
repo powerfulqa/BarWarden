@@ -27,7 +27,9 @@ local function CreateVisualsTab(parent)
         if w and w > 100 then
             content:SetWidth(w)
         end
+        ns.suppressCallbacks = true
         if frame.Refresh then frame:Refresh() end
+        ns.suppressCallbacks = false
     end)
 
     -- All controls are placed on 'content'. yOffset begins near the top.
