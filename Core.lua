@@ -4,6 +4,9 @@ local addonName, ns = ...
 -- Core.lua - Addon initialization, slash commands, global enable/disable
 -- ============================================================================
 
+-- Read version once from the TOC so it is defined in a single place.
+ns.version = GetAddOnMetadata(addonName, "Version") or "unknown"
+
 local coreFrame = CreateFrame("Frame", "BarWardenCoreFrame", UIParent)
 
 -- Periodic scan: reliable fallback for cooldowns already active on login/reload
@@ -157,7 +160,7 @@ local function SlashHandler(msg)
     local cmd = strtrim(msg):lower()
 
     if cmd == "help" then
-        ns:Print("BarWarden v1.0.0 commands:")
+        ns:Print("BarWarden v" .. ns.version .. " commands:")
         DEFAULT_CHAT_FRAME:AddMessage("  /bw             Open configuration panel", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw enable      Enable the addon", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw disable     Disable the addon", 1, 1, 1)

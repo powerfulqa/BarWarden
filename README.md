@@ -225,6 +225,10 @@ Profiles are stored account-wide, so any profile you create on one character is 
 
 ## Changelog
 
+### 1.0.6
+
+- **Version now managed automatically:** The version displayed in-game (options panel, `/bw help`) is read from the TOC at runtime via `GetAddOnMetadata`, and the CI pipeline stamps the TOC version from the git tag at build time. No more manual version bumps across multiple files.
+
 ### 1.0.5
 
 - **Default starter profile:** New accounts now start with a "Default" profile in the account-wide profile list so there is always something available to load or build from.
@@ -288,4 +292,4 @@ Type `/bw debug` and include the output if you need to report a problem. If thin
 
 ---
 
-*Author: Serv | Version 1.0.5*
+*Author: Serv*

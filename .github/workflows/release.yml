@@ -17,7 +17,13 @@ jobs:
 
       - name: Get version from tag
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Stamp version into TOC
+        run: |
+          sed -i "s/^## Version: .*/## Version: ${{ steps.version.outputs.VERSION }}/" BarWarden.toc
 
       - name: Package addon into zip
         run: |

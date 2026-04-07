@@ -101,7 +101,7 @@ local function CreateGeneralTab(parent)
 
     local versionText = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     versionText:SetPoint("TOPLEFT", helpText, "BOTTOMLEFT", 0, -16)
-    versionText:SetText("BarWarden v1.0 | WoW 3.3.5a (Interface 30300)")
+    versionText:SetText("BarWarden v" .. (ns.version or "?") .. " | WoW 3.3.5a (Interface 30300)")
 
     -- -----------------------------------------------------------------------
     -- Refresh function
