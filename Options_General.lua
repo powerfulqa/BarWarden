@@ -40,29 +40,6 @@ local function CreateGeneralTab(parent)
     lockCB:SetPoint("TOPLEFT", enableCB, "BOTTOMLEFT", 0, -8)
 
     -- -----------------------------------------------------------------------
-    -- Snap to Grid
-    -- -----------------------------------------------------------------------
-    local snapCB = ns:CreateCheckbox(frame, "Snap to Grid",
-        "When enabled, frames will snap to a grid when moved. A translucent grid overlay is shown on screen.",
-        function(self, checked)
-            BarWardenDB.global.snapToGrid = checked
-            if checked then
-                ns:ShowGridOverlay()
-            else
-                ns:HideGridOverlay()
-            end
-        end)
-    snapCB:SetPoint("TOPLEFT", lockCB, "BOTTOMLEFT", 0, -8)
-
-    -- Grid Size Slider
-    local gridSlider = ns:CreateSlider(frame, "Grid Size", 2, 32, 2, function(self, value)
-        BarWardenDB.global.gridSize = value
-        ns:UpdateGridOverlay()
-    end)
-    gridSlider:SetPoint("TOPLEFT", snapCB, "BOTTOMLEFT", 4, -24)
-    gridSlider:SetWidth(200)
-
-    -- -----------------------------------------------------------------------
     -- Minimap Icon Toggle
     -- -----------------------------------------------------------------------
     local minimapCB = ns:CreateCheckbox(frame, "Show Minimap Icon",
@@ -71,7 +48,7 @@ local function CreateGeneralTab(parent)
             BarWardenDB.global.minimapIcon = checked
             ns:UpdateMinimapButtonVisibility()
         end)
-    minimapCB:SetPoint("TOPLEFT", gridSlider, "BOTTOMLEFT", -4, -24)
+    minimapCB:SetPoint("TOPLEFT", lockCB, "BOTTOMLEFT", 0, -8)
 
     -- -----------------------------------------------------------------------
     -- Help Section
@@ -101,8 +78,6 @@ local function CreateGeneralTab(parent)
         local g = BarWardenDB.global
         enableCB:SetChecked(g.enabled)
         lockCB:SetChecked(g.locked)
-        snapCB:SetChecked(g.snapToGrid)
-        gridSlider:SetValue(g.gridSize or 8)
         minimapCB:SetChecked(g.minimapIcon)
     end
 

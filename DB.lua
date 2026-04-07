@@ -63,8 +63,6 @@ ns.DEFAULTS = {
         enabled = true,
         locked = true,
         showAll = true,
-        snapToGrid = false,
-        gridSize = 8,
         minimapIcon = true,
         minimapIconPos = 220,
     },

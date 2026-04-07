@@ -19,102 +19,6 @@ local GROUP_BACKDROP = {
     insets = { left = 2, right = 2, top = 2, bottom = 2 },
 }
 
--- ----------------------------------------------------------------------------
--- SnapToGrid: Snap a value to the nearest grid increment
--- ----------------------------------------------------------------------------
-local function SnapToGrid(value, gridSize)
-    if not gridSize or gridSize <= 0 then return value end
-    return math.floor(value / gridSize + 0.5) * gridSize
-end
-
--- ----------------------------------------------------------------------------
--- Grid Overlay: translucent grid lines shown when Snap to Grid is enabled
--- ----------------------------------------------------------------------------
-local gridOverlay = CreateFrame("Frame", "BarWardenGridOverlay", UIParent)
-gridOverlay:SetAllPoints(UIParent)
-gridOverlay:SetFrameStrata("BACKGROUND")
-gridOverlay:EnableMouse(false)
-gridOverlay:Hide()
-
-local gridLines = {}
-
-local function ClearGridLines()
-    for _, line in ipairs(gridLines) do
-        line:Hide()
-    end
-end
-
-local function DrawGrid(gridSize)
-    ClearGridLines()
-    if not gridSize or gridSize <= 0 then return end
-
-    local sw = GetScreenWidth()
-    local sh = GetScreenHeight()
-    local halfW = sw / 2
-    local halfH = sh / 2
-    local idx = 0
-
-    -- Grid lines are drawn from the screen CENTER outward because frame
-    -- coordinates snap relative to their anchor point on UIParent.
-    -- Most anchor points (CENTER, TOP, BOTTOM, etc.) measure from the
-    -- center of the screen, so the visual grid must match.
-
-    -- Vertical lines: from center outward in both directions
-    for x = 0, halfW, gridSize do
-        for _, offset in ipairs({ x, -x }) do
-            idx = idx + 1
-            local line = gridLines[idx]
-            if not line then
-                line = gridOverlay:CreateTexture(nil, "BACKGROUND")
-                gridLines[idx] = line
-            end
-            line:SetTexture(1, 1, 1, 0.15)
-            line:ClearAllPoints()
-            line:SetPoint("TOP", gridOverlay, "TOP", offset, 0)
-            line:SetWidth(1)
-            line:SetHeight(sh)
-            line:Show()
-            if x == 0 then break end  -- center line only once
-        end
-    end
-
-    -- Horizontal lines: from center outward in both directions
-    for y = 0, halfH, gridSize do
-        for _, offset in ipairs({ y, -y }) do
-            idx = idx + 1
-            local line = gridLines[idx]
-            if not line then
-                line = gridOverlay:CreateTexture(nil, "BACKGROUND")
-                gridLines[idx] = line
-            end
-            line:SetTexture(1, 1, 1, 0.15)
-            line:ClearAllPoints()
-            line:SetPoint("LEFT", gridOverlay, "LEFT", 0, offset)
-            line:SetWidth(sw)
-            line:SetHeight(1)
-            line:Show()
-            if y == 0 then break end  -- center line only once
-        end
-    end
-end
-
-function ns:ShowGridOverlay()
-    local gridSize = BarWardenDB and BarWardenDB.global.gridSize or 8
-    DrawGrid(gridSize)
-    gridOverlay:Show()
-end
-
-function ns:HideGridOverlay()
-    ClearGridLines()
-    gridOverlay:Hide()
-end
-
-function ns:UpdateGridOverlay()
-    if gridOverlay:IsShown() then
-        local gridSize = BarWardenDB and BarWardenDB.global.gridSize or 8
-        DrawGrid(gridSize)
-    end
-end
 
 -- ----------------------------------------------------------------------------
 -- SaveFramePosition: Persist frame position to BarWardenDB
@@ -126,13 +30,6 @@ local function SaveFramePosition(frame)
 
     local point, relativeTo, relativePoint, x, y = frame:GetPoint(1)
     if not point then return end
-
-    local snap = BarWardenDB.global.snapToGrid
-    local gridSize = BarWardenDB.global.gridSize or 8
-    if snap then
-        x = SnapToGrid(x, gridSize)
-        y = SnapToGrid(y, gridSize)
-    end
 
     db[frame.frameIndex].position = {
         point = point,
@@ -155,19 +52,6 @@ local function OnDragStop(self)
     if not self.isMoving then return end
     self:StopMovingOrSizing()
     self.isMoving = false
-
-    -- Apply snap-to-grid
-    if BarWardenDB and BarWardenDB.global.snapToGrid then
-        local point, relativeTo, relativePoint, x, y = self:GetPoint(1)
-        if point then
-            local gridSize = BarWardenDB.global.gridSize or 8
-            x = SnapToGrid(x, gridSize)
-            y = SnapToGrid(y, gridSize)
-            self:ClearAllPoints()
-            self:SetPoint(point, UIParent, relativePoint, x, y)
-        end
-    end
-
     SaveFramePosition(self)
 end
 
