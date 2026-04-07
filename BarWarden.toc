@@ -2,7 +2,7 @@
 ## Title: BarWarden
 ## Notes: Customizable cooldown, buff, and debuff bar tracking addon
 ## Author: Serv
-## Version: 1.0.6
+## Version: 1.0.25
 ## SavedVariables: BarWardenAccountDB
 ## SavedVariablesPerCharacter: BarWardenDB
 ## DefaultState: enabled

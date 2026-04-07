@@ -51,18 +51,11 @@ local function CreateVisualsTab(parent)
     barHeightSlider:SetPoint("TOPLEFT", dimHeader, "BOTTOMLEFT", 4, -20)
     barHeightSlider:SetWidth(200)
 
-    local borderSizeSlider = ns:CreateSlider(content, "Border Size", 0, 8, 1, function(self, value)
-        BarWardenDB.visual.borderSize = value
-        ns:RefreshAllBars()
-    end)
-    borderSizeSlider:SetPoint("TOPLEFT", barHeightSlider, "BOTTOMLEFT", 0, -30)
-    borderSizeSlider:SetWidth(200)
-
     local barSpacingSlider = ns:CreateSlider(content, "Bar Spacing", 0, 30, 1, function(self, value)
         BarWardenDB.visual.barSpacing = value
         ns:RefreshAllBars()
     end)
-    barSpacingSlider:SetPoint("TOPLEFT", borderSizeSlider, "BOTTOMLEFT", 0, -30)
+    barSpacingSlider:SetPoint("TOPLEFT", barHeightSlider, "BOTTOMLEFT", 0, -30)
     barSpacingSlider:SetWidth(200)
 
     -- Section: Group Opacity
@@ -363,7 +356,6 @@ local function CreateVisualsTab(parent)
                 break
             end
         end
-        borderSizeSlider:SetValue(v.borderSize or 1)
         barSpacingSlider:SetValue(v.barSpacing or 2)
 
         -- Texture dropdown

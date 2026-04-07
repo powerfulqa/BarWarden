@@ -175,8 +175,6 @@ function ns:ApplyVisualConfig(bar, config)
     local barHeight = visual.barHeight or 20
     local iconSize  = visual.iconSize or 20
     local fontSize  = visual.fontSize or 11
-    local borderSize = visual.borderSize or 1
-
     -- Style overrides
     if style == "Compact" then
         barHeight = math.max(barHeight * 0.6, 8)
@@ -212,12 +210,7 @@ function ns:ApplyVisualConfig(bar, config)
 
     -- Border
     if bar.border then
-        if borderSize > 0 then
-            bar.border:Show()
-            bar.border:SetVertexColor(0, 0, 0, 0.8)
-        else
-            bar.border:Hide()
-        end
+        bar.border:SetVertexColor(0, 0, 0, 0.8)
     end
 
     -- Icon visibility: per-bar display.showIcon is the authority (true/false).
