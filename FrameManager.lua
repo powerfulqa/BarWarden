@@ -438,9 +438,7 @@ function ns:BuildBarsForFrame(frameIndex)
         -- Set the bar name AFTER ApplyVisualConfig because SetFont can clear
         -- existing text content in WoW 3.3.5a.
         if bar.nameText then
-            local displayName = barData.spellName or barData.name or
-                (type(barData.spell) == "string" and barData.spell or nil) or ""
-            bar.nameText:SetText(displayName)
+            bar.nameText:SetText(ns.GetBarDisplayName(barData))
         end
         -- Pre-resolve the spell/item icon so it shows on inactive bars
         if bar.iconTexture and ns.ResolveBarIcon then

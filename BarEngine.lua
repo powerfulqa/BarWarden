@@ -191,9 +191,7 @@ function ns:ActivateBar(bar, expirationTime, duration)
 
     -- Name is set by caller; here we ensure the field is non-nil at minimum.
     if bar.nameText and bar.nameText:GetText() == "" then
-        local bd = bar.barData
-        local displayName = (bd and (bd.spellName or bd.name)) or ""
-        bar.nameText:SetText(displayName)
+        bar.nameText:SetText(ns.GetBarDisplayName(bar.barData))
     end
 
     -- Show the bar BEFORE requesting layout so that UpdateGroupLayout includes
@@ -243,10 +241,7 @@ function ns:DeactivateBar(bar)
 
     -- Keep name visible so user can see which spell the bar tracks
     if bar.nameText then
-        local bd = bar.barData
-        local displayName = bd and (bd.spellName or bd.name or
-            (type(bd.spell) == "string" and bd.spell or nil) or "") or ""
-        bar.nameText:SetText(displayName)
+        bar.nameText:SetText(ns.GetBarDisplayName(bar.barData))
     end
     if bar.timeText then
         bar.timeText:SetText("")
@@ -389,8 +384,13 @@ local function ScanBar(bar, unitFilter)
         if bar.iconTexture and icon then
             bar.iconTexture:SetTexture(icon)
         end
-        if bar.nameText and name then
-            bar.nameText:SetText(name)
+        if bar.nameText then
+            local bd = bar.barData
+            if bd and bd.display and bd.display.useSpellName and name then
+                bar.nameText:SetText(name)
+            else
+                bar.nameText:SetText(ns.GetBarDisplayName(bd))
+            end
         end
     elseif bar.barState == BAR_STATE.ACTIVE then
         local lingerTime = (bd.display and bd.display.lingerTime) or 0

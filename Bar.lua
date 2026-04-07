@@ -52,6 +52,23 @@ end
 ns.ResolveBarIcon = ResolveBarIcon
 
 -- ----------------------------------------------------------------------------
+-- GetBarDisplayName: Resolve the text shown on a bar.
+-- By default uses the user-entered Bar Name. If display.useSpellName is set,
+-- uses the spell/item name instead.
+-- ----------------------------------------------------------------------------
+function ns.GetBarDisplayName(barData)
+    if not barData then return "" end
+    if barData.display and barData.display.useSpellName then
+        return barData.spellName or barData.name or ""
+    end
+    -- Default: prefer the bar name the user typed
+    if barData.name and barData.name ~= "" then
+        return barData.name
+    end
+    return barData.spellName or ""
+end
+
+-- ----------------------------------------------------------------------------
 -- ResolveTexture: Get texture path from name or return custom path
 -- ----------------------------------------------------------------------------
 local function ResolveTexture(name)
@@ -208,19 +225,10 @@ function ns:ApplyVisualConfig(bar, config)
         end
     end
 
-    -- Icon visibility and position
-    local forceIcon = display.showIcon == true
-    local showIcon = visual.showIcon
-    if display.showIcon ~= nil then
-        showIcon = display.showIcon
-    end
-    if style == "ComboPoint" and not forceIcon then
+    -- Icon visibility and position (controlled globally via Visuals → Show Icon)
+    local showIcon = visual.showIcon ~= false
+    if style == "ComboPoint" then
         showIcon = false
-    end
-
-    -- When Force Show Icon is on, guarantee a visible icon size
-    if forceIcon and iconSize <= 0 then
-        iconSize = barHeight
     end
 
     local iconOnRight = (visual.iconPosition == "RIGHT")
@@ -236,8 +244,7 @@ function ns:ApplyVisualConfig(bar, config)
             else
                 bar.icon:SetPoint("LEFT", bar, "LEFT", 0, 0)
             end
-            -- Ensure the icon texture is set even on inactive bars so
-            -- Force Show Icon displays the correct spell/item icon.
+            -- Set icon texture on inactive bars so it's visible immediately
             if bar.iconTexture and not bar.iconTexture:GetTexture() then
                 local icon = ResolveBarIcon(bar.barData)
                 if icon then
@@ -249,25 +256,15 @@ function ns:ApplyVisualConfig(bar, config)
         end
     end
 
-    -- Text visibility, positioning, and format
-    local forceText = display.showText == true
+    -- Text visibility, positioning, and format (controlled globally via Visuals)
     local showText = visual.textEnabled ~= false
-    if display.showText ~= nil then
-        showText = display.showText
-    end
-    if style == "ComboPoint" and not forceText then
+    if style == "ComboPoint" then
         showText = false
     end
 
     local textPosition = visual.textPosition or "INSIDE_LEFT"
     local textFormat   = visual.textFormat   or "NAME_DURATION"
     local font         = visual.font         or "Fonts\\FRIZQT__.TTF"
-
-    -- When Force Show Text is on, guarantee visible text settings
-    if forceText then
-        if fontSize <= 0 then fontSize = 11 end
-        if textPosition == "NONE" then textPosition = "INSIDE_LEFT" end
-    end
 
     -- Determine which text elements to show based on format
     local showNameText = showText and fontSize > 0 and textPosition ~= "NONE"
