@@ -43,15 +43,21 @@ local function CreateGeneralTab(parent)
     -- Snap to Grid
     -- -----------------------------------------------------------------------
     local snapCB = ns:CreateCheckbox(frame, "Snap to Grid",
-        "When enabled, frames will snap to a grid when moved.",
+        "When enabled, frames will snap to a grid when moved. A translucent grid overlay is shown on screen.",
         function(self, checked)
             BarWardenDB.global.snapToGrid = checked
+            if checked then
+                ns:ShowGridOverlay()
+            else
+                ns:HideGridOverlay()
+            end
         end)
     snapCB:SetPoint("TOPLEFT", lockCB, "BOTTOMLEFT", 0, -8)
 
     -- Grid Size Slider
     local gridSlider = ns:CreateSlider(frame, "Grid Size", 2, 32, 2, function(self, value)
         BarWardenDB.global.gridSize = value
+        ns:UpdateGridOverlay()
     end)
     gridSlider:SetPoint("TOPLEFT", snapCB, "BOTTOMLEFT", 4, -24)
     gridSlider:SetWidth(200)

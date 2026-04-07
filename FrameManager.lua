@@ -28,6 +28,82 @@ local function SnapToGrid(value, gridSize)
 end
 
 -- ----------------------------------------------------------------------------
+-- Grid Overlay: translucent grid lines shown when Snap to Grid is enabled
+-- ----------------------------------------------------------------------------
+local gridOverlay = CreateFrame("Frame", "BarWardenGridOverlay", UIParent)
+gridOverlay:SetAllPoints(UIParent)
+gridOverlay:SetFrameStrata("BACKGROUND")
+gridOverlay:EnableMouse(false)
+gridOverlay:Hide()
+
+local gridLines = {}
+
+local function ClearGridLines()
+    for _, line in ipairs(gridLines) do
+        line:Hide()
+    end
+end
+
+local function DrawGrid(gridSize)
+    ClearGridLines()
+    if not gridSize or gridSize <= 0 then return end
+
+    local sw = GetScreenWidth()
+    local sh = GetScreenHeight()
+    local idx = 0
+
+    -- Vertical lines
+    for x = 0, sw, gridSize do
+        idx = idx + 1
+        local line = gridLines[idx]
+        if not line then
+            line = gridOverlay:CreateTexture(nil, "BACKGROUND")
+            gridLines[idx] = line
+        end
+        line:SetTexture(1, 1, 1, 0.15)
+        line:ClearAllPoints()
+        line:SetPoint("TOPLEFT", gridOverlay, "TOPLEFT", x, 0)
+        line:SetWidth(1)
+        line:SetHeight(sh)
+        line:Show()
+    end
+
+    -- Horizontal lines
+    for y = 0, sh, gridSize do
+        idx = idx + 1
+        local line = gridLines[idx]
+        if not line then
+            line = gridOverlay:CreateTexture(nil, "BACKGROUND")
+            gridLines[idx] = line
+        end
+        line:SetTexture(1, 1, 1, 0.15)
+        line:ClearAllPoints()
+        line:SetPoint("TOPLEFT", gridOverlay, "TOPLEFT", 0, -y)
+        line:SetWidth(sw)
+        line:SetHeight(1)
+        line:Show()
+    end
+end
+
+function ns:ShowGridOverlay()
+    local gridSize = BarWardenDB and BarWardenDB.global.gridSize or 8
+    DrawGrid(gridSize)
+    gridOverlay:Show()
+end
+
+function ns:HideGridOverlay()
+    ClearGridLines()
+    gridOverlay:Hide()
+end
+
+function ns:UpdateGridOverlay()
+    if gridOverlay:IsShown() then
+        local gridSize = BarWardenDB and BarWardenDB.global.gridSize or 8
+        DrawGrid(gridSize)
+    end
+end
+
+-- ----------------------------------------------------------------------------
 -- SaveFramePosition: Persist frame position to BarWardenDB
 -- ----------------------------------------------------------------------------
 local function SaveFramePosition(frame)
