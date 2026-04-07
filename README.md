@@ -15,11 +15,10 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Multi-column layouts** so you can display bars in 1 to 4 columns per group
 - **13 bar textures** to choose from, including Flat, Smooth, Gloss, Aluminium, and more
 - **15 fonts** including 5 built-in WoW fonts and 10 custom ones like Adventure, Heroic, and Transformers
-- **3 style presets** for quick setup: Rogue, NeedToKnow, and Minimalist
 - **Colour your bars** by class, by tracking mode, or pick your own colour (with per-bar overrides)
-- **Choose how text appears** with Left, Centre, or Right alignment and 6 format options
+- **Per-bar text and icon control** so each bar can show or hide its name and spell icon independently
 - **Set conditions** on bars so they only show in combat, below a health threshold, in a group, and more
-- **Save and load profiles** to switch between setups for raiding, PvP, or different specs
+- **Account-wide profiles** so you can save a setup on one character and load it on another
 - **Drag bars to reorder** them within a group when frames are unlocked
 - **Animated spark** that follows the bar as it counts down
 - **Smooth fading** between active and inactive states
@@ -27,7 +26,6 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Minimap button** you can drag around your minimap for quick access
 - **Track multiple spells on one bar** using commas, like `Rupture, Garrote`
 - **Settings saved per character** so each of your characters can have their own layout
-- **Account-wide profiles** so you can save a setup on one character and load it on another
 
 ---
 
@@ -62,7 +60,7 @@ Groups are containers that hold your bars. Think of a group as a category, for e
 1. Open the settings panel with `/bw`.
 2. Go to the **Bars / Groups** tab.
 3. Click **Add** to create a new group. It will appear on screen with a default name.
-4. Give it a name in the Group Name field and tweak the width, scale, columns, and background opacity to your liking.
+4. Give it a name in the Group Name field and tweak the width, scale, and columns to your liking.
 
 ### Adding a bar
 
@@ -80,7 +78,6 @@ Groups are locked in place by default so you don't accidentally move them during
 
 - Type `/bw lock` to unlock everything, then drag groups wherever you want.
 - Type `/bw lock` again to lock them back in place.
-- You can also turn on **Snap to Grid** in the General tab if you want neat, aligned positioning.
 
 ---
 
@@ -92,7 +89,6 @@ Groups are locked in place by default so you don't accidentally move them during
 | `/bw enable` | Turns the addon on |
 | `/bw disable` | Turns the addon off |
 | `/bw lock` | Toggles frame lock (locked frames cannot be dragged) |
-| `/bw show` | Toggles visibility of all groups |
 | `/bw reset` | Rebuilds all frames and resets positions |
 | `/bw debug` | Prints addon state to chat (handy for bug reports) |
 | `/bw scan` | Tests spell lookups for each bar and prints results |
@@ -152,53 +148,49 @@ To find an item ID, hover over the item and look it up on a WoW database site li
 
 - Turn the addon on or off
 - Lock or unlock all group frames
-- Show or hide all frames at once
-- Toggle snap-to-grid with a configurable grid size
 - Show or hide the minimap button
 
 ### Bars / Groups
 
 **Left panel (Group settings):**
 - Add, Delete, or Duplicate groups
-- Set the group name, width, scale (0.5x to 2.0x), columns (1 to 4), and background opacity
+- Set the group name, width, scale (0.5x to 2.0x), and columns (1 to 4)
 
 **Right panel (Bar list and editor):**
 - Add Bar, Delete Bar, and reorder bars with Up/Down buttons
 - Configure bar name, spell name or ID, track mode, and target unit
 - Toggle "Only Mine" filtering for debuffs
 - Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide When Inactive, Show Empty, Health Below %, Require Buff
-- Per-bar display overrides: Linger Time, Force Show Icon, Force Show Text, Colour Override
+- Per-bar display options: Linger Time, Show Bar Name, Show Icon, Colour Override
 
 ### Visuals
 
-**Frame Dimensions:**
-Bar Width (50 to 400), Bar Height (4 to 60), Border Size (0 to 8), Bar Spacing (0 to 30)
+**Bar Dimensions:**
+Bar Height (4 to 60), Bar Spacing (0 to 30)
+
+**Group Opacity:**
+Background Opacity (0 to 1), Border Opacity (0 to 1)
+
+**Bar Visuals:**
+Choose between Class Colour, Track Mode Colour, or Custom Colour. When using Custom, a colour swatch lets you pick any colour. You can also enable per-bar colour overrides so individual bars can have their own colour. Pick from 13 bar textures or enter a custom texture path.
+
+**Text Options:**
+Pick a text position (Left or Right), choose from 15 fonts, set the font size (6 to 24), and pick a text format: Name + Duration, Name Only, Duration Only, Name + Stacks, Stacks Only, or None.
 
 **Icon:**
 Icon Size (0 to 60), Icon Position (Left or Right)
-
-**Bar Colour:**
-Choose between Class Colour, Track Mode Colour, or Custom Colour. When using Custom, a colour swatch lets you pick any colour. You can also enable per-bar colour overrides so individual bars can have their own colour.
-
-**Text Options:**
-Toggle bar text on or off, pick a text position (Left, Centre, Right, or None), choose from 15 fonts, set the font size (6 to 24), and pick a text format: Name + Duration, Name Only, Duration Only, Name + Stacks, Stacks Only, or None.
-
-**Style Presets:**
-One-click buttons for Rogue, NeedToKnow, and Minimalist presets that configure everything at once.
-
-**Bar Texture:**
-Pick from 13 textures or enter a custom texture path.
 
 **Opacity:**
 Set Active and Inactive opacity (0 to 1), toggle Fade When Inactive, and adjust the Fade Speed (0.1 to 2.0).
 
 ### Profiles
 
-Profiles are stored account-wide, so any profile you create on one character is available on all your other characters.
+Save and Load bar layouts. Profiles are account-wide.
 
 - Save your current setup under a name
 - Load a saved profile to switch layouts
 - Delete or rename profiles
+- Export and import profiles to share between characters
 - Reset everything back to factory defaults
 
 ---
@@ -223,77 +215,6 @@ Profiles are stored account-wide, so any profile you create on one character is 
 
 ---
 
-## Changelog
-
-### 1.0.13
-
-- **Fixed text format setting having no effect:** The Text Format dropdown (Name Only, Stacks Only, Name + Stacks, Duration Only, etc.) was completely ignored since the restructure. All bars showed a duration countdown regardless of the setting. The format-aware display logic has been restored.
-- **Fixed corrupted bar data from old versions:** Restored the schema v2 migration that cleans up bogus spell IDs injected into bar configs by a previous bug. Existing corrupted saves are repaired automatically on login.
-- **Restored Border Size slider range:** Maximum increased from 4 back to 8.
-- **Restored Bar Spacing slider range:** Maximum increased from 10 back to 30.
-- **Fixed Visuals tab not fully scrollable:** Scroll content height restored so all controls are reachable.
-
-### 1.0.12
-
-- **Restored all 13 bar textures:** Smooth, Gloss, Aluminum, Armory, Graphite, Otravi, Striped, Canvas, and LiteStep were missing since the restructure. All textures are back.
-- **Restored all 15 fonts:** 5 built-in WoW fonts and 10 custom fonts (Adventure, Bazooka, Cooline, Diogenes, Ginko, Heroic, Porky, Talisman, Transformers, Yellow Jacket) were reduced to just 4. All fonts are back.
-- **Removed Custom text format option:** The "Custom" entry in the Text Format dropdown was re-added by mistake during the restructure and has been removed again.
-
-### 1.0.11
-
-- **Fixed Force Show Icon on inactive bars:** The icon frame was shown but had no texture until the spell was actually used. Icons now resolve from the bar's spell/item config immediately so they display on inactive bars.
-
-### 1.0.10
-
-- **Fixed Visuals tab layout regressions:** Style presets are now in a horizontal row. Icon Size and Icon Position moved to their own section in the right column, out of Frame Dimensions. Texture dropdown label corrected.
-- **Adaptive panel width:** The Visuals content area now adapts to the scroll frame width on show, so the layout works at different UI scales.
-
-### 1.0.9
-
-- **Fixed group settings clipping below tab bar:** Tightened vertical spacing in the Bars/Groups left panel so all controls including Border Opacity fit within the panel.
-
-### 1.0.8
-
-- **Removed Import/Export from Bars/Groups tab:** Redundant with the Profiles tab export/import feature.
-
-### 1.0.7
-
-- **Restored per-group Border Opacity slider:** The border opacity setting was lost during a previous restructure. Groups now have a Border Opacity slider (0 to 1) below Background Opacity, allowing the group frame border to be dimmed or fully hidden.
-- **Fixed Import/Export buttons overlapping tabs:** The Import and Export buttons on the Bars/Groups tab were anchored to the wrong control after the border slider was removed, causing them to overlap the tab bar. They are now correctly anchored below the Border Opacity slider.
-
-### 1.0.6
-
-- **Version now managed automatically:** The version displayed in-game (options panel, `/bw help`) is read from the TOC at runtime via `GetAddOnMetadata`, and the CI pipeline stamps the TOC version from the git tag at build time. No more manual version bumps across multiple files.
-
-### 1.0.5
-
-- **Default starter profile:** New accounts now start with a "Default" profile in the account-wide profile list so there is always something available to load or build from.
-
-### 1.0.4
-
-- **Fixed bar width resetting on addon update:** The defaults-merge system was recursing into the frames array on every login, injecting sample-frame data into the user's first group. The merge now only applies to config tables (global settings, visual settings) and never touches user frame data.
-- **Fixed account-wide profiles not visible on other characters:** Improved the profile migration to handle edge cases with empty profile tables from prior versions.
-
-### 1.0.3
-
-- **Account-wide profiles:** Profiles are now stored account-wide so any profile created on one character is available on all your other characters. Existing per-character profiles are automatically migrated on first login.
-
-### 1.0.2
-
-- **Fixed bars resizing during combat:** Bars with Hide When Inactive would appear at the wrong size (200x20 template default) when activating because the layout ran before the bar was shown. Bars are now shown before the layout pass so they are always sized correctly.
-- **Deferred layout updates:** Layout recalculations are now batched to the end of each scan pass instead of firing after every individual bar change. This eliminates layout thrashing during combat when many bars change state rapidly.
-- **Fixed missing text position variable:** A regression in 1.0.1 dropped the text position setting, causing bar text to ignore the configured position. Restored.
-
-### 1.0.1
-
-- **Fixed bar layout during raids:** Bars could appear to resize or revert to default dimensions when raid events fired (players joining, leaving, or changing groups). The group layout now recalculates whenever any bar changes visibility, whether from conditions toggling, bars deactivating, or the Hide When Inactive setting.
-- **Fixed Force Show Icon and Force Show Text:** These per-bar overrides now truly force the icon or text to display, even when global settings such as text position "None", font size 0, or icon size 0 would otherwise hide them.
-- **Fixed Force Show checkboxes not applying immediately:** Toggling Force Show Icon or Force Show Text now refreshes bars straight away instead of requiring another action to take effect.
-- **Fixed `/bw lock` and `/bw show` not saving state:** These slash commands now persist the lock and visibility toggles to saved variables so the setting survives a `/reload` or relog.
-- **Removed Custom track mode:** The Custom (Lua expression) track mode has been removed. The five supported modes are Cooldown, Buff, Debuff, Proc, and Item.
-
----
-
 ## Troubleshooting
 
 **Addon does not appear in the AddOns menu**
@@ -303,9 +224,8 @@ Make sure the path is `Interface/AddOns/BarWarden/BarWarden.toc`. If the folder 
 **Bars are not showing**
 
 1. Make sure the addon is enabled: `/bw enable`
-2. Make sure frames are visible: `/bw show`
-3. Your group might have been dragged off screen. Type `/bw reset` to rebuild everything.
-4. Check that the bar is enabled and has a valid spell name entered.
+2. Your group might have been dragged off screen. Type `/bw reset` to rebuild everything.
+3. Check that the bar is enabled and has a valid spell name entered.
 
 **A spell is not being tracked**
 
