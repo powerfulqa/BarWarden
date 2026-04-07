@@ -137,12 +137,23 @@ local function Bar_OnUpdate(self, elapsed)
         end
     end
 
-    -- Throttled: expensive text formatting
+    -- Throttled: expensive text formatting (10 Hz)
     self.textElapsed = (self.textElapsed or 0) + elapsed
     if self.textElapsed >= TEXT_THROTTLE then
         self.textElapsed = 0
-        if self.timeText and self.timeText:IsShown() then
-            self.timeText:SetFormattedText("%.1f", remaining)
+        local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+        local textFormat = visual.textFormat or "NAME_DURATION"
+
+        if textFormat == "NAME_STACKS" or textFormat == "STACKS" then
+            if self.timeText and self.timeText:IsShown() then
+                local stacks = self.stacks or 0
+                self.timeText:SetText(stacks > 0 and tostring(stacks) or "")
+            end
+        elseif textFormat ~= "NAME_ONLY" then
+            -- NAME_DURATION, DURATION, or anything else: show seconds countdown
+            if self.timeText and self.timeText:IsShown() then
+                self.timeText:SetFormattedText("%.1f", remaining)
+            end
         end
     end
 end

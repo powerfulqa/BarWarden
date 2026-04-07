@@ -155,7 +155,7 @@ ns.DEFAULTS = {
 -- Runs only when BarWardenDB.schemaVersion is absent or below current.
 -- Safe: only writes to nil keys, never overwrites non-nil user data.
 -- ----------------------------------------------------------------------------
-local CURRENT_SCHEMA = 1
+local CURRENT_SCHEMA = 2
 
 local function MigrateDB()
     local savedVersion = BarWardenDB.schemaVersion or 0
@@ -190,6 +190,24 @@ local function MigrateDB()
                 if bar.target ~= nil then
                     if bar.unit == nil then bar.unit = bar.target end
                     bar.target = nil
+                end
+            end
+        end
+    end
+
+    -- v1 → v2: fix saves corrupted by MergeDefaults recursing into user frames.
+    -- The old InitDB merged the sample default frame (spell=6948 Hearthstone)
+    -- into user bars. v1 migration then turned that into spellId=6948 on
+    -- Cooldown bars even when the user had set spellName (e.g. "Evasion").
+    -- Fix: for non-Item bars, if both spellName and spellId are set, the spellId
+    -- was injected by the bug (the UI only sets one or the other). Clear it.
+    if savedVersion < 2 then
+        for _, frameData in ipairs(BarWardenDB.frames or {}) do
+            for _, bar in ipairs(frameData.bars or {}) do
+                if bar.trackMode ~= "Item"
+                    and bar.spellName and bar.spellName ~= ""
+                    and bar.spellId ~= nil then
+                    bar.spellId = nil
                 end
             end
         end
