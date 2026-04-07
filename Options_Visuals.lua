@@ -143,7 +143,7 @@ local function CreateVisualsTab(parent)
         BarWardenDB.visual.textPosition = value
         ns:RefreshAllBars()
     end)
-    textPosDD:SetPoint("TOPLEFT", textEnabledCB, "BOTTOMLEFT", -4, -24)
+    textPosDD:SetPoint("TOPLEFT", textEnabledCB, "BOTTOMLEFT", -16, -24)
 
     local BW_FONT = "Interface\\AddOns\\BarWarden\\Fonts\\"
     local fontItems = {
@@ -176,7 +176,7 @@ local function CreateVisualsTab(parent)
         BarWardenDB.visual.fontSize = value
         ns:RefreshAllBars()
     end)
-    fontSizeSlider:SetPoint("TOPLEFT", fontDD, "BOTTOMLEFT", 20, -24)
+    fontSizeSlider:SetPoint("TOPLEFT", fontDD, "BOTTOMLEFT", 16, -24)
     fontSizeSlider:SetWidth(200)
 
     local textFormatItems = {
@@ -192,11 +192,11 @@ local function CreateVisualsTab(parent)
         BarWardenDB.visual.textFormat = value
         ns:RefreshAllBars()
     end)
-    textFormatDD:SetPoint("TOPLEFT", fontSizeSlider, "BOTTOMLEFT", -20, -24)
+    textFormatDD:SetPoint("TOPLEFT", fontSizeSlider, "BOTTOMLEFT", -16, -24)
 
     -- Section: Opacity
     local opacityHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    opacityHeader:SetPoint("TOPLEFT", textFormatDD, "BOTTOMLEFT", 4, -30)
+    opacityHeader:SetPoint("TOPLEFT", textFormatDD, "BOTTOMLEFT", 16, -30)
     opacityHeader:SetText("Opacity")
 
     local activeAlphaSlider = ns:CreateSlider(content, "Active Opacity", 0, 1, 0.05, function(self, value)

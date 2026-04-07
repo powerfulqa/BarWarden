@@ -238,9 +238,8 @@ function ns:ApplyVisualConfig(bar, config)
         end
     end
 
-    -- Text visibility and positioning
+    -- Text visibility, positioning, and format
     local forceText = display.showText == true
-    local textPosition = visual.textPosition or "INSIDE_LEFT"
     local showText = visual.textEnabled ~= false
     if display.showText ~= nil then
         showText = display.showText
@@ -249,39 +248,65 @@ function ns:ApplyVisualConfig(bar, config)
         showText = false
     end
 
+    local textPosition = visual.textPosition or "INSIDE_LEFT"
+    local textFormat   = visual.textFormat   or "NAME_DURATION"
+    local font         = visual.font         or "Fonts\\FRIZQT__.TTF"
+
     -- When Force Show Text is on, guarantee visible text settings
     if forceText then
         if fontSize <= 0 then fontSize = 11 end
         if textPosition == "NONE" then textPosition = "INSIDE_LEFT" end
     end
 
-    local font = visual.font or "Fonts\\FRIZQT__.TTF"
+    -- Determine which text elements to show based on format
+    local showNameText = showText and fontSize > 0 and textPosition ~= "NONE"
+    local showTimeText = showText and fontSize > 0 and textPosition ~= "NONE"
+    if textFormat == "NAME_ONLY" then
+        showTimeText = false
+    elseif textFormat == "DURATION" or textFormat == "STACKS" then
+        showNameText = false
+    elseif textFormat == "NONE" then
+        showNameText = false
+        showTimeText = false
+    end
 
-    -- Calculate offsets based on icon position
-    local iconActive = showIcon and iconSize > 0
-    local leftOffset  = (iconActive and not iconOnRight) and (iconSize + 4) or 4
-    local rightOffset = (iconActive and iconOnRight) and -(iconSize + 4) or -4
-    -- nameText right edge: leave room for timeText (~40px) plus icon if on right
+    -- Icon offset calculation
+    local iconActive      = showIcon and iconSize > 0
+    local leftOffset      = (iconActive and not iconOnRight) and (iconSize + 4) or 4
+    local rightOffset     = (iconActive and iconOnRight) and -(iconSize + 4) or -4
     local nameRightOffset = rightOffset - 40
 
     if bar.nameText then
-        if showText and fontSize > 0 and textPosition ~= "NONE" then
+        if showNameText then
             bar.nameText:Show()
             bar.nameText:SetFont(font, fontSize, "OUTLINE")
             bar.nameText:ClearAllPoints()
-            bar.nameText:SetPoint("LEFT",  bar, "LEFT",  leftOffset,     0)
-            bar.nameText:SetPoint("RIGHT", bar, "RIGHT", nameRightOffset, 0)
+            if textPosition == "INSIDE_RIGHT" then
+                bar.nameText:SetJustifyH("RIGHT")
+                bar.nameText:SetPoint("LEFT",  bar, "LEFT",  leftOffset + 40, 0)
+                bar.nameText:SetPoint("RIGHT", bar, "RIGHT", rightOffset,     0)
+            else  -- INSIDE_LEFT (default)
+                bar.nameText:SetJustifyH("LEFT")
+                bar.nameText:SetPoint("LEFT",  bar, "LEFT",  leftOffset,      0)
+                bar.nameText:SetPoint("RIGHT", bar, "RIGHT", nameRightOffset, 0)
+            end
         else
             bar.nameText:Hide()
         end
     end
 
     if bar.timeText then
-        if showText and fontSize > 0 and textPosition ~= "NONE" then
+        if showTimeText then
             bar.timeText:Show()
             bar.timeText:SetFont(font, fontSize, "OUTLINE")
             bar.timeText:ClearAllPoints()
-            bar.timeText:SetPoint("RIGHT", bar, "RIGHT", rightOffset, 0)
+            if textPosition == "INSIDE_RIGHT" then
+                bar.timeText:SetJustifyH("LEFT")
+                bar.timeText:SetPoint("LEFT", bar, "LEFT", leftOffset, 0)
+            else  -- INSIDE_LEFT (default)
+                bar.timeText:SetJustifyH("RIGHT")
+                bar.timeText:SetPoint("RIGHT", bar, "RIGHT", rightOffset, 0)
+            end
         else
             bar.timeText:Hide()
         end
