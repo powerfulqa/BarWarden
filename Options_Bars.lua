@@ -601,10 +601,10 @@ local function CreateBarsTab(parent)
     end)
     showBarIconCB:SetPoint("TOPLEFT", showBarNameCB, "BOTTOMLEFT", 0, -2)
 
-    local barOpacitySlider = ns:CreateSlider(ec, "Bar Opacity", 0, 1, 0.05, function(self, value)
+    local barOpacitySlider = ns:CreateSlider(ec, "Bar Darkness", 0, 100, 1, function(self, value)
         local bar = frame:GetSelectedBar()
         if bar then
-            bar.display.barAlpha = value
+            bar.display.barAlpha = value / 100
             ns:RebuildAllFrames()
         end
     end)
@@ -738,7 +738,7 @@ local function CreateBarsTab(parent)
         lingerSlider:SetValue(bar.display.lingerTime or 0)
         showBarNameCB:SetChecked(bar.display.showName)
         showBarIconCB:SetChecked(bar.display.showIcon)
-        barOpacitySlider:SetValue(bar.display.barAlpha or 0.6)
+        barOpacitySlider:SetValue((bar.display.barAlpha or 0.6) * 100)
 
         if bar.display.colorOverride then
             colorSwatch.color.r = bar.display.colorOverride.r
