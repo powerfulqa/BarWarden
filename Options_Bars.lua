@@ -187,6 +187,23 @@ local function CreateBarsTab(parent)
     end)
     groupNameEdit:SetPoint("TOPLEFT", addGroupBtn, "BOTTOMLEFT", 0, -12)
 
+    local showGroupNameCB = ns:CreateCheckbox(leftPanel, "Show Bar Name",
+        "Show or hide the group name on the bar frame.",
+        function(self, checked)
+            if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
+                BarWardenDB.frames[selectedGroupIndex].showTitle = checked and true or false
+                local gf = ns.groupFrames[selectedGroupIndex]
+                if gf and gf.titleText then
+                    if checked then
+                        gf.titleText:Show()
+                    else
+                        gf.titleText:Hide()
+                    end
+                end
+            end
+        end)
+    showGroupNameCB:SetPoint("TOPLEFT", groupNameEdit, "BOTTOMLEFT", -6, -8)
+
     -- Group width slider
     local groupWidthSlider = ns:CreateSlider(leftPanel, "Width", 50, 400, 5, function(self, value)
         if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
@@ -195,7 +212,7 @@ local function CreateBarsTab(parent)
             if gf then ns:UpdateGroupLayout(gf) end
         end
     end)
-    groupWidthSlider:SetPoint("TOPLEFT", groupNameEdit, "BOTTOMLEFT", 4, -16)
+    groupWidthSlider:SetPoint("TOPLEFT", showGroupNameCB, "BOTTOMLEFT", 10, -16)
     groupWidthSlider:SetWidth(160)
 
     -- Group scale slider
@@ -717,6 +734,7 @@ local function CreateBarsTab(parent)
             local g = BarWardenDB.frames[selectedGroupIndex]
             groupNameEdit:SetText(g.name or "")
             groupNameEdit:Show()
+            showGroupNameCB:SetChecked(g.showTitle ~= false)
             groupWidthSlider:SetValue(g.width or 200)
             groupScaleSlider:SetValue(g.scale or 1.0)
             groupColumnsSlider:SetValue(g.columns or 1)

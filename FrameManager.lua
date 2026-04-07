@@ -117,6 +117,9 @@ function ns:CreateGroupFrame(groupData, frameIndex)
 
     -- Title bar
     CreateTitleBar(frame, groupData.name)
+    if groupData.showTitle == false and frame.titleText then
+        frame.titleText:Hide()
+    end
 
     -- Visibility
     if groupData.visible == false or (BarWardenDB and not BarWardenDB.global.showAll) then
