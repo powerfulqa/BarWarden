@@ -394,6 +394,7 @@ local function CreateBarsTab(parent)
         if bar then
             bar.name = text
             frame:Refresh()
+            ns:RebuildAllFrames()
         end
     end)
     barNameEdit:SetPoint("TOPLEFT", barEnabledCB, "BOTTOMLEFT", 6, -18)
