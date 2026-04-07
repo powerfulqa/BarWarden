@@ -50,38 +50,51 @@ local function DrawGrid(gridSize)
 
     local sw = GetScreenWidth()
     local sh = GetScreenHeight()
+    local halfW = sw / 2
+    local halfH = sh / 2
     local idx = 0
 
-    -- Vertical lines
-    for x = 0, sw, gridSize do
-        idx = idx + 1
-        local line = gridLines[idx]
-        if not line then
-            line = gridOverlay:CreateTexture(nil, "BACKGROUND")
-            gridLines[idx] = line
+    -- Grid lines are drawn from the screen CENTER outward because frame
+    -- coordinates snap relative to their anchor point on UIParent.
+    -- Most anchor points (CENTER, TOP, BOTTOM, etc.) measure from the
+    -- center of the screen, so the visual grid must match.
+
+    -- Vertical lines: from center outward in both directions
+    for x = 0, halfW, gridSize do
+        for _, offset in ipairs({ x, -x }) do
+            idx = idx + 1
+            local line = gridLines[idx]
+            if not line then
+                line = gridOverlay:CreateTexture(nil, "BACKGROUND")
+                gridLines[idx] = line
+            end
+            line:SetTexture(1, 1, 1, 0.15)
+            line:ClearAllPoints()
+            line:SetPoint("TOP", gridOverlay, "TOP", offset, 0)
+            line:SetWidth(1)
+            line:SetHeight(sh)
+            line:Show()
+            if x == 0 then break end  -- center line only once
         end
-        line:SetTexture(1, 1, 1, 0.15)
-        line:ClearAllPoints()
-        line:SetPoint("TOPLEFT", gridOverlay, "TOPLEFT", x, 0)
-        line:SetWidth(1)
-        line:SetHeight(sh)
-        line:Show()
     end
 
-    -- Horizontal lines
-    for y = 0, sh, gridSize do
-        idx = idx + 1
-        local line = gridLines[idx]
-        if not line then
-            line = gridOverlay:CreateTexture(nil, "BACKGROUND")
-            gridLines[idx] = line
+    -- Horizontal lines: from center outward in both directions
+    for y = 0, halfH, gridSize do
+        for _, offset in ipairs({ y, -y }) do
+            idx = idx + 1
+            local line = gridLines[idx]
+            if not line then
+                line = gridOverlay:CreateTexture(nil, "BACKGROUND")
+                gridLines[idx] = line
+            end
+            line:SetTexture(1, 1, 1, 0.15)
+            line:ClearAllPoints()
+            line:SetPoint("LEFT", gridOverlay, "LEFT", 0, offset)
+            line:SetWidth(sw)
+            line:SetHeight(1)
+            line:Show()
+            if y == 0 then break end  -- center line only once
         end
-        line:SetTexture(1, 1, 1, 0.15)
-        line:ClearAllPoints()
-        line:SetPoint("TOPLEFT", gridOverlay, "TOPLEFT", 0, -y)
-        line:SetWidth(sw)
-        line:SetHeight(1)
-        line:Show()
     end
 end
 
