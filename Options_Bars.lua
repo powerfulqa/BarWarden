@@ -575,7 +575,7 @@ local function CreateBarsTab(parent)
         "Display the Bar Name text on this bar.", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then
-            bar.display.showName = checked or nil
+            bar.display.showName = checked and true or false
             ns:RebuildAllFrames()
         end
     end)
@@ -585,7 +585,7 @@ local function CreateBarsTab(parent)
         "Display the spell icon on this bar.", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then
-            bar.display.showIcon = checked or nil
+            bar.display.showIcon = checked and true or false
             ns:RebuildAllFrames()
         end
     end)

@@ -39,28 +39,16 @@ local function CreateVisualsTab(parent)
     -- LEFT COLUMN (x = 16): Dimensions → Bar Color → Text Options → Opacity
     -- -----------------------------------------------------------------------
 
-    -- Section: Frame Dimensions
+    -- Section: Bar Dimensions
     local dimHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     dimHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 16, yOffset)
-    dimHeader:SetText("Frame Dimensions")
-
-    local barWidthSlider = ns:CreateSlider(content, "Bar Width", 50, 400, 5, function(self, value)
-        BarWardenDB.visual.barWidth = value
-        if BarWardenDB.frames then
-            for _, f in ipairs(BarWardenDB.frames) do
-                f.width = value
-            end
-        end
-        ns:RefreshAllBars()
-    end)
-    barWidthSlider:SetPoint("TOPLEFT", dimHeader, "BOTTOMLEFT", 4, -20)
-    barWidthSlider:SetWidth(200)
+    dimHeader:SetText("Bar Dimensions")
 
     local barHeightSlider = ns:CreateSlider(content, "Bar Height", 4, 60, 1, function(self, value)
         BarWardenDB.visual.barHeight = value
         ns:RefreshAllBars()
     end)
-    barHeightSlider:SetPoint("TOPLEFT", barWidthSlider, "BOTTOMLEFT", 0, -30)
+    barHeightSlider:SetPoint("TOPLEFT", dimHeader, "BOTTOMLEFT", 4, -20)
     barHeightSlider:SetWidth(200)
 
     local borderSizeSlider = ns:CreateSlider(content, "Border Size", 0, 8, 1, function(self, value)
@@ -344,7 +332,6 @@ local function CreateVisualsTab(parent)
         if not BarWardenDB then return end
         local v = BarWardenDB.visual
 
-        barWidthSlider:SetValue(v.barWidth or 200)
         barHeightSlider:SetValue(v.barHeight or 20)
         iconSizeSlider:SetValue(v.iconSize or 20)
         for i, item in ipairs(iconPosItems) do

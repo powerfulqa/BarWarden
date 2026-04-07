@@ -220,10 +220,13 @@ function ns:ApplyVisualConfig(bar, config)
         end
     end
 
-    -- Icon visibility and position (per-bar showIcon overrides global)
-    local showIcon = visual.showIcon ~= false
+    -- Icon visibility: per-bar display.showIcon is the authority (true/false).
+    -- Falls back to global visual.showIcon only if display.showIcon is nil.
+    local showIcon
     if display.showIcon ~= nil then
         showIcon = display.showIcon
+    else
+        showIcon = visual.showIcon ~= false
     end
     if style == "ComboPoint" then
         showIcon = false
@@ -254,11 +257,13 @@ function ns:ApplyVisualConfig(bar, config)
         end
     end
 
-    -- Text visibility, positioning, and format
-    -- Per-bar showName overrides the global textEnabled setting
-    local showText = visual.textEnabled ~= false
+    -- Text visibility: per-bar display.showName is the authority (true/false).
+    -- Falls back to global visual.textEnabled only if display.showName is nil.
+    local showText
     if display.showName ~= nil then
         showText = display.showName
+    else
+        showText = visual.textEnabled ~= false
     end
     if style == "ComboPoint" then
         showText = false
@@ -267,6 +272,13 @@ function ns:ApplyVisualConfig(bar, config)
     local textPosition = visual.textPosition or "INSIDE_LEFT"
     local textFormat   = visual.textFormat   or "NAME_DURATION"
     local font         = visual.font         or "Fonts\\FRIZQT__.TTF"
+
+    -- When per-bar showName is on, guarantee valid text settings so the
+    -- bar name is always visible regardless of global config
+    if display.showName then
+        if fontSize <= 0 then fontSize = 11 end
+        if textPosition == "NONE" then textPosition = "INSIDE_LEFT" end
+    end
 
     -- Determine which text elements to show based on format
     local showNameText = showText and fontSize > 0 and textPosition ~= "NONE"
