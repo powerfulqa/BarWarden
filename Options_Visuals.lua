@@ -145,11 +145,25 @@ local function CreateVisualsTab(parent)
     end)
     textPosDD:SetPoint("TOPLEFT", textEnabledCB, "BOTTOMLEFT", -4, -24)
 
+    local BW_FONT = "Interface\\AddOns\\BarWarden\\Fonts\\"
     local fontItems = {
-        { text = "Friz Quadrata",   value = "Fonts\\FRIZQT__.TTF" },
-        { text = "Arial Narrow",    value = "Fonts\\ARIALN.TTF" },
-        { text = "Morpheus",        value = "Fonts\\MORPHEUS.TTF" },
-        { text = "Skurri",          value = "Fonts\\skurri.TTF" },
+        -- WoW built-in fonts
+        { text = "Friz Quadrata",   value = "Fonts\\FRIZQT__.TTF"          },
+        { text = "Arial Narrow",    value = "Fonts\\ARIALN.TTF"            },
+        { text = "Morpheus",        value = "Fonts\\MORPHEUS.TTF"          },
+        { text = "Nimrod MT",       value = "Fonts\\NIM_____.ttf"          },
+        { text = "Skurri",          value = "Fonts\\SKURRI.TTF"            },
+        -- BarWarden custom fonts
+        { text = "Adventure",       value = BW_FONT .. "adventure.ttf"     },
+        { text = "Bazooka",         value = BW_FONT .. "bazooka.ttf"       },
+        { text = "Cooline",         value = BW_FONT .. "cooline.ttf"       },
+        { text = "Diogenes",        value = BW_FONT .. "diogenes.ttf"      },
+        { text = "Ginko",           value = BW_FONT .. "ginko.ttf"         },
+        { text = "Heroic",          value = BW_FONT .. "heroic.ttf"        },
+        { text = "Porky",           value = BW_FONT .. "porky.ttf"         },
+        { text = "Talisman",        value = BW_FONT .. "talisman.ttf"      },
+        { text = "Transformers",    value = BW_FONT .. "transformers.ttf"   },
+        { text = "Yellow Jacket",   value = BW_FONT .. "yellowjacket.ttf"  },
     }
 
     local fontDD = ns:CreateDropdown(content, "Font", fontItems, function(dd, value)
@@ -168,10 +182,9 @@ local function CreateVisualsTab(parent)
     local textFormatItems = {
         { text = "Name + Duration",  value = "NAME_DURATION" },
         { text = "Name Only",        value = "NAME_ONLY" },
-        { text = "Name + Stacks",    value = "NAME_STACKS" },
         { text = "Duration Only",    value = "DURATION" },
+        { text = "Name + Stacks",    value = "NAME_STACKS" },
         { text = "Stacks Only",      value = "STACKS" },
-        { text = "Custom",           value = "CUSTOM" },
         { text = "None",             value = "NONE" },
     }
 
@@ -277,22 +290,27 @@ local function CreateVisualsTab(parent)
     iconPosDD:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -16, -30)
 
     -- Section: Texture
-    local texHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    texHeader:SetPoint("TOPLEFT", iconPosDD, "BOTTOMLEFT", 20, -24)
-    texHeader:SetText("Texture")
-
     local textureItems = {
-        { text = "Flat",    value = "Flat" },
-        { text = "Glow",    value = "Glow" },
-        { text = "Metal",   value = "Metal" },
-        { text = "Leather", value = "Leather" },
-        { text = "Custom",  value = "Custom" },
+        { text = "Flat",      value = "Flat"     },
+        { text = "Smooth",    value = "Smooth"   },
+        { text = "Gloss",     value = "Gloss"    },
+        { text = "Aluminum",  value = "Aluminum" },
+        { text = "Armory",    value = "Armory"   },
+        { text = "Graphite",  value = "Graphite" },
+        { text = "Otravi",    value = "Otravi"   },
+        { text = "Striped",   value = "Striped"  },
+        { text = "Canvas",    value = "Canvas"   },
+        { text = "LiteStep",  value = "LiteStep" },
+        { text = "Glow",      value = "Glow"     },
+        { text = "Metal",     value = "Metal"    },
+        { text = "Leather",   value = "Leather"  },
+        { text = "Custom",    value = "Custom"   },
     }
 
     local customTexBox
     local fallbackWarning
 
-    local textureDD = ns:CreateDropdown(content, "Texture", textureItems, function(dd, value, index)
+    local textureDD = ns:CreateDropdown(content, "Bar Texture", textureItems, function(dd, value, index)
         BarWardenDB.visual.texture = value
         if customTexBox then
             if value == "Custom" then
@@ -305,7 +323,7 @@ local function CreateVisualsTab(parent)
         end
         ns:RefreshAllBars()
     end)
-    textureDD:SetPoint("TOPLEFT", texHeader, "BOTTOMLEFT", -16, -28)
+    textureDD:SetPoint("TOPLEFT", iconPosDD, "BOTTOMLEFT", 0, -24)
 
     customTexBox = ns:CreateEditBox(content, "Custom Texture Filename", 150, function(self, text)
         BarWardenDB.visual.customTexture = text

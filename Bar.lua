@@ -4,12 +4,23 @@ local addonName, ns = ...
 -- Bar.lua - Bar frame construction and visual configuration
 -- ============================================================================
 
--- Texture lookup table
+-- Texture lookup table — all files live in BarWarden/Textures/
+local T = "Interface\\AddOns\\BarWarden\\Textures\\"
+
 local TEXTURES = {
-    ["Flat"]    = "Interface\\Buttons\\WHITE8x8",
-    ["Glow"]    = "Interface\\AddOns\\BarWarden\\Textures\\Glow",
-    ["Metal"]   = "Interface\\AddOns\\BarWarden\\Textures\\Metal",
-    ["Leather"] = "Interface\\AddOns\\BarWarden\\Textures\\Leather",
+    ["Flat"]     = "Interface\\Buttons\\WHITE8x8",
+    ["Smooth"]   = T .. "Smooth.tga",
+    ["Gloss"]    = T .. "Gloss.tga",
+    ["Aluminum"] = T .. "Aluminum.tga",
+    ["Armory"]   = T .. "Armory.tga",
+    ["Graphite"] = T .. "Graphite.tga",
+    ["Otravi"]   = T .. "Otravi.tga",
+    ["Striped"]  = T .. "Striped.tga",
+    ["Canvas"]   = T .. "Canvas.tga",
+    ["LiteStep"] = T .. "LiteStep.tga",
+    ["Glow"]     = T .. "Glow.tga",
+    ["Metal"]    = T .. "Metal.tga",
+    ["Leather"]  = T .. "Leather.tga",
 }
 
 -- ----------------------------------------------------------------------------
