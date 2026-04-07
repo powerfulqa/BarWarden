@@ -422,6 +422,8 @@ function ns:BuildBarsForFrame(frameIndex)
         end
         if barData.enabled == false then
             bar:Hide()
+        elseif barData.conditions and barData.conditions.hideWhenInactive then
+            bar:Hide()
         else
             local visual = BarWardenDB and BarWardenDB.visual or (ns.DEFAULTS and ns.DEFAULTS.visual) or {}
             bar:SetAlpha(visual.inactiveAlpha or 0.3)

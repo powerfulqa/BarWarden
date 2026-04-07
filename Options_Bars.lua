@@ -639,7 +639,7 @@ local function CreateBarsTab(parent)
                 local b = bars[idx]
                 row.nameText:SetText(b.name or "")
                 row.modeText:SetText(b.trackMode or "")
-                row.targetText:SetText(b.target or "")
+                row.targetText:SetText(b.unit or b.target or "")
                 row.spellText:SetText(b.spellName or "")
                 row.index = idx
                 row:Show()
