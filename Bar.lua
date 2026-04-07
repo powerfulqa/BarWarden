@@ -102,23 +102,34 @@ function ns:CreateBarFrame(parent)
     local name = "BarWardenBar" .. barCount
     local bar = CreateFrame("StatusBar", name, parent or UIParent, "BarWardenBarTemplate")
 
-    -- Cache child references
+    -- Cache child Frame references (these ARE globally registered)
     bar.background   = _G[name .. "Background"]
     bar.border       = _G[name .. "Border"]
-    bar.nameText     = _G[name .. "NameText"]
-    bar.timeText     = _G[name .. "TimeText"]
     bar.icon         = _G[name .. "Icon"]
     bar.iconTexture  = _G[name .. "IconIconTexture"]
-    bar.sparkFrame   = _G[name .. "SparkFrame"]
-    bar.spark        = _G[name .. "SparkFrameSpark"]
 
-    -- Ensure text always renders above child frames (e.g. sparkFrame)
-    if bar.nameText then bar.nameText:SetDrawLayer("HIGHLIGHT") end
-    if bar.timeText then bar.timeText:SetDrawLayer("HIGHLIGHT") end
+    -- Create spark first in OVERLAY so text FontStrings (also OVERLAY, created after)
+    -- render on top of it. Within the same draw layer, WoW renders in creation order.
+    bar.sparkFrame = bar:CreateTexture(nil, "OVERLAY")
+    bar.sparkFrame:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
+    bar.sparkFrame:SetBlendMode("ADD")
+    bar.sparkFrame:SetWidth(16)
+    bar.sparkFrame:SetHeight(32)
+    bar.sparkFrame:SetPoint("CENTER", bar, "LEFT", 0, 0)
+    bar.sparkFrame:Hide()
 
-    -- Spark texture must use additive blending; without it the alpha channel
-    -- renders as solid black rather than transparent.
-    if bar.spark then bar.spark:SetBlendMode("ADD") end
+    -- Create text FontStrings in OVERLAY after spark so they render on top of it.
+    -- FontStrings declared inside a StatusBar <Layer> block in Templates.xml are
+    -- NOT registered as globals in WoW 3.3.5a — _G lookups return nil.
+    -- Creating them here guarantees bar.nameText / bar.timeText are never nil.
+    bar.nameText = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    bar.nameText:SetJustifyH("LEFT")
+    bar.nameText:SetPoint("LEFT",  bar, "LEFT",  24,  0)
+    bar.nameText:SetPoint("RIGHT", bar, "RIGHT", -40, 0)
+
+    bar.timeText = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    bar.timeText:SetJustifyH("RIGHT")
+    bar.timeText:SetPoint("RIGHT", bar, "RIGHT", -4, 0)
 
     -- Set default StatusBar range
     bar:SetMinMaxValues(0, 1)
