@@ -114,11 +114,18 @@ function ns:CreateBarFrame(parent)
     local name = "BarWardenBar" .. barCount
     local bar = CreateFrame("StatusBar", name, parent or UIParent, "BarWardenBarTemplate")
 
-    -- Cache child Frame references (these ARE globally registered)
+    -- Cache child Frame references
     bar.background   = _G[name .. "Background"]
     bar.border       = _G[name .. "Border"]
     bar.icon         = _G[name .. "Icon"]
+    -- The icon texture declared in the XML template may not be globally
+    -- registered in WoW 3.3.5a (same issue as FontStrings in StatusBars).
+    -- Fall back to creating it in Lua if the _G lookup returns nil.
     bar.iconTexture  = _G[name .. "IconIconTexture"]
+    if bar.icon and not bar.iconTexture then
+        bar.iconTexture = bar.icon:CreateTexture(nil, "ARTWORK")
+        bar.iconTexture:SetAllPoints()
+    end
 
     -- Create spark first in OVERLAY so text FontStrings (also OVERLAY, created after)
     -- render on top of it. Within the same draw layer, WoW renders in creation order.
