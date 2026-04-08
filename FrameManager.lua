@@ -28,14 +28,20 @@ local function SaveFramePosition(frame)
     local db = BarWardenDB and BarWardenDB.frames
     if not db or not db[frame.frameIndex] then return end
 
-    local point, relativeTo, relativePoint, x, y = frame:GetPoint(1)
-    if not point then return end
+    -- Always save as TOPLEFT so the top edge stays fixed when the frame
+    -- height changes (bars appearing/disappearing with Hide When Inactive).
+    -- Without this, CENTER or BOTTOM anchored frames grow upward.
+    local scale = frame:GetEffectiveScale()
+    local uiScale = UIParent:GetEffectiveScale()
+    local left = frame:GetLeft() * scale / uiScale
+    local top = frame:GetTop() * scale / uiScale
+    local uiTop = UIParent:GetTop()
 
     db[frame.frameIndex].position = {
-        point = point,
-        relativePoint = relativePoint or point,
-        x = x,
-        y = y,
+        point = "TOPLEFT",
+        relativePoint = "TOPLEFT",
+        x = left,
+        y = top - uiTop,
     }
 end
 
@@ -94,12 +100,12 @@ function ns:CreateGroupFrame(groupData, frameIndex)
     frame:SetWidth(barWidth + 8)  -- padding for border
     frame:SetHeight(30)  -- minimum height, updated by layout
 
-    -- Position
+    -- Position (always TOPLEFT so the top edge stays fixed when height changes)
     local pos = groupData.position
     if pos and pos.point then
         frame:SetPoint(pos.point, UIParent, pos.relativePoint or pos.point, pos.x or 0, pos.y or 0)
     else
-        frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100, -200)
     end
 
     -- Scale
