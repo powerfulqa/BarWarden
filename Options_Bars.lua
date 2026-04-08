@@ -203,7 +203,7 @@ local function CreateBarsTab(parent)
                 end
             end
         end)
-    showGroupNameCB:SetPoint("TOPLEFT", groupNameEdit, "BOTTOMLEFT", -6, -8)
+    showGroupNameCB:SetPoint("TOPLEFT", groupNameEdit, "BOTTOMLEFT", -6, -4)
 
     -- Group width slider
     local groupWidthSlider = ns:CreateSlider(leftPanel, "Width", 50, 400, 5, function(self, value)
@@ -213,7 +213,7 @@ local function CreateBarsTab(parent)
             if gf then ns:UpdateGroupLayout(gf) end
         end
     end)
-    groupWidthSlider:SetPoint("TOPLEFT", showGroupNameCB, "BOTTOMLEFT", 10, -16)
+    groupWidthSlider:SetPoint("TOPLEFT", showGroupNameCB, "BOTTOMLEFT", 10, -12)
     groupWidthSlider:SetWidth(160)
 
     -- Group scale slider
@@ -225,7 +225,7 @@ local function CreateBarsTab(parent)
             end
         end
     end)
-    groupScaleSlider:SetPoint("TOPLEFT", groupWidthSlider, "BOTTOMLEFT", 0, -20)
+    groupScaleSlider:SetPoint("TOPLEFT", groupWidthSlider, "BOTTOMLEFT", 0, -16)
     groupScaleSlider:SetWidth(160)
 
     -- Group columns slider (1-4)
@@ -234,7 +234,7 @@ local function CreateBarsTab(parent)
             ns:SetGroupColumns(selectedGroupIndex, value)
         end
     end)
-    groupColumnsSlider:SetPoint("TOPLEFT", groupScaleSlider, "BOTTOMLEFT", 0, -20)
+    groupColumnsSlider:SetPoint("TOPLEFT", groupScaleSlider, "BOTTOMLEFT", 0, -16)
     groupColumnsSlider:SetWidth(160)
 
     -- Group background opacity slider
@@ -243,7 +243,7 @@ local function CreateBarsTab(parent)
             ns:SetGroupBgAlpha(selectedGroupIndex, value)
         end
     end)
-    groupBgAlphaSlider:SetPoint("TOPLEFT", groupColumnsSlider, "BOTTOMLEFT", 0, -20)
+    groupBgAlphaSlider:SetPoint("TOPLEFT", groupColumnsSlider, "BOTTOMLEFT", 0, -16)
     groupBgAlphaSlider:SetWidth(160)
 
     -- Group border opacity slider
@@ -252,7 +252,7 @@ local function CreateBarsTab(parent)
             ns:SetGroupBorderAlpha(selectedGroupIndex, value)
         end
     end)
-    groupBorderAlphaSlider:SetPoint("TOPLEFT", groupBgAlphaSlider, "BOTTOMLEFT", 0, -20)
+    groupBorderAlphaSlider:SetPoint("TOPLEFT", groupBgAlphaSlider, "BOTTOMLEFT", 0, -16)
     groupBorderAlphaSlider:SetWidth(160)
 
     -- ========================================================================
