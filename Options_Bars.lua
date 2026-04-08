@@ -620,6 +620,22 @@ local function CreateBarsTab(parent)
     barOpacitySlider:SetPoint("TOPLEFT", showBarIconCB, "BOTTOMLEFT", 4, -24)
     barOpacitySlider:SetWidth(180)
 
+    local sparkleCB = ns:CreateCheckbox(ec, "Sparkle Alert",
+        "Flash the bar when the timer is about to expire.", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.display.sparkleAlert = checked and true or false
+        end
+    end)
+    sparkleCB:SetPoint("TOPLEFT", barOpacitySlider, "BOTTOMLEFT", -4, -24)
+
+    local sparkleThresholdSlider = ns:CreateSlider(ec, "Alert Threshold (sec)", 1, 15, 1, function(self, value)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.display.sparkleThreshold = value end
+    end)
+    sparkleThresholdSlider:SetPoint("TOPLEFT", sparkleCB, "BOTTOMLEFT", 4, -20)
+    sparkleThresholdSlider:SetWidth(180)
+
     local colorSwatch = ns:CreateColorSwatch(ec, "Color Override", { r = 1, g = 1, b = 1, a = 1 }, function(self, color)
         local bar = frame:GetSelectedBar()
         if bar then
@@ -627,7 +643,7 @@ local function CreateBarsTab(parent)
             ns:RefreshAllBars()
         end
     end)
-    colorSwatch:SetPoint("TOPLEFT", barOpacitySlider, "BOTTOMLEFT", -4, -8)
+    colorSwatch:SetPoint("TOPLEFT", sparkleThresholdSlider, "BOTTOMLEFT", -4, -8)
 
     -- ========================================================================
     -- HELPER: Get selected bar data
@@ -748,6 +764,8 @@ local function CreateBarsTab(parent)
         showBarNameCB:SetChecked(bar.display.showName)
         showBarIconCB:SetChecked(bar.display.showIcon)
         barOpacitySlider:SetValue((bar.display.barAlpha or 0.6) * 100)
+        sparkleCB:SetChecked(bar.display.sparkleAlert)
+        sparkleThresholdSlider:SetValue(bar.display.sparkleThreshold or 5)
 
         if bar.display.colorOverride then
             colorSwatch.color.r = bar.display.colorOverride.r

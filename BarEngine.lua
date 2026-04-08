@@ -137,6 +137,21 @@ local function Bar_OnUpdate(self, elapsed)
         end
     end
 
+    -- Sparkle alert: flash the bar when timer is below threshold
+    local display = self.barData and self.barData.display
+    if display and display.sparkleAlert then
+        local threshold = display.sparkleThreshold or 5
+        if remaining <= threshold then
+            -- Pulse between 0.3 and 1.0 alpha using a sine wave (~3 Hz)
+            local pulse = 0.65 + 0.35 * math.sin(now * 6 * math.pi)
+            self:SetAlpha(pulse)
+        else
+            -- Restore normal active alpha when above threshold
+            local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+            self:SetAlpha(visual.activeAlpha or 1.0)
+        end
+    end
+
     -- Throttled: expensive text formatting (10 Hz)
     self.textElapsed = (self.textElapsed or 0) + elapsed
     if self.textElapsed >= TEXT_THROTTLE then
