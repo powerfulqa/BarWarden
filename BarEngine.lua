@@ -150,9 +150,44 @@ local function Bar_OnUpdate(self, elapsed)
                 self.timeText:SetText(stacks > 0 and tostring(stacks) or "")
             end
         elseif textFormat ~= "NAME_ONLY" then
-            -- NAME_DURATION, DURATION, or anything else: show seconds countdown
+            -- NAME_DURATION, DURATION, or anything else: show countdown
             if self.timeText and self.timeText:IsShown() then
-                self.timeText:SetFormattedText("%.1f", remaining)
+                local style = visual.durationStyle or "DECIMAL"
+                local text
+                if style == "SECONDS" then
+                    text = string.format("%d", remaining)
+                elseif style == "MINSEC" then
+                    local m = math.floor(remaining / 60)
+                    local s = math.floor(remaining - m * 60)
+                    if m > 0 then
+                        text = string.format("%d:%02d", m, s)
+                    else
+                        text = string.format("%d", s)
+                    end
+                elseif style == "SHORT" then
+                    local m = math.floor(remaining / 60)
+                    local s = math.floor(remaining - m * 60)
+                    if m > 0 then
+                        text = string.format("%dm %ds", m, s)
+                    else
+                        text = string.format("%ds", s)
+                    end
+                elseif style == "AUTO" then
+                    if remaining >= 3600 then
+                        local h = math.floor(remaining / 3600)
+                        local m = math.floor((remaining - h * 3600) / 60)
+                        text = string.format("%d:%02d:%02d", h, m, math.floor(remaining - h * 3600 - m * 60))
+                    elseif remaining >= 60 then
+                        local m = math.floor(remaining / 60)
+                        local s = math.floor(remaining - m * 60)
+                        text = string.format("%d:%02d", m, s)
+                    else
+                        text = string.format("%.1f", remaining)
+                    end
+                else -- DECIMAL (default)
+                    text = string.format("%.1f", remaining)
+                end
+                self.timeText:SetText(text)
             end
         end
     end

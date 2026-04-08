@@ -213,9 +213,23 @@ local function CreateVisualsTab(parent)
     end)
     textFormatDD:SetPoint("TOPLEFT", fontSizeSlider, "BOTTOMLEFT", -16, -24)
 
+    local durationStyleItems = {
+        { text = "12.3 (seconds.ms)",     value = "DECIMAL" },
+        { text = "12 (seconds only)",     value = "SECONDS" },
+        { text = "1:05 (min:sec)",        value = "MINSEC" },
+        { text = "1m 5s (short text)",    value = "SHORT" },
+        { text = "Auto (adapts to length)", value = "AUTO" },
+    }
+
+    local durationStyleDD = ns:CreateDropdown(content, "Duration Style", durationStyleItems, function(dd, value)
+        BarWardenDB.visual.durationStyle = value
+        ns:RefreshAllBars()
+    end)
+    durationStyleDD:SetPoint("TOPLEFT", textFormatDD, "BOTTOMLEFT", 0, -24)
+
     -- Section: Icon
     local iconHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    iconHeader:SetPoint("TOPLEFT", textFormatDD, "BOTTOMLEFT", 16, -30)
+    iconHeader:SetPoint("TOPLEFT", durationStyleDD, "BOTTOMLEFT", 16, -30)
     iconHeader:SetText("Icon")
 
     local iconSizeSlider = ns:CreateSlider(content, "Icon Size", 0, 60, 1, function(self, value)
@@ -348,6 +362,14 @@ local function CreateVisualsTab(parent)
             if item.value == v.textFormat then
                 UIDropDownMenu_SetSelectedID(textFormatDD, i)
                 UIDropDownMenu_SetText(textFormatDD, item.text)
+                break
+            end
+        end
+
+        for i, item in ipairs(durationStyleItems) do
+            if item.value == (v.durationStyle or "DECIMAL") then
+                UIDropDownMenu_SetSelectedID(durationStyleDD, i)
+                UIDropDownMenu_SetText(durationStyleDD, item.text)
                 break
             end
         end

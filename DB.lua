@@ -84,6 +84,7 @@ ns.DEFAULTS = {
         textEnabled = true,
         textPosition = "INSIDE_LEFT",
         textFormat = "NAME_DURATION",
+        durationStyle = "DECIMAL",
         customTextFormat = "%n %d",
         colorMode = "CLASS",
         defaultColor = { r = 0.2, g = 0.6, b = 1.0 },
