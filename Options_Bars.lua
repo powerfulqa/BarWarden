@@ -246,6 +246,15 @@ local function CreateBarsTab(parent)
     groupBgAlphaSlider:SetPoint("TOPLEFT", groupColumnsSlider, "BOTTOMLEFT", 0, -20)
     groupBgAlphaSlider:SetWidth(160)
 
+    -- Group border opacity slider
+    local groupBorderAlphaSlider = ns:CreateSlider(leftPanel, "Border Opacity", 0, 1, 0.05, function(self, value)
+        if selectedGroupIndex then
+            ns:SetGroupBorderAlpha(selectedGroupIndex, value)
+        end
+    end)
+    groupBorderAlphaSlider:SetPoint("TOPLEFT", groupBgAlphaSlider, "BOTTOMLEFT", 0, -20)
+    groupBorderAlphaSlider:SetWidth(160)
+
     -- ========================================================================
     -- RIGHT PANEL: Bar List + Bar Editor
     -- ========================================================================
@@ -760,6 +769,7 @@ local function CreateBarsTab(parent)
             groupScaleSlider:SetValue(g.scale or 1.0)
             groupColumnsSlider:SetValue(g.columns or 1)
             groupBgAlphaSlider:SetValue(g.bgAlpha ~= nil and g.bgAlpha or 0.6)
+            groupBorderAlphaSlider:SetValue(g.borderAlpha ~= nil and g.borderAlpha or 0.8)
         else
             groupNameEdit:SetText("")
         end
