@@ -28,12 +28,20 @@ end
 function ns:CreateSlider(parent, label, min, max, step, onChange)
     local name = NextName("SL")
     local slider = CreateFrame("Slider", name, parent, "OptionsSliderTemplate")
-    _G[name .. "Text"]:SetText(label)
+    local labelText = _G[name .. "Text"]
+    labelText:SetText(label)
     _G[name .. "Low"]:SetText(tostring(min))
     _G[name .. "High"]:SetText(tostring(max))
     slider:SetMinMaxValues(min, max)
     slider:SetValueStep(step)
+    slider.label = label  -- store for value display updates
     slider:HookScript("OnValueChanged", function(self, value)
+        -- Always update the displayed value, even during suppressed refreshes
+        if step >= 1 then
+            labelText:SetText(label .. ": " .. string.format("%d", value))
+        else
+            labelText:SetText(label .. ": " .. string.format("%.2f", value))
+        end
         if ns.suppressCallbacks then return end
         if onChange then onChange(self, value) end
     end)
