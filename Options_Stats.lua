@@ -70,11 +70,29 @@ local function CreateStatsTab(parent)
     sessionLabel:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -8)
     frame.sessionLabel = sessionLabel
 
+    -- Group labels row ("Session" and "All-Time" above their columns)
+    local groupLabelFrame = CreateFrame("Frame", nil, frame)
+    groupLabelFrame:SetPoint("TOPLEFT", sessionLabel, "BOTTOMLEFT", 0, -8)
+    groupLabelFrame:SetSize(400, 14)
+
+    local gSession = groupLabelFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    gSession:SetPoint("LEFT", groupLabelFrame, "LEFT", 128, 0)
+    gSession:SetText("--- Session ---")
+    gSession:SetWidth(118)
+    gSession:SetJustifyH("CENTER")
+    gSession:SetTextColor(0.5, 0.8, 1.0)
+
+    local gAllTime = groupLabelFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    gAllTime:SetPoint("LEFT", gSession, "RIGHT", 8, 0)
+    gAllTime:SetText("--- All-Time ---")
+    gAllTime:SetWidth(118)
+    gAllTime:SetJustifyH("CENTER")
+    gAllTime:SetTextColor(1.0, 0.82, 0.0)
+
     -- Column headers
-    local headerY = -8
     local headerFrame = CreateFrame("Frame", nil, frame)
-    headerFrame:SetPoint("TOPLEFT", sessionLabel, "BOTTOMLEFT", 0, headerY)
-    headerFrame:SetSize(400, 16)
+    headerFrame:SetPoint("TOPLEFT", groupLabelFrame, "BOTTOMLEFT", 0, -2)
+    headerFrame:SetSize(400, 14)
 
     local hName = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hName:SetPoint("LEFT", headerFrame, "LEFT", 4, 0)
@@ -96,13 +114,13 @@ local function CreateStatsTab(parent)
 
     local hAllAct = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hAllAct:SetPoint("LEFT", hSessUp, "RIGHT", 4, 0)
-    hAllAct:SetText("Total Procs")
+    hAllAct:SetText("Procs")
     hAllAct:SetWidth(55)
     hAllAct:SetJustifyH("RIGHT")
 
     local hAllUp = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hAllUp:SetPoint("LEFT", hAllAct, "RIGHT", 4, 0)
-    hAllUp:SetText("Total Up")
+    hAllUp:SetText("Uptime")
     hAllUp:SetWidth(55)
     hAllUp:SetJustifyH("RIGHT")
 
