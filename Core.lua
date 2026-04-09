@@ -75,6 +75,10 @@ end
 local function OnAddonLoaded(event, loadedName)
     if loadedName ~= addonName then return end
 
+    -- Initialize session statistics (resets every login/reload)
+    ns.sessionStats = {}
+    ns.sessionStartTime = time()
+
     ns:InitDB()
     ns:CreateOptionsPanel()
     ns:RebuildAllFrames()
@@ -134,6 +138,10 @@ function ns:SetEnabled(enabled)
         ns.db.global.enabled = enabled
     end
 
+    if ns.UpdateMinimapButtonState then
+        ns:UpdateMinimapButtonState()
+    end
+
     if enabled then
         ns:EnableEvents()
         -- Show all group frames
@@ -170,6 +178,8 @@ local function SlashHandler(msg)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw debug       Dump addon state to chat", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw scan        Live-test spell/item lookups for all bars", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw trackers    Show live tracker state for all bars", 1, 1, 1)
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw stats       Show bar activation and uptime statistics", 1, 1, 1)
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw bugreport   Open copyable diagnostic report", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw help        Show this message", 1, 1, 1)
     elseif cmd == "debug" then
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Debug:|r")
@@ -255,6 +265,33 @@ local function SlashHandler(msg)
                     remaining or 0,
                     duration or 0))
             end
+        end
+    elseif cmd == "bugreport" then
+        if ns.ShowBugReport then
+            ns:ShowBugReport()
+        else
+            ns:Print("Bug report module not loaded.")
+        end
+    elseif cmd == "stats" then
+        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Statistics:|r")
+        local sessionDuration = time() - (ns.sessionStartTime or time())
+        DEFAULT_CHAT_FRAME:AddMessage(string.format("  Session duration: %dm %ds",
+            math.floor(sessionDuration / 60), sessionDuration % 60))
+        local hasStats = false
+        -- Merge keys from both session and persistent stats
+        local allKeys = {}
+        for key in pairs(ns.sessionStats or {}) do allKeys[key] = true end
+        for key in pairs(ns.db and ns.db.stats or {}) do allKeys[key] = true end
+        for key in pairs(allKeys) do
+            hasStats = true
+            local session = ns.sessionStats and ns.sessionStats[key] or { activations = 0, uptime = 0 }
+            local allTime = ns.db and ns.db.stats and ns.db.stats[key] or { activations = 0, uptime = 0 }
+            DEFAULT_CHAT_FRAME:AddMessage(string.format(
+                "  %s: %d activations / %.0fs uptime (session) | %d / %.0fs (all-time)",
+                key, session.activations, session.uptime, allTime.activations, allTime.uptime))
+        end
+        if not hasStats then
+            DEFAULT_CHAT_FRAME:AddMessage("  No statistics recorded yet.")
         end
     elseif cmd == "enable" then
         ns:SetEnabled(true)

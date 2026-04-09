@@ -73,8 +73,14 @@ end
 
 local function OnEnter(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine("BarWarden", 1, 1, 1)
+    local enabled = BarWardenDB and BarWardenDB.global and BarWardenDB.global.enabled
+    if enabled then
+        GameTooltip:AddLine("BarWarden", 1, 1, 1)
+    else
+        GameTooltip:AddLine("BarWarden (Disabled)", 1, 0.4, 0.4)
+    end
     GameTooltip:AddLine("Left-click to open options", 0.8, 0.8, 0.8)
+    GameTooltip:AddLine("Right-click to enable/disable", 0.8, 0.8, 0.8)
     GameTooltip:AddLine("Drag to reposition", 0.8, 0.8, 0.8)
     GameTooltip:Show()
 end
@@ -87,10 +93,16 @@ end
 -- Click handler
 -- --------------------------------------------------------------------------
 
-local function OnClick()
-    -- Call twice to work around the Blizzard bug (Edge Case #10)
-    InterfaceOptionsFrame_OpenToCategory(addonName)
-    InterfaceOptionsFrame_OpenToCategory(addonName)
+local function OnClick(self, clickButton)
+    if clickButton == "RightButton" then
+        local enabled = BarWardenDB and BarWardenDB.global and BarWardenDB.global.enabled
+        ns:SetEnabled(not enabled)
+    else
+        -- Use hardcoded name to match panel.name in Options.lua
+        -- (addonName from folder is lowercase "barwarden", panel is "BarWarden")
+        InterfaceOptionsFrame_OpenToCategory("BarWarden")
+        InterfaceOptionsFrame_OpenToCategory("BarWarden")
+    end
 end
 
 -- --------------------------------------------------------------------------
@@ -118,8 +130,9 @@ local function CreateMinimapButton()
     icon:SetHeight(20)
     icon:SetTexture("Interface\\Icons\\Spell_Nature_EnchantArmor")
     icon:SetPoint("CENTER", 0, 1)
+    button.icon = icon
 
-    button:RegisterForClicks("LeftButtonUp")
+    button:RegisterForClicks("AnyUp")
     button:RegisterForDrag("LeftButton")
 
     button:SetMovable(true)
@@ -151,6 +164,7 @@ function ns:InitMinimapButton()
     if button then return end
     CreateMinimapButton()
     ns:UpdateMinimapButtonVisibility()
+    ns:UpdateMinimapButtonState()
 end
 
 function ns:UpdateMinimapButtonVisibility()
@@ -159,6 +173,20 @@ function ns:UpdateMinimapButtonVisibility()
         button:Show()
     else
         button:Hide()
+    end
+end
+
+function ns:UpdateMinimapButtonState()
+    if not button or not button.icon then return end
+    local enabled = BarWardenDB and BarWardenDB.global and BarWardenDB.global.enabled
+    -- Use pcall to prevent SetDesaturated errors from tainting the button frame
+    local ok, desatOk = pcall(button.icon.SetDesaturated, button.icon, not enabled)
+    if not ok or not desatOk then
+        if not enabled then
+            button.icon:SetVertexColor(0.5, 0.5, 0.5)
+        else
+            button.icon:SetVertexColor(1, 1, 1)
+        end
     end
 end
 

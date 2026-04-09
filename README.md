@@ -26,6 +26,10 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Minimap button** you can drag around your minimap for quick access
 - **Track multiple spells on one bar** using commas, like `Rupture, Garrote`
 - **Settings saved per character** so each of your characters can have their own layout
+- **Per-bar statistics** tracking activation count and uptime, both per-session and all-time
+- **Bug report command** generates a copyable diagnostic snapshot for easy troubleshooting
+- **Minimap button right-click** to quickly enable or disable the addon
+- **Minimap icon state** desaturates when the addon is disabled so you can see at a glance
 
 ---
 
@@ -50,7 +54,8 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 
 ### Opening the settings
 
-- Click the **BarWarden minimap button** near your minimap.
+- **Left-click** the BarWarden minimap button near your minimap.
+- **Right-click** the minimap button to quickly enable or disable the addon (the icon desaturates when disabled).
 - Or type `/bw` in chat.
 
 ### Creating a group
@@ -93,6 +98,8 @@ Groups are locked in place by default so you don't accidentally move them during
 | `/bw debug` | Prints addon state to chat (handy for bug reports) |
 | `/bw scan` | Tests spell lookups for each bar and prints results |
 | `/bw trackers` | Shows live tracker state for all bars |
+| `/bw stats` | Shows per-bar activation counts and uptime |
+| `/bw bugreport` | Opens a copyable diagnostic report window |
 | `/bw help` | Lists all available commands |
 
 You can also use `/barwarden` instead of `/bw` if you prefer.
@@ -193,6 +200,17 @@ Save and Load bar layouts. Profiles are account-wide.
 - Export and import profiles to share between characters
 - Reset everything back to factory defaults
 
+### Statistics
+
+Per-bar activation counts and uptime tracking.
+
+- **Session stats** reset every login or `/reload`
+- **All-time stats** persist across sessions in SavedVariables
+- Scrollable list with columns: Bar name, Procs, Uptime, Total Procs, Total Uptime
+- **Reset Session** clears current session stats
+- **Reset All Stats** clears everything (with confirmation)
+- Also available via `/bw stats` in chat
+
 ---
 
 ## Available Bar Textures
@@ -237,7 +255,7 @@ Open `/bw`, go to the **General** tab, and tick **Show Minimap Icon**.
 
 **Lua errors showing up**
 
-Type `/bw debug` and include the output if you need to report a problem. If things are really broken, you can reset to factory defaults by deleting `WTF/Account/<your-account>/SavedVariables/BarWardenDB.lua` and reloading.
+Type `/bw bugreport` to generate a copyable diagnostic report you can paste into a bug report. You can also try `/bw debug` for a quick chat dump. If things are really broken, you can reset to factory defaults by deleting `WTF/Account/<your-account>/SavedVariables/BarWardenDB.lua` and reloading.
 
 ---
 

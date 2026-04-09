@@ -109,6 +109,22 @@ StaticPopupDialogs["BARWARDEN_EXPORT"] = {
     preferredIndex = 4,
 }
 
+-- Confirm Reset all statistics
+StaticPopupDialogs["BARWARDEN_CONFIRM_STATS_RESET"] = {
+    text = "Are you sure you want to reset all statistics? This cannot be undone.",
+    button1 = "Yes",
+    button2 = "No",
+    OnAccept = function(self)
+        if self.data and self.data.onAccept then
+            self.data.onAccept()
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 4,
+}
+
 -- Confirm Reset to defaults
 StaticPopupDialogs["BARWARDEN_CONFIRM_RESET"] = {
     text = "Are you sure you want to reset all settings to defaults? This cannot be undone.",

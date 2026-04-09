@@ -1,5 +1,6 @@
 # Auto Claude data directory
 .auto-claude/
+.claude/
 
 # Auto Claude generated files
 .auto-claude-security.json
@@ -8,3 +9,6 @@
 .worktrees/
 .security-key
 logs/security/
+
+# Design docs (internal planning)
+docs/superpowers/

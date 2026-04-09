@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Tab content frames (populated by Options_General, Options_Bars, Options_Visuals, Options_Profiles)
 ns.optionsTabs = {}
 
-local TAB_NAMES = {"General", "Bars / Groups", "Visuals", "Profiles"}
+local TAB_NAMES = {"General", "Bars / Groups", "Visuals", "Profiles", "Statistics"}
 
 local function ShowTab(index)
     for i, frame in pairs(ns.optionsTabs) do

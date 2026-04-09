@@ -245,6 +245,11 @@ function ns:InitDB()
     end
     ns.db = BarWardenDB
 
+    -- Ensure stats table exists for persistent statistics tracking
+    if not BarWardenDB.stats then
+        BarWardenDB.stats = {}
+    end
+
     -- Account-wide profile storage (shared across all characters)
     if not BarWardenAccountDB then
         BarWardenAccountDB = {
