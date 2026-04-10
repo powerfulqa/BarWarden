@@ -31,7 +31,7 @@ local function ResolveBarIcon(barData)
     if not barData then return nil end
 
     local mode = barData.trackMode
-    local input = barData.spellName or barData.spellId or barData.spell
+    local input = barData.spellName or barData.spellId
 
     if mode == "Item" then
         local itemId = barData.itemId or input

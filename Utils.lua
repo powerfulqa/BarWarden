@@ -79,32 +79,6 @@ function ns:GetPlayerClassColor()
     return self:GetClassColor(class)
 end
 
--- Convert r,g,b (0-1 floats) to hex string "RRGGBB"
-function ns:RGBToHex(r, g, b)
-    return string.format("%02x%02x%02x",
-        math.floor((r or 0) * 255 + 0.5),
-        math.floor((g or 0) * 255 + 0.5),
-        math.floor((b or 0) * 255 + 0.5))
-end
-
--- Convert hex string "RRGGBB" or "AARRGGBB" to r,g,b (0-1 floats)
-function ns:HexToRGB(hex)
-    if not hex then return 1, 1, 1 end
-    hex = hex:gsub("^#", "")
-    if #hex == 8 then
-        hex = hex:sub(3) -- strip alpha prefix
-    end
-    local r = tonumber(hex:sub(1, 2), 16) or 255
-    local g = tonumber(hex:sub(3, 4), 16) or 255
-    local b = tonumber(hex:sub(5, 6), 16) or 255
-    return r / 255, g / 255, b / 255
-end
-
--- Return a "|cAARRGGBB" color escape string for WoW text
-function ns:ColorText(text, r, g, b)
-    return string.format("|cff%s%s|r", self:RGBToHex(r, g, b), text)
-end
-
 -- ----------------------------------------------------------------------------
 -- Base64 Encode/Decode
 -- ----------------------------------------------------------------------------

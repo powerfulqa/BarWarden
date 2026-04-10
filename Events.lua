@@ -129,19 +129,13 @@ local function OnPlayerEnteringWorld(event, ...)
     end
 end
 
-local function OnActionbarCooldownUpdate(event, ...)
-    if ns.OnSpellCooldownUpdate then
-        ns:OnSpellCooldownUpdate()
-    end
-end
-
 -- ----------------------------------------------------------------------------
 -- Event Registration Sets
 -- ----------------------------------------------------------------------------
 
 local GAMEPLAY_EVENTS = {
     { "SPELL_UPDATE_COOLDOWN",          OnSpellCooldownUpdate },
-    { "ACTIONBAR_UPDATE_COOLDOWN",      OnActionbarCooldownUpdate },
+    { "ACTIONBAR_UPDATE_COOLDOWN",      OnSpellCooldownUpdate },
     { "UNIT_AURA",                      OnUnitAura },
     { "PLAYER_TARGET_CHANGED",          OnTargetChanged },
     { "PLAYER_FOCUS_CHANGED",           OnFocusChanged },

@@ -187,6 +187,7 @@ local function Bar_OnMouseUp(self, button)
     -- Cleanup
     dragState.active = false
     dragState.bar = nil
+    dragState.startBarIndex = nil
 
     local ghost = dragState.ghost
     if ghost then ghost:Hide() end

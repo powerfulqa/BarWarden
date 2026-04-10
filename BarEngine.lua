@@ -255,10 +255,10 @@ end
 local function RecordDeactivation(bar)
     if not bar.activatedAt then return end
     local elapsed = GetTime() - bar.activatedAt
-    if elapsed <= 0 then bar.activatedAt = nil return end
+    if elapsed <= 0 then bar.activatedAt = nil; return end
 
     local key = ns:GetBarStatsKey(bar)
-    if not key then bar.activatedAt = nil return end
+    if not key then bar.activatedAt = nil; return end
 
     -- Session stats
     if ns.sessionStats and ns.sessionStats[key] then

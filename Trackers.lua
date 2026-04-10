@@ -31,18 +31,11 @@ local function getSpell(barConfig)
     if barConfig.spellId then
         return tostring(barConfig.spellId)
     end
-    -- Legacy fallbacks (removed by migration but kept for safety)
-    if barConfig.spell and barConfig.spell ~= "" then
-        return tostring(barConfig.spell)
-    end
-    if barConfig.spellInput and barConfig.spellInput ~= "" then
-        return barConfig.spellInput
-    end
     return nil
 end
 
 local function getUnit(barConfig, default)
-    return barConfig.unit or barConfig.target or default
+    return barConfig.unit or default
 end
 
 -- getSpellTokens: split a (possibly comma-separated) spell string into a list.

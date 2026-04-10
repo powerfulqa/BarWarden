@@ -116,21 +116,14 @@ end
 -- @param conditions table - The conditions sub-table
 -- @return boolean - true if the bar should hide when inactive
 function ns:ShouldHideWhenInactive(conditions)
-    if not conditions then
-        return false
-    end
-    return conditions.hideWhenInactive and true or false
+    if not conditions then return false end
+    return not not conditions.hideWhenInactive
 end
 
 --- Check if a bar should show an empty bar when inactive.
 -- @param conditions table - The conditions sub-table
 -- @return boolean - true if an empty bar should be shown
 function ns:ShouldShowEmpty(conditions)
-    if not conditions then
-        return true
-    end
-    if conditions.showEmpty == nil then
-        return true
-    end
-    return conditions.showEmpty and true or false
+    if not conditions then return true end
+    return conditions.showEmpty ~= false
 end
