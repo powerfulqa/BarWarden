@@ -133,6 +133,18 @@ local function OnPlayerEnteringWorld(event, ...)
     end
 end
 
+local function OnEnchantUpdate(event, ...)
+    if ns.OnEnchantUpdate then
+        ns:OnEnchantUpdate()
+    end
+end
+
+local function OnTotemUpdate(event, ...)
+    if ns.OnTotemUpdate then
+        ns:OnTotemUpdate()
+    end
+end
+
 -- ----------------------------------------------------------------------------
 -- Event Registration Sets
 -- ----------------------------------------------------------------------------
@@ -150,6 +162,8 @@ local GAMEPLAY_EVENTS = {
     { "RAID_ROSTER_UPDATE",             OnGroupChanged },
     { "BAG_UPDATE_COOLDOWN",            OnBagCooldownUpdate },
     { "PLAYER_ENTERING_WORLD",          OnPlayerEnteringWorld },
+    { "UNIT_INVENTORY_CHANGED",         OnEnchantUpdate },
+    { "PLAYER_TOTEM_UPDATE",            OnTotemUpdate },
 }
 
 -- ----------------------------------------------------------------------------

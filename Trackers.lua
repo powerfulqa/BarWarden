@@ -268,17 +268,104 @@ local function CheckItem(barConfig)
 end
 
 -- ----------------------------------------------------------------------------
+-- Enchant Tracker (temporary weapon enchants: poisons, shaman buffs, stones)
+-- Uses GetWeaponEnchantInfo() which returns enchant data for MH and OH.
+-- The "spell" field selects the slot: "mainhand" or "offhand" (default MH).
+-- ----------------------------------------------------------------------------
+
+local function CheckEnchant(barConfig)
+    -- Determine slot from trackMode: "Enchant OH" = offhand, anything else = mainhand
+    local mode = barConfig.trackMode or ""
+    local isOH = (mode == "Enchant OH")
+
+    local hasMainEnchant, mainExpires, mainCharges, hasOffEnchant, offExpires, offCharges = GetWeaponEnchantInfo()
+
+    local hasEnchant, expires, charges
+    if isOH then
+        hasEnchant, expires, charges = hasOffEnchant, offExpires, offCharges
+    else
+        hasEnchant, expires, charges = hasMainEnchant, mainExpires, mainCharges
+    end
+
+    -- Get the weapon icon from the inventory slot
+    local invSlot = isOH and 17 or 16  -- 16=MainHand, 17=OffHand
+    local icon = GetInventoryItemTexture("player", invSlot)
+    -- Use the bar name for display; fall back to slot label
+    local displayName = (barConfig.name and barConfig.name ~= "") and barConfig.name
+                        or (isOH and "Offhand Enchant" or "Mainhand Enchant")
+
+    if hasEnchant and expires then
+        -- GetWeaponEnchantInfo returns milliseconds remaining
+        local remaining = expires / 1000
+        if remaining > 0 then
+            -- Duration is unknown for enchants; use remaining as duration
+            return true, remaining, remaining, icon, displayName, charges or 0
+        end
+    end
+
+    return false, 0, 0, icon, displayName, 0
+end
+
+-- ----------------------------------------------------------------------------
+-- Totem Tracker (shaman totems, DK ghouls)
+-- Uses GetTotemInfo(slot) where slot is 1-4.
+-- The "spell" field can be the totem name or slot number (1-4).
+-- If a name is given, all 4 slots are searched for a matching totem.
+-- ----------------------------------------------------------------------------
+
+local function CheckTotem(barConfig)
+    local spell = getSpell(barConfig)
+    if not spell then
+        return false, 0, 0, nil, nil, 0
+    end
+
+    local slotNum = tonumber(spell)
+
+    if slotNum and slotNum >= 1 and slotNum <= 4 then
+        -- Direct slot lookup
+        local haveTotem, name, startTime, duration, icon = GetTotemInfo(slotNum)
+        if haveTotem and name and name ~= "" and duration > 0 then
+            local remaining = (startTime + duration) - GetTime()
+            if remaining > 0 then
+                return true, remaining, duration, icon, name, 0
+            end
+        end
+        return false, 0, 0, nil, "Totem Slot " .. slotNum, 0
+    else
+        -- Search all 4 slots for a matching totem name
+        for slot = 1, 4 do
+            local haveTotem, name, startTime, duration, icon = GetTotemInfo(slot)
+            if haveTotem and name and name ~= "" then
+                if name:lower():find(spell:lower(), 1, true) then
+                    if duration > 0 then
+                        local remaining = (startTime + duration) - GetTime()
+                        if remaining > 0 then
+                            return true, remaining, duration, icon, name, 0
+                        end
+                    end
+                end
+            end
+        end
+        return false, 0, 0, nil, spell, 0
+    end
+end
+
+-- ----------------------------------------------------------------------------
 -- Dispatch Table
 -- Proc is Buff restricted to "player" unit; CheckBuff defaults unit to "player"
 -- via getUnit(barConfig, "player"), so no separate function is needed.
 -- ----------------------------------------------------------------------------
 
 ns.TRACKERS = {
-    ["Cooldown"] = CheckCooldown,
-    ["Buff"]     = CheckBuff,
-    ["Debuff"]   = CheckDebuff,
-    ["Proc"]     = CheckBuff,
-    ["Item"]     = CheckItem,
+    ["Cooldown"]   = CheckCooldown,
+    ["Buff"]       = CheckBuff,
+    ["Debuff"]     = CheckDebuff,
+    ["Proc"]       = CheckBuff,
+    ["Item"]       = CheckItem,
+    ["Enchant"]    = CheckEnchant,
+    ["Enchant MH"] = CheckEnchant,
+    ["Enchant OH"] = CheckEnchant,
+    ["Totem"]      = CheckTotem,
 }
 
 --- Check tracking state for a bar based on its trackMode.

@@ -10,7 +10,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 
 ## What Can It Do?
 
-- **Track your abilities** with 5 different modes: Cooldown, Buff, Debuff, Proc, and Item
+- **Track your abilities** with 8 different modes: Cooldown, Buff, Debuff, Proc, Item, Enchant MH, Enchant OH, and Totem
 - **Organise bars into groups** like "Cooldowns", "Target Debuffs", or "Buffs" (up to 20 groups, 30 bars each)
 - **Multi-column layouts** so you can display bars in 1 to 4 columns per group
 - **Sort bars dynamically** by remaining time, alphabetically, or manual order per group
@@ -78,7 +78,7 @@ Groups are containers that hold your bars. Think of a group as a category, for e
 Each bar tracks one spell, buff, debuff, proc, or item:
 
 1. Select a group on the left, then click **Add Bar** on the right.
-2. Pick a **Track Mode** from the dropdown (Cooldown, Buff, Debuff, Proc, or Item).
+2. Pick a **Track Mode** from the dropdown (Cooldown, Buff, Debuff, Proc, Item, Enchant MH, Enchant OH, or Totem).
 3. Choose a **Target** (player, target, focus, pet, or mouseover).
 4. Type the spell name or spell ID into the **Spell Name or ID** field.
 5. The bar will start tracking automatically the next time that spell or effect is active.
@@ -153,6 +153,23 @@ Tracks an item's cooldown using its item ID or name. Useful for trinkets, engine
 - Track Mode: `Item` | Spell: `6948`
 
 To find an item ID, hover over the item and look it up on a WoW database site like Wowhead.
+
+### Enchant
+
+Tracks temporary weapon enchants like poisons, sharpening stones, or shaman weapon buffs. Select **Enchant MH** for your mainhand or **Enchant OH** for your offhand. The Spell field is not used for enchants. Use the Bar Name field to label it (e.g. "Deadly Poison").
+
+**Example:** Track mainhand and offhand poisons.
+- Track Mode: `Enchant MH` | Bar Name: `Deadly Poison`
+- Track Mode: `Enchant OH` | Bar Name: `Instant Poison`
+
+### Totem
+
+Tracks active totems by name or slot number (1-4). Useful for shamans tracking totem uptime.
+
+**Example:** Track Mana Tide Totem.
+- Track Mode: `Totem` | Spell: `Mana Tide Totem`
+
+You can also use a slot number: `1` for Fire, `2` for Earth, `3` for Water, `4` for Air.
 
 ---
 

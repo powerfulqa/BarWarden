@@ -725,6 +725,30 @@ function ns:OnBagCooldownUpdate()
     end)
 end
 
+function ns:OnEnchantUpdate()
+    local bars = ns:GetAllBars()
+    if not bars or #bars == 0 then return end
+    RunScan(function()
+        for _, bar in ipairs(bars) do
+            if bar.barData and bar.barData.trackMode == "Enchant" then
+                ScanBar(bar, nil)
+            end
+        end
+    end)
+end
+
+function ns:OnTotemUpdate()
+    local bars = ns:GetAllBars()
+    if not bars or #bars == 0 then return end
+    RunScan(function()
+        for _, bar in ipairs(bars) do
+            if bar.barData and bar.barData.trackMode == "Totem" then
+                ScanBar(bar, nil)
+            end
+        end
+    end)
+end
+
 function ns:OnPlayerEnteringWorld()
     ns:ScanAllBars()
 end

@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- Options_Bars.lua - Tab 2: Bars / Groups configuration
 -- ============================================================================
 
-local TRACK_MODES = { "Cooldown", "Buff", "Debuff", "Proc", "Item" }
+local TRACK_MODES = { "Cooldown", "Buff", "Debuff", "Proc", "Item", "Enchant MH", "Enchant OH", "Totem" }
 local TARGET_UNITS = { "player", "target", "focus", "pet", "mouseover" }
 local GROUP_LIST_HEIGHT = 16
 local BAR_LIST_HEIGHT = 16
