@@ -180,6 +180,7 @@ local function SlashHandler(msg)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw trackers    Show live tracker state for all bars", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw stats       Show bar activation and uptime statistics", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw bugreport   Open copyable diagnostic report", 1, 1, 1)
+        DEFAULT_CHAT_FRAME:AddMessage("  /bw test        Toggle test mode (fake 30s timers)", 1, 1, 1)
         DEFAULT_CHAT_FRAME:AddMessage("  /bw help        Show this message", 1, 1, 1)
     elseif cmd == "debug" then
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Debug:|r")
@@ -312,6 +313,12 @@ local function SlashHandler(msg)
     elseif cmd == "reset" then
         ns:RebuildAllFrames()
         ns:Print("Frame positions reset.")
+    elseif cmd == "test" then
+        if ns.testMode then
+            ns:DeactivateTestMode()
+        else
+            ns:ActivateTestMode()
+        end
     else
         -- No args or unknown: open config panel
         -- Call twice to work around Blizzard bug (Edge Case #10)

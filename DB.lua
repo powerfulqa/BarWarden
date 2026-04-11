@@ -10,7 +10,7 @@ local addonName, ns = ...
 
 ns.DEFAULTS = {
     -- Schema version: increment when a migration pass is needed
-    schemaVersion = 2,
+    schemaVersion = 3,
 
     -- Global settings
     global = {
@@ -50,6 +50,8 @@ ns.DEFAULTS = {
         fadeWhenInactive = true,
         fadeSpeed = 0.3,
         showSpark = true,
+        -- Icon crop
+        iconCrop = true,
     },
 
     -- Frames (groups of bars)
@@ -65,6 +67,7 @@ ns.DEFAULTS = {
             position = { point = "CENTER", relativePoint = "CENTER", x = 0, y = -100 },
             width = 200,
             columns = 1,
+            sortMode = "manual",
             bgAlpha = 0.6,
             borderAlpha = 0.8,
             scale = 1.0,
@@ -104,7 +107,7 @@ ns.DEFAULTS = {
 -- Runs only when BarWardenDB.schemaVersion is absent or below current.
 -- Safe: only writes to nil keys, never overwrites non-nil user data.
 -- ----------------------------------------------------------------------------
-local CURRENT_SCHEMA = 2
+local CURRENT_SCHEMA = 3
 
 local function MigrateDB()
     local savedVersion = BarWardenDB.schemaVersion or 0
@@ -158,6 +161,16 @@ local function MigrateDB()
                     and bar.spellId ~= nil then
                     bar.spellId = nil
                 end
+            end
+        end
+    end
+
+    -- v2 → v3: ensure sortMode exists on all frames (new field).
+    -- Per-bar display fields are additive nils so no migration needed for those.
+    if savedVersion < 3 then
+        for _, frameData in ipairs(BarWardenDB.frames or {}) do
+            if frameData.sortMode == nil then
+                frameData.sortMode = "manual"
             end
         end
     end

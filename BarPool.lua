@@ -26,5 +26,6 @@ function ns:ReleaseBar(bar)
     if bar.nameText then bar.nameText:SetText("") end
     if bar.timeText then bar.timeText:SetText("") end
     if bar.iconTexture then bar.iconTexture:SetTexture(nil) end
+    bar.glowStartTime = nil
     table.insert(ns.barPool, bar)
 end

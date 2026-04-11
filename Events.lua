@@ -100,6 +100,10 @@ local function OnFocusChanged(event, ...)
 end
 
 local function OnCombatStateChanged(event, ...)
+    -- Auto-exit test mode when entering combat
+    if event == "PLAYER_REGEN_DISABLED" and ns.testMode then
+        ns:DeactivateTestMode()
+    end
     if ns.OnCombatStateChanged then
         ns:OnCombatStateChanged(event == "PLAYER_REGEN_DISABLED")
     end

@@ -42,6 +42,12 @@ local function NewBar(name)
             colorOverride = nil,
             textureOverride = nil,
             style = nil,
+            -- Colour-by-time (nil = inherit global)
+            colorByTime = nil,
+            -- Glow on ready
+            glowOnReady = false,
+            -- Icon crop (nil = inherit global)
+            iconCrop = nil,
         },
     }
 end
@@ -59,6 +65,7 @@ local function NewGroup(name)
         bgAlpha = 0.6,
         borderAlpha = 0.8,
         scale = 1.0,
+        sortMode = "manual",
         bars = {},
     }
 end
@@ -177,8 +184,19 @@ local function CreateBarsTab(parent)
     end)
     dupeGroupBtn:SetPoint("LEFT", deleteGroupBtn, "RIGHT", 2, 0)
 
+    -- Scrollable group settings area (below the group list and buttons)
+    local groupSettingsScroll = CreateFrame("ScrollFrame", "BarWardenGroupSettingsScroll", leftPanel, "UIPanelScrollFrameTemplate")
+    groupSettingsScroll:SetPoint("TOPLEFT", addGroupBtn, "BOTTOMLEFT", 0, -8)
+    groupSettingsScroll:SetPoint("BOTTOMLEFT", leftPanel, "BOTTOMLEFT", 0, 19)
+    groupSettingsScroll:SetWidth(170)
+
+    local groupSettingsContent = CreateFrame("Frame", nil, groupSettingsScroll)
+    groupSettingsContent:SetWidth(160)
+    groupSettingsContent:SetHeight(450)
+    groupSettingsScroll:SetScrollChild(groupSettingsContent)
+
     -- Group name edit
-    local groupNameEdit = ns:CreateEditBox(leftPanel, "Group Name", 170, function(self, text)
+    local groupNameEdit = ns:CreateEditBox(groupSettingsContent, "Group Name", 155, function(self, text)
         if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
             BarWardenDB.frames[selectedGroupIndex].name = text
             local gf = ns.groupFrames[selectedGroupIndex]
@@ -186,9 +204,9 @@ local function CreateBarsTab(parent)
             frame:Refresh()
         end
     end)
-    groupNameEdit:SetPoint("TOPLEFT", addGroupBtn, "BOTTOMLEFT", 0, -12)
+    groupNameEdit:SetPoint("TOPLEFT", groupSettingsContent, "TOPLEFT", 0, 0)
 
-    local showGroupNameCB = ns:CreateCheckbox(leftPanel, "Show Bar Name",
+    local showGroupNameCB = ns:CreateCheckbox(groupSettingsContent, "Show Bar Name",
         "Show or hide the group name on the bar frame.",
         function(self, checked)
             if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
@@ -206,7 +224,7 @@ local function CreateBarsTab(parent)
     showGroupNameCB:SetPoint("TOPLEFT", groupNameEdit, "BOTTOMLEFT", -6, -4)
 
     -- Group width slider
-    local groupWidthSlider = ns:CreateSlider(leftPanel, "Width", 50, 400, 5, function(self, value)
+    local groupWidthSlider = ns:CreateSlider(groupSettingsContent, "Width", 50, 400, 5, function(self, value)
         if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
             BarWardenDB.frames[selectedGroupIndex].width = value
             local gf = ns.groupFrames[selectedGroupIndex]
@@ -217,7 +235,7 @@ local function CreateBarsTab(parent)
     groupWidthSlider:SetWidth(160)
 
     -- Group scale slider
-    local groupScaleSlider = ns:CreateSlider(leftPanel, "Scale", 0.5, 2.0, 0.1, function(self, value)
+    local groupScaleSlider = ns:CreateSlider(groupSettingsContent, "Scale", 0.5, 2.0, 0.1, function(self, value)
         if selectedGroupIndex then
             ns:SetFrameScale(selectedGroupIndex, value)
             if BarWardenDB.frames[selectedGroupIndex] then
@@ -229,7 +247,7 @@ local function CreateBarsTab(parent)
     groupScaleSlider:SetWidth(160)
 
     -- Group columns slider (1-4)
-    local groupColumnsSlider = ns:CreateSlider(leftPanel, "Columns", 1, 4, 1, function(self, value)
+    local groupColumnsSlider = ns:CreateSlider(groupSettingsContent, "Columns", 1, 4, 1, function(self, value)
         if selectedGroupIndex then
             ns:SetGroupColumns(selectedGroupIndex, value)
         end
@@ -238,7 +256,7 @@ local function CreateBarsTab(parent)
     groupColumnsSlider:SetWidth(160)
 
     -- Group background opacity slider
-    local groupBgAlphaSlider = ns:CreateSlider(leftPanel, "Background Opacity", 0, 1, 0.05, function(self, value)
+    local groupBgAlphaSlider = ns:CreateSlider(groupSettingsContent, "Background Opacity", 0, 1, 0.05, function(self, value)
         if selectedGroupIndex then
             ns:SetGroupBgAlpha(selectedGroupIndex, value)
         end
@@ -247,13 +265,28 @@ local function CreateBarsTab(parent)
     groupBgAlphaSlider:SetWidth(160)
 
     -- Group border opacity slider
-    local groupBorderAlphaSlider = ns:CreateSlider(leftPanel, "Border Opacity", 0, 1, 0.05, function(self, value)
+    local groupBorderAlphaSlider = ns:CreateSlider(groupSettingsContent, "Border Opacity", 0, 1, 0.05, function(self, value)
         if selectedGroupIndex then
             ns:SetGroupBorderAlpha(selectedGroupIndex, value)
         end
     end)
     groupBorderAlphaSlider:SetPoint("TOPLEFT", groupBgAlphaSlider, "BOTTOMLEFT", 0, -16)
     groupBorderAlphaSlider:SetWidth(160)
+
+    -- Sort mode dropdown
+    local sortModeItems = {
+        { text = "Manual",         value = "manual" },
+        { text = "Remaining Time", value = "remaining" },
+        { text = "Alphabetical",   value = "alpha" },
+    }
+    local sortModeDD = ns:CreateDropdown(groupSettingsContent, "Sort Mode", sortModeItems, function(dd, value)
+        if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
+            BarWardenDB.frames[selectedGroupIndex].sortMode = value
+            local gf = ns.groupFrames[selectedGroupIndex]
+            if gf then ns:UpdateGroupLayout(gf) end
+        end
+    end)
+    sortModeDD:SetPoint("TOPLEFT", groupBorderAlphaSlider, "BOTTOMLEFT", -16, -20)
 
     -- ========================================================================
     -- RIGHT PANEL: Bar List + Bar Editor
@@ -398,7 +431,8 @@ local function CreateBarsTab(parent)
 
     local editorHeader = ec:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     editorHeader:SetPoint("TOPLEFT", ec, "TOPLEFT", 0, 0)
-    editorHeader:SetText("Bar Settings")
+    editorHeader:SetText("")
+    editorHeader:SetHeight(1)
 
     -- Bar enabled checkbox
     local barEnabledCB = ns:CreateCheckbox(ec, "Enabled", "Enable or disable this bar", function(self, checked)
@@ -645,6 +679,55 @@ local function CreateBarsTab(parent)
     end)
     colorSwatch:SetPoint("TOPLEFT", sparkleThresholdSlider, "BOTTOMLEFT", -4, -8)
 
+    -- Colour by Time (per-bar override)
+    local colorByTimeCB = ns:CreateCheckbox(ec, "Colour by Time",
+        "Bar colour changes from green to red as the timer counts down.", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.display.colorByTime = checked and true or false end
+    end)
+    colorByTimeCB:SetPoint("TOPLEFT", colorSwatch, "BOTTOMLEFT", -4, -12)
+
+    local cbtHighSlider = ns:CreateSlider(ec, "High Threshold (sec)", 1, 30, 1, function(self, value)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.display.colorHighSeconds = value end
+    end)
+    cbtHighSlider:SetPoint("TOPLEFT", colorByTimeCB, "BOTTOMLEFT", 4, -20)
+    cbtHighSlider:SetWidth(180)
+
+    local cbtMedSlider = ns:CreateSlider(ec, "Med Threshold (sec)", 1, 30, 1, function(self, value)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.display.colorMedSeconds = value end
+    end)
+    cbtMedSlider:SetPoint("TOPLEFT", cbtHighSlider, "BOTTOMLEFT", 0, -24)
+    cbtMedSlider:SetWidth(180)
+
+    -- Glow on Ready
+    local glowOnReadyCB = ns:CreateCheckbox(ec, "Glow on Ready",
+        "Flash the icon when the cooldown finishes and the spell is ready.", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.display.glowOnReady = checked and true or false end
+    end)
+    glowOnReadyCB:SetPoint("TOPLEFT", cbtMedSlider, "BOTTOMLEFT", -4, -20)
+
+    -- Glow duration slider
+    local glowDurationSlider = ns:CreateSlider(ec, "Glow Duration (sec)", 1, 10, 1, function(self, value)
+        local bar = frame:GetSelectedBar()
+        if bar then bar.display.glowDuration = value end
+    end)
+    glowDurationSlider:SetPoint("TOPLEFT", glowOnReadyCB, "BOTTOMLEFT", 4, -20)
+    glowDurationSlider:SetWidth(180)
+
+    -- Crop Icon (per-bar override)
+    local cropIconCB = ns:CreateCheckbox(ec, "Crop Icon",
+        "Trim icon border pixels to prevent stretching.", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.display.iconCrop = checked and true or false
+            ns:RebuildAllFrames()
+        end
+    end)
+    cropIconCB:SetPoint("TOPLEFT", glowDurationSlider, "BOTTOMLEFT", -4, -20)
+
     -- ========================================================================
     -- HELPER: Get selected bar data
     -- ========================================================================
@@ -775,6 +858,14 @@ local function CreateBarsTab(parent)
         else
             colorSwatch.swatch:SetTexture(1, 1, 1, 1)
         end
+
+        -- New feature controls
+        colorByTimeCB:SetChecked(bar.display.colorByTime)
+        cbtHighSlider:SetValue(bar.display.colorHighSeconds or 10)
+        cbtMedSlider:SetValue(bar.display.colorMedSeconds or 5)
+        glowOnReadyCB:SetChecked(bar.display.glowOnReady)
+        glowDurationSlider:SetValue(bar.display.glowDuration or 3)
+        cropIconCB:SetChecked(bar.display.iconCrop)
     end
 
     local function UpdateGroupName()
@@ -788,6 +879,14 @@ local function CreateBarsTab(parent)
             groupColumnsSlider:SetValue(g.columns or 1)
             groupBgAlphaSlider:SetValue(g.bgAlpha ~= nil and g.bgAlpha or 0.6)
             groupBorderAlphaSlider:SetValue(g.borderAlpha ~= nil and g.borderAlpha or 0.8)
+            local sm = g.sortMode or "manual"
+            for i, item in ipairs(sortModeItems) do
+                if item.value == sm then
+                    UIDropDownMenu_SetSelectedID(sortModeDD, i)
+                    UIDropDownMenu_SetText(sortModeDD, item.text)
+                    break
+                end
+            end
         else
             groupNameEdit:SetText("")
         end

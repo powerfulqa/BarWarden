@@ -13,11 +13,18 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Track your abilities** with 5 different modes: Cooldown, Buff, Debuff, Proc, and Item
 - **Organise bars into groups** like "Cooldowns", "Target Debuffs", or "Buffs" (up to 20 groups, 30 bars each)
 - **Multi-column layouts** so you can display bars in 1 to 4 columns per group
+- **Sort bars dynamically** by remaining time, alphabetically, or manual order per group
+- **Colour-by-time** bars transition green to yellow to red as the timer counts down (per-bar, configurable thresholds)
+- **Glow on ready** bars flash when a cooldown finishes or a buff expires so you know the spell is available
+- **Sparkle alert** bars pulse when the timer drops below a configurable threshold
 - **13 bar textures** to choose from, including Flat, Smooth, Gloss, Aluminium, and more
 - **15 fonts** including 5 built-in WoW fonts and 10 custom ones like Adventure, Heroic, and Transformers
+- **5 duration display styles**: seconds with decimal, whole seconds, min:sec, short text, or auto-adapting
 - **Colour your bars** by class, by tracking mode, or pick your own colour (with per-bar overrides)
 - **Per-bar text and icon control** so each bar can show or hide its name and spell icon independently
+- **Icon crop** trims border pixels to prevent stretching on non-square bars
 - **Set conditions** on bars so they only show in combat, below a health threshold, in a group, and more
+- **Test mode** shows all bars with fake 30s timers so you can preview your layout without triggering spells
 - **Account-wide profiles** so you can save a setup on one character and load it on another
 - **Drag bars to reorder** them within a group when frames are unlocked
 - **Animated spark** that follows the bar as it counts down
@@ -29,7 +36,6 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Per-bar statistics** tracking activation count and uptime, both per-session and all-time
 - **Bug report command** generates a copyable diagnostic snapshot for easy troubleshooting
 - **Minimap button right-click** to quickly enable or disable the addon
-- **Minimap icon state** desaturates when the addon is disabled so you can see at a glance
 
 ---
 
@@ -95,6 +101,7 @@ Groups are locked in place by default so you don't accidentally move them during
 | `/bw disable` | Turns the addon off |
 | `/bw lock` | Toggles frame lock (locked frames cannot be dragged) |
 | `/bw reset` | Rebuilds all frames and resets positions |
+| `/bw test` | Toggle test mode (fake 30s timers on all bars) |
 | `/bw debug` | Prints addon state to chat (handy for bug reports) |
 | `/bw scan` | Tests spell lookups for each bar and prints results |
 | `/bw trackers` | Shows live tracker state for all bars |
@@ -161,34 +168,31 @@ To find an item ID, hover over the item and look it up on a WoW database site li
 
 **Left panel (Group settings):**
 - Add, Delete, or Duplicate groups
-- Set the group name, width, scale (0.5x to 2.0x), and columns (1 to 4)
+- Group Name and Show Group Name toggle
+- Width, Scale, Columns
+- Background Opacity, Border Opacity
+- Sort Mode (Manual, Remaining Time, Alphabetical)
 
 **Right panel (Bar list and editor):**
 - Add Bar, Delete Bar, and reorder bars with Up/Down buttons
 - Configure bar name, spell name or ID, track mode, and target unit
 - Toggle "Only Mine" filtering for debuffs
 - Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide When Inactive, Show Empty, Health Below %, Require Buff
-- Per-bar display options: Linger Time, Show Bar Name, Show Icon, Colour Override
+- Per-bar display options: Linger Time, Show Bar Name, Show Icon, Bar Darkness, Sparkle Alert with threshold, Colour Override, Colour by Time with high/med thresholds, Glow on Ready with duration, Crop Icon
 
 ### Visuals
 
-**Bar Dimensions:**
-Bar Height (4 to 60), Bar Spacing (0 to 30)
+Global settings that apply to all bars.
 
-**Group Opacity:**
-Background Opacity (0 to 1), Border Opacity (0 to 1)
+**Bar Dimensions:** Bar Height, Bar Spacing
 
-**Bar Visuals:**
-Choose between Class Colour, Track Mode Colour, or Custom Colour. When using Custom, a colour swatch lets you pick any colour. You can also enable per-bar colour overrides so individual bars can have their own colour. Pick from 13 bar textures or enter a custom texture path.
+**Bar Visuals:** Colour Mode (Class, Track Mode, Custom), Default Colour swatch, Per-Bar Colour Override, Bar Texture (13 textures + custom path)
 
-**Text Options:**
-Pick a text position (Left or Right), choose from 15 fonts, set the font size (6 to 24), and pick a text format: Name + Duration, Name Only, Duration Only, Name + Stacks, Stacks Only, or None.
+**Text Options:** Text Position (Left, Right), Font (15 choices), Font Size, Text Format (Name+Duration, Name Only, Duration Only, Name+Stacks, Stacks Only, None), Duration Style (seconds.ms, seconds, min:sec, short text, auto)
 
-**Icon:**
-Icon Size (0 to 60), Icon Position (Left or Right)
+**Icon:** Icon Size, Icon Position (Left, Right), Crop Icons
 
-**Opacity:**
-Set Active and Inactive opacity (0 to 1), toggle Fade When Inactive, and adjust the Fade Speed (0.1 to 2.0).
+**Bar Opacity:** Active Opacity, Inactive Opacity, Fade When Inactive, Fade Speed
 
 ### Profiles
 

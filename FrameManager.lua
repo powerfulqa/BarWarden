@@ -100,7 +100,9 @@ function ns:CreateGroupFrame(groupData, frameIndex)
     frame:SetWidth(barWidth + 8)  -- padding for border
     frame:SetHeight(30)  -- minimum height, updated by layout
 
-    -- Position (always TOPLEFT so the top edge stays fixed when height changes)
+    -- Position: load saved anchor. SaveFramePosition converts to TOPLEFT on
+    -- next drag so future loads will use TOPLEFT, but we must respect the
+    -- saved anchor for existing positions to display correctly.
     local pos = groupData.position
     if pos and pos.point then
         frame:SetPoint(pos.point, UIParent, pos.relativePoint or pos.point, pos.x or 0, pos.y or 0)
@@ -166,20 +168,42 @@ function ns:UpdateGroupLayout(group)
     end
     local columns = (frameData and frameData.columns and frameData.columns > 0) and frameData.columns or 1
 
-    local visibleCount = 0
-
-    for i, bar in ipairs(group.bars) do
+    -- Build list of visible bars, optionally sorted
+    local sortMode = (frameData and frameData.sortMode) or "manual"
+    local visible = {}
+    for _, bar in ipairs(group.bars) do
         if bar:IsShown() then
-            local col = visibleCount % columns
-            local row = math.floor(visibleCount / columns)
-            local xOff = 4 + col * (barWidth + spacing)
-            local yOff = -(titleOffset + row * (barHeight + spacing))
-            bar:ClearAllPoints()
-            bar:SetPoint("TOPLEFT", group, "TOPLEFT", xOff, yOff)
-            bar:SetWidth(barWidth)
-            bar:SetHeight(barHeight)
-            visibleCount = visibleCount + 1
+            visible[#visible + 1] = bar
         end
+    end
+
+    if sortMode == "remaining" then
+        table.sort(visible, function(a, b)
+            local ra = (a.expirationTime and a.barState == ns.BAR_STATE.ACTIVE)
+                       and (a.expirationTime - GetTime()) or 9999
+            local rb = (b.expirationTime and b.barState == ns.BAR_STATE.ACTIVE)
+                       and (b.expirationTime - GetTime()) or 9999
+            return ra < rb
+        end)
+    elseif sortMode == "alpha" then
+        table.sort(visible, function(a, b)
+            local na = (a.barData and a.barData.name) or ""
+            local nb = (b.barData and b.barData.name) or ""
+            return na < nb
+        end)
+    end
+
+    local visibleCount = 0
+    for _, bar in ipairs(visible) do
+        local col = visibleCount % columns
+        local row = math.floor(visibleCount / columns)
+        local xOff = 4 + col * (barWidth + spacing)
+        local yOff = -(titleOffset + row * (barHeight + spacing))
+        bar:ClearAllPoints()
+        bar:SetPoint("TOPLEFT", group, "TOPLEFT", xOff, yOff)
+        bar:SetWidth(barWidth)
+        bar:SetHeight(barHeight)
+        visibleCount = visibleCount + 1
     end
 
     -- Update frame size to fit all columns and rows

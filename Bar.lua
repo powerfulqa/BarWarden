@@ -64,6 +64,36 @@ function ns.GetBarDisplayName(barData)
 end
 
 -- ----------------------------------------------------------------------------
+-- GetTimeBasedColor: Returns r,g,b based on remaining time, or nil if disabled.
+-- Smoothly interpolates between three colour stops:
+--   High (green, fresh) → Med (yellow, mid) → Low (red, near expiry)
+-- ----------------------------------------------------------------------------
+local function LerpColor(a, b, t)
+    return a + (b - a) * t
+end
+
+function ns.GetTimeBasedColor(remaining, display, visual)
+    -- Purely per-bar: only enabled if the bar's own colorByTime is set
+    if not display or not display.colorByTime then return nil end
+
+    local highSec = display.colorHighSeconds or 10
+    local medSec  = display.colorMedSeconds  or 5
+    local cHigh = { r = 0, g = 0.8, b = 0 }
+    local cMed  = { r = 1, g = 0.8, b = 0 }
+    local cLow  = { r = 1, g = 0.2, b = 0.2 }
+
+    if remaining >= highSec then
+        return cHigh.r, cHigh.g, cHigh.b
+    elseif remaining >= medSec then
+        local t = (remaining - medSec) / math.max(highSec - medSec, 0.001)
+        return LerpColor(cMed.r, cHigh.r, t), LerpColor(cMed.g, cHigh.g, t), LerpColor(cMed.b, cHigh.b, t)
+    else
+        local t = remaining / math.max(medSec, 0.001)
+        return LerpColor(cLow.r, cMed.r, t), LerpColor(cLow.g, cMed.g, t), LerpColor(cLow.b, cMed.b, t)
+    end
+end
+
+-- ----------------------------------------------------------------------------
 -- ResolveTexture: Get texture path from name or return custom path
 -- ----------------------------------------------------------------------------
 local function ResolveTexture(name)
@@ -251,6 +281,20 @@ function ns:ApplyVisualConfig(bar, config)
                 local icon = ResolveBarIcon(bar.barData)
                 if icon then
                     bar.iconTexture:SetTexture(icon)
+                end
+            end
+            -- Icon crop: trim border pixels to prevent stretching
+            if bar.iconTexture then
+                local cropEnabled
+                if display.iconCrop ~= nil then
+                    cropEnabled = display.iconCrop
+                else
+                    cropEnabled = (visual.iconCrop ~= false)
+                end
+                if cropEnabled then
+                    bar.iconTexture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+                else
+                    bar.iconTexture:SetTexCoord(0, 1, 0, 1)
                 end
             end
         else

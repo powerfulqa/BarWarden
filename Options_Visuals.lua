@@ -17,7 +17,7 @@ local function CreateVisualsTab(parent)
 
     local content = CreateFrame("Frame", nil, scrollFrame)
     content:SetWidth(544)
-    content:SetHeight(820)
+    content:SetHeight(1200)
     scrollFrame:SetScrollChild(content)
 
     -- Resize content to match the scroll frame when the panel is shown,
@@ -39,9 +39,14 @@ local function CreateVisualsTab(parent)
     -- LEFT COLUMN (x = 16): Dimensions → Bar Color → Text Options → Opacity
     -- -----------------------------------------------------------------------
 
+    -- Global settings note
+    local globalNote = content:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    globalNote:SetPoint("TOPLEFT", content, "TOPLEFT", 16, yOffset)
+    globalNote:SetText("These settings apply to all bars globally. Per-bar options are in the Bars / Groups tab.")
+
     -- Section: Bar Dimensions
     local dimHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    dimHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 16, yOffset)
+    dimHeader:SetPoint("TOPLEFT", globalNote, "BOTTOMLEFT", 0, -12)
     dimHeader:SetText("Bar Dimensions")
 
     local barHeightSlider = ns:CreateSlider(content, "Bar Height", 4, 60, 1, function(self, value)
@@ -55,12 +60,12 @@ local function CreateVisualsTab(parent)
         BarWardenDB.visual.barSpacing = value
         ns:RefreshAllBars()
     end)
-    barSpacingSlider:SetPoint("TOPLEFT", barHeightSlider, "BOTTOMLEFT", 0, -30)
+    barSpacingSlider:SetPoint("TOPLEFT", barHeightSlider, "BOTTOMLEFT", 0, -24)
     barSpacingSlider:SetWidth(200)
 
     -- Section: Bar Visuals (color + texture)
     local colorHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    colorHeader:SetPoint("TOPLEFT", barSpacingSlider, "BOTTOMLEFT", -4, -30)
+    colorHeader:SetPoint("TOPLEFT", barSpacingSlider, "BOTTOMLEFT", -4, -20)
     colorHeader:SetText("Bar Visuals")
 
     local colorModeItems = {
@@ -82,7 +87,7 @@ local function CreateVisualsTab(parent)
         end
         ns:RefreshAllBars()
     end)
-    colorModeDD:SetPoint("TOPLEFT", colorHeader, "BOTTOMLEFT", -16, -28)
+    colorModeDD:SetPoint("TOPLEFT", colorHeader, "BOTTOMLEFT", -16, -20)
 
     colorSwatch = ns:CreateColorSwatch(content, "Default Bar Color",
         nil,
@@ -150,7 +155,7 @@ local function CreateVisualsTab(parent)
 
     -- Section: Text Options
     local textHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    textHeader:SetPoint("TOPLEFT", textureDD, "BOTTOMLEFT", 16, -30)
+    textHeader:SetPoint("TOPLEFT", textureDD, "BOTTOMLEFT", 16, -20)
     textHeader:SetText("Text Options")
 
     local textPosItems = {
@@ -229,7 +234,7 @@ local function CreateVisualsTab(parent)
 
     -- Section: Icon
     local iconHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    iconHeader:SetPoint("TOPLEFT", durationStyleDD, "BOTTOMLEFT", 16, -30)
+    iconHeader:SetPoint("TOPLEFT", durationStyleDD, "BOTTOMLEFT", 16, -20)
     iconHeader:SetText("Icon")
 
     local iconSizeSlider = ns:CreateSlider(content, "Icon Size", 0, 60, 1, function(self, value)
@@ -247,11 +252,19 @@ local function CreateVisualsTab(parent)
         BarWardenDB.visual.iconPosition = value
         ns:RefreshAllBars()
     end)
-    iconPosDD:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -16, -30)
+    iconPosDD:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -16, -24)
+
+    local iconCropCB = ns:CreateCheckbox(content, "Crop Icons",
+        "Trim icon border pixels to prevent stretching on non-square bars.",
+        function(self, checked)
+            BarWardenDB.visual.iconCrop = checked
+            ns:RefreshAllBars()
+        end)
+    iconCropCB:SetPoint("TOPLEFT", iconPosDD, "BOTTOMLEFT", 16, -12)
 
     -- Section: Bar Opacity
     local opacityHeader = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    opacityHeader:SetPoint("TOPLEFT", iconPosDD, "BOTTOMLEFT", 16, -30)
+    opacityHeader:SetPoint("TOPLEFT", iconCropCB, "BOTTOMLEFT", 0, -20)
     opacityHeader:SetText("Bar Opacity")
 
     local activeAlphaSlider = ns:CreateSlider(content, "Active Opacity", 0, 1, 0.05, function(self, value)
@@ -265,7 +278,7 @@ local function CreateVisualsTab(parent)
         BarWardenDB.visual.inactiveAlpha = value
         ns:RefreshAllBars()
     end)
-    inactiveAlphaSlider:SetPoint("TOPLEFT", activeAlphaSlider, "BOTTOMLEFT", 0, -30)
+    inactiveAlphaSlider:SetPoint("TOPLEFT", activeAlphaSlider, "BOTTOMLEFT", 0, -24)
     inactiveAlphaSlider:SetWidth(200)
 
     local fadeInactiveCB = ns:CreateCheckbox(content, "Fade When Inactive",
@@ -274,14 +287,13 @@ local function CreateVisualsTab(parent)
             BarWardenDB.visual.fadeWhenInactive = checked
             ns:RefreshAllBars()
         end)
-    fadeInactiveCB:SetPoint("TOPLEFT", inactiveAlphaSlider, "BOTTOMLEFT", -4, -24)
+    fadeInactiveCB:SetPoint("TOPLEFT", inactiveAlphaSlider, "BOTTOMLEFT", -4, -20)
 
     local fadeSpeedSlider = ns:CreateSlider(content, "Fade Speed", 0.1, 2.0, 0.1, function(self, value)
         BarWardenDB.visual.fadeSpeed = value
     end)
-    fadeSpeedSlider:SetPoint("TOPLEFT", fadeInactiveCB, "BOTTOMLEFT", 4, -24)
+    fadeSpeedSlider:SetPoint("TOPLEFT", fadeInactiveCB, "BOTTOMLEFT", 4, -20)
     fadeSpeedSlider:SetWidth(200)
-
 
     -- -----------------------------------------------------------------------
     -- Refresh function
@@ -379,6 +391,9 @@ local function CreateVisualsTab(parent)
         inactiveAlphaSlider:SetValue(v.inactiveAlpha or 0.3)
         fadeInactiveCB:SetChecked(v.fadeWhenInactive)
         fadeSpeedSlider:SetValue(v.fadeSpeed or 0.3)
+
+        -- Icon crop
+        iconCropCB:SetChecked(v.iconCrop ~= false)
     end
 
     return frame

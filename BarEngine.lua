@@ -81,6 +81,48 @@ local function RunScan(fn, ...)
 end
 
 -- ----------------------------------------------------------------------------
+-- Glow on Ready: animate glow texture for ~3 seconds after cooldown/buff ends.
+-- Uses a standalone timer frame so it works even when the bar is hidden.
+-- ----------------------------------------------------------------------------
+local DEFAULT_GLOW_DURATION = 3.0
+local glowTimerFrame = CreateFrame("Frame", "BarWardenGlowTimer", UIParent)
+glowTimerFrame:Hide()
+local activeGlows = {}
+
+glowTimerFrame:SetScript("OnUpdate", function(self, elapsed)
+    local now = GetTime()
+    local anyActive = false
+    for bar, startTime in pairs(activeGlows) do
+        local glowDur = (bar.barData and bar.barData.display and bar.barData.display.glowDuration) or DEFAULT_GLOW_DURATION
+        local age = now - startTime
+        if age >= glowDur then
+            -- Restore normal state: re-apply visuals and re-hide if needed
+            if ns.ApplyVisualConfig then ns:ApplyVisualConfig(bar) end
+            local cond = bar.barData and bar.barData.conditions
+            if cond and cond.hideWhenInactive and bar.barState == BAR_STATE.INACTIVE then
+                bar:Hide()
+                local parent = bar:GetParent()
+                if parent and parent:IsShown() then
+                    MarkGroupDirty(parent)
+                end
+            else
+                local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+                bar:SetAlpha(visual.inactiveAlpha or 0.3)
+            end
+            activeGlows[bar] = nil
+        else
+            anyActive = true
+            -- Flash the entire bar between white and normal colour
+            local pulse = 0.5 + 0.5 * math.sin(age * 6 * math.pi)
+            bar:SetStatusBarColor(1, 1, 1, pulse)
+            bar:SetAlpha(0.6 + 0.4 * pulse)
+            bar:Show()
+        end
+    end
+    if not anyActive then self:Hide() end
+end)
+
+-- ----------------------------------------------------------------------------
 -- Bar_OnUpdate: Smooth bar fill every frame, throttled text at 10 Hz
 -- ----------------------------------------------------------------------------
 
@@ -124,6 +166,14 @@ local function Bar_OnUpdate(self, elapsed)
     self:SetMinMaxValues(0, 1)
     self:SetValue(progress)
 
+    -- Colour-by-time: override bar colour based on remaining seconds
+    local display = self.barData and self.barData.display or {}
+    local visual  = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+    local cbtr, cbtg, cbtb = ns.GetTimeBasedColor(remaining, display, visual)
+    if cbtr then
+        self:SetStatusBarColor(cbtr, cbtg, cbtb)
+    end
+
     -- Spark position: manual calculation.
     -- GetStatusBarTexture():RIGHT does not track the fill edge in WoW 3.3.5a —
     -- the texture anchor reflects the full region, not the clipped fill width.
@@ -138,7 +188,6 @@ local function Bar_OnUpdate(self, elapsed)
     end
 
     -- Sparkle alert: flash the bar when timer is below threshold
-    local display = self.barData and self.barData.display
     if display and display.sparkleAlert then
         local threshold = display.sparkleThreshold or 5
         if remaining <= threshold then
@@ -352,6 +401,19 @@ function ns:DeactivateBar(bar)
     -- Stop OnUpdate (save CPU)
     bar:SetScript("OnUpdate", nil)
 
+    -- Glow on ready: if enabled, flash the bar briefly to signal the spell is ready.
+    -- Uses a standalone timer frame so it works even if the bar would normally be hidden.
+    local glowDisplay = bar.barData and bar.barData.display
+    if glowDisplay and glowDisplay.glowOnReady then
+        activeGlows[bar] = GetTime()
+        bar:SetAlpha(1.0)
+        bar:Show()
+        -- Trigger layout so the glowing bar gets a proper position
+        local parent = bar:GetParent()
+        if parent then MarkGroupDirty(parent) end
+        glowTimerFrame:Show()
+    end
+
     -- Reset bar display
     bar:SetValue(0)
 
@@ -420,6 +482,38 @@ function ns:DeactivateAllBars()
 end
 
 -- ----------------------------------------------------------------------------
+-- Test/Preview Mode: show all bars with fake 30s timers
+-- ----------------------------------------------------------------------------
+
+ns.testMode = false
+
+function ns:ActivateTestMode()
+    ns.testMode = true
+    local bars = ns:GetAllBars()
+    local fakeExpiry = GetTime() + 30
+    for _, bar in ipairs(bars) do
+        if bar.barData and bar.barData.enabled ~= false then
+            ns:ActivateBar(bar, fakeExpiry, 30)
+            bar.isTestBar = true
+        end
+    end
+    ns:Print("Test mode ON — all bars showing 30s countdown. Type /bw test to stop.")
+end
+
+function ns:DeactivateTestMode()
+    ns.testMode = false
+    local bars = ns:GetAllBars()
+    for _, bar in ipairs(bars) do
+        if bar.isTestBar then
+            ns:DeactivateBar(bar)
+            bar.isTestBar = nil
+        end
+    end
+    ns:ScanAllBars()
+    ns:Print("Test mode OFF.")
+end
+
+-- ----------------------------------------------------------------------------
 -- Condition helper: returns true if bar should be visible right now
 -- ----------------------------------------------------------------------------
 
@@ -473,6 +567,8 @@ end
 -- ----------------------------------------------------------------------------
 
 local function ScanBar(bar, unitFilter)
+    -- Don't overwrite test mode bars with real scan data
+    if ns.testMode and bar.isTestBar then return end
     local bd = bar.barData
     if not bd or bd.enabled == false then return end
 
