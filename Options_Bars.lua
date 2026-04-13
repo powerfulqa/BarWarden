@@ -251,7 +251,11 @@ local function CreateBarsTab(parent)
         if selectedGroupIndex then
             ns:SetGroupColumns(selectedGroupIndex, value)
         end
-    end)
+    end,
+    "Number of columns the bars in this group are arranged into. "
+ .. "1 = vertical stack (default); 2-4 splits the bars across that "
+ .. "many columns side by side. Useful when tracking many bars in a "
+ .. "compact footprint.")
     groupColumnsSlider:SetPoint("TOPLEFT", groupScaleSlider, "BOTTOMLEFT", 0, -16)
     groupColumnsSlider:SetWidth(160)
 
@@ -460,8 +464,8 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.name = text
-            frame:Refresh()
-            ns:RebuildAllFrames()
+            frame:Refresh()  -- updates the bar-list row on the left
+            ns:RefreshBarSettings()
         end
     end)
     barNameEdit:SetPoint("TOPLEFT", barEnabledCB, "BOTTOMLEFT", 6, -18)
@@ -481,9 +485,13 @@ local function CreateBarsTab(parent)
                 bar.spellId = nil
                 bar.spellName = text
             end
-            ns:ScanAllBars()
+            ns:RefreshBarSettings()
         end
-    end)
+    end,
+    "The spell, item, or totem this bar tracks. Accepts a spell name "
+ .. "(e.g. 'Evasion'), a numeric spell/item ID, or multiple "
+ .. "comma-separated names for one bar to match any of them "
+ .. "(e.g. 'Rupture, Garrote'). Press Enter to apply.")
     spellEdit:SetPoint("TOPLEFT", barNameEdit, "BOTTOMLEFT", 0, -18)
 
     -- Single-column layout: Track Mode and Target stack vertically below
@@ -496,7 +504,7 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.trackMode = value
-            ns:ScanAllBars()
+            ns:RefreshBarSettings()
         end
     end)
     trackModeDD:SetPoint("TOPLEFT", spellEdit, "BOTTOMLEFT", -16, -18)
@@ -507,7 +515,7 @@ local function CreateBarsTab(parent)
         if bar then
             bar.unit = value
             bar.target = nil  -- clear legacy field so unit takes effect
-            ns:ScanAllBars()
+            ns:RefreshBarSettings()
         end
     end)
     targetDD:SetPoint("TOPLEFT", trackModeDD, "BOTTOMLEFT", 0, -18)
@@ -518,7 +526,7 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.onlyMine = checked
-            ns:ScanAllBars()
+            ns:RefreshBarSettings()
         end
     end)
     onlyMineCB:SetPoint("TOPLEFT", targetDD, "BOTTOMLEFT", 16, -6)
@@ -542,6 +550,7 @@ local function CreateBarsTab(parent)
                 bar.conditions.outOfCombatOnly = false
                 oocOnlyCB:SetChecked(false)
             end
+            ns:RefreshBarSettings()
         end
     end)
     combatOnlyCB:SetPoint("TOPLEFT", condHeader, "BOTTOMLEFT", 0, -4)
@@ -555,6 +564,7 @@ local function CreateBarsTab(parent)
                 bar.conditions.combatOnly = false
                 combatOnlyCB:SetChecked(false)
             end
+            ns:RefreshBarSettings()
         end
     end)
     oocOnlyCB:SetPoint("TOPLEFT", combatOnlyCB, "BOTTOMLEFT", 0, -2)
@@ -564,6 +574,7 @@ local function CreateBarsTab(parent)
         if bar then
             if not bar.conditions then bar.conditions = {} end
             bar.conditions.inGroup = checked
+            ns:RefreshBarSettings()
         end
     end)
     inGroupCB:SetPoint("TOPLEFT", oocOnlyCB, "BOTTOMLEFT", 0, -2)
@@ -573,6 +584,7 @@ local function CreateBarsTab(parent)
         if bar then
             if not bar.conditions then bar.conditions = {} end
             bar.conditions.inRaid = checked
+            ns:RefreshBarSettings()
         end
     end)
     inRaidCB:SetPoint("TOPLEFT", inGroupCB, "BOTTOMLEFT", 0, -2)
@@ -582,6 +594,7 @@ local function CreateBarsTab(parent)
         if bar then
             if not bar.conditions then bar.conditions = {} end
             bar.conditions.hideWhenInactive = checked
+            ns:RefreshBarSettings()
         end
     end)
     hideInactiveCB:SetPoint("TOPLEFT", inRaidCB, "BOTTOMLEFT", 0, -2)
@@ -591,6 +604,7 @@ local function CreateBarsTab(parent)
         if bar then
             if not bar.conditions then bar.conditions = {} end
             bar.conditions.showEmpty = checked
+            ns:RefreshBarSettings()
         end
     end)
     showEmptyCB:SetPoint("TOPLEFT", hideInactiveCB, "BOTTOMLEFT", 0, -2)
@@ -598,10 +612,16 @@ local function CreateBarsTab(parent)
     local healthEdit = ns:CreateEditBox(ec, "Health Below %", 60, function(self, text)
         local bar = frame:GetSelectedBar()
         if bar then
+            if not bar.conditions then bar.conditions = {} end
             local val = tonumber(text)
             bar.conditions.healthBelow = (val and val > 0 and val <= 100) and val or nil
+            ns:RefreshBarSettings()
         end
-    end)
+    end,
+    "Only show this bar when your own HP is below this percentage. "
+ .. "Useful for execute-range spells (Kill Shot, Hammer of Wrath, "
+ .. "Execute) and panic buttons (Healthstone). Enter a number 1-100 "
+ .. "and press Enter to apply, or leave empty to disable.")
     healthEdit:SetPoint("TOPLEFT", showEmptyCB, "BOTTOMLEFT", 6, -18)
 
     local requireBuffEdit = ns:CreateEditBox(ec, "Require Buff", 140, function(self, text)
@@ -609,8 +629,13 @@ local function CreateBarsTab(parent)
         if bar then
             if not bar.conditions then bar.conditions = {} end
             bar.conditions.requireBuff = (text and text ~= "") and text or nil
+            ns:RefreshBarSettings()
         end
-    end)
+    end,
+    "Only show this bar while you have the named buff active. "
+ .. "Accepts a buff name or spell ID. Useful for state-gated abilities "
+ .. "(stealth-only cooldowns, bear-form abilities, proc reactions). "
+ .. "Press Enter to apply, or leave empty to disable.")
     requireBuffEdit:SetPoint("TOPLEFT", healthEdit, "BOTTOMLEFT", 0, -18)
 
     -- ========================================================================
@@ -622,8 +647,15 @@ local function CreateBarsTab(parent)
 
     local lingerSlider = ns:CreateSlider(ec, "Linger Time (sec)", 0, 5, 0.5, function(self, value)
         local bar = frame:GetSelectedBar()
-        if bar then bar.display.lingerTime = value end
-    end)
+        if bar then
+            bar.display.lingerTime = value
+            ns:RefreshBarSettings()
+        end
+    end,
+    "After a tracked cooldown or buff expires, the bar holds at 0 for "
+ .. "this many seconds before fading out. Pairs nicely with Glow on "
+ .. "Ready so you can see the moment a spell came off cooldown. "
+ .. "Set to 0 for the bar to disappear instantly on expiry.")
     lingerSlider:SetPoint("TOPLEFT", displayHeader, "BOTTOMLEFT", 4, -24)
     lingerSlider:SetWidth(180)
 
@@ -632,7 +664,7 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.display.showName = checked and true or false
-            ns:RebuildAllFrames()
+            ns:RefreshBarSettings()
         end
     end)
     showBarNameCB:SetPoint("TOPLEFT", lingerSlider, "BOTTOMLEFT", 0, -24)
@@ -642,7 +674,7 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.display.showIcon = checked and true or false
-            ns:RebuildAllFrames()
+            ns:RefreshBarSettings()
         end
     end)
     showBarIconCB:SetPoint("TOPLEFT", showBarNameCB, "BOTTOMLEFT", 0, -2)
@@ -651,9 +683,13 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.display.barAlpha = value / 100
-            ns:RebuildAllFrames()
+            ns:RefreshBarSettings()
         end
-    end)
+    end,
+    "How dark the bar's empty/unfilled background is. 0 = fully "
+ .. "transparent (invisible background), 100 = solid black background. "
+ .. "Lower values make the filled portion stand out more; higher "
+ .. "values make empty bars easier to see at a glance.")
     barOpacitySlider:SetPoint("TOPLEFT", showBarIconCB, "BOTTOMLEFT", 4, -24)
     barOpacitySlider:SetWidth(180)
 
@@ -662,14 +698,21 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.display.sparkleAlert = checked and true or false
+            ns:RefreshBarSettings()
         end
     end)
     sparkleCB:SetPoint("TOPLEFT", barOpacitySlider, "BOTTOMLEFT", -4, -24)
 
     local sparkleThresholdSlider = ns:CreateSlider(ec, "Alert Threshold (sec)", 1, 15, 1, function(self, value)
         local bar = frame:GetSelectedBar()
-        if bar then bar.display.sparkleThreshold = value end
-    end)
+        if bar then
+            bar.display.sparkleThreshold = value
+            ns:RefreshBarSettings()
+        end
+    end,
+    "When Sparkle Alert is enabled, the bar flashes once the remaining "
+ .. "time drops below this many seconds. Lower = later warning; higher "
+ .. "= more lead time. Has no effect unless Sparkle Alert is ticked.")
     sparkleThresholdSlider:SetPoint("TOPLEFT", sparkleCB, "BOTTOMLEFT", 4, -20)
     sparkleThresholdSlider:SetWidth(180)
 
@@ -677,7 +720,7 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.display.colorOverride = { r = color.r, g = color.g, b = color.b }
-            ns:RefreshAllBars()
+            ns:RefreshBarSettings()
         end
     end)
     colorSwatch:SetPoint("TOPLEFT", sparkleThresholdSlider, "BOTTOMLEFT", -4, -8)
@@ -686,21 +729,38 @@ local function CreateBarsTab(parent)
     local colorByTimeCB = ns:CreateCheckbox(ec, "Colour by Time",
         "Bar colour changes from green to red as the timer counts down.", function(self, checked)
         local bar = frame:GetSelectedBar()
-        if bar then bar.display.colorByTime = checked and true or false end
+        if bar then
+            bar.display.colorByTime = checked and true or false
+            ns:RefreshBarSettings()
+        end
     end)
     colorByTimeCB:SetPoint("TOPLEFT", colorSwatch, "BOTTOMLEFT", -4, -12)
 
     local cbtHighSlider = ns:CreateSlider(ec, "High Threshold (sec)", 1, 30, 1, function(self, value)
         local bar = frame:GetSelectedBar()
-        if bar then bar.display.colorHighSeconds = value end
-    end)
+        if bar then
+            bar.display.colorHighSeconds = value
+            ns:RefreshBarSettings()
+        end
+    end,
+    "When Colour by Time is enabled, the bar stays green while "
+ .. "remaining time is at or above this many seconds, then fades "
+ .. "toward yellow as it counts down. Set higher for earlier warning; "
+ .. "lower to keep the bar green for longer.")
     cbtHighSlider:SetPoint("TOPLEFT", colorByTimeCB, "BOTTOMLEFT", 4, -20)
     cbtHighSlider:SetWidth(180)
 
     local cbtMedSlider = ns:CreateSlider(ec, "Med Threshold (sec)", 1, 30, 1, function(self, value)
         local bar = frame:GetSelectedBar()
-        if bar then bar.display.colorMedSeconds = value end
-    end)
+        if bar then
+            bar.display.colorMedSeconds = value
+            ns:RefreshBarSettings()
+        end
+    end,
+    "When Colour by Time is enabled, the bar fades from yellow to red "
+ .. "once remaining time drops below this many seconds. Should be "
+ .. "lower than High Threshold; the gap between them is the "
+ .. "yellow zone.")
     cbtMedSlider:SetPoint("TOPLEFT", cbtHighSlider, "BOTTOMLEFT", 0, -24)
     cbtMedSlider:SetWidth(180)
 
@@ -708,15 +768,24 @@ local function CreateBarsTab(parent)
     local glowOnReadyCB = ns:CreateCheckbox(ec, "Glow on Ready",
         "Flash the icon when the cooldown finishes and the spell is ready.", function(self, checked)
         local bar = frame:GetSelectedBar()
-        if bar then bar.display.glowOnReady = checked and true or false end
+        if bar then
+            bar.display.glowOnReady = checked and true or false
+            ns:RefreshBarSettings()
+        end
     end)
     glowOnReadyCB:SetPoint("TOPLEFT", cbtMedSlider, "BOTTOMLEFT", -4, -20)
 
     -- Glow duration slider
     local glowDurationSlider = ns:CreateSlider(ec, "Glow Duration (sec)", 1, 10, 1, function(self, value)
         local bar = frame:GetSelectedBar()
-        if bar then bar.display.glowDuration = value end
-    end)
+        if bar then
+            bar.display.glowDuration = value
+            ns:RefreshBarSettings()
+        end
+    end,
+    "How long the icon keeps pulsing when Glow on Ready fires "
+ .. "(spell comes off cooldown / buff expires). Has no effect unless "
+ .. "Glow on Ready is ticked.")
     glowDurationSlider:SetPoint("TOPLEFT", glowOnReadyCB, "BOTTOMLEFT", 4, -20)
     glowDurationSlider:SetWidth(180)
 
@@ -726,7 +795,7 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.display.iconCrop = checked and true or false
-            ns:RebuildAllFrames()
+            ns:RefreshBarSettings()
         end
     end)
     cropIconCB:SetPoint("TOPLEFT", glowDurationSlider, "BOTTOMLEFT", -4, -20)

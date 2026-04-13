@@ -14,6 +14,24 @@ local function NextName(prefix)
 end
 
 -- ----------------------------------------------------------------------------
+-- Tooltip helper for widgets whose frame templates don't have built-in
+-- tooltip support (sliders, editboxes). Checkboxes use the template-provided
+-- `tooltipText` field instead. Uses HookScript so we don't clobber any
+-- existing OnEnter/OnLeave handlers the widget already has.
+-- ----------------------------------------------------------------------------
+local function AttachTooltip(widget, tooltipText)
+    if not tooltipText or tooltipText == "" then return end
+    widget:HookScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(tooltipText, 1, 1, 1, 1, true)  -- trailing true = wrap
+        GameTooltip:Show()
+    end)
+    widget:HookScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+end
+
+-- ----------------------------------------------------------------------------
 -- DB-path helpers
 --
 -- Walk a dotted path on a root table, returning (parentTable, lastKey) so
@@ -95,7 +113,7 @@ function ns:CreateCheckbox(parent, label, tooltip, onClick)
     return cb
 end
 
-function ns:CreateSlider(parent, label, min, max, step, onChange)
+function ns:CreateSlider(parent, label, min, max, step, onChange, tooltip)
     local name = NextName("SL")
     local slider = CreateFrame("Slider", name, parent, "OptionsSliderTemplate")
     local labelText = _G[name .. "Text"]
@@ -115,6 +133,7 @@ function ns:CreateSlider(parent, label, min, max, step, onChange)
         if ns.suppressCallbacks then return end
         if onChange then onChange(self, value) end
     end)
+    AttachTooltip(slider, tooltip)
     return slider
 end
 
@@ -146,7 +165,7 @@ function ns:CreateDropdown(parent, label, items, onSelect)
     return dd
 end
 
-function ns:CreateEditBox(parent, label, width, onChange)
+function ns:CreateEditBox(parent, label, width, onChange, tooltip)
     local name = NextName("EB")
     local eb = CreateFrame("EditBox", name, parent, "InputBoxTemplate")
     eb:SetSize(width or 150, 20)
@@ -156,13 +175,49 @@ function ns:CreateEditBox(parent, label, width, onChange)
     lbl:SetPoint("BOTTOMLEFT", eb, "TOPLEFT", 0, 3)
     lbl:SetText(label)
 
+    -- `snapshot` records the text at the moment the field gained focus.
+    -- Used to detect whether an edit actually changed the value, so Commit
+    -- doesn't fire onChange redundantly for unchanged text (avoids churn
+    -- on every focus loss).
+    local snapshot
+
+    local function Commit(self)
+        local text = self:GetText()
+        if snapshot == nil or text ~= snapshot then
+            snapshot = text
+            if onChange then onChange(self, text) end
+        end
+    end
+
+    eb:HookScript("OnEditFocusGained", function(self)
+        snapshot = self:GetText()
+    end)
     eb:HookScript("OnEnterPressed", function(self)
-        self:ClearFocus()
-        if onChange then onChange(self, self:GetText()) end
+        Commit(self)
+        self:ClearFocus()    -- fires OnEditFocusLost below; snapshot now
+                             -- equals current text so the second Commit no-ops
     end)
-    eb:HookScript("OnEscapePressed", function(self)
-        self:ClearFocus()
+    eb:HookScript("OnEditFocusLost", function(self)
+        -- Ignore focus loss triggered by Refresh's SetText-driven updates.
+        if ns.suppressCallbacks then return end
+        Commit(self)
     end)
+
+    -- NOTE: OnEscapePressed intentionally NOT hooked. InputBoxTemplate's
+    -- default handler fires `self:ClearFocus()`, which triggers our
+    -- OnEditFocusLost → Commit. Net result: Escape commits whatever text
+    -- is currently in the field, same as Enter and click-away. Consistent
+    -- "any exit commits" UX.
+    --
+    -- Historical note: v1.5.x tried to make Escape revert via
+    -- HookScript("OnEscapePressed", ...) that restored the snapshot before
+    -- ClearFocus — but in WoW 3.3.5a, HookScript runs AFTER the template's
+    -- default OnEscapePressed, so the template's ClearFocus fires
+    -- OnEditFocusLost (committing the in-progress text) before the hook
+    -- gets a chance to restore the snapshot. Making Escape revert properly
+    -- would require SetScript-overriding the template default.
+
+    AttachTooltip(eb, tooltip)
 
     return eb
 end

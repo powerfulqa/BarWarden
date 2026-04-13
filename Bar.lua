@@ -247,11 +247,32 @@ function ns:ApplyVisualConfig(bar, config)
             else
                 bar.icon:SetPoint("LEFT", bar, "LEFT", 0, 0)
             end
-            -- Set icon texture on inactive bars so it's visible immediately
-            if bar.iconTexture and not bar.iconTexture:GetTexture() then
-                local icon = ResolveBarIcon(bar.barData)
+            -- Resolve + apply the icon for the current spell/item every
+            -- refresh. Without this, changing a bar's Spell Name or ID
+            -- wouldn't update the displayed icon until a state transition
+            -- fired an engine-side SetText.
+            --
+            -- When resolution fails, behaviour depends on whether the user
+            -- has *typed* something:
+            --   - If the bar has an explicit spell/item input that didn't
+            --     resolve (typo, partial spell name): clear the icon as
+            --     soft validation feedback so the user sees their input
+            --     is invalid.
+            --   - If the bar has no explicit input (e.g. Enchant MH/OH
+             --    bars where the icon is derived from the equipped
+            --     weapon by the engine): leave the existing texture in
+            --     place so the engine-set weapon icon isn't blanked.
+            if bar.iconTexture then
+                local barData = bar.barData
+                local hasExplicitInput =
+                    barData and (
+                        (barData.spellName and barData.spellName ~= "") or
+                        barData.spellId or barData.itemId)
+                local icon = ResolveBarIcon(barData)
                 if icon then
                     bar.iconTexture:SetTexture(icon)
+                elseif hasExplicitInput then
+                    bar.iconTexture:SetTexture(nil)
                 end
             end
             -- Icon crop: trim border pixels to prevent stretching
@@ -328,6 +349,11 @@ function ns:ApplyVisualConfig(bar, config)
                 bar.nameText:SetPoint("LEFT",  bar, "LEFT",  leftOffset,      0)
                 bar.nameText:SetPoint("RIGHT", bar, "RIGHT", nameRightOffset, 0)
             end
+            -- Sync the displayed name to the current barData. Without this,
+            -- editing Bar Name in the options panel wouldn't reflect on the
+            -- live bar until a state transition (re-enable, next tracker
+            -- tick) fired via the engine's SetText sites.
+            bar.nameText:SetText(ns.GetBarDisplayName(bar.barData))
         else
             bar.nameText:Hide()
         end

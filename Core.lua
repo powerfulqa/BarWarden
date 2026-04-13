@@ -29,6 +29,13 @@ function ns:Print(msg)
 end
 
 -- Re-apply visual config to every bar and relayout every group.
+--
+-- Also applies per-bar `conditions.hideWhenInactive` on the spot: the bar
+-- engine only consults that flag during active→inactive state transitions,
+-- so without re-applying it here a user toggle wouldn't take effect on a
+-- bar that's currently sitting inactive+visible (or inactive+hidden) until
+-- its state churned. RefreshAllBars is called from every user-driven
+-- settings change, so this is the right place to honour the current flag.
 function ns:RefreshAllBars()
     for _, group in pairs(ns.groupFrames or {}) do
         if group.bars then
@@ -39,8 +46,15 @@ function ns:RefreshAllBars()
                 local visual = ns:GetVisual()
                 if bar.barState == ns.BAR_STATE.ACTIVE then
                     bar:SetAlpha(visual.activeAlpha or 1.0)
+                    bar:Show()
                 else
-                    bar:SetAlpha(visual.inactiveAlpha or 0.3)
+                    local cond = bar.barData and bar.barData.conditions
+                    if cond and cond.hideWhenInactive then
+                        bar:Hide()
+                    else
+                        bar:Show()
+                        bar:SetAlpha(visual.inactiveAlpha or 0.3)
+                    end
                 end
             end
         end
@@ -55,6 +69,16 @@ function ns:ApplySettings()
     if ns.UpdateMinimapButtonVisibility then
         ns:UpdateMinimapButtonVisibility()
     end
+end
+
+-- Unified refresh used by every per-bar editor callback so the UI stays
+-- uniformly reactive: re-applies visual config (including hideWhenInactive),
+-- then forces a tracker-data scan so condition changes (combat-only, in-raid,
+-- health-below, require-buff, etc.) take effect without waiting for the
+-- next scan tick.
+function ns:RefreshBarSettings()
+    ns:RefreshAllBars()
+    if ns.ScanAllBars then ns:ScanAllBars() end
 end
 
 -- ----------------------------------------------------------------------------
