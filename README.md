@@ -36,6 +36,8 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Per-bar statistics** tracking activation count and uptime, both per-session and all-time
 - **Bug report command** generates a copyable diagnostic snapshot for easy troubleshooting
 - **Minimap button right-click** to quickly enable or disable the addon
+- **Live-reactive settings** — changes in the options panel apply to the bars on the spot, no disable/re-enable needed
+- **Inline help tooltips** on most per-bar and visual settings — hover any slider, dropdown, or text field for a plain-English explanation
 
 ---
 
@@ -63,6 +65,8 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Left-click** the BarWarden minimap button near your minimap.
 - **Right-click** the minimap button to quickly enable or disable the addon (the icon desaturates when disabled).
 - Or type `/bw` in chat.
+
+Once the panel is open, **hover the mouse over any slider, dropdown, or text field** that isn't self-evident for a tooltip explaining what it does. Most edits commit as soon as you click away from the field, so you don't need to remember to press Enter on every change.
 
 ### Creating a group
 
@@ -196,6 +200,27 @@ You can also use a slot number: `1` for Fire, `2` for Earth, `3` for Water, `4` 
 - Toggle "Only Mine" filtering for debuffs
 - Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide When Inactive, Show Empty, Health Below %, Require Buff
 - Per-bar display options: Linger Time, Show Bar Name, Show Icon, Bar Darkness, Sparkle Alert with threshold, Colour Override, Colour by Time with high/med thresholds, Glow on Ready with duration, Crop Icon
+
+#### Useful Per-Bar Options Explained
+
+- **Linger Time** — number of seconds a bar keeps showing at 0 after its
+  cooldown or buff has expired, before it fades out. Handy when paired
+  with *Glow on Ready* so you can clearly see *the moment* a spell came
+  off cooldown. `0` means the bar disappears the instant the timer runs
+  out. Example: set to `2` on a Kick bar so you notice immediately when
+  interrupt is back.
+- **Health Below %** — only show the bar when your own HP drops below
+  this percentage. Useful for execute-range spells (Hammer of Wrath,
+  Kill Shot, Execute) or panic buttons (Healthstone, Nitro Boosts) so
+  they stay out of the way until they're actually relevant. Leave
+  empty to disable. Example: `30` for a Hammer of Wrath bar, `50` for
+  Healthstone.
+- **Require Buff** — only show the bar while you have the named buff
+  active. Accepts a buff name or a spell ID. Useful for state-gated
+  abilities: stealth-only cooldowns that only show while stealthed,
+  bear-form abilities that only show in bear form, proc reactions
+  that only show while the proc is up. Leave empty to disable.
+  Example: `Stealth` on Ambush, `Clearcasting` on your next free cast.
 
 ### Visuals
 

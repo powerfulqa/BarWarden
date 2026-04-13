@@ -146,26 +146,48 @@ The walker creates one widget per entry, anchors each below the previous
 (default 8px gap, override per entry with `spacing`), and returns a
 Refresh closure that re-reads DB values back into the widgets.
 
-**Currently used by:** [Options_General.lua](Options_General.lua) (Tab 1).
+**Currently used by:** [Options_General.lua](Options_General.lua)
+(Tab 1) and [Options_Visuals.lua](Options_Visuals.lua) (Tab 3).
 
 **Two ways to wire a setting:**
 - `db = "path"` + `refresh = "Method"` — uses `ns:DBSet` under the hood
-  (gets the strict registration-time validation for free)
+  (gets the strict registration-time validation for free).
 - `get = fn` + `set = fn` — escape hatch for stateful behaviour (e.g.
   Lock toggle calls `Lock/UnlockAllFrames` in two branches; can't
-  express that as a simple DB write)
+  express that as a simple DB write).
 
-**Supported entry types** (initial cut): `header`, `note`, `spacer`,
-`toggle`. Other types (`slider`, `dropdown`, `editbox`, `color`,
-`button`, `custom`) land when subsequent tab conversions need them —
-add a `BUILDERS[type]` entry plus an `APPLIERS[type]` entry in
+**Supported entry types**: `header`, `note`, `spacer`, `toggle`,
+`slider`, `dropdown`, `editbox`, `color`. Sliders and editboxes
+accept an optional `tooltip = "..."` field (dropdowns/colors don't —
+the underlying factories don't wire it). Add new types by extending
+the `BUILDERS` + `APPLIERS` dispatch tables in
 [Options_Builder.lua](Options_Builder.lua).
 
-**When to use it:** new tab is a settings form (toggles/sliders/dropdowns
-that read+write DB fields). **When NOT to use it:** stateful list UIs
-([Options_Profiles.lua](Options_Profiles.lua) profile list) or
-read-only displays ([Options_Stats.lua](Options_Stats.lua)) — these
-stay imperative.
+**Cross-widget coordination**:
+- `id = "<name>"` on any entry exposes its widget via an optional
+  caller-supplied `widgetRefs` table: `ns:BuildSettings(parent, SCHEMA, widgets)`.
+- `onChange = function(value) ... end` fires after user-writes AND
+  after Refresh — use it (with widget refs) to show/hide coupled
+  widgets (e.g. colour-mode dropdown hiding the swatch).
+- `anchorTo = "<id>"` overrides "anchor to previous" so branch widgets
+  (e.g. the custom-texture editbox that anchors to the texture
+  dropdown, not the previous entry) can sit outside the main chain.
+- `offsetX = <px>` adjusts the horizontal anchor (dropdowns often
+  need `-16` for their invisible left padding).
+- `opts = { firstX, firstY }` (4th arg to `BuildSettings`) overrides
+  the first-widget placement (Visuals uses `firstY = -10` because its
+  scroll frame already sits below the panel header).
+
+**Spacing is *leading*, not trailing.** An entry's `spacing` value is
+the gap *above* that entry (how far below its anchor it sits). This
+matches the intuition "this widget sits N px below the previous."
+
+**When to use it:** new tab is a settings form (toggles/sliders/
+dropdowns that read+write DB fields). **When NOT to use it:**
+stateful list UIs ([Options_Profiles.lua](Options_Profiles.lua)
+profile list), master-detail layouts ([Options_Bars.lua](Options_Bars.lua)
+group-and-bar lists), or read-only displays
+([Options_Stats.lua](Options_Stats.lua)) — these stay imperative.
 
 ### DB-path widget callbacks (`ns:DBSet` / `ns:DBGet`)
 
@@ -203,6 +225,47 @@ imperative: the colour-mode dropdown that shows/hides the swatch
 shows/hides the custom-texture editbox, the lock toggle in
 [Options_General.lua](Options_General.lua) (two-branch
 LockAllFrames/UnlockAllFrames side effect).
+
+### Per-bar live refresh (`ns:RefreshBarSettings`)
+
+Defined in [Core.lua](Core.lua). Every per-bar editor callback in
+[Options_Bars.lua](Options_Bars.lua) ends with
+`ns:RefreshBarSettings()` so the UI stays uniformly reactive:
+
+```lua
+function ns:RefreshBarSettings()
+    ns:RefreshAllBars()               -- visual config, alpha, hideWhenInactive
+    if ns.ScanAllBars then
+        ns:ScanAllBars()              -- re-evaluates tracker data + conditions
+    end
+end
+```
+
+`ns:RefreshAllBars` (same file) also applies `conditions.hideWhenInactive`
+on the spot rather than deferring to the engine's state-transition
+path — without this, toggling Hide When Inactive on an already-inactive
+bar wouldn't visibly change anything until the bar's state churned.
+
+### EditBox commit semantics
+
+`ns:CreateEditBox` ([Widgets.lua](Widgets.lua)) commits on **any exit
+from the field**: Enter, click-away, tab-away, Escape. Diff-checks
+against a snapshot captured at `OnEditFocusGained` so the callback
+fires exactly once per real edit. Escape does NOT revert — the
+`HookScript` ordering vs `InputBoxTemplate`'s default `OnEscapePressed`
+makes a clean revert infeasible without a full `SetScript` override;
+"any exit commits" is the simpler, consistent UX we kept.
+
+### Tooltips on non-checkbox widgets
+
+`ns:CreateSlider` and `ns:CreateEditBox` both accept an optional
+trailing `tooltip` argument that shows `GameTooltip` text on hover.
+Checkboxes already have tooltip support via the
+`InterfaceOptionsCheckButtonTemplate.tooltipText` field. Add a tooltip
+on any widget whose label isn't self-evident or where pair-wise
+behaviour (e.g. "High Threshold pairs with Colour by Time") helps
+discoverability. Don't add label-echo tooltips on self-evident widgets
+("Bar Height: the height of the bar" is noise).
 
 ### Event handlers
 [Events.lua](Events.lua) uses `Dispatch("MethodName")`,
