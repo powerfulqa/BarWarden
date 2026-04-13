@@ -300,14 +300,17 @@ local function CreateBarsTab(parent)
     barHeader:SetText("Bars")
 
     -- Bar scroll frame
+    -- Row layout: Name (90) + Mode (60) + Target (50) + padding = 220 px.
+    -- The spell name was redundant with the bar name in nearly all cases
+    -- and pushed the row out to 360 px with heavy trailing whitespace.
     local barScrollFrame = CreateFrame("ScrollFrame", "BarWardenBarScroll", rightPanel, "FauxScrollFrameTemplate")
     barScrollFrame:SetPoint("TOPLEFT", barHeader, "BOTTOMLEFT", 0, -6)
-    barScrollFrame:SetSize(360, MAX_BAR_ROWS * BAR_LIST_HEIGHT)
+    barScrollFrame:SetSize(220, MAX_BAR_ROWS * BAR_LIST_HEIGHT)
 
     local barRows = {}
     for i = 1, MAX_BAR_ROWS do
         local row = CreateFrame("Button", "BarWardenBarRow" .. i, rightPanel)
-        row:SetSize(360, BAR_LIST_HEIGHT)
+        row:SetSize(220, BAR_LIST_HEIGHT)
         if i == 1 then
             row:SetPoint("TOPLEFT", barScrollFrame, "TOPLEFT", 0, 0)
         else
@@ -342,12 +345,6 @@ local function CreateBarsTab(parent)
         targetText:SetWidth(50)
         row.targetText = targetText
 
-        local spellText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        spellText:SetPoint("LEFT", targetText, "RIGHT", 4, 0)
-        spellText:SetPoint("RIGHT", row, "RIGHT", -4, 0)
-        spellText:SetJustifyH("LEFT")
-        row.spellText = spellText
-
         row:SetScript("OnClick", function(self)
             selectedBarIndex = self.index
             frame:Refresh()
@@ -356,8 +353,8 @@ local function CreateBarsTab(parent)
         barRows[i] = row
     end
 
-    -- Bar list buttons
-    local addBarBtn = ns:CreateButton(rightPanel, "Add Bar", 70, function()
+    -- Bar list buttons ("Bar" is implicit from the section header above).
+    local addBarBtn = ns:CreateButton(rightPanel, "Add", 50, function()
         if not selectedGroupIndex then return end
         local g = BarWardenDB.frames[selectedGroupIndex]
         if not g then return end
@@ -369,7 +366,7 @@ local function CreateBarsTab(parent)
     end)
     addBarBtn:SetPoint("TOPLEFT", barScrollFrame, "BOTTOMLEFT", 0, -4)
 
-    local deleteBarBtn = ns:CreateButton(rightPanel, "Delete Bar", 70, function()
+    local deleteBarBtn = ns:CreateButton(rightPanel, "Delete", 50, function()
         if not selectedGroupIndex or not selectedBarIndex then return end
         local g = BarWardenDB.frames[selectedGroupIndex]
         if not g then return end
@@ -425,8 +422,8 @@ local function CreateBarsTab(parent)
     editorScroll:SetPoint("BOTTOMRIGHT", editorPanel, "BOTTOMRIGHT", -24, 0)
 
     local ec = CreateFrame("Frame", nil, editorScroll)  -- ec = editor content (scroll child)
-    ec:SetWidth(340)
-    ec:SetHeight(500)
+    ec:SetWidth(340)   -- initial width; OnShow resizes to match the scroll viewport
+    ec:SetHeight(620)  -- tall enough for the single-column layout (was 500 in a 2-col version)
     editorScroll:SetScrollChild(ec)
 
     local editorHeader = ec:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -442,7 +439,7 @@ local function CreateBarsTab(parent)
             for _, liveBar in ipairs(ns:GetAllBars()) do
                 if liveBar.barData == bar then
                     if checked then
-                        local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+                        local visual = ns:GetVisual()
                         liveBar:SetAlpha(visual.inactiveAlpha or 0.3)
                         liveBar:Show()
                     else
@@ -489,15 +486,10 @@ local function CreateBarsTab(parent)
     end)
     spellEdit:SetPoint("TOPLEFT", barNameEdit, "BOTTOMLEFT", 0, -18)
 
-    -- Only Mine checkbox
-    local onlyMineCB = ns:CreateCheckbox(ec, "Only Mine", "Only track auras cast by you", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.onlyMine = checked
-            ns:ScanAllBars()
-        end
-    end)
-    onlyMineCB:SetPoint("TOPLEFT", spellEdit, "BOTTOMLEFT", 0, -6)
+    -- Single-column layout: Track Mode and Target stack vertically below
+    -- Spell. The -16 x offset on the dropdowns compensates for WoW's
+    -- invisible ~16 px left padding on UIDropDownMenu so the dropdown's
+    -- label aligns with the edit-box labels above.
 
     -- Track Mode dropdown
     local trackModeDD = ns:CreateDropdown(ec, "Track Mode", TRACK_MODES, function(dd, value, index)
@@ -507,7 +499,7 @@ local function CreateBarsTab(parent)
             ns:ScanAllBars()
         end
     end)
-    trackModeDD:SetPoint("TOPLEFT", barNameEdit, "TOPRIGHT", 20, 16)
+    trackModeDD:SetPoint("TOPLEFT", spellEdit, "BOTTOMLEFT", -16, -18)
 
     -- Target dropdown
     local targetDD = ns:CreateDropdown(ec, "Target", TARGET_UNITS, function(dd, value, index)
@@ -519,6 +511,17 @@ local function CreateBarsTab(parent)
         end
     end)
     targetDD:SetPoint("TOPLEFT", trackModeDD, "BOTTOMLEFT", 0, -18)
+
+    -- Only Mine checkbox — +16 x offset reverses the dropdown's -16 so
+    -- this aligns with barNameEdit / spellEdit on the left.
+    local onlyMineCB = ns:CreateCheckbox(ec, "Only Mine", "Only track auras cast by you", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.onlyMine = checked
+            ns:ScanAllBars()
+        end
+    end)
+    onlyMineCB:SetPoint("TOPLEFT", targetDD, "BOTTOMLEFT", 16, -6)
 
     -- ========================================================================
     -- CONDITIONS SECTION
@@ -785,7 +788,6 @@ local function CreateBarsTab(parent)
                 row.nameText:SetText(b.name or "")
                 row.modeText:SetText(b.trackMode or "")
                 row.targetText:SetText(b.unit or b.target or "")
-                row.spellText:SetText(b.spellName or "")
                 row.index = idx
                 row:Show()
                 if idx == selectedBarIndex then
@@ -924,6 +926,17 @@ local function CreateBarsTab(parent)
 
     barScrollFrame:SetScript("OnVerticalScroll", function(self, offset)
         FauxScrollFrame_OnVerticalScroll(self, offset, BAR_LIST_HEIGHT, UpdateBarList)
+    end)
+
+    -- Resize the editor-content frame to match the scroll viewport so the
+    -- per-bar editor uses whatever width the InterfaceOptionsFrame gives us.
+    -- Mirrors the pattern in Options_Visuals.lua.
+    frame:SetScript("OnShow", function(self)
+        local w = editorScroll:GetWidth()
+        if w and w > 100 then
+            ec:SetWidth(w)
+        end
+        if self.Refresh then self:Refresh() end
     end)
 
     return frame

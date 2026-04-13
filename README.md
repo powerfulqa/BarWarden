@@ -77,7 +77,7 @@ Groups are containers that hold your bars. Think of a group as a category, for e
 
 Each bar tracks one spell, buff, debuff, proc, or item:
 
-1. Select a group on the left, then click **Add Bar** on the right.
+1. Select a group on the left, then click **Add** on the right.
 2. Pick a **Track Mode** from the dropdown (Cooldown, Buff, Debuff, Proc, Item, Enchant MH, Enchant OH, or Totem).
 3. Choose a **Target** (player, target, focus, pet, or mouseover).
 4. Type the spell name or spell ID into the **Spell Name or ID** field.
@@ -191,7 +191,7 @@ You can also use a slot number: `1` for Fire, `2` for Earth, `3` for Water, `4` 
 - Sort Mode (Manual, Remaining Time, Alphabetical)
 
 **Right panel (Bar list and editor):**
-- Add Bar, Delete Bar, and reorder bars with Up/Down buttons
+- Add, Delete, and reorder bars with Up/Down buttons
 - Configure bar name, spell name or ID, track mode, and target unit
 - Toggle "Only Mine" filtering for debuffs
 - Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide When Inactive, Show Empty, Health Below %, Require Buff

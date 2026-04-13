@@ -1,90 +1,88 @@
 local addonName, ns = ...
 
 -- ============================================================================
--- Options_General.lua - Tab 1: General settings
+-- Options_General.lua - Tab 1: General settings (declarative schema).
+--
+-- Widget construction is delegated to ns:BuildSettings (Options_Builder.lua).
+-- Each entry in SCHEMA below describes one row of the panel; the builder
+-- handles widget creation, anchoring, and the auto-Refresh pass.
 -- ============================================================================
 
-local function CreateGeneralTab(parent)
-    local frame = CreateFrame("Frame", "BarWardenGeneralTab", parent)
-    frame:SetAllPoints(parent)
-    frame:Hide()
-
-    local yOffset = -80
-
-    -- -----------------------------------------------------------------------
-    -- Enable/Disable Addon
-    -- -----------------------------------------------------------------------
-    local enableCB = ns:CreateCheckbox(frame, "Enable BarWarden",
-        "Globally enable or disable BarWarden. When disabled, all frames are hidden and events are unregistered.",
-        function(self, checked)
+local SCHEMA = {
+    -- Enable toggle: stateful — calls ns:SetEnabled and conditionally
+    -- ns:RebuildAllFrames, so it uses the get/set escape hatch instead
+    -- of a DBSet path.
+    {
+        type    = "toggle",
+        label   = "Enable BarWarden",
+        tooltip = "Globally enable or disable BarWarden. When disabled, "
+               .. "all frames are hidden and events are unregistered.",
+        get     = function() return ns.db and ns.db.global.enabled end,
+        set     = function(_, checked)
             ns:SetEnabled(checked)
             if checked then
                 ns:RebuildAllFrames()
             end
-        end)
-    enableCB:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, yOffset)
+        end,
+    },
 
-    -- -----------------------------------------------------------------------
-    -- Lock/Unlock All
-    -- -----------------------------------------------------------------------
-    local lockCB = ns:CreateCheckbox(frame, "Lock All Frames",
-        "When locked, frames cannot be moved or resized.",
-        function(self, checked)
+    -- Lock toggle: also stateful — two-branch Lock/UnlockAllFrames side
+    -- effect, so it stays as a closure rather than a DBSet path.
+    {
+        type    = "toggle",
+        label   = "Lock All Frames",
+        tooltip = "When locked, frames cannot be moved or resized.",
+        get     = function() return ns.db and ns.db.global.locked end,
+        set     = function(_, checked)
             BarWardenDB.global.locked = checked
             if checked then
                 ns:LockAllFrames()
             else
                 ns:UnlockAllFrames()
             end
-        end)
-    lockCB:SetPoint("TOPLEFT", enableCB, "BOTTOMLEFT", 0, -8)
+        end,
+    },
 
-    -- -----------------------------------------------------------------------
-    -- Minimap Icon Toggle
-    -- -----------------------------------------------------------------------
-    local minimapCB = ns:CreateCheckbox(frame, "Show Minimap Icon",
-        "Toggle the BarWarden minimap button.",
-        function(self, checked)
-            BarWardenDB.global.minimapIcon = checked
-            ns:UpdateMinimapButtonVisibility()
-        end)
-    minimapCB:SetPoint("TOPLEFT", lockCB, "BOTTOMLEFT", 0, -8)
+    -- Minimap toggle: simple DBSet — strict validation catches typos at load.
+    {
+        type    = "toggle",
+        label   = "Show Minimap Icon",
+        tooltip = "Toggle the BarWarden minimap button.",
+        db      = "global.minimapIcon",
+        refresh = "UpdateMinimapButtonVisibility",
+    },
 
-    -- -----------------------------------------------------------------------
-    -- Help Section
-    -- -----------------------------------------------------------------------
-    local helpHeader = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    helpHeader:SetPoint("TOPLEFT", minimapCB, "BOTTOMLEFT", 0, -24)
-    helpHeader:SetText("Slash Commands")
+    -- Slash Commands section (24px gap above for visual break).
+    { type = "header", text = "Slash Commands", spacing = 24 },
+    {
+        type    = "note",
+        text    = "|cffffd200/bw|r or |cffffd200/barwarden|r - Open configuration panel\n"
+               .. "|cffffd200/bw lock|r - Toggle frame lock\n"
+               .. "|cffffd200/bw reset|r - Reset frame positions",
+        spacing = 6,
+    },
 
-    local helpText = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    helpText:SetPoint("TOPLEFT", helpHeader, "BOTTOMLEFT", 0, -6)
-    helpText:SetJustifyH("LEFT")
-    helpText:SetText(
-        "|cffffd200/bw|r or |cffffd200/barwarden|r - Open configuration panel\n" ..
-        "|cffffd200/bw lock|r - Toggle frame lock\n" ..
-        "|cffffd200/bw reset|r - Reset frame positions"
-    )
+    -- Version footer (subdued; resolved lazily so ns.version is read at build time).
+    {
+        type    = "note",
+        style   = "disabled",
+        text    = function() return "BarWarden v" .. (ns.version or "?")
+                                 .. " | WoW 3.3.5a (Interface 30300)" end,
+        spacing = 16,
+    },
+}
 
-    local versionText = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    versionText:SetPoint("TOPLEFT", helpText, "BOTTOMLEFT", 0, -16)
-    versionText:SetText("BarWarden v" .. (ns.version or "?") .. " | WoW 3.3.5a (Interface 30300)")
+local function CreateGeneralTab(parent)
+    local frame = CreateFrame("Frame", "BarWardenGeneralTab", parent)
+    frame:SetAllPoints(parent)
+    frame:Hide()
 
-    -- -----------------------------------------------------------------------
-    -- Refresh function
-    -- -----------------------------------------------------------------------
-    frame.Refresh = function()
-        if not BarWardenDB then return end
-        local g = BarWardenDB.global
-        enableCB:SetChecked(g.enabled)
-        lockCB:SetChecked(g.locked)
-        minimapCB:SetChecked(g.minimapIcon)
-    end
+    frame.Refresh = ns:BuildSettings(frame, SCHEMA)
 
     return frame
 end
 
--- Register tab when options panel is created
+-- Register tab when options panel is created.
 local orig = ns.CreateOptionsPanel
 ns.CreateOptionsPanel = function(self)
     local panel = orig(self)

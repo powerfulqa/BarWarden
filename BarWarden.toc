@@ -1,8 +1,8 @@
 ## Interface: 30300
-## Title: |cff4db8ffBarWarden|r |cff9aff4d[v1.1.0]|r
+## Title: |cff4db8ffBarWarden|r |cff9aff4d[v1.4.0]|r
 ## Notes: |cffffb84dCustomizable cooldown, buff, and debuff bar tracking addon|r
 ## Author: Serv
-## Version: 1.1.0
+## Version: 1.4.0
 ## SavedVariables: BarWardenAccountDB
 ## SavedVariablesPerCharacter: BarWardenDB
 ## DefaultState: enabled
@@ -22,6 +22,7 @@ MinimapButton.lua
 Widgets.lua
 Dialogs.lua
 Options.lua
+Options_Builder.lua
 Options_General.lua
 Options_Bars.lua
 Options_Visuals.lua

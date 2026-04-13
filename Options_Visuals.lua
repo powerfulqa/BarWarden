@@ -20,12 +20,27 @@ local function CreateVisualsTab(parent)
     content:SetHeight(1200)
     scrollFrame:SetScrollChild(content)
 
-    -- Resize content to match the scroll frame when the panel is shown,
-    -- so the layout adapts to different UI scale / panel widths.
+    -- Forward-declared so the OnShow closure below captures it as an
+    -- upvalue; assigned further down when the slider is created. Required
+    -- because Lua's closure-capture is lexical and happens at SetScript
+    -- time, not at call time — without this `local`, the closure would
+    -- bind to the global (nil).
+    local fadeSpeedSlider
+
+    -- Resize content to match the scroll-frame width, AND trim the content
+    -- height to the last widget's bottom so the scroll region doesn't show
+    -- empty space below the final control.
     frame:SetScript("OnShow", function()
         local w = scrollFrame:GetWidth()
         if w and w > 100 then
             content:SetWidth(w)
+        end
+        if fadeSpeedSlider then
+            local lastBottom = fadeSpeedSlider:GetBottom()
+            local contentTop = content:GetTop()
+            if lastBottom and contentTop and contentTop > lastBottom then
+                content:SetHeight(contentTop - lastBottom + 20)  -- 20 px margin
+            end
         end
         ns.suppressCallbacks = true
         if frame.Refresh then frame:Refresh() end
@@ -49,17 +64,13 @@ local function CreateVisualsTab(parent)
     dimHeader:SetPoint("TOPLEFT", globalNote, "BOTTOMLEFT", 0, -12)
     dimHeader:SetText("Bar Dimensions")
 
-    local barHeightSlider = ns:CreateSlider(content, "Bar Height", 4, 60, 1, function(self, value)
-        BarWardenDB.visual.barHeight = value
-        ns:RefreshAllBars()
-    end)
+    local barHeightSlider = ns:CreateSlider(content, "Bar Height", 4, 60, 1,
+        ns:DBSet("visual.barHeight", "RefreshAllBars"))
     barHeightSlider:SetPoint("TOPLEFT", dimHeader, "BOTTOMLEFT", 4, -20)
     barHeightSlider:SetWidth(200)
 
-    local barSpacingSlider = ns:CreateSlider(content, "Bar Spacing", 0, 30, 1, function(self, value)
-        BarWardenDB.visual.barSpacing = value
-        ns:RefreshAllBars()
-    end)
+    local barSpacingSlider = ns:CreateSlider(content, "Bar Spacing", 0, 30, 1,
+        ns:DBSet("visual.barSpacing", "RefreshAllBars"))
     barSpacingSlider:SetPoint("TOPLEFT", barHeightSlider, "BOTTOMLEFT", 0, -24)
     barSpacingSlider:SetWidth(200)
 
@@ -101,9 +112,7 @@ local function CreateVisualsTab(parent)
 
     local perBarOverrideCB = ns:CreateCheckbox(content, "Allow Per-Bar Color Override",
         "When enabled, individual bars can override the global color setting.",
-        function(self, checked)
-            BarWardenDB.visual.perBarColorOverride = checked
-        end)
+        ns:DBSet("visual.perBarColorOverride"))
     perBarOverrideCB:SetPoint("TOPLEFT", colorSwatch, "BOTTOMLEFT", -4, -12)
 
     local textureItems = {
@@ -141,10 +150,8 @@ local function CreateVisualsTab(parent)
     end)
     textureDD:SetPoint("TOPLEFT", perBarOverrideCB, "BOTTOMLEFT", -16, -24)
 
-    customTexBox = ns:CreateEditBox(content, "Custom Texture Filename", 150, function(self, text)
-        BarWardenDB.visual.customTexture = text
-        ns:RefreshAllBars()
-    end)
+    customTexBox = ns:CreateEditBox(content, "Custom Texture Filename", 150,
+        ns:DBSet("visual.customTexture", "RefreshAllBars"))
     customTexBox:SetPoint("TOPLEFT", textureDD, "BOTTOMLEFT", 20, -8)
     customTexBox:Hide()
 
@@ -163,10 +170,8 @@ local function CreateVisualsTab(parent)
         { text = "Right",  value = "INSIDE_RIGHT" },
     }
 
-    local textPosDD = ns:CreateDropdown(content, "Text Position", textPosItems, function(dd, value)
-        BarWardenDB.visual.textPosition = value
-        ns:RefreshAllBars()
-    end)
+    local textPosDD = ns:CreateDropdown(content, "Text Position", textPosItems,
+        ns:DBSet("visual.textPosition", "RefreshAllBars"))
     textPosDD:SetPoint("TOPLEFT", textHeader, "BOTTOMLEFT", -16, -24)
 
     local BW_FONT = "Interface\\AddOns\\BarWarden\\Fonts\\"
@@ -190,16 +195,12 @@ local function CreateVisualsTab(parent)
         { text = "Yellow Jacket",   value = BW_FONT .. "yellowjacket.ttf"  },
     }
 
-    local fontDD = ns:CreateDropdown(content, "Font", fontItems, function(dd, value)
-        BarWardenDB.visual.font = value
-        ns:RefreshAllBars()
-    end)
+    local fontDD = ns:CreateDropdown(content, "Font", fontItems,
+        ns:DBSet("visual.font", "RefreshAllBars"))
     fontDD:SetPoint("TOPLEFT", textPosDD, "BOTTOMLEFT", 0, -24)
 
-    local fontSizeSlider = ns:CreateSlider(content, "Font Size", 6, 24, 1, function(self, value)
-        BarWardenDB.visual.fontSize = value
-        ns:RefreshAllBars()
-    end)
+    local fontSizeSlider = ns:CreateSlider(content, "Font Size", 6, 24, 1,
+        ns:DBSet("visual.fontSize", "RefreshAllBars"))
     fontSizeSlider:SetPoint("TOPLEFT", fontDD, "BOTTOMLEFT", 16, -24)
     fontSizeSlider:SetWidth(200)
 
@@ -212,10 +213,8 @@ local function CreateVisualsTab(parent)
         { text = "None",             value = "NONE" },
     }
 
-    local textFormatDD = ns:CreateDropdown(content, "Text Format", textFormatItems, function(dd, value)
-        BarWardenDB.visual.textFormat = value
-        ns:RefreshAllBars()
-    end)
+    local textFormatDD = ns:CreateDropdown(content, "Text Format", textFormatItems,
+        ns:DBSet("visual.textFormat", "RefreshAllBars"))
     textFormatDD:SetPoint("TOPLEFT", fontSizeSlider, "BOTTOMLEFT", -16, -24)
 
     local durationStyleItems = {
@@ -226,10 +225,8 @@ local function CreateVisualsTab(parent)
         { text = "Auto (adapts to length)", value = "AUTO" },
     }
 
-    local durationStyleDD = ns:CreateDropdown(content, "Duration Style", durationStyleItems, function(dd, value)
-        BarWardenDB.visual.durationStyle = value
-        ns:RefreshAllBars()
-    end)
+    local durationStyleDD = ns:CreateDropdown(content, "Duration Style", durationStyleItems,
+        ns:DBSet("visual.durationStyle", "RefreshAllBars"))
     durationStyleDD:SetPoint("TOPLEFT", textFormatDD, "BOTTOMLEFT", 0, -24)
 
     -- Section: Icon
@@ -237,10 +234,8 @@ local function CreateVisualsTab(parent)
     iconHeader:SetPoint("TOPLEFT", durationStyleDD, "BOTTOMLEFT", 16, -20)
     iconHeader:SetText("Icon")
 
-    local iconSizeSlider = ns:CreateSlider(content, "Icon Size", 0, 60, 1, function(self, value)
-        BarWardenDB.visual.iconSize = value
-        ns:RefreshAllBars()
-    end)
+    local iconSizeSlider = ns:CreateSlider(content, "Icon Size", 0, 60, 1,
+        ns:DBSet("visual.iconSize", "RefreshAllBars"))
     iconSizeSlider:SetPoint("TOPLEFT", iconHeader, "BOTTOMLEFT", 4, -20)
     iconSizeSlider:SetWidth(200)
 
@@ -248,18 +243,13 @@ local function CreateVisualsTab(parent)
         { text = "Left",  value = "LEFT" },
         { text = "Right", value = "RIGHT" },
     }
-    local iconPosDD = ns:CreateDropdown(content, "Icon Position", iconPosItems, function(dd, value)
-        BarWardenDB.visual.iconPosition = value
-        ns:RefreshAllBars()
-    end)
+    local iconPosDD = ns:CreateDropdown(content, "Icon Position", iconPosItems,
+        ns:DBSet("visual.iconPosition", "RefreshAllBars"))
     iconPosDD:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -16, -24)
 
     local iconCropCB = ns:CreateCheckbox(content, "Crop Icons",
         "Trim icon border pixels to prevent stretching on non-square bars.",
-        function(self, checked)
-            BarWardenDB.visual.iconCrop = checked
-            ns:RefreshAllBars()
-        end)
+        ns:DBSet("visual.iconCrop", "RefreshAllBars"))
     iconCropCB:SetPoint("TOPLEFT", iconPosDD, "BOTTOMLEFT", 16, -12)
 
     -- Section: Bar Opacity
@@ -267,31 +257,23 @@ local function CreateVisualsTab(parent)
     opacityHeader:SetPoint("TOPLEFT", iconCropCB, "BOTTOMLEFT", 0, -20)
     opacityHeader:SetText("Bar Opacity")
 
-    local activeAlphaSlider = ns:CreateSlider(content, "Active Opacity", 0, 1, 0.05, function(self, value)
-        BarWardenDB.visual.activeAlpha = value
-        ns:RefreshAllBars()
-    end)
+    local activeAlphaSlider = ns:CreateSlider(content, "Active Opacity", 0, 1, 0.05,
+        ns:DBSet("visual.activeAlpha", "RefreshAllBars"))
     activeAlphaSlider:SetPoint("TOPLEFT", opacityHeader, "BOTTOMLEFT", 4, -20)
     activeAlphaSlider:SetWidth(200)
 
-    local inactiveAlphaSlider = ns:CreateSlider(content, "Inactive Opacity", 0, 1, 0.05, function(self, value)
-        BarWardenDB.visual.inactiveAlpha = value
-        ns:RefreshAllBars()
-    end)
+    local inactiveAlphaSlider = ns:CreateSlider(content, "Inactive Opacity", 0, 1, 0.05,
+        ns:DBSet("visual.inactiveAlpha", "RefreshAllBars"))
     inactiveAlphaSlider:SetPoint("TOPLEFT", activeAlphaSlider, "BOTTOMLEFT", 0, -24)
     inactiveAlphaSlider:SetWidth(200)
 
     local fadeInactiveCB = ns:CreateCheckbox(content, "Fade When Inactive",
         "Gradually fade bars to inactive opacity when not tracking anything.",
-        function(self, checked)
-            BarWardenDB.visual.fadeWhenInactive = checked
-            ns:RefreshAllBars()
-        end)
+        ns:DBSet("visual.fadeWhenInactive", "RefreshAllBars"))
     fadeInactiveCB:SetPoint("TOPLEFT", inactiveAlphaSlider, "BOTTOMLEFT", -4, -20)
 
-    local fadeSpeedSlider = ns:CreateSlider(content, "Fade Speed", 0.1, 2.0, 0.1, function(self, value)
-        BarWardenDB.visual.fadeSpeed = value
-    end)
+    fadeSpeedSlider = ns:CreateSlider(content, "Fade Speed", 0.1, 2.0, 0.1,
+        ns:DBSet("visual.fadeSpeed"))
     fadeSpeedSlider:SetPoint("TOPLEFT", fadeInactiveCB, "BOTTOMLEFT", 4, -20)
     fadeSpeedSlider:SetWidth(200)
 
