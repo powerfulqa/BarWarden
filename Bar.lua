@@ -23,10 +23,7 @@ local TEXTURES = {
     ["Leather"]  = T .. "Leather.tga",
 }
 
--- ----------------------------------------------------------------------------
--- ResolveBarIcon: Look up the spell/item icon from bar configuration.
--- Returns the icon texture path or nil if nothing can be resolved.
--- ----------------------------------------------------------------------------
+-- Resolve the spell/item icon for a bar, or nil if nothing maps.
 local function ResolveBarIcon(barData)
     if not barData then return nil end
 
@@ -51,10 +48,6 @@ end
 
 ns.ResolveBarIcon = ResolveBarIcon
 
--- ----------------------------------------------------------------------------
--- GetBarDisplayName: Resolve the text shown on a bar.
--- Always uses the user-entered Bar Name field.
--- ----------------------------------------------------------------------------
 function ns.GetBarDisplayName(barData)
     if not barData then return "" end
     if barData.name and barData.name ~= "" then
@@ -63,39 +56,40 @@ function ns.GetBarDisplayName(barData)
     return ""
 end
 
--- ----------------------------------------------------------------------------
--- GetTimeBasedColor: Returns r,g,b based on remaining time, or nil if disabled.
--- Smoothly interpolates between three colour stops:
---   High (green, fresh) → Med (yellow, mid) → Low (red, near expiry)
--- ----------------------------------------------------------------------------
+-- Colour stops for the time-based bar colour gradient:
+-- fresh → mid → near-expiry. Lifted to file scope to avoid re-allocating
+-- on every OnUpdate tick.
+local COLOR_HIGH = { r = 0, g = 0.8, b = 0   }
+local COLOR_MED  = { r = 1, g = 0.8, b = 0   }
+local COLOR_LOW  = { r = 1, g = 0.2, b = 0.2 }
+
 local function LerpColor(a, b, t)
     return a + (b - a) * t
 end
 
+-- Smoothly interpolates between COLOR_HIGH/MED/LOW based on remaining seconds.
+-- Returns (r, g, b) or nil if the bar hasn't opted in to colour-by-time.
 function ns.GetTimeBasedColor(remaining, display, visual)
-    -- Purely per-bar: only enabled if the bar's own colorByTime is set
     if not display or not display.colorByTime then return nil end
 
     local highSec = display.colorHighSeconds or 10
     local medSec  = display.colorMedSeconds  or 5
-    local cHigh = { r = 0, g = 0.8, b = 0 }
-    local cMed  = { r = 1, g = 0.8, b = 0 }
-    local cLow  = { r = 1, g = 0.2, b = 0.2 }
 
     if remaining >= highSec then
-        return cHigh.r, cHigh.g, cHigh.b
+        return COLOR_HIGH.r, COLOR_HIGH.g, COLOR_HIGH.b
     elseif remaining >= medSec then
         local t = (remaining - medSec) / math.max(highSec - medSec, 0.001)
-        return LerpColor(cMed.r, cHigh.r, t), LerpColor(cMed.g, cHigh.g, t), LerpColor(cMed.b, cHigh.b, t)
+        return LerpColor(COLOR_MED.r, COLOR_HIGH.r, t),
+               LerpColor(COLOR_MED.g, COLOR_HIGH.g, t),
+               LerpColor(COLOR_MED.b, COLOR_HIGH.b, t)
     else
         local t = remaining / math.max(medSec, 0.001)
-        return LerpColor(cLow.r, cMed.r, t), LerpColor(cLow.g, cMed.g, t), LerpColor(cLow.b, cMed.b, t)
+        return LerpColor(COLOR_LOW.r, COLOR_MED.r, t),
+               LerpColor(COLOR_LOW.g, COLOR_MED.g, t),
+               LerpColor(COLOR_LOW.b, COLOR_MED.b, t)
     end
 end
 
--- ----------------------------------------------------------------------------
--- ResolveTexture: Get texture path from name or return custom path
--- ----------------------------------------------------------------------------
 local function ResolveTexture(name)
     if not name or name == "" then
         return TEXTURES["Flat"]
@@ -103,18 +97,15 @@ local function ResolveTexture(name)
     return TEXTURES[name] or name
 end
 
--- ----------------------------------------------------------------------------
--- GetBarColor: Determine bar color from config and bar data
--- ----------------------------------------------------------------------------
 local function GetBarColor(bar, config)
-    -- Per-bar color override
+    -- Per-bar override wins over any global mode.
     local display = bar.barData and bar.barData.display
     if display and display.colorOverride then
         local c = display.colorOverride
         return c.r or 1, c.g or 1, c.b or 1
     end
 
-    local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+    local visual = ns:GetVisual()
     local colorMode = visual.colorMode or "CLASS"
 
     if colorMode == "CLASS" then
@@ -134,9 +125,6 @@ local function GetBarColor(bar, config)
     end
 end
 
--- ----------------------------------------------------------------------------
--- CreateBarFrame: Build a StatusBar from BarWardenBarTemplate
--- ----------------------------------------------------------------------------
 local barCount = 0
 
 function ns:CreateBarFrame(parent)
@@ -144,21 +132,21 @@ function ns:CreateBarFrame(parent)
     local name = "BarWardenBar" .. barCount
     local bar = CreateFrame("StatusBar", name, parent or UIParent, "BarWardenBarTemplate")
 
-    -- Cache child Frame references
-    bar.background   = _G[name .. "Background"]
-    bar.border       = _G[name .. "Border"]
-    bar.icon         = _G[name .. "Icon"]
-    -- The icon texture declared in the XML template may not be globally
-    -- registered in WoW 3.3.5a (same issue as FontStrings in StatusBars).
-    -- Fall back to creating it in Lua if the _G lookup returns nil.
-    bar.iconTexture  = _G[name .. "IconIconTexture"]
+    bar.background = _G[name .. "Background"]
+    bar.border     = _G[name .. "Border"]
+    bar.icon       = _G[name .. "Icon"]
+
+    -- In 3.3.5a, child textures/FontStrings declared inside a StatusBar
+    -- template aren't always registered as globals. Fall back to creating
+    -- them in Lua so icon/name/time references are never nil.
+    bar.iconTexture = _G[name .. "IconIconTexture"]
     if bar.icon and not bar.iconTexture then
         bar.iconTexture = bar.icon:CreateTexture(nil, "ARTWORK")
         bar.iconTexture:SetAllPoints()
     end
 
-    -- Create spark first in OVERLAY so text FontStrings (also OVERLAY, created after)
-    -- render on top of it. Within the same draw layer, WoW renders in creation order.
+    -- Spark must be created before name/time so that, within the OVERLAY
+    -- layer, WoW's creation-order rule draws the text on top of it.
     bar.sparkFrame = bar:CreateTexture(nil, "OVERLAY")
     bar.sparkFrame:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
     bar.sparkFrame:SetBlendMode("ADD")
@@ -167,10 +155,6 @@ function ns:CreateBarFrame(parent)
     bar.sparkFrame:SetPoint("CENTER", bar, "LEFT", 0, 0)
     bar.sparkFrame:Hide()
 
-    -- Create text FontStrings in OVERLAY after spark so they render on top of it.
-    -- FontStrings declared inside a StatusBar <Layer> block in Templates.xml are
-    -- NOT registered as globals in WoW 3.3.5a — _G lookups return nil.
-    -- Creating them here guarantees bar.nameText / bar.timeText are never nil.
     bar.nameText = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     bar.nameText:SetJustifyH("LEFT")
     bar.nameText:SetPoint("LEFT",  bar, "LEFT",  24,  0)
@@ -180,28 +164,23 @@ function ns:CreateBarFrame(parent)
     bar.timeText:SetJustifyH("RIGHT")
     bar.timeText:SetPoint("RIGHT", bar, "RIGHT", -4, 0)
 
-    -- Set default StatusBar range
     bar:SetMinMaxValues(0, 1)
     bar:SetValue(0)
-
-    -- Default texture
     bar:SetStatusBarTexture(TEXTURES["Flat"])
     bar:GetStatusBarTexture():SetHorizTile(false)
     bar:GetStatusBarTexture():SetVertTile(false)
 
-    -- Store bar-specific data
-    bar.barData = nil  -- will be set when assigned to a tracking entry
+    bar.barData = nil
 
     return bar
 end
 
--- ----------------------------------------------------------------------------
--- ApplyVisualConfig: Apply visual settings to a bar frame
--- ----------------------------------------------------------------------------
+-- Apply all current visual settings to `bar`. Safe to call repeatedly;
+-- always reads from ns:GetVisual() and the bar's own display overrides.
 function ns:ApplyVisualConfig(bar, config)
     if not bar then return end
 
-    local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+    local visual = ns:GetVisual()
     local display = config or (bar.barData and bar.barData.display) or {}
 
     -- Resolve style
@@ -231,28 +210,20 @@ function ns:ApplyVisualConfig(bar, config)
     local texturePath = ResolveTexture(textureName)
     bar:SetStatusBarTexture(texturePath)
 
-    -- Progress direction
-    -- SetReverseFill does not exist in WoW 3.3.5a (added in Cataclysm).
-    -- RTL is silently ignored; bars always fill left-to-right.
-    -- (direction stored in DB for future compat but not applied here)
-
-    -- Bar color
     local r, g, b = GetBarColor(bar, config)
     bar:SetStatusBarColor(r, g, b)
 
-    -- Background (per-bar opacity via display.barAlpha)
     if bar.background then
         local barAlpha = display.barAlpha or 0.6
         bar.background:SetVertexColor(0, 0, 0, barAlpha)
     end
 
-    -- Border
     if bar.border then
         bar.border:SetVertexColor(0, 0, 0, 0.8)
     end
 
-    -- Icon visibility: per-bar display.showIcon is the authority (true/false).
-    -- Falls back to global visual.showIcon only if display.showIcon is nil.
+    -- Per-bar display.showIcon is authoritative; fall back to the global
+    -- visual.showIcon only when the per-bar value is nil.
     local showIcon
     if display.showIcon ~= nil then
         showIcon = display.showIcon

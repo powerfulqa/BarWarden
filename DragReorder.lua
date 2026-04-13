@@ -98,7 +98,7 @@ local function UpdateIndicatorPosition(groupFrame, dropIdx)
         return
     end
 
-    local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+    local visual = ns:GetVisual()
     local barWidth = visual.barWidth or 200
     local frameData = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[groupFrame.frameIndex]
     if frameData and frameData.width then

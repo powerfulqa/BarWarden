@@ -13,6 +13,76 @@ local function NextName(prefix)
     return "BarWarden" .. prefix .. widgetCount
 end
 
+-- ----------------------------------------------------------------------------
+-- DB-path helpers
+--
+-- Walk a dotted path on a root table, returning (parentTable, lastKey) so
+-- the caller can read parent[key] and write parent[key] = v.
+-- Returns (nil, nil) if any intermediate segment is missing.
+-- ----------------------------------------------------------------------------
+
+local function ResolvePath(root, path)
+    local parent, key = root, nil
+    for segment in path:gmatch("[^.]+") do
+        if key then
+            if type(parent[key]) ~= "table" then return nil, nil end
+            parent = parent[key]
+        end
+        key = segment
+    end
+    return parent, key
+end
+
+-- Returns a widget-shaped callback `(self, value)` that writes `value`
+-- into BarWardenDB.<path> and optionally calls ns:<refreshMethod>() after.
+--
+-- Validates strictly at registration time:
+--   1. the intermediate path must resolve under BarWardenDB
+--   2. the leaf must already exist (i.e. be declared in ns.DEFAULTS)
+--   3. the refresh method (if given) must be defined on ns
+--
+-- This makes ns.DEFAULTS the single source of truth for every option, and
+-- surfaces typos at addon load instead of as a silent no-op when the user
+-- clicks the control. By the time any Options_*.lua file constructs its
+-- tab, ns:OnInitialize has run InitDB (populating defaults) and
+-- Core/MinimapButton.lua have defined their refresh methods.
+function ns:DBSet(path, refreshMethod)
+    local parent, key = ResolvePath(BarWardenDB, path)
+    if not parent then
+        error(string.format(
+            "ns:DBSet: path %q has an unresolved intermediate segment", path), 2)
+    end
+    if parent[key] == nil then
+        error(string.format(
+            "ns:DBSet: leaf %q is not declared in ns.DEFAULTS — add it there first",
+            path), 2)
+    end
+    if refreshMethod and not ns[refreshMethod] then
+        error(string.format(
+            "ns:DBSet: refresh method ns:%s is not defined", refreshMethod), 2)
+    end
+
+    return function(_, value)
+        local p, k = ResolvePath(BarWardenDB, path)
+        if p then p[k] = value end
+        if refreshMethod and ns[refreshMethod] then
+            ns[refreshMethod](ns)
+        end
+    end
+end
+
+-- Read BarWardenDB.<path>, returning `default` if any segment is missing
+-- or the leaf is nil. For use in Refresh handlers.
+--
+-- Unlike DBSet, DBGet does NOT validate at call time — its whole purpose
+-- is to gracefully fall back when a path is absent (e.g. before MergeDefaults
+-- has populated a new field on a pre-existing save).
+function ns:DBGet(path, default)
+    local parent, key = ResolvePath(BarWardenDB, path)
+    if parent and parent[key] ~= nil then return parent[key] end
+    return default
+end
+
 function ns:CreateCheckbox(parent, label, tooltip, onClick)
     local name = NextName("CB")
     local cb = CreateFrame("CheckButton", name, parent, "InterfaceOptionsCheckButtonTemplate")

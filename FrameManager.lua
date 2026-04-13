@@ -95,7 +95,7 @@ function ns:CreateGroupFrame(groupData, frameIndex)
     frame:SetBackdropBorderColor(0.3, 0.3, 0.3, borderAlpha)
 
     -- Size from visual settings
-    local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+    local visual = ns:GetVisual()
     local barWidth = groupData.width or visual.barWidth or 200
     frame:SetWidth(barWidth + 8)  -- padding for border
     frame:SetHeight(30)  -- minimum height, updated by layout
@@ -155,7 +155,7 @@ end
 function ns:UpdateGroupLayout(group)
     if not group then return end
 
-    local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+    local visual = ns:GetVisual()
     local spacing = visual.barSpacing or 2
     local barHeight = visual.barHeight or 20
     local barWidth = visual.barWidth or 200

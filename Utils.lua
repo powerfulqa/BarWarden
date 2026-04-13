@@ -4,9 +4,7 @@ local addonName, ns = ...
 -- Utils.lua - Shared utility functions for BarWarden
 -- ============================================================================
 
--- ----------------------------------------------------------------------------
--- CopyTable: Deep copy a table (handles nested tables, skips metatables)
--- ----------------------------------------------------------------------------
+-- Deep copy a table. Skips metatables.
 function ns:CopyTable(src)
     if type(src) ~= "table" then return src end
     local copy = {}
@@ -20,10 +18,8 @@ function ns:CopyTable(src)
     return copy
 end
 
--- ----------------------------------------------------------------------------
--- MergeDefaults: Recursively merge defaults into target without overwriting
--- existing user values. Only fills in missing keys.
--- ----------------------------------------------------------------------------
+-- Recursively fill in missing keys from `defaults` without overwriting
+-- user-set values in `target`.
 function ns:MergeDefaults(target, defaults)
     if type(target) ~= "table" or type(defaults) ~= "table" then return end
     for k, v in pairs(defaults) do
@@ -39,10 +35,7 @@ function ns:MergeDefaults(target, defaults)
     end
 end
 
--- ----------------------------------------------------------------------------
--- FormatTime: Format seconds into human-readable time string
--- 0-60s: "X.X" (one decimal), 60-3600: "M:SS", 3600+: "H:MM:SS"
--- ----------------------------------------------------------------------------
+-- Format seconds as "X.X" (<60s), "M:SS" (<1h), or "H:MM:SS".
 function ns:FormatTime(seconds)
     if not seconds or seconds < 0 then seconds = 0 end
 
@@ -62,10 +55,43 @@ function ns:FormatTime(seconds)
 end
 
 -- ----------------------------------------------------------------------------
--- Color Helpers
+-- Config accessors
 -- ----------------------------------------------------------------------------
 
--- RAID_CLASS_COLORS is a Blizzard global available in 3.3.5a
+-- Current visual settings, falling back to defaults before the DB is loaded
+-- or if a fresh install hasn't populated the visual table yet.
+function ns:GetVisual()
+    return (BarWardenDB and BarWardenDB.visual) or ns.DEFAULTS.visual
+end
+
+-- ----------------------------------------------------------------------------
+-- Callback bus
+--
+-- Tiny pub/sub so producers can fire-and-forget cross-module notifications
+-- (e.g. "OnProfileChanged") without hard-coding the consumer list at the
+-- call site. Firing with no subscribers is a no-op.
+-- ----------------------------------------------------------------------------
+
+local callbacks = {}
+
+function ns:RegisterCallback(event, handler)
+    callbacks[event] = callbacks[event] or {}
+    callbacks[event][#callbacks[event] + 1] = handler
+end
+
+function ns:FireCallback(event, ...)
+    local list = callbacks[event]
+    if not list then return end
+    for _, handler in ipairs(list) do
+        handler(...)
+    end
+end
+
+-- ----------------------------------------------------------------------------
+-- Color helpers
+-- ----------------------------------------------------------------------------
+
+-- RAID_CLASS_COLORS is a Blizzard global available in 3.3.5a.
 function ns:GetClassColor(class)
     if class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] then
         local c = RAID_CLASS_COLORS[class]
@@ -80,7 +106,7 @@ function ns:GetPlayerClassColor()
 end
 
 -- ----------------------------------------------------------------------------
--- Base64 Encode/Decode
+-- Base64 encode/decode
 -- ----------------------------------------------------------------------------
 
 local Base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -140,8 +166,8 @@ ns.Base64Encode = Base64Encode
 ns.Base64Decode = Base64Decode
 
 -- ----------------------------------------------------------------------------
--- Table Serializer/Deserializer (for profile export/import)
--- Simple recursive key=value format, no external libs
+-- Table serializer / deserializer (for profile export/import).
+-- Simple recursive key=value format; no external libraries required.
 -- ----------------------------------------------------------------------------
 
 local function SerializeValue(val)
@@ -275,8 +301,8 @@ function ns:Deserialize(str)
 end
 
 -- ----------------------------------------------------------------------------
--- Profile Export/Import Helpers
--- Format: "BarWarden:v1:<base64-encoded-serialized-data>"
+-- Profile export / import.
+-- Format: "BarWarden:v1:<base64-encoded-serialized-data>".
 -- ----------------------------------------------------------------------------
 
 function ns:ExportProfile(profileData)

@@ -4,10 +4,6 @@ local addonName, ns = ...
 -- DB.lua - BarWardenDB schema, defaults, visual presets, SavedVariables init
 -- ============================================================================
 
--- ----------------------------------------------------------------------------
--- Default Database Schema
--- ----------------------------------------------------------------------------
-
 ns.DEFAULTS = {
     -- Schema version: increment when a migration pass is needed
     schemaVersion = 3,
@@ -37,6 +33,7 @@ ns.DEFAULTS = {
         textFormat = "NAME_DURATION",
         durationStyle = "DECIMAL",
         colorMode = "CLASS",
+        perBarColorOverride = false,
         defaultColor = { r = 0.2, g = 0.6, b = 1.0 },
         trackModeColors = {
             Cooldown = { r = 0.4, g = 0.6, b = 1.0 },
@@ -102,15 +99,9 @@ ns.DEFAULTS = {
     activeProfile = nil,
 }
 
--- ----------------------------------------------------------------------------
--- InitDB: Initialize or migrate SavedVariables
--- ----------------------------------------------------------------------------
-
--- ----------------------------------------------------------------------------
--- MigrateDB: One-time migration to canonicalize legacy field names.
--- Runs only when BarWardenDB.schemaVersion is absent or below current.
--- Safe: only writes to nil keys, never overwrites non-nil user data.
--- ----------------------------------------------------------------------------
+-- One-time migration to canonicalise legacy field names. Runs only when
+-- BarWardenDB.schemaVersion is absent or below CURRENT_SCHEMA. Only writes
+-- to nil keys — never overwrites existing user data.
 local CURRENT_SCHEMA = 3
 
 local function MigrateDB()

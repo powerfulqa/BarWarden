@@ -5,7 +5,8 @@ local addonName, ns = ...
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- Individual Condition Checks
+-- Individual checks. Each returns true if the bar should stay visible; a
+-- false return from any one fails the whole evaluation.
 -- ----------------------------------------------------------------------------
 
 local function CheckCombatOnly(conditions)
@@ -68,61 +69,33 @@ local function CheckInRaid(conditions)
     return true
 end
 
--- ----------------------------------------------------------------------------
--- Main Evaluator
--- ----------------------------------------------------------------------------
+-- Checks run in order; first failure wins. Order matches the original
+-- hand-written sequence so short-circuit behaviour is preserved.
+local CHECKS = {
+    CheckCombatOnly,
+    CheckOutOfCombatOnly,
+    CheckRequireBuff,
+    CheckHealthBelow,
+    CheckInGroup,
+    CheckInRaid,
+}
 
---- Evaluate all visibility conditions for a bar.
--- @param bar table - The bar configuration table
--- @param conditions table - The conditions sub-table from bar config
--- @return boolean - true if the bar should be visible
 function ns:EvaluateConditions(bar, conditions)
-    if not conditions then
-        return true
+    if not conditions then return true end
+    for _, check in ipairs(CHECKS) do
+        if not check(conditions) then return false end
     end
-
-    if not CheckCombatOnly(conditions) then
-        return false
-    end
-
-    if not CheckOutOfCombatOnly(conditions) then
-        return false
-    end
-
-    if not CheckRequireBuff(conditions) then
-        return false
-    end
-
-    if not CheckHealthBelow(conditions) then
-        return false
-    end
-
-    if not CheckInGroup(conditions) then
-        return false
-    end
-
-    if not CheckInRaid(conditions) then
-        return false
-    end
-
-    -- hideWhenInactive and showEmpty are handled by the bar engine
-    -- during active/inactive state transitions, not here.
-    -- We expose helpers for the engine to query them.
-
     return true
 end
 
---- Check if a bar should be hidden when it has no active tracker data.
--- @param conditions table - The conditions sub-table
--- @return boolean - true if the bar should hide when inactive
+-- hideWhenInactive and showEmpty are queried by the bar engine during
+-- active/inactive transitions rather than inside EvaluateConditions.
+
 function ns:ShouldHideWhenInactive(conditions)
     if not conditions then return false end
     return not not conditions.hideWhenInactive
 end
 
---- Check if a bar should show an empty bar when inactive.
--- @param conditions table - The conditions sub-table
--- @return boolean - true if an empty bar should be shown
 function ns:ShouldShowEmpty(conditions)
     if not conditions then return true end
     return conditions.showEmpty ~= false

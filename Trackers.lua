@@ -8,21 +8,14 @@ local addonName, ns = ...
 
 local GCD_THRESHOLD = 1.5
 
--- ----------------------------------------------------------------------------
--- Module-level state tables
--- ----------------------------------------------------------------------------
-
--- stableExpiry: prevents bar jitter from server expiration time fluctuations.
+-- stableExpiry prevents bar jitter from fluctuating server expiration times.
 -- Key: "unit:spellId_or_name". If the server returns a shorter expiration
 -- than what we last saw, we keep the longer cached value.
 local stableExpiry = {}
 
--- ----------------------------------------------------------------------------
--- Field normalization helpers
--- After schema migration (DB.lua v1) new bars use spellName/spellId/itemId.
--- Legacy fields (spell, spellInput) are kept here as fallbacks during
--- the transition window.
--- ----------------------------------------------------------------------------
+-- Bar configs use canonical fields after DB.lua's v1 migration: spellName
+-- (string), spellId (number), itemId (number). Legacy `spell`/`spellInput`
+-- are migrated away and no longer referenced here.
 
 local function getSpell(barConfig)
     if barConfig.spellName and barConfig.spellName ~= "" then
@@ -350,12 +343,9 @@ local function CheckTotem(barConfig)
     end
 end
 
--- ----------------------------------------------------------------------------
--- Dispatch Table
--- Proc is Buff restricted to "player" unit; CheckBuff defaults unit to "player"
--- via getUnit(barConfig, "player"), so no separate function is needed.
--- ----------------------------------------------------------------------------
-
+-- Dispatch table keyed by barConfig.trackMode.
+-- Proc is just Buff restricted to "player"; CheckBuff already defaults unit
+-- to "player" via getUnit(barConfig, "player"), so no separate function exists.
 ns.TRACKERS = {
     ["Cooldown"]   = CheckCooldown,
     ["Buff"]       = CheckBuff,
@@ -368,9 +358,8 @@ ns.TRACKERS = {
     ["Totem"]      = CheckTotem,
 }
 
---- Check tracking state for a bar based on its trackMode.
--- @param barConfig table - The bar configuration
--- @return isActive, remaining, duration, icon, name, stacks
+-- Check tracking state for `barConfig` by dispatching on its trackMode.
+-- See the file header for the returned tuple shape.
 function ns:CheckTracker(barConfig)
     local trackMode = barConfig.trackMode
     if not trackMode then

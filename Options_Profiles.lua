@@ -249,12 +249,7 @@ local function CreateProfilesTab(parent)
                 ns.db.visual = ns:CopyTable(profile.data.visual)
             end
             ns.db.activeProfile = selectedProfileName
-            if ns.ApplySettings then
-                ns:ApplySettings()
-            end
-            if ns.RebuildAllFrames then
-                ns:RebuildAllFrames()
-            end
+            ns:FireCallback("OnProfileChanged", selectedProfileName)
             frame:RefreshList()
         end
     end)
@@ -343,12 +338,7 @@ local function CreateProfilesTab(parent)
                 wipe(ns.profiles)
                 ns.db.activeProfile = nil
                 selectedProfileName = nil
-                if ns.ApplySettings then
-                    ns:ApplySettings()
-                end
-                if ns.RebuildAllFrames then
-                    ns:RebuildAllFrames()
-                end
+                ns:FireCallback("OnProfileChanged", nil)
                 frame:RefreshList()
             end,
         })

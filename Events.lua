@@ -4,24 +4,12 @@ local addonName, ns = ...
 -- Events.lua - Central event dispatcher: register/unregister, routing, throttle
 -- ============================================================================
 
--- ----------------------------------------------------------------------------
--- Event Frame
--- ----------------------------------------------------------------------------
-
 local eventFrame = CreateFrame("Frame", "BarWardenEventFrame", UIParent)
 local registeredEvents = {}
 local eventHandlers = {}
 local throttleTimers = {}
 
--- ----------------------------------------------------------------------------
--- Throttle Configuration
--- ----------------------------------------------------------------------------
-
 local UNIT_HEALTH_THROTTLE = 0.25 -- 4 Hz max
-
--- ----------------------------------------------------------------------------
--- Event Handler Routing Table
--- ----------------------------------------------------------------------------
 
 local function OnEvent(self, event, ...)
     local handler = eventHandlers[event]
@@ -31,10 +19,6 @@ local function OnEvent(self, event, ...)
 end
 
 eventFrame:SetScript("OnEvent", OnEvent)
-
--- ----------------------------------------------------------------------------
--- Event Registration Wrappers
--- ----------------------------------------------------------------------------
 
 function ns:RegisterAddonEvent(event, handler)
     if not registeredEvents[event] then
@@ -55,52 +39,46 @@ function ns:UnregisterAddonEvent(event)
     throttleTimers[event] = nil
 end
 
--- ----------------------------------------------------------------------------
--- Throttled Handler Wrapper
--- ----------------------------------------------------------------------------
-
+-- Rate-limit a handler: at most one call per `interval` seconds.
 local function ThrottledHandler(event, interval, handler)
     return function(evt, ...)
         local now = GetTime()
         local last = throttleTimers[event] or 0
-        if now - last < interval then
-            return
-        end
+        if now - last < interval then return end
         throttleTimers[event] = now
         handler(evt, ...)
     end
 end
 
 -- ----------------------------------------------------------------------------
--- Core Event Handlers
+-- Handler factories
+--
+-- Each factory returns an OnEvent-shaped function that forwards to the
+-- corresponding ns:<method> if defined. Keeping these tiny avoids the
+-- copy-paste wrappers that used to live here.
 -- ----------------------------------------------------------------------------
 
-local function OnSpellCooldownUpdate(event, ...)
-    if ns.OnSpellCooldownUpdate then
-        ns:OnSpellCooldownUpdate()
+local function Dispatch(method)
+    return function()
+        if ns[method] then ns[method](ns) end
     end
 end
 
-local function OnUnitAura(event, unit)
-    if ns.OnUnitAura then
-        ns:OnUnitAura(unit)
+local function DispatchUnit(method)
+    return function(_, unit)
+        if ns[method] then ns[method](ns, unit) end
     end
 end
 
-local function OnTargetChanged(event, ...)
-    if ns.OnTargetChanged then
-        ns:OnTargetChanged("target")
+local function DispatchFixed(method, arg)
+    return function()
+        if ns[method] then ns[method](ns, arg) end
     end
 end
 
-local function OnFocusChanged(event, ...)
-    if ns.OnFocusChanged then
-        ns:OnFocusChanged("focus")
-    end
-end
-
-local function OnCombatStateChanged(event, ...)
-    -- Auto-exit test mode when entering combat
+-- PLAYER_REGEN_ENABLED/DISABLED share a handler, with an extra side effect:
+-- entering combat auto-exits test mode so it never leaks into real play.
+local function OnCombatStateChanged(event)
     if event == "PLAYER_REGEN_DISABLED" and ns.testMode then
         ns:DeactivateTestMode()
     end
@@ -109,66 +87,22 @@ local function OnCombatStateChanged(event, ...)
     end
 end
 
-local function OnUnitHealth(event, unit)
-    if ns.OnUnitHealth then
-        ns:OnUnitHealth(unit)
-    end
-end
-
-local function OnGroupChanged(event, ...)
-    if ns.OnGroupChanged then
-        ns:OnGroupChanged()
-    end
-end
-
-local function OnBagCooldownUpdate(event, ...)
-    if ns.OnBagCooldownUpdate then
-        ns:OnBagCooldownUpdate()
-    end
-end
-
-local function OnPlayerEnteringWorld(event, ...)
-    if ns.OnPlayerEnteringWorld then
-        ns:OnPlayerEnteringWorld()
-    end
-end
-
-local function OnEnchantUpdate(event, ...)
-    if ns.OnEnchantUpdate then
-        ns:OnEnchantUpdate()
-    end
-end
-
-local function OnTotemUpdate(event, ...)
-    if ns.OnTotemUpdate then
-        ns:OnTotemUpdate()
-    end
-end
-
--- ----------------------------------------------------------------------------
--- Event Registration Sets
--- ----------------------------------------------------------------------------
-
 local GAMEPLAY_EVENTS = {
-    { "SPELL_UPDATE_COOLDOWN",          OnSpellCooldownUpdate },
-    { "ACTIONBAR_UPDATE_COOLDOWN",      OnSpellCooldownUpdate },
-    { "UNIT_AURA",                      OnUnitAura },
-    { "PLAYER_TARGET_CHANGED",          OnTargetChanged },
-    { "PLAYER_FOCUS_CHANGED",           OnFocusChanged },
-    { "PLAYER_REGEN_ENABLED",           OnCombatStateChanged },
-    { "PLAYER_REGEN_DISABLED",          OnCombatStateChanged },
-    { "UNIT_HEALTH",                    ThrottledHandler("UNIT_HEALTH", UNIT_HEALTH_THROTTLE, OnUnitHealth) },
-    { "PARTY_MEMBERS_CHANGED",          OnGroupChanged },
-    { "RAID_ROSTER_UPDATE",             OnGroupChanged },
-    { "BAG_UPDATE_COOLDOWN",            OnBagCooldownUpdate },
-    { "PLAYER_ENTERING_WORLD",          OnPlayerEnteringWorld },
-    { "UNIT_INVENTORY_CHANGED",         OnEnchantUpdate },
-    { "PLAYER_TOTEM_UPDATE",            OnTotemUpdate },
+    { "SPELL_UPDATE_COOLDOWN",     Dispatch("OnSpellCooldownUpdate") },
+    { "ACTIONBAR_UPDATE_COOLDOWN", Dispatch("OnSpellCooldownUpdate") },
+    { "UNIT_AURA",                 DispatchUnit("OnUnitAura") },
+    { "PLAYER_TARGET_CHANGED",     DispatchFixed("OnTargetChanged", "target") },
+    { "PLAYER_FOCUS_CHANGED",      DispatchFixed("OnFocusChanged",  "focus") },
+    { "PLAYER_REGEN_ENABLED",      OnCombatStateChanged },
+    { "PLAYER_REGEN_DISABLED",     OnCombatStateChanged },
+    { "UNIT_HEALTH",               ThrottledHandler("UNIT_HEALTH", UNIT_HEALTH_THROTTLE, DispatchUnit("OnUnitHealth")) },
+    { "PARTY_MEMBERS_CHANGED",     Dispatch("OnGroupChanged") },
+    { "RAID_ROSTER_UPDATE",        Dispatch("OnGroupChanged") },
+    { "BAG_UPDATE_COOLDOWN",       Dispatch("OnBagCooldownUpdate") },
+    { "PLAYER_ENTERING_WORLD",     Dispatch("OnPlayerEnteringWorld") },
+    { "UNIT_INVENTORY_CHANGED",    Dispatch("OnEnchantUpdate") },
+    { "PLAYER_TOTEM_UPDATE",       Dispatch("OnTotemUpdate") },
 }
-
--- ----------------------------------------------------------------------------
--- Enable / Disable All Gameplay Events
--- ----------------------------------------------------------------------------
 
 function ns:EnableEvents()
     for _, entry in ipairs(GAMEPLAY_EVENTS) do
@@ -182,10 +116,6 @@ function ns:DisableEvents()
     end
 end
 
--- ----------------------------------------------------------------------------
--- Global Enable / Disable (called from Core.lua)
--- ----------------------------------------------------------------------------
-
 function ns:SetAddonEnabled(enabled)
     if enabled then
         ns:EnableEvents()
@@ -193,9 +123,5 @@ function ns:SetAddonEnabled(enabled)
         ns:DisableEvents()
     end
 end
-
--- ----------------------------------------------------------------------------
--- Expose event frame for external use if needed
--- ----------------------------------------------------------------------------
 
 ns.eventFrame = eventFrame

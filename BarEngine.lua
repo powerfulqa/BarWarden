@@ -106,7 +106,7 @@ glowTimerFrame:SetScript("OnUpdate", function(self, elapsed)
                     MarkGroupDirty(parent)
                 end
             else
-                local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+                local visual = ns:GetVisual()
                 bar:SetAlpha(visual.inactiveAlpha or 0.3)
             end
             activeGlows[bar] = nil
@@ -168,7 +168,7 @@ local function Bar_OnUpdate(self, elapsed)
 
     -- Colour-by-time: override bar colour based on remaining seconds
     local display = self.barData and self.barData.display or {}
-    local visual  = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+    local visual = ns:GetVisual()
     local cbtr, cbtg, cbtb = ns.GetTimeBasedColor(remaining, display, visual)
     if cbtr then
         self:SetStatusBarColor(cbtr, cbtg, cbtb)
@@ -196,7 +196,7 @@ local function Bar_OnUpdate(self, elapsed)
             self:SetAlpha(pulse)
         else
             -- Restore normal active alpha when above threshold
-            local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+            local visual = ns:GetVisual()
             self:SetAlpha(visual.activeAlpha or 1.0)
         end
     end
@@ -205,7 +205,7 @@ local function Bar_OnUpdate(self, elapsed)
     self.textElapsed = (self.textElapsed or 0) + elapsed
     if self.textElapsed >= TEXT_THROTTLE then
         self.textElapsed = 0
-        local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+        local visual = ns:GetVisual()
         local textFormat = visual.textFormat or "NAME_DURATION"
 
         if textFormat == "NAME_STACKS" or textFormat == "STACKS" then
@@ -355,7 +355,7 @@ function ns:ActivateBar(bar, expirationTime, duration)
 
     -- Icon and name are set by the caller (ScanBar) from CheckTracker results.
 
-    local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+    local visual = ns:GetVisual()
     bar:SetAlpha(visual.activeAlpha or 1.0)
 
     -- Name is set by caller; here we ensure the field is non-nil at minimum.
@@ -437,7 +437,7 @@ function ns:DeactivateBar(bar)
     if cond and cond.hideWhenInactive then
         bar:Hide()
     else
-        local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+        local visual = ns:GetVisual()
         bar:SetAlpha(visual.inactiveAlpha or 0.3)
         bar:Show()
     end
@@ -546,7 +546,7 @@ local function EnsureBarVisible(bar)
     if bar:IsShown() then return end
     local cond = bar.barData and bar.barData.conditions
     if cond and cond.hideWhenInactive then return end
-    local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+    local visual = ns:GetVisual()
     bar:SetAlpha(visual.inactiveAlpha or 0.3)
     bar:Show()
 

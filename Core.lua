@@ -24,18 +24,11 @@ coreFrame:SetScript("OnUpdate", function(self, elapsed)
     end
 end)
 
--- ----------------------------------------------------------------------------
--- Print: Chat message helper
--- ----------------------------------------------------------------------------
-
 function ns:Print(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden:|r " .. tostring(msg))
 end
 
--- ----------------------------------------------------------------------------
--- RefreshAllBars: Re-apply visual config to all existing bars and relayout
--- ----------------------------------------------------------------------------
-
+-- Re-apply visual config to every bar and relayout every group.
 function ns:RefreshAllBars()
     for _, group in pairs(ns.groupFrames or {}) do
         if group.bars then
@@ -43,7 +36,7 @@ function ns:RefreshAllBars()
                 if ns.ApplyVisualConfig then
                     ns:ApplyVisualConfig(bar)
                 end
-                local visual = BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual
+                local visual = ns:GetVisual()
                 if bar.barState == ns.BAR_STATE.ACTIVE then
                     bar:SetAlpha(visual.activeAlpha or 1.0)
                 else
@@ -57,10 +50,6 @@ function ns:RefreshAllBars()
     end
 end
 
--- ----------------------------------------------------------------------------
--- ApplySettings: Apply current DB settings to live frames
--- ----------------------------------------------------------------------------
-
 function ns:ApplySettings()
     ns:RefreshAllBars()
     if ns.UpdateMinimapButtonVisibility then
@@ -69,13 +58,13 @@ function ns:ApplySettings()
 end
 
 -- ----------------------------------------------------------------------------
--- ADDON_LOADED: Initialize DB, options, frames, minimap, events
+-- Lifecycle (Ace3-style: Initialize once, Enable/Disable any number of times).
 -- ----------------------------------------------------------------------------
 
-local function OnAddonLoaded(event, loadedName)
-    if loadedName ~= addonName then return end
-
-    -- Initialize session statistics (resets every login/reload)
+-- Called once at ADDON_LOADED. Sets up the DB, options panel, frames, and
+-- minimap. Does NOT register gameplay events — that is OnEnable's job.
+function ns:OnInitialize()
+    -- Session stats are in-memory only; they reset on every login/reload.
     ns.sessionStats = {}
     ns.sessionStartTime = time()
 
@@ -85,53 +74,64 @@ local function OnAddonLoaded(event, loadedName)
     ns:RefreshAllBars()
     ns:InitMinimapButton()
 
-    -- Register gameplay events if addon is enabled
+    -- Profile load/reset fires "OnProfileChanged"; subscribe the standard
+    -- post-change work so call sites can fire-and-forget.
+    ns:RegisterCallback("OnProfileChanged", function() ns:ApplySettings()    end)
+    ns:RegisterCallback("OnProfileChanged", function() ns:RebuildAllFrames() end)
+end
+
+-- Called whenever the addon should become active: at ADDON_LOADED if
+-- globally enabled, on PLAYER_LOGIN, and from /bw enable. Idempotent.
+function ns:OnEnable()
+    ns:EnableEvents()
+    for _, frame in pairs(ns.groupFrames or {}) do
+        if frame and frame.Show then frame:Show() end
+    end
+end
+
+-- Called whenever the addon should go quiet: from /bw disable and
+-- PLAYER_LOGOUT. Idempotent.
+function ns:OnDisable()
+    ns:DisableEvents()
+    for _, frame in pairs(ns.groupFrames or {}) do
+        if frame and frame.Hide then frame:Hide() end
+    end
+end
+
+local function OnAddonLoaded(event, loadedName)
+    if loadedName ~= addonName then return end
+
+    ns:OnInitialize()
     if ns.db and ns.db.global.enabled then
-        ns:EnableEvents()
+        ns:OnEnable()
     end
 
     coreFrame:UnregisterEvent("ADDON_LOADED")
 end
 
--- ----------------------------------------------------------------------------
--- PLAYER_LOGIN: Final setup after all addons loaded
--- ----------------------------------------------------------------------------
-
-local function OnPlayerLogin(event)
+local function OnPlayerLogin()
     if ns.db and ns.db.global.enabled then
-        ns:EnableEvents()
+        ns:OnEnable()
     end
 end
 
--- ----------------------------------------------------------------------------
--- PLAYER_LOGOUT: Cleanup before disconnect
--- ----------------------------------------------------------------------------
-
-local function OnPlayerLogout(event)
-    ns:DisableEvents()
+local function OnPlayerLogout()
+    ns:OnDisable()
 end
-
--- ----------------------------------------------------------------------------
--- Event Registration
--- ----------------------------------------------------------------------------
 
 coreFrame:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" then
         OnAddonLoaded(event, ...)
     elseif event == "PLAYER_LOGIN" then
-        OnPlayerLogin(event)
+        OnPlayerLogin()
     elseif event == "PLAYER_LOGOUT" then
-        OnPlayerLogout(event)
+        OnPlayerLogout()
     end
 end)
 
 coreFrame:RegisterEvent("ADDON_LOADED")
 coreFrame:RegisterEvent("PLAYER_LOGIN")
 coreFrame:RegisterEvent("PLAYER_LOGOUT")
-
--- ----------------------------------------------------------------------------
--- Global Enable / Disable
--- ----------------------------------------------------------------------------
 
 function ns:SetEnabled(enabled)
     if ns.db then
@@ -143,28 +143,13 @@ function ns:SetEnabled(enabled)
     end
 
     if enabled then
-        ns:EnableEvents()
-        -- Show all group frames
-        for _, frame in pairs(ns.groupFrames or {}) do
-            if frame and frame.Show then
-                frame:Show()
-            end
-        end
+        ns:OnEnable()
     else
-        ns:DisableEvents()
-        -- Hide all group frames
-        for _, frame in pairs(ns.groupFrames or {}) do
-            if frame and frame.Hide then
-                frame:Hide()
-            end
-        end
+        ns:OnDisable()
     end
 end
 
--- ----------------------------------------------------------------------------
--- Slash Commands: /bw and /barwarden
--- ----------------------------------------------------------------------------
-
+-- /bw and /barwarden
 local function SlashHandler(msg)
     local cmd = strtrim(msg):lower()
 
@@ -320,8 +305,8 @@ local function SlashHandler(msg)
             ns:ActivateTestMode()
         end
     else
-        -- No args or unknown: open config panel
-        -- Call twice to work around Blizzard bug (Edge Case #10)
+        -- Open the config panel. The double-call is a 3.3.5a quirk:
+        -- the first call only scrolls to the category, the second opens it.
         InterfaceOptionsFrame_OpenToCategory("BarWarden")
         InterfaceOptionsFrame_OpenToCategory("BarWarden")
     end
