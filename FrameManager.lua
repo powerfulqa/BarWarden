@@ -210,11 +210,33 @@ function ns:UpdateGroupLayout(group)
         visibleCount = visibleCount + 1
     end
 
-    -- Update frame size to fit all columns and rows
+    -- Update frame size to fit all columns and rows.
+    -- Before changing the height, re-anchor to TOPLEFT so the top edge stays
+    -- fixed and bars grow downward. Without this, frames still anchored at
+    -- CENTER (e.g. newly created groups that haven't been dragged yet) expand
+    -- upward as well as downward, pushing the title bar out of place.
     local rowCount = math.ceil(visibleCount / columns)
     if rowCount == 0 then rowCount = 1 end
     local totalHeight = titleOffset + (rowCount * (barHeight + spacing)) + 4
     local totalWidth = columns * barWidth + (columns - 1) * spacing + 8
+
+    if group:GetTop() then
+        local scale = group:GetEffectiveScale()
+        local uiScale = UIParent:GetEffectiveScale()
+        local left = group:GetLeft() * scale / uiScale
+        local top = group:GetTop() * scale / uiScale
+        local uiTop = UIParent:GetTop()
+        group:ClearAllPoints()
+        group:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, top - uiTop)
+        -- Persist so the next load also uses TOPLEFT
+        if group.frameIndex then
+            local db = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[group.frameIndex]
+            if db then
+                db.position = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = left, y = top - uiTop }
+            end
+        end
+    end
+
     group:SetHeight(totalHeight)
     group:SetWidth(totalWidth)
 end
