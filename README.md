@@ -33,7 +33,8 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Minimap button** you can drag around your minimap for quick access
 - **Track multiple spells on one bar** using commas, like `Rupture, Garrote`
 - **Settings saved per character** so each of your characters can have their own layout
-- **Per-bar statistics** tracking activation count and uptime, both per-session and all-time
+- **Activity Tracker** passively monitors every cooldown, buff, debuff, enchant, and totem on your character — discover what to track, then create bars directly from the stats screen
+- **Create Bar from stats** select any discovered spell in the Activity Tracker and add it as a bar to any group with one click
 - **Bug report command** generates a copyable diagnostic snapshot for easy troubleshooting
 - **Minimap button right-click** to quickly enable or disable the addon
 - **Live-reactive settings** — changes in the options panel apply to the bars on the spot, no disable/re-enable needed
@@ -246,16 +247,20 @@ Save and Load bar layouts. Profiles are account-wide.
 - Export and import profiles to share between characters
 - Reset everything back to factory defaults
 
-### Statistics
+### Activity Tracker
 
-Per-bar activation counts and uptime tracking.
+Passive monitoring of everything happening on your character. BarWarden automatically detects every cooldown you use, every buff you gain, every debuff you apply, weapon enchants, and totems — no configuration needed.
 
-- **Session stats** reset every login or `/reload`
+- **Category filter** dropdown: All, Cooldowns, Buffs, Debuffs, Enchants, Totems
+- **Spell icons** displayed alongside each entry for quick identification
+- **Session stats** (activations and uptime) reset every login or `/reload`
 - **All-time stats** persist across sessions in SavedVariables
-- Scrollable list with columns: Bar name, Procs, Uptime, Total Procs, Total Uptime
-- **Reset Session** clears current session stats
-- **Reset All Stats** clears everything (with confirmation)
+- **Sorted by activity** — most-used spells appear at the top
+- **Create Bar button** — select any spell, pick a group, and create a pre-configured bar with one click
+- **Reset Session** clears current session data
+- **Reset All** clears everything (with confirmation)
 - Also available via `/bw stats` in chat
+- Stores up to 200 unique spells; oldest entries are automatically evicted
 
 ---
 

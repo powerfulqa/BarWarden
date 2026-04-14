@@ -77,6 +77,13 @@ local function DispatchFixed(method, arg)
     end
 end
 
+-- DispatchVarargs: forwards all event args (needed for COMBAT_LOG_EVENT_UNFILTERED)
+local function DispatchVarargs(method)
+    return function(_, ...)
+        if ns[method] then ns[method](ns, ...) end
+    end
+end
+
 -- PLAYER_REGEN_ENABLED/DISABLED share a handler, with an extra side effect:
 -- entering combat auto-exits test mode so it never leaks into real play.
 local function OnCombatStateChanged(event)
@@ -103,6 +110,7 @@ local GAMEPLAY_EVENTS = {
     { "PLAYER_ENTERING_WORLD",     Dispatch("OnPlayerEnteringWorld") },
     { "UNIT_INVENTORY_CHANGED",    Dispatch("OnEnchantUpdate") },
     { "PLAYER_TOTEM_UPDATE",       Dispatch("OnTotemUpdate") },
+    { "COMBAT_LOG_EVENT_UNFILTERED", DispatchVarargs("OnCombatLogEvent") },
 }
 
 function ns:EnableEvents()

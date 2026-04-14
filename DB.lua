@@ -95,6 +95,9 @@ ns.DEFAULTS = {
         },
     },
 
+    -- Activity tracker: passive spell/aura/cooldown monitoring (persistent across sessions)
+    activity = {},
+
     -- Active profile name (profiles themselves are stored account-wide in BarWardenAccountDB)
     activeProfile = nil,
 }
@@ -102,7 +105,7 @@ ns.DEFAULTS = {
 -- One-time migration to canonicalise legacy field names. Runs only when
 -- BarWardenDB.schemaVersion is absent or below CURRENT_SCHEMA. Only writes
 -- to nil keys — never overwrites existing user data.
-local CURRENT_SCHEMA = 3
+local CURRENT_SCHEMA = 4
 
 local function MigrateDB()
     local savedVersion = BarWardenDB.schemaVersion or 0
@@ -170,6 +173,13 @@ local function MigrateDB()
         end
     end
 
+    -- v3 → v4: add activity tracker table for passive spell monitoring.
+    if savedVersion < 4 then
+        if not BarWardenDB.activity then
+            BarWardenDB.activity = {}
+        end
+    end
+
     BarWardenDB.schemaVersion = CURRENT_SCHEMA
 end
 
@@ -202,9 +212,14 @@ function ns:InitDB()
     end
     ns.db = BarWardenDB
 
-    -- Ensure stats table exists for persistent statistics tracking
+    -- Ensure stats table exists for persistent statistics tracking (legacy bar-driven)
     if not BarWardenDB.stats then
         BarWardenDB.stats = {}
+    end
+
+    -- Ensure activity table exists for passive activity tracking
+    if not BarWardenDB.activity then
+        BarWardenDB.activity = {}
     end
 
     -- Account-wide profile storage (shared across all characters)

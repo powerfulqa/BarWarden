@@ -279,68 +279,11 @@ end
 
 ns.Bar_OnUpdate = Bar_OnUpdate
 
--- ----------------------------------------------------------------------------
--- Statistics: Build a stable key for per-bar stat tracking
--- Key format: "GroupName:TrackMode:SpellIdentifier"
--- ----------------------------------------------------------------------------
-
-function ns:GetBarStatsKey(bar)
-    local bd = bar.barData
-    if not bd then return nil end
-    local parent = bar:GetParent()
-    local groupName = "Unknown"
-    if parent and parent.frameIndex then
-        local frameData = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[parent.frameIndex]
-        if frameData then groupName = frameData.name or groupName end
-    end
-    local mode = bd.trackMode or "Unknown"
-    local id = bd.spellName or bd.spellId or bd.itemId or "Unknown"
-    return groupName .. ":" .. mode .. ":" .. tostring(id)
-end
-
-local function RecordActivation(bar)
-    local key = ns:GetBarStatsKey(bar)
-    if not key then return end
-
-    bar.activatedAt = GetTime()
-
-    -- Session stats
-    if ns.sessionStats then
-        if not ns.sessionStats[key] then
-            ns.sessionStats[key] = { activations = 0, uptime = 0 }
-        end
-        ns.sessionStats[key].activations = ns.sessionStats[key].activations + 1
-    end
-
-    -- Persistent stats
-    if ns.db and ns.db.stats then
-        if not ns.db.stats[key] then
-            ns.db.stats[key] = { activations = 0, uptime = 0 }
-        end
-        ns.db.stats[key].activations = ns.db.stats[key].activations + 1
-    end
-end
-
-local function RecordDeactivation(bar)
-    if not bar.activatedAt then return end
-    local elapsed = GetTime() - bar.activatedAt
-    if elapsed <= 0 then bar.activatedAt = nil; return end
-
-    local key = ns:GetBarStatsKey(bar)
-    if not key then bar.activatedAt = nil; return end
-
-    -- Session stats
-    if ns.sessionStats and ns.sessionStats[key] then
-        ns.sessionStats[key].uptime = ns.sessionStats[key].uptime + elapsed
-    end
-
-    -- Persistent stats
-    if ns.db and ns.db.stats and ns.db.stats[key] then
-        ns.db.stats[key].uptime = ns.db.stats[key].uptime + elapsed
-    end
-
-    bar.activatedAt = nil
-end
+-- Bar-level stats recording has been replaced by the passive ActivityTracker
+-- (ActivityTracker.lua). These stubs exist so ActivateBar/DeactivateBar don't
+-- need conditional checks — they're simply no-ops now.
+local function RecordActivation(bar) end
+local function RecordDeactivation(bar) end
 
 -- ----------------------------------------------------------------------------
 -- ActivateBar: Start tracking a bar with given expiration and duration
@@ -702,6 +645,10 @@ function ns:OnSpellCooldownUpdate()
 end
 
 function ns:OnUnitAura(unit)
+    -- Activity tracking: passive aura monitoring
+    if unit == "player" and ns.ScanBuffActivity then ns:ScanBuffActivity() end
+    if unit == "target" and ns.ScanDebuffActivity then ns:ScanDebuffActivity() end
+
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
     RunScan(function()
@@ -715,6 +662,9 @@ function ns:OnUnitAura(unit)
 end
 
 function ns:OnTargetChanged()
+    -- Activity tracking: re-scan debuffs on the new target
+    if ns.ScanDebuffActivity then ns:ScanDebuffActivity() end
+
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
     RunScan(function()
@@ -753,6 +703,8 @@ function ns:OnBagCooldownUpdate()
 end
 
 function ns:OnEnchantUpdate()
+    if ns.ScanEnchantActivity then ns:ScanEnchantActivity() end
+
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
     RunScan(function()
@@ -765,6 +717,8 @@ function ns:OnEnchantUpdate()
 end
 
 function ns:OnTotemUpdate()
+    if ns.ScanTotemActivity then ns:ScanTotemActivity() end
+
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
     RunScan(function()

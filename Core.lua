@@ -16,12 +16,14 @@ local SCAN_INTERVAL = 0.25
 local scanTimer = 0
 coreFrame:SetScript("OnUpdate", function(self, elapsed)
     if not ns.db or not ns.db.global.enabled then return end
-    local bars = ns.allBars
-    if not bars or #bars == 0 then self:Hide(); return end
     scanTimer = scanTimer + elapsed
     if scanTimer >= SCAN_INTERVAL then
         scanTimer = 0
-        if ns.ScanAllBars then
+        -- Activity tracker: detect cooldown expiry (lightweight — only tracked CDs)
+        if ns.CheckCooldownExpiry then ns:CheckCooldownExpiry() end
+        -- Bar engine scan (skip if no bars configured)
+        local bars = ns.allBars
+        if bars and #bars > 0 and ns.ScanAllBars then
             ns:ScanAllBars()
         end
     end
@@ -93,8 +95,8 @@ end
 -- Called once at ADDON_LOADED. Sets up the DB, options panel, frames, and
 -- minimap. Does NOT register gameplay events — that is OnEnable's job.
 function ns:OnInitialize()
-    -- Session stats are in-memory only; they reset on every login/reload.
-    ns.sessionStats = {}
+    -- Activity tracker session data (in-memory, resets each login/reload)
+    ns.activitySession = {}
     ns.sessionStartTime = time()
 
     ns:InitDB()
@@ -115,6 +117,7 @@ function ns:OnEnable()
     ns:EnableEvents()
     -- Re-show the scan timer (it hides itself when no bars exist)
     coreFrame:Show()
+    if ns.StartActivityTracking then ns:StartActivityTracking() end
     for _, frame in pairs(ns.groupFrames or {}) do
         if frame and frame.Show then frame:Show() end
     end
@@ -123,6 +126,7 @@ end
 -- Called whenever the addon should go quiet: from /bw disable and
 -- PLAYER_LOGOUT. Idempotent.
 function ns:OnDisable()
+    if ns.StopActivityTracking then ns:StopActivityTracking() end
     ns:DisableEvents()
     for _, frame in pairs(ns.groupFrames or {}) do
         if frame and frame.Hide then frame:Hide() end
@@ -302,24 +306,27 @@ SLASH_COMMANDS.bugreport = function()
 end
 
 SLASH_COMMANDS.stats = function()
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Statistics:|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Activity:|r")
     local sessionDuration = time() - (ns.sessionStartTime or time())
     DEFAULT_CHAT_FRAME:AddMessage(string.format("  Session duration: %dm %ds",
         math.floor(sessionDuration / 60), sessionDuration % 60))
     local hasStats = false
-    local allKeys = {}
-    for key in pairs(ns.sessionStats or {}) do allKeys[key] = true end
-    for key in pairs(ns.db and ns.db.stats or {}) do allKeys[key] = true end
+    local allKeys = ns.GetAllActivityKeys and ns:GetAllActivityKeys() or {}
     for key in pairs(allKeys) do
         hasStats = true
-        local session = ns.sessionStats and ns.sessionStats[key] or { activations = 0, uptime = 0 }
-        local allTime = ns.db and ns.db.stats and ns.db.stats[key] or { activations = 0, uptime = 0 }
+        local name, _, category = ns:GetActivityMeta(key)
+        local session = ns.activitySession and ns.activitySession[key]
+        local persistent = ns.db and ns.db.activity and ns.db.activity[key]
+        local sAct = session and session.activations or 0
+        local sUp  = session and session.uptime or 0
+        local pAct = persistent and persistent.activations or 0
+        local pUp  = persistent and persistent.uptime or 0
         DEFAULT_CHAT_FRAME:AddMessage(string.format(
-            "  %s: %d activations / %.0fs uptime (session) | %d / %.0fs (all-time)",
-            key, session.activations, session.uptime, allTime.activations, allTime.uptime))
+            "  [%s] %s: %d / %.0fs (session) | %d / %.0fs (all-time)",
+            category or "?", name or key, sAct, sUp, pAct, pUp))
     end
     if not hasStats then
-        DEFAULT_CHAT_FRAME:AddMessage("  No statistics recorded yet.")
+        DEFAULT_CHAT_FRAME:AddMessage("  No activity recorded yet. Cast some spells!")
     end
 end
 
