@@ -21,7 +21,21 @@ ns.BAR_STATE = BAR_STATE
 -- ----------------------------------------------------------------------------
 
 local TEXT_THROTTLE = 0.1  -- text updates 10x/sec (10 Hz)
-local GCD_THRESHOLD = 1.5  -- ignore GCD triggers
+
+-- Valid values for visual.textFormat (see Options_Visuals schema):
+--   "NAME_DURATION"  name on left, countdown on right (default)
+--   "DURATION"       countdown only
+--   "NAME_ONLY"      name only, no countdown
+--   "NAME_STACKS"    name + stack count
+--   "STACKS"         stack count only
+--   "NONE"           no text at all
+--
+-- Valid values for visual.durationStyle:
+--   "DECIMAL"   12.3           (default)
+--   "SECONDS"   12
+--   "MINSEC"    1:05
+--   "SHORT"     1m 5s
+--   "AUTO"      H:MM:SS / M:SS / X.X depending on magnitude
 
 -- ----------------------------------------------------------------------------
 -- Active bars registry
@@ -122,6 +136,64 @@ glowTimerFrame:SetScript("OnUpdate", function(self, elapsed)
     if not anyActive then self:Hide() end
 end)
 
+-- Public: check whether a bar is currently running a glow-on-ready animation.
+-- Used by RefreshAllBars (Core.lua) to avoid hiding a glowing bar early.
+function ns:IsBarGlowing(bar)
+    return activeGlows[bar] ~= nil
+end
+
+-- Public: cancel any active glow on a bar. Called during teardown so bars
+-- released to the pool don't keep flashing via stale activeGlows references.
+function ns:CancelBarGlow(bar)
+    activeGlows[bar] = nil
+end
+
+-- ----------------------------------------------------------------------------
+-- FormatDuration: pure function mapping (seconds, style) → display string.
+-- Extracted from Bar_OnUpdate to reduce nesting and isolate text logic.
+-- ----------------------------------------------------------------------------
+
+local function FormatDuration(remaining, style)
+    if style == "SECONDS" then
+        return string.format("%d", remaining)
+    elseif style == "MINSEC" then
+        local m = math.floor(remaining / 60)
+        local s = math.floor(remaining - m * 60)
+        return m > 0 and string.format("%d:%02d", m, s) or string.format("%d", s)
+    elseif style == "SHORT" then
+        local m = math.floor(remaining / 60)
+        local s = math.floor(remaining - m * 60)
+        return m > 0 and string.format("%dm %ds", m, s) or string.format("%ds", s)
+    elseif style == "AUTO" then
+        if remaining >= 3600 then
+            local h = math.floor(remaining / 3600)
+            local m = math.floor((remaining - h * 3600) / 60)
+            return string.format("%d:%02d:%02d", h, m, math.floor(remaining - h * 3600 - m * 60))
+        elseif remaining >= 60 then
+            local m = math.floor(remaining / 60)
+            local s = math.floor(remaining - m * 60)
+            return string.format("%d:%02d", m, s)
+        end
+        return string.format("%.1f", remaining)
+    end
+    -- DECIMAL (default)
+    return string.format("%.1f", remaining)
+end
+
+-- UpdateBarText: throttled text formatting, called from Bar_OnUpdate.
+local function UpdateBarText(bar, remaining, visual)
+    if not bar.timeText or not bar.timeText:IsShown() then return end
+
+    local textFormat = visual.textFormat or "NAME_DURATION"
+
+    if textFormat == "NAME_STACKS" or textFormat == "STACKS" then
+        local stacks = bar.stacks or 0
+        bar.timeText:SetText(stacks > 0 and tostring(stacks) or "")
+    elseif textFormat ~= "NAME_ONLY" then
+        bar.timeText:SetText(FormatDuration(remaining, visual.durationStyle or "DECIMAL"))
+    end
+end
+
 -- ----------------------------------------------------------------------------
 -- Bar_OnUpdate: Smooth bar fill every frame, throttled text at 10 Hz
 -- ----------------------------------------------------------------------------
@@ -145,7 +217,6 @@ local function Bar_OnUpdate(self, elapsed)
         local display = self.barData and self.barData.display or {}
         local lingerTime = display.lingerTime or 0
         if lingerTime > 0 then
-            -- Transition to lingering
             self.barState = BAR_STATE.LINGERING
             self.lingerRemaining = lingerTime
             self:SetValue(0)
@@ -158,6 +229,10 @@ local function Bar_OnUpdate(self, elapsed)
         return
     end
 
+    -- Hoist display + visual once for all per-frame work below
+    local display = self.barData and self.barData.display or {}
+    local visual = ns:GetVisual()
+
     -- Every frame: smooth bar movement
     local duration = self.duration or 1
     local progress = remaining / duration
@@ -167,8 +242,6 @@ local function Bar_OnUpdate(self, elapsed)
     self:SetValue(progress)
 
     -- Colour-by-time: override bar colour based on remaining seconds
-    local display = self.barData and self.barData.display or {}
-    local visual = ns:GetVisual()
     local cbtr, cbtg, cbtb = ns.GetTimeBasedColor(remaining, display, visual)
     if cbtr then
         self:SetStatusBarColor(cbtr, cbtg, cbtb)
@@ -177,8 +250,6 @@ local function Bar_OnUpdate(self, elapsed)
     -- Spark position: manual calculation.
     -- GetStatusBarTexture():RIGHT does not track the fill edge in WoW 3.3.5a —
     -- the texture anchor reflects the full region, not the clipped fill width.
-    -- Multiplying barWidth * progress gives the correct pixel offset every frame,
-    -- and correctly follows mid-flight duration reductions (haste, talents, etc.).
     if self.sparkFrame and self.sparkFrame:IsShown() then
         local barWidth = self:GetWidth()
         if barWidth and barWidth > 0 then
@@ -188,72 +259,21 @@ local function Bar_OnUpdate(self, elapsed)
     end
 
     -- Sparkle alert: flash the bar when timer is below threshold
-    if display and display.sparkleAlert then
+    if display.sparkleAlert then
         local threshold = display.sparkleThreshold or 5
         if remaining <= threshold then
-            -- Pulse between 0.3 and 1.0 alpha using a sine wave (~3 Hz)
             local pulse = 0.65 + 0.35 * math.sin(now * 6 * math.pi)
             self:SetAlpha(pulse)
         else
-            -- Restore normal active alpha when above threshold
-            local visual = ns:GetVisual()
             self:SetAlpha(visual.activeAlpha or 1.0)
         end
     end
 
-    -- Throttled: expensive text formatting (10 Hz)
+    -- Throttled: text formatting (10 Hz)
     self.textElapsed = (self.textElapsed or 0) + elapsed
     if self.textElapsed >= TEXT_THROTTLE then
         self.textElapsed = 0
-        local visual = ns:GetVisual()
-        local textFormat = visual.textFormat or "NAME_DURATION"
-
-        if textFormat == "NAME_STACKS" or textFormat == "STACKS" then
-            if self.timeText and self.timeText:IsShown() then
-                local stacks = self.stacks or 0
-                self.timeText:SetText(stacks > 0 and tostring(stacks) or "")
-            end
-        elseif textFormat ~= "NAME_ONLY" then
-            -- NAME_DURATION, DURATION, or anything else: show countdown
-            if self.timeText and self.timeText:IsShown() then
-                local style = visual.durationStyle or "DECIMAL"
-                local text
-                if style == "SECONDS" then
-                    text = string.format("%d", remaining)
-                elseif style == "MINSEC" then
-                    local m = math.floor(remaining / 60)
-                    local s = math.floor(remaining - m * 60)
-                    if m > 0 then
-                        text = string.format("%d:%02d", m, s)
-                    else
-                        text = string.format("%d", s)
-                    end
-                elseif style == "SHORT" then
-                    local m = math.floor(remaining / 60)
-                    local s = math.floor(remaining - m * 60)
-                    if m > 0 then
-                        text = string.format("%dm %ds", m, s)
-                    else
-                        text = string.format("%ds", s)
-                    end
-                elseif style == "AUTO" then
-                    if remaining >= 3600 then
-                        local h = math.floor(remaining / 3600)
-                        local m = math.floor((remaining - h * 3600) / 60)
-                        text = string.format("%d:%02d:%02d", h, m, math.floor(remaining - h * 3600 - m * 60))
-                    elseif remaining >= 60 then
-                        local m = math.floor(remaining / 60)
-                        local s = math.floor(remaining - m * 60)
-                        text = string.format("%d:%02d", m, s)
-                    else
-                        text = string.format("%.1f", remaining)
-                    end
-                else -- DECIMAL (default)
-                    text = string.format("%.1f", remaining)
-                end
-                self.timeText:SetText(text)
-            end
-        end
+        UpdateBarText(self, remaining, visual)
     end
 end
 
@@ -386,7 +406,7 @@ end
 -- DeactivateBar: Stop tracking and handle cleanup
 -- ----------------------------------------------------------------------------
 
-function ns:DeactivateBar(bar)
+function ns:DeactivateBar(bar, skipGlow)
     if not bar then return end
 
     -- Record uptime for statistics before clearing state
@@ -402,9 +422,10 @@ function ns:DeactivateBar(bar)
     bar:SetScript("OnUpdate", nil)
 
     -- Glow on ready: if enabled, flash the bar briefly to signal the spell is ready.
-    -- Uses a standalone timer frame so it works even if the bar would normally be hidden.
+    -- skipGlow is true during teardown/rebuild so internal lifecycle events don't
+    -- trigger glow animations as if a cooldown had just expired.
     local glowDisplay = bar.barData and bar.barData.display
-    if glowDisplay and glowDisplay.glowOnReady then
+    if not skipGlow and glowDisplay and glowDisplay.glowOnReady then
         activeGlows[bar] = GetTime()
         bar:SetAlpha(1.0)
         bar:Show()
@@ -432,9 +453,14 @@ function ns:DeactivateBar(bar)
         bar.timeText:SetText("")
     end
 
-    -- Apply inactive alpha or hide if hideWhenInactive is set
+    -- Apply inactive alpha or hide if hideWhenInactive is set.
+    -- If a glow-on-ready animation just started, defer the hide until the
+    -- glow finishes — the glow timer already checks hideWhenInactive on
+    -- expiry and hides + relayouts at that point. Hiding now would cause
+    -- the layout to reposition other bars, then the glow timer's per-frame
+    -- Show() would force this bar visible at a stale position, overlapping.
     local cond = bar.barData and bar.barData.conditions
-    if cond and cond.hideWhenInactive then
+    if cond and cond.hideWhenInactive and not activeGlows[bar] then
         bar:Hide()
     else
         local visual = ns:GetVisual()
@@ -477,7 +503,7 @@ end
 
 function ns:DeactivateAllBars()
     for bar in pairs(activeBars) do
-        ns:DeactivateBar(bar)
+        ns:DeactivateBar(bar, true)  -- skipGlow: addon disable, not gameplay expiry
     end
 end
 
@@ -505,7 +531,7 @@ function ns:DeactivateTestMode()
     local bars = ns:GetAllBars()
     for _, bar in ipairs(bars) do
         if bar.isTestBar then
-            ns:DeactivateBar(bar)
+            ns:DeactivateBar(bar, true)  -- skipGlow: test bars aren't real cooldowns
             bar.isTestBar = nil
         end
     end
@@ -569,6 +595,7 @@ end
 local function ScanBar(bar, unitFilter)
     -- Don't overwrite test mode bars with real scan data
     if ns.testMode and bar.isTestBar then return end
+
     local bd = bar.barData
     if not bd or bd.enabled == false then return end
 
@@ -576,8 +603,7 @@ local function ScanBar(bar, unitFilter)
     if unitFilter then
         local mode = bd.trackMode
         if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
-            local defaultUnit = (mode == "Debuff") and "target" or "player"
-            local barUnit = bd.unit or defaultUnit
+            local barUnit = bd.unit or ((mode == "Debuff") and "target" or "player")
             if barUnit ~= unitFilter then return end
         end
     end
@@ -587,35 +613,36 @@ local function ScanBar(bar, unitFilter)
         HideBarForConditions(bar)
         return
     end
+
     EnsureBarVisible(bar)
 
     -- Dispatch to canonical tracker (Trackers.lua)
     local isActive, remaining, duration, icon, name = ns:CheckTracker(bd)
 
+    -- Tracker reports active: activate or update the bar
     if isActive and remaining and remaining > 0 then
         local expirationTime = GetTime() + remaining
-        -- Use 0.05s tolerance to suppress redundant ActivateBar calls from server jitter,
-        -- but always sync icon and name so spell changes take effect immediately.
+        -- 0.05s tolerance suppresses redundant ActivateBar calls from server jitter
         if bar.barState ~= BAR_STATE.ACTIVE
            or math.abs((bar.expirationTime or 0) - expirationTime) > 0.05 then
             ns:ActivateBar(bar, expirationTime, duration or remaining)
         end
-        if bar.iconTexture and icon then
-            bar.iconTexture:SetTexture(icon)
-        end
-        if bar.nameText then
-            bar.nameText:SetText(ns.GetBarDisplayName(bar.barData))
-        end
-    elseif bar.barState == BAR_STATE.ACTIVE then
-        local lingerTime = (bd.display and bd.display.lingerTime) or 0
-        if lingerTime > 0 then
-            bar.barState = BAR_STATE.LINGERING
-            bar.lingerRemaining = lingerTime
-            bar:SetValue(0)
-            if bar.timeText then bar.timeText:SetText("0.0") end
-        else
-            ns:DeactivateBar(bar)
-        end
+        if bar.iconTexture and icon then bar.iconTexture:SetTexture(icon) end
+        if bar.nameText then bar.nameText:SetText(ns.GetBarDisplayName(bd)) end
+        return
+    end
+
+    -- Tracker reports inactive: deactivate (with optional linger)
+    if bar.barState ~= BAR_STATE.ACTIVE then return end
+
+    local lingerTime = (bd.display and bd.display.lingerTime) or 0
+    if lingerTime > 0 then
+        bar.barState = BAR_STATE.LINGERING
+        bar.lingerRemaining = lingerTime
+        bar:SetValue(0)
+        if bar.timeText then bar.timeText:SetText("0.0") end
+    else
+        ns:DeactivateBar(bar)
     end
 end
 

@@ -136,6 +136,10 @@ local function CreateBarsTab(parent)
     -- Group buttons
     local addGroupBtn = ns:CreateButton(leftPanel, "Add", 54, function()
         local frames = BarWardenDB.frames
+        if #frames >= (ns.MAX_FRAMES or 20) then
+            ns:Print("Maximum of " .. (ns.MAX_FRAMES or 20) .. " groups reached.")
+            return
+        end
         local group = NewGroup("Group " .. (#frames + 1))
         table.insert(frames, group)
         selectedGroupIndex = #frames
@@ -146,7 +150,7 @@ local function CreateBarsTab(parent)
     addGroupBtn:SetPoint("TOPLEFT", groupScrollFrame, "BOTTOMLEFT", 0, -4)
 
     local deleteGroupBtn = ns:CreateButton(leftPanel, "Delete", 54, function()
-        if not selectedGroupIndex then return end
+        if not selectedGroupIndex then ns:Print("Select a group first."); return end
         local frames = BarWardenDB.frames
         local g = frames[selectedGroupIndex]
         if not g then return end
@@ -168,7 +172,7 @@ local function CreateBarsTab(parent)
     deleteGroupBtn:SetPoint("LEFT", addGroupBtn, "RIGHT", 2, 0)
 
     local dupeGroupBtn = ns:CreateButton(leftPanel, "Dupe", 54, function()
-        if not selectedGroupIndex then return end
+        if not selectedGroupIndex then ns:Print("Select a group first."); return end
         local frames = BarWardenDB.frames
         local g = frames[selectedGroupIndex]
         if not g then return end
@@ -195,102 +199,94 @@ local function CreateBarsTab(parent)
     groupSettingsContent:SetHeight(450)
     groupSettingsScroll:SetScrollChild(groupSettingsContent)
 
-    -- Group name edit
-    local groupNameEdit = ns:CreateEditBox(groupSettingsContent, "Group Name", 155, function(self, text)
-        if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
-            BarWardenDB.frames[selectedGroupIndex].name = text
-            local gf = ns.groupFrames[selectedGroupIndex]
-            if gf and gf.titleText then gf.titleText:SetText(text) end
-            frame:Refresh()
-        end
-    end)
-    groupNameEdit:SetPoint("TOPLEFT", groupSettingsContent, "TOPLEFT", 0, 0)
+    -- Group-settings schema: declarative via BuildSettings.
+    -- All entries use get/set escape hatches because the target is the
+    -- currently selected group (selectedGroupIndex), not a fixed DB path.
 
-    local showGroupNameCB = ns:CreateCheckbox(groupSettingsContent, "Show Bar Name",
-        "Show or hide the group name on the bar frame.",
-        function(self, checked)
-            if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
-                BarWardenDB.frames[selectedGroupIndex].showTitle = checked and true or false
-                local gf = ns.groupFrames[selectedGroupIndex]
-                if gf and gf.titleText then
-                    if checked then
-                        gf.titleText:Show()
-                    else
-                        gf.titleText:Hide()
-                    end
-                end
-            end
-        end)
-    showGroupNameCB:SetPoint("TOPLEFT", groupNameEdit, "BOTTOMLEFT", -6, -4)
+    local function getGroup()
+        return selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex]
+    end
 
-    -- Group width slider
-    local groupWidthSlider = ns:CreateSlider(groupSettingsContent, "Width", 50, 400, 5, function(self, value)
-        if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
-            BarWardenDB.frames[selectedGroupIndex].width = value
-            local gf = ns.groupFrames[selectedGroupIndex]
-            if gf then ns:UpdateGroupLayout(gf) end
-        end
-    end)
-    groupWidthSlider:SetPoint("TOPLEFT", showGroupNameCB, "BOTTOMLEFT", 10, -12)
-    groupWidthSlider:SetWidth(160)
-
-    -- Group scale slider
-    local groupScaleSlider = ns:CreateSlider(groupSettingsContent, "Scale", 0.5, 2.0, 0.1, function(self, value)
-        if selectedGroupIndex then
-            ns:SetFrameScale(selectedGroupIndex, value)
-            if BarWardenDB.frames[selectedGroupIndex] then
-                BarWardenDB.frames[selectedGroupIndex].scale = value
-            end
-        end
-    end)
-    groupScaleSlider:SetPoint("TOPLEFT", groupWidthSlider, "BOTTOMLEFT", 0, -16)
-    groupScaleSlider:SetWidth(160)
-
-    -- Group columns slider (1-4)
-    local groupColumnsSlider = ns:CreateSlider(groupSettingsContent, "Columns", 1, 4, 1, function(self, value)
-        if selectedGroupIndex then
-            ns:SetGroupColumns(selectedGroupIndex, value)
-        end
-    end,
-    "Number of columns the bars in this group are arranged into. "
- .. "1 = vertical stack (default); 2-4 splits the bars across that "
- .. "many columns side by side. Useful when tracking many bars in a "
- .. "compact footprint.")
-    groupColumnsSlider:SetPoint("TOPLEFT", groupScaleSlider, "BOTTOMLEFT", 0, -16)
-    groupColumnsSlider:SetWidth(160)
-
-    -- Group background opacity slider
-    local groupBgAlphaSlider = ns:CreateSlider(groupSettingsContent, "Background Opacity", 0, 1, 0.05, function(self, value)
-        if selectedGroupIndex then
-            ns:SetGroupBgAlpha(selectedGroupIndex, value)
-        end
-    end)
-    groupBgAlphaSlider:SetPoint("TOPLEFT", groupColumnsSlider, "BOTTOMLEFT", 0, -16)
-    groupBgAlphaSlider:SetWidth(160)
-
-    -- Group border opacity slider
-    local groupBorderAlphaSlider = ns:CreateSlider(groupSettingsContent, "Border Opacity", 0, 1, 0.05, function(self, value)
-        if selectedGroupIndex then
-            ns:SetGroupBorderAlpha(selectedGroupIndex, value)
-        end
-    end)
-    groupBorderAlphaSlider:SetPoint("TOPLEFT", groupBgAlphaSlider, "BOTTOMLEFT", 0, -16)
-    groupBorderAlphaSlider:SetWidth(160)
-
-    -- Sort mode dropdown
     local sortModeItems = {
         { text = "Manual",         value = "manual" },
         { text = "Remaining Time", value = "remaining" },
         { text = "Alphabetical",   value = "alpha" },
     }
-    local sortModeDD = ns:CreateDropdown(groupSettingsContent, "Sort Mode", sortModeItems, function(dd, value)
-        if selectedGroupIndex and BarWardenDB.frames[selectedGroupIndex] then
-            BarWardenDB.frames[selectedGroupIndex].sortMode = value
-            local gf = ns.groupFrames[selectedGroupIndex]
-            if gf then ns:UpdateGroupLayout(gf) end
-        end
-    end)
-    sortModeDD:SetPoint("TOPLEFT", groupBorderAlphaSlider, "BOTTOMLEFT", -16, -20)
+
+    local GROUP_SETTINGS_SCHEMA = {
+        { type = "editbox", label = "Group Name", width = 155,
+          get = function() local g = getGroup(); return g and g.name or "" end,
+          set = function(_, text)
+              local g = getGroup(); if not g then return end
+              g.name = text
+              local gf = ns.groupFrames[selectedGroupIndex]
+              if gf and gf.titleText then gf.titleText:SetText(text) end
+              frame:Refresh()
+          end },
+        { type = "toggle", label = "Show Bar Name",
+          tooltip = "Show or hide the group name on the bar frame.",
+          get = function() local g = getGroup(); return g and g.showTitle ~= false end,
+          set = function(_, checked)
+              local g = getGroup(); if not g then return end
+              g.showTitle = checked and true or false
+              local gf = ns.groupFrames[selectedGroupIndex]
+              if gf and gf.titleText then
+                  if checked then gf.titleText:Show() else gf.titleText:Hide() end
+              end
+          end,
+          offsetX = -6, spacing = 4 },
+        { type = "slider", label = "Width", min = 50, max = 400, step = 5, width = 160,
+          get = function() local g = getGroup(); return g and g.width or 200 end,
+          set = function(_, value)
+              local g = getGroup(); if not g then return end
+              g.width = value
+              local gf = ns.groupFrames[selectedGroupIndex]
+              if gf then ns:UpdateGroupLayout(gf) end
+          end,
+          offsetX = 10, spacing = 12 },
+        { type = "slider", label = "Scale", min = 0.5, max = 2.0, step = 0.1, width = 160,
+          get = function() local g = getGroup(); return g and g.scale or 1.0 end,
+          set = function(_, value)
+              if not selectedGroupIndex then return end
+              ns:SetFrameScale(selectedGroupIndex, value)
+              local g = getGroup(); if g then g.scale = value end
+          end,
+          spacing = 16 },
+        { type = "slider", label = "Columns", min = 1, max = 4, step = 1, width = 160,
+          tooltip = "Number of columns the bars in this group are arranged into. "
+               .. "1 = vertical stack (default); 2-4 splits the bars across that "
+               .. "many columns side by side. Useful when tracking many bars in a "
+               .. "compact footprint.",
+          get = function() local g = getGroup(); return g and g.columns or 1 end,
+          set = function(_, value)
+              if selectedGroupIndex then ns:SetGroupColumns(selectedGroupIndex, value) end
+          end,
+          spacing = 16 },
+        { type = "slider", label = "Background Opacity", min = 0, max = 1, step = 0.05, width = 160,
+          get = function() local g = getGroup(); return g and (g.bgAlpha ~= nil and g.bgAlpha or 0.6) end,
+          set = function(_, value)
+              if selectedGroupIndex then ns:SetGroupBgAlpha(selectedGroupIndex, value) end
+          end,
+          spacing = 16 },
+        { type = "slider", label = "Border Opacity", min = 0, max = 1, step = 0.05, width = 160,
+          get = function() local g = getGroup(); return g and (g.borderAlpha ~= nil and g.borderAlpha or 0.8) end,
+          set = function(_, value)
+              if selectedGroupIndex then ns:SetGroupBorderAlpha(selectedGroupIndex, value) end
+          end,
+          spacing = 16 },
+        { type = "dropdown", label = "Sort Mode", items = sortModeItems,
+          get = function() local g = getGroup(); return g and g.sortMode or "manual" end,
+          set = function(_, value)
+              local g = getGroup(); if not g then return end
+              g.sortMode = value
+              local gf = ns.groupFrames[selectedGroupIndex]
+              if gf then ns:UpdateGroupLayout(gf) end
+          end,
+          offsetX = -16, spacing = 20 },
+    }
+
+    local refreshGroupSettings = ns:BuildSettings(groupSettingsContent, GROUP_SETTINGS_SCHEMA, nil,
+        { firstX = 0, firstY = 0 })
 
     -- ========================================================================
     -- RIGHT PANEL: Bar List + Bar Editor
@@ -359,9 +355,14 @@ local function CreateBarsTab(parent)
 
     -- Bar list buttons ("Bar" is implicit from the section header above).
     local addBarBtn = ns:CreateButton(rightPanel, "Add", 50, function()
-        if not selectedGroupIndex then return end
+        if not selectedGroupIndex then ns:Print("Select a group first."); return end
         local g = BarWardenDB.frames[selectedGroupIndex]
         if not g then return end
+        local maxBars = ns.MAX_BARS_PER_FRAME or 30
+        if #g.bars >= maxBars then
+            ns:Print("Maximum of " .. maxBars .. " bars per group reached.")
+            return
+        end
         local bar = NewBar("Bar " .. (#g.bars + 1))
         table.insert(g.bars, bar)
         selectedBarIndex = #g.bars
@@ -371,7 +372,7 @@ local function CreateBarsTab(parent)
     addBarBtn:SetPoint("TOPLEFT", barScrollFrame, "BOTTOMLEFT", 0, -4)
 
     local deleteBarBtn = ns:CreateButton(rightPanel, "Delete", 50, function()
-        if not selectedGroupIndex or not selectedBarIndex then return end
+        if not selectedGroupIndex or not selectedBarIndex then ns:Print("Select a bar first."); return end
         local g = BarWardenDB.frames[selectedGroupIndex]
         if not g then return end
         local bar = g.bars[selectedBarIndex]
@@ -393,7 +394,7 @@ local function CreateBarsTab(parent)
     deleteBarBtn:SetPoint("LEFT", addBarBtn, "RIGHT", 2, 0)
 
     local moveUpBtn = ns:CreateButton(rightPanel, "Up", 40, function()
-        if not selectedGroupIndex or not selectedBarIndex then return end
+        if not selectedGroupIndex or not selectedBarIndex then ns:Print("Select a bar first."); return end
         local bars = BarWardenDB.frames[selectedGroupIndex].bars
         if selectedBarIndex <= 1 then return end
         bars[selectedBarIndex], bars[selectedBarIndex - 1] = bars[selectedBarIndex - 1], bars[selectedBarIndex]
@@ -404,7 +405,7 @@ local function CreateBarsTab(parent)
     moveUpBtn:SetPoint("LEFT", deleteBarBtn, "RIGHT", 2, 0)
 
     local moveDownBtn = ns:CreateButton(rightPanel, "Down", 40, function()
-        if not selectedGroupIndex or not selectedBarIndex then return end
+        if not selectedGroupIndex or not selectedBarIndex then ns:Print("Select a bar first."); return end
         local bars = BarWardenDB.frames[selectedGroupIndex].bars
         if selectedBarIndex >= #bars then return end
         bars[selectedBarIndex], bars[selectedBarIndex + 1] = bars[selectedBarIndex + 1], bars[selectedBarIndex]
@@ -940,27 +941,7 @@ local function CreateBarsTab(parent)
     end
 
     local function UpdateGroupName()
-        if selectedGroupIndex and BarWardenDB and BarWardenDB.frames[selectedGroupIndex] then
-            local g = BarWardenDB.frames[selectedGroupIndex]
-            groupNameEdit:SetText(g.name or "")
-            groupNameEdit:Show()
-            showGroupNameCB:SetChecked(g.showTitle ~= false)
-            groupWidthSlider:SetValue(g.width or 200)
-            groupScaleSlider:SetValue(g.scale or 1.0)
-            groupColumnsSlider:SetValue(g.columns or 1)
-            groupBgAlphaSlider:SetValue(g.bgAlpha ~= nil and g.bgAlpha or 0.6)
-            groupBorderAlphaSlider:SetValue(g.borderAlpha ~= nil and g.borderAlpha or 0.8)
-            local sm = g.sortMode or "manual"
-            for i, item in ipairs(sortModeItems) do
-                if item.value == sm then
-                    UIDropDownMenu_SetSelectedID(sortModeDD, i)
-                    UIDropDownMenu_SetText(sortModeDD, item.text)
-                    break
-                end
-            end
-        else
-            groupNameEdit:SetText("")
-        end
+        refreshGroupSettings()
     end
 
     function frame:Refresh()

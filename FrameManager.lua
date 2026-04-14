@@ -8,6 +8,10 @@ ns.groupFrames = {}  -- [frameIndex] = WoW frame object
 
 local MAX_FRAMES = 20
 local MAX_BARS_PER_FRAME = 30
+
+-- Expose limits so the options UI can enforce them at the Add button level
+ns.MAX_FRAMES = MAX_FRAMES
+ns.MAX_BARS_PER_FRAME = MAX_BARS_PER_FRAME
 local MIN_SCALE = 0.5
 local MAX_SCALE = 2.0
 
@@ -327,10 +331,13 @@ local function DestroyGroupFrame(frameIndex)
     if not frame then return end
 
     -- Deactivate then release all bars back to pool.
-    -- DeactivateBar must come first to clear activeBars[] and remove OnUpdate.
+    -- skipGlow=true prevents glow-on-ready from firing during teardown.
+    -- CancelBarGlow clears any pre-existing glow so the pool doesn't
+    -- recycle a bar that the glow timer is still animating.
     if frame.bars then
         for i = #frame.bars, 1, -1 do
-            ns:DeactivateBar(frame.bars[i])
+            ns:DeactivateBar(frame.bars[i], true)
+            ns:CancelBarGlow(frame.bars[i])
             ns:ReleaseBar(frame.bars[i])
             frame.bars[i] = nil
         end

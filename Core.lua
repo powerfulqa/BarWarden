@@ -11,10 +11,13 @@ local coreFrame = CreateFrame("Frame", "BarWardenCoreFrame", UIParent)
 
 -- Periodic scan: reliable fallback for cooldowns already active on login/reload
 -- or when game events are missed (e.g. returning from AFK, zoning).
+-- Idles (self:Hide()) when no bars are configured to save CPU.
 local SCAN_INTERVAL = 0.25
 local scanTimer = 0
 coreFrame:SetScript("OnUpdate", function(self, elapsed)
     if not ns.db or not ns.db.global.enabled then return end
+    local bars = ns.allBars
+    if not bars or #bars == 0 then self:Hide(); return end
     scanTimer = scanTimer + elapsed
     if scanTimer >= SCAN_INTERVAL then
         scanTimer = 0
@@ -49,7 +52,7 @@ function ns:RefreshAllBars()
                     bar:Show()
                 else
                     local cond = bar.barData and bar.barData.conditions
-                    if cond and cond.hideWhenInactive then
+                    if cond and cond.hideWhenInactive and not ns:IsBarGlowing(bar) then
                         bar:Hide()
                     else
                         bar:Show()
@@ -66,6 +69,8 @@ end
 
 function ns:ApplySettings()
     ns:RefreshAllBars()
+    -- Restart the scan timer in case it idled due to an empty bar cache
+    coreFrame:Show()
     if ns.UpdateMinimapButtonVisibility then
         ns:UpdateMinimapButtonVisibility()
     end
@@ -108,6 +113,8 @@ end
 -- globally enabled, on PLAYER_LOGIN, and from /bw enable. Idempotent.
 function ns:OnEnable()
     ns:EnableEvents()
+    -- Re-show the scan timer (it hides itself when no bars exist)
+    coreFrame:Show()
     for _, frame in pairs(ns.groupFrames or {}) do
         if frame and frame.Show then frame:Show() end
     end
@@ -173,161 +180,189 @@ function ns:SetEnabled(enabled)
     end
 end
 
--- /bw and /barwarden
+-- /bw and /barwarden — dispatch table replaces the long if/elseif chain.
+local SLASH_COMMANDS = {}
+
+SLASH_COMMANDS.help = function()
+    ns:Print("BarWarden v" .. ns.version .. " commands:")
+    local lines = {
+        "  /bw             Open configuration panel",
+        "  /bw enable      Enable the addon",
+        "  /bw disable     Disable the addon",
+        "  /bw lock        Toggle frame lock",
+        "  /bw reset       Reset all frame positions",
+        "  /bw debug       Dump addon state to chat",
+        "  /bw scan        Live-test spell/item lookups for all bars",
+        "  /bw trackers    Show live tracker state for all bars",
+        "  /bw stats       Show bar activation and uptime statistics",
+        "  /bw bugreport   Open copyable diagnostic report",
+        "  /bw test        Toggle test mode (fake 30s timers)",
+        "  /bw help        Show this message",
+    }
+    for _, line in ipairs(lines) do
+        DEFAULT_CHAT_FRAME:AddMessage(line, 1, 1, 1)
+    end
+end
+
+SLASH_COMMANDS.debug = function()
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Debug:|r")
+    DEFAULT_CHAT_FRAME:AddMessage("  DB loaded: " .. tostring(ns.db ~= nil))
+    DEFAULT_CHAT_FRAME:AddMessage("  Enabled: " .. tostring(ns.db and ns.db.global.enabled))
+    DEFAULT_CHAT_FRAME:AddMessage("  ShowAll: " .. tostring(ns.db and ns.db.global.showAll))
+    DEFAULT_CHAT_FRAME:AddMessage("  Schema version: " .. tostring(ns.db and ns.db.schemaVersion or "nil"))
+    DEFAULT_CHAT_FRAME:AddMessage("  Bars in cache: " .. tostring(#(ns.allBars or {})))
+    local gCount = 0
+    for _ in pairs(ns.groupFrames or {}) do gCount = gCount + 1 end
+    DEFAULT_CHAT_FRAME:AddMessage("  Group frames: " .. gCount)
+    for i, bar in ipairs(ns.allBars or {}) do
+        local bd = bar.barData
+        if bd then
+            DEFAULT_CHAT_FRAME:AddMessage(string.format("  Bar %d: mode=%s spell=%s state=%s",
+                i, tostring(bd.trackMode), tostring(bd.spellName or bd.spellId or bd.itemId or "nil"),
+                tostring(bar.barState)))
+        end
+    end
+end
+
+SLASH_COMMANDS.scan = function()
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Scan:|r")
+    local bars = ns.allBars or {}
+    if #bars == 0 then
+        DEFAULT_CHAT_FRAME:AddMessage("  No bars in cache. Try /reload then /bw scan.")
+        return
+    end
+    for i, bar in ipairs(bars) do
+        local bd = bar.barData
+        if not bd then
+            DEFAULT_CHAT_FRAME:AddMessage(string.format("  Bar %d: no barData", i))
+        else
+            local spellInput = bd.spellId or bd.spellName or bd.spellInput or bd.spell
+            local mode = bd.trackMode or "?"
+            if mode == "Cooldown" then
+                local resolvedId = nil
+                local siName = nil
+                if spellInput then
+                    siName, _, _, _, _, _, resolvedId = GetSpellInfo(spellInput)
+                end
+                local cdInput = (resolvedId and resolvedId ~= 0) and resolvedId or spellInput
+                local cdStart, cdDur, cdEnabled = nil, nil, nil
+                if cdInput then
+                    cdStart, cdDur, cdEnabled = GetSpellCooldown(cdInput)
+                end
+                DEFAULT_CHAT_FRAME:AddMessage(string.format(
+                    "  Bar %d [CD] input=%s siName=%s id=%s cdInput=%s | start=%.1f dur=%.1f en=%s",
+                    i, tostring(spellInput), tostring(siName), tostring(resolvedId), tostring(cdInput),
+                    cdStart or 0, cdDur or 0, tostring(cdEnabled)))
+            elseif mode == "Item" then
+                local itemId = bd.itemId or spellInput
+                local cdStart, cdDur, cdEnabled = nil, nil, nil
+                if itemId then
+                    cdStart, cdDur, cdEnabled = GetItemCooldown(itemId)
+                end
+                DEFAULT_CHAT_FRAME:AddMessage(string.format(
+                    "  Bar %d [Item] id=%s | start=%.1f dur=%.1f en=%s",
+                    i, tostring(itemId), cdStart or 0, cdDur or 0, tostring(cdEnabled)))
+            else
+                DEFAULT_CHAT_FRAME:AddMessage(string.format(
+                    "  Bar %d [%s] spell=%s", i, mode, tostring(spellInput)))
+            end
+        end
+    end
+end
+
+SLASH_COMMANDS.trackers = function()
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Trackers:|r")
+    local bars = ns.allBars or {}
+    if #bars == 0 then
+        DEFAULT_CHAT_FRAME:AddMessage("  No bars in cache. Try /reload then /bw trackers.")
+        return
+    end
+    for i, bar in ipairs(bars) do
+        local bd = bar.barData
+        if bd then
+            local isActive, remaining, duration = ns:CheckTracker(bd)
+            DEFAULT_CHAT_FRAME:AddMessage(string.format(
+                "  Bar %d [%s] %s | active=%s remaining=%.1f duration=%.1f",
+                i,
+                tostring(bd.trackMode or "?"),
+                tostring(bd.spellName or bd.spellId or bd.itemId or "?"),
+                tostring(isActive),
+                remaining or 0,
+                duration or 0))
+        end
+    end
+end
+
+SLASH_COMMANDS.bugreport = function()
+    if ns.ShowBugReport then
+        ns:ShowBugReport()
+    else
+        ns:Print("Bug report module not loaded.")
+    end
+end
+
+SLASH_COMMANDS.stats = function()
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Statistics:|r")
+    local sessionDuration = time() - (ns.sessionStartTime or time())
+    DEFAULT_CHAT_FRAME:AddMessage(string.format("  Session duration: %dm %ds",
+        math.floor(sessionDuration / 60), sessionDuration % 60))
+    local hasStats = false
+    local allKeys = {}
+    for key in pairs(ns.sessionStats or {}) do allKeys[key] = true end
+    for key in pairs(ns.db and ns.db.stats or {}) do allKeys[key] = true end
+    for key in pairs(allKeys) do
+        hasStats = true
+        local session = ns.sessionStats and ns.sessionStats[key] or { activations = 0, uptime = 0 }
+        local allTime = ns.db and ns.db.stats and ns.db.stats[key] or { activations = 0, uptime = 0 }
+        DEFAULT_CHAT_FRAME:AddMessage(string.format(
+            "  %s: %d activations / %.0fs uptime (session) | %d / %.0fs (all-time)",
+            key, session.activations, session.uptime, allTime.activations, allTime.uptime))
+    end
+    if not hasStats then
+        DEFAULT_CHAT_FRAME:AddMessage("  No statistics recorded yet.")
+    end
+end
+
+SLASH_COMMANDS.enable = function()
+    ns:SetEnabled(true)
+    ns:Print("Addon enabled.")
+end
+
+SLASH_COMMANDS.disable = function()
+    ns:SetEnabled(false)
+    ns:Print("Addon disabled.")
+end
+
+SLASH_COMMANDS.lock = function()
+    if ns.db and ns.db.global.locked then
+        ns.db.global.locked = false
+        ns:UnlockAllFrames()
+        ns:Print("Frames unlocked.")
+    else
+        if ns.db then ns.db.global.locked = true end
+        ns:LockAllFrames()
+        ns:Print("Frames locked.")
+    end
+end
+
+SLASH_COMMANDS.reset = function()
+    ns:RebuildAllFrames()
+    ns:Print("Frame positions reset.")
+end
+
+SLASH_COMMANDS.test = function()
+    if ns.testMode then
+        ns:DeactivateTestMode()
+    else
+        ns:ActivateTestMode()
+    end
+end
+
 local function SlashHandler(msg)
     local cmd = strtrim(msg):lower()
-
-    if cmd == "help" then
-        ns:Print("BarWarden v" .. ns.version .. " commands:")
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw             Open configuration panel", 1, 1, 1)
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw enable      Enable the addon", 1, 1, 1)
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw disable     Disable the addon", 1, 1, 1)
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw lock        Toggle frame lock", 1, 1, 1)
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw reset       Reset all frame positions", 1, 1, 1)
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw debug       Dump addon state to chat", 1, 1, 1)
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw scan        Live-test spell/item lookups for all bars", 1, 1, 1)
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw trackers    Show live tracker state for all bars", 1, 1, 1)
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw stats       Show bar activation and uptime statistics", 1, 1, 1)
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw bugreport   Open copyable diagnostic report", 1, 1, 1)
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw test        Toggle test mode (fake 30s timers)", 1, 1, 1)
-        DEFAULT_CHAT_FRAME:AddMessage("  /bw help        Show this message", 1, 1, 1)
-    elseif cmd == "debug" then
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Debug:|r")
-        DEFAULT_CHAT_FRAME:AddMessage("  DB loaded: " .. tostring(ns.db ~= nil))
-        DEFAULT_CHAT_FRAME:AddMessage("  Enabled: " .. tostring(ns.db and ns.db.global.enabled))
-        DEFAULT_CHAT_FRAME:AddMessage("  ShowAll: " .. tostring(ns.db and ns.db.global.showAll))
-        DEFAULT_CHAT_FRAME:AddMessage("  Schema version: " .. tostring(ns.db and ns.db.schemaVersion or "nil"))
-        DEFAULT_CHAT_FRAME:AddMessage("  Bars in cache: " .. tostring(#(ns.allBars or {})))
-        local gCount = 0
-        for _ in pairs(ns.groupFrames or {}) do gCount = gCount + 1 end
-        DEFAULT_CHAT_FRAME:AddMessage("  Group frames: " .. gCount)
-        for i, bar in ipairs(ns.allBars or {}) do
-            local bd = bar.barData
-            if bd then
-                DEFAULT_CHAT_FRAME:AddMessage(string.format("  Bar %d: mode=%s spell=%s state=%s",
-                    i, tostring(bd.trackMode), tostring(bd.spellName or bd.spellId or bd.itemId or "nil"),
-                    tostring(bar.barState)))
-            end
-        end
-    elseif cmd == "scan" then
-        -- Live diagnostic: test GetSpellInfo and GetSpellCooldown for each bar
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Scan:|r")
-        local bars = ns.allBars or {}
-        if #bars == 0 then
-            DEFAULT_CHAT_FRAME:AddMessage("  No bars in cache. Try /reload then /bw scan.")
-            return
-        end
-        for i, bar in ipairs(bars) do
-            local bd = bar.barData
-            if not bd then
-                DEFAULT_CHAT_FRAME:AddMessage(string.format("  Bar %d: no barData", i))
-            else
-                local spellInput = bd.spellId or bd.spellName or bd.spellInput or bd.spell
-                local mode = bd.trackMode or "?"
-                if mode == "Cooldown" then
-                    local resolvedId = nil
-                    local siName = nil
-                    if spellInput then
-                        siName, _, _, _, _, _, resolvedId = GetSpellInfo(spellInput)
-                    end
-                    -- Mirror ResolveSpell: treat id=0 as invalid, fall back to name string
-                    local cdInput = (resolvedId and resolvedId ~= 0) and resolvedId or spellInput
-                    local cdStart, cdDur, cdEnabled = nil, nil, nil
-                    if cdInput then
-                        cdStart, cdDur, cdEnabled = GetSpellCooldown(cdInput)
-                    end
-                    DEFAULT_CHAT_FRAME:AddMessage(string.format(
-                        "  Bar %d [CD] input=%s siName=%s id=%s cdInput=%s | start=%.1f dur=%.1f en=%s",
-                        i, tostring(spellInput), tostring(siName), tostring(resolvedId), tostring(cdInput),
-                        cdStart or 0, cdDur or 0, tostring(cdEnabled)))
-                elseif mode == "Item" then
-                    local itemId = bd.itemId or spellInput
-                    local cdStart, cdDur, cdEnabled = nil, nil, nil
-                    if itemId then
-                        cdStart, cdDur, cdEnabled = GetItemCooldown(itemId)
-                    end
-                    DEFAULT_CHAT_FRAME:AddMessage(string.format(
-                        "  Bar %d [Item] id=%s | start=%.1f dur=%.1f en=%s",
-                        i, tostring(itemId), cdStart or 0, cdDur or 0, tostring(cdEnabled)))
-                else
-                    DEFAULT_CHAT_FRAME:AddMessage(string.format(
-                        "  Bar %d [%s] spell=%s", i, mode, tostring(spellInput)))
-                end
-            end
-        end
-    elseif cmd == "trackers" then
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Trackers:|r")
-        local bars = ns.allBars or {}
-        if #bars == 0 then
-            DEFAULT_CHAT_FRAME:AddMessage("  No bars in cache. Try /reload then /bw trackers.")
-            return
-        end
-        for i, bar in ipairs(bars) do
-            local bd = bar.barData
-            if bd then
-                local isActive, remaining, duration = ns:CheckTracker(bd)
-                DEFAULT_CHAT_FRAME:AddMessage(string.format(
-                    "  Bar %d [%s] %s | active=%s remaining=%.1f duration=%.1f",
-                    i,
-                    tostring(bd.trackMode or "?"),
-                    tostring(bd.spellName or bd.spellId or bd.itemId or "?"),
-                    tostring(isActive),
-                    remaining or 0,
-                    duration or 0))
-            end
-        end
-    elseif cmd == "bugreport" then
-        if ns.ShowBugReport then
-            ns:ShowBugReport()
-        else
-            ns:Print("Bug report module not loaded.")
-        end
-    elseif cmd == "stats" then
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Statistics:|r")
-        local sessionDuration = time() - (ns.sessionStartTime or time())
-        DEFAULT_CHAT_FRAME:AddMessage(string.format("  Session duration: %dm %ds",
-            math.floor(sessionDuration / 60), sessionDuration % 60))
-        local hasStats = false
-        -- Merge keys from both session and persistent stats
-        local allKeys = {}
-        for key in pairs(ns.sessionStats or {}) do allKeys[key] = true end
-        for key in pairs(ns.db and ns.db.stats or {}) do allKeys[key] = true end
-        for key in pairs(allKeys) do
-            hasStats = true
-            local session = ns.sessionStats and ns.sessionStats[key] or { activations = 0, uptime = 0 }
-            local allTime = ns.db and ns.db.stats and ns.db.stats[key] or { activations = 0, uptime = 0 }
-            DEFAULT_CHAT_FRAME:AddMessage(string.format(
-                "  %s: %d activations / %.0fs uptime (session) | %d / %.0fs (all-time)",
-                key, session.activations, session.uptime, allTime.activations, allTime.uptime))
-        end
-        if not hasStats then
-            DEFAULT_CHAT_FRAME:AddMessage("  No statistics recorded yet.")
-        end
-    elseif cmd == "enable" then
-        ns:SetEnabled(true)
-        ns:Print("Addon enabled.")
-    elseif cmd == "disable" then
-        ns:SetEnabled(false)
-        ns:Print("Addon disabled.")
-    elseif cmd == "lock" then
-        if ns.db and ns.db.global.locked then
-            ns.db.global.locked = false
-            ns:UnlockAllFrames()
-            ns:Print("Frames unlocked.")
-        else
-            if ns.db then ns.db.global.locked = true end
-            ns:LockAllFrames()
-            ns:Print("Frames locked.")
-        end
-    elseif cmd == "reset" then
-        ns:RebuildAllFrames()
-        ns:Print("Frame positions reset.")
-    elseif cmd == "test" then
-        if ns.testMode then
-            ns:DeactivateTestMode()
-        else
-            ns:ActivateTestMode()
-        end
+    local handler = SLASH_COMMANDS[cmd]
+    if handler then
+        handler()
     else
         -- Open the config panel. The double-call is a 3.3.5a quirk:
         -- the first call only scrolls to the category, the second opens it.

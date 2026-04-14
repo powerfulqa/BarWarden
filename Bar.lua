@@ -175,149 +175,83 @@ function ns:CreateBarFrame(parent)
     return bar
 end
 
--- Apply all current visual settings to `bar`. Safe to call repeatedly;
--- always reads from ns:GetVisual() and the bar's own display overrides.
-function ns:ApplyVisualConfig(bar, config)
-    if not bar then return end
+-- ----------------------------------------------------------------------------
+-- ApplyVisualConfig helpers — split by concern for readability.
+-- Each helper receives the bar, the display-override table, the global
+-- visual table, and the resolved style/dimension values it needs.
+-- ----------------------------------------------------------------------------
 
-    local visual = ns:GetVisual()
-    local display = config or (bar.barData and bar.barData.display) or {}
-
-    -- Resolve style
-    local style = display.style or "Full"
-
-    -- Determine dimensions from visual defaults
-    local barWidth  = visual.barWidth or 200
-    local barHeight = visual.barHeight or 20
-    local iconSize  = visual.iconSize or 20
-    local fontSize  = visual.fontSize or 11
-    -- Style overrides
-    if style == "Compact" then
-        barHeight = math.max(barHeight * 0.6, 8)
-        iconSize  = barHeight
-        fontSize  = math.max(fontSize - 2, 7)
-    elseif style == "ComboPoint" then
-        barHeight = math.max(barHeight * 0.5, 6)
-        iconSize  = 0
-        fontSize  = 0
-    end
-
-    -- Resolve texture
-    local textureName = display.textureOverride or visual.texture or "Flat"
-    if textureName == "Custom" and visual.customTexture and visual.customTexture ~= "" then
-        textureName = visual.customTexture
-    end
-    local texturePath = ResolveTexture(textureName)
-    bar:SetStatusBarTexture(texturePath)
-
-    local r, g, b = GetBarColor(bar, config)
-    bar:SetStatusBarColor(r, g, b)
-
-    if bar.background then
-        local barAlpha = display.barAlpha or 0.6
-        bar.background:SetVertexColor(0, 0, 0, barAlpha)
-    end
-
-    if bar.border then
-        bar.border:SetVertexColor(0, 0, 0, 0.8)
-    end
-
-    -- Per-bar display.showIcon is authoritative; fall back to the global
-    -- visual.showIcon only when the per-bar value is nil.
-    local showIcon
-    if display.showIcon ~= nil then
-        showIcon = display.showIcon
-    else
-        showIcon = visual.showIcon ~= false
-    end
-    if style == "ComboPoint" then
-        showIcon = false
-    end
+local function ApplyIconConfig(bar, display, visual, showIcon, iconSize, style)
+    if style == "ComboPoint" then showIcon = false end
 
     local iconOnRight = (visual.iconPosition == "RIGHT")
 
-    if bar.icon then
-        if showIcon and iconSize > 0 then
-            bar.icon:Show()
-            bar.icon:SetWidth(iconSize)
-            bar.icon:SetHeight(iconSize)
-            bar.icon:ClearAllPoints()
-            if iconOnRight then
-                bar.icon:SetPoint("RIGHT", bar, "RIGHT", 0, 0)
-            else
-                bar.icon:SetPoint("LEFT", bar, "LEFT", 0, 0)
-            end
-            -- Resolve + apply the icon for the current spell/item every
-            -- refresh. Without this, changing a bar's Spell Name or ID
-            -- wouldn't update the displayed icon until a state transition
-            -- fired an engine-side SetText.
-            --
-            -- When resolution fails, behaviour depends on whether the user
-            -- has *typed* something:
-            --   - If the bar has an explicit spell/item input that didn't
-            --     resolve (typo, partial spell name): clear the icon as
-            --     soft validation feedback so the user sees their input
-            --     is invalid.
-            --   - If the bar has no explicit input (e.g. Enchant MH/OH
-             --    bars where the icon is derived from the equipped
-            --     weapon by the engine): leave the existing texture in
-            --     place so the engine-set weapon icon isn't blanked.
-            if bar.iconTexture then
-                local barData = bar.barData
-                local hasExplicitInput =
-                    barData and (
-                        (barData.spellName and barData.spellName ~= "") or
-                        barData.spellId or barData.itemId)
-                local icon = ResolveBarIcon(barData)
-                if icon then
-                    bar.iconTexture:SetTexture(icon)
-                elseif hasExplicitInput then
-                    bar.iconTexture:SetTexture(nil)
-                end
-            end
-            -- Icon crop: trim border pixels to prevent stretching
-            if bar.iconTexture then
-                local cropEnabled
-                if display.iconCrop ~= nil then
-                    cropEnabled = display.iconCrop
-                else
-                    cropEnabled = (visual.iconCrop ~= false)
-                end
-                if cropEnabled then
-                    bar.iconTexture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-                else
-                    bar.iconTexture:SetTexCoord(0, 1, 0, 1)
-                end
-            end
+    if not bar.icon then return showIcon, iconOnRight end
+    if not (showIcon and iconSize > 0) then
+        bar.icon:Hide()
+        return false, iconOnRight
+    end
+
+    bar.icon:Show()
+    bar.icon:SetWidth(iconSize)
+    bar.icon:SetHeight(iconSize)
+    bar.icon:ClearAllPoints()
+    if iconOnRight then
+        bar.icon:SetPoint("RIGHT", bar, "RIGHT", 0, 0)
+    else
+        bar.icon:SetPoint("LEFT", bar, "LEFT", 0, 0)
+    end
+
+    -- Resolve + apply the icon texture. When resolution fails, behaviour
+    -- depends on whether the user typed an explicit spell/item input:
+    -- clear on explicit typo, keep engine-set icon (e.g. Enchant) otherwise.
+    if bar.iconTexture then
+        local barData = bar.barData
+        local hasExplicitInput = barData and (
+            (barData.spellName and barData.spellName ~= "") or
+            barData.spellId or barData.itemId)
+        local icon = ResolveBarIcon(barData)
+        if icon then
+            bar.iconTexture:SetTexture(icon)
+        elseif hasExplicitInput then
+            bar.iconTexture:SetTexture(nil)
+        end
+        -- Icon crop: trim border pixels to prevent stretching
+        local cropEnabled
+        if display.iconCrop ~= nil then
+            cropEnabled = display.iconCrop
         else
-            bar.icon:Hide()
+            cropEnabled = (visual.iconCrop ~= false)
+        end
+        if cropEnabled then
+            bar.iconTexture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        else
+            bar.iconTexture:SetTexCoord(0, 1, 0, 1)
         end
     end
 
-    -- Text visibility: per-bar display.showName is the authority (true/false).
-    -- Falls back to global visual.textEnabled only if display.showName is nil.
+    return true, iconOnRight
+end
+
+local function ApplyTextConfig(bar, display, visual, style, fontSize, showIcon, iconSize, iconOnRight)
     local showText
     if display.showName ~= nil then
         showText = display.showName
     else
         showText = visual.textEnabled ~= false
     end
-    if style == "ComboPoint" then
-        showText = false
-    end
+    if style == "ComboPoint" then showText = false end
 
     local textPosition = visual.textPosition or "INSIDE_LEFT"
     local textFormat   = visual.textFormat   or "NAME_DURATION"
     local font         = visual.font         or "Fonts\\FRIZQT__.TTF"
 
-    -- When per-bar showName is on, guarantee valid text settings so the
-    -- bar name is always visible regardless of global config
+    -- Per-bar showName guarantees valid text settings
     if display.showName then
         if fontSize <= 0 then fontSize = 11 end
         if textPosition == "NONE" then textPosition = "INSIDE_LEFT" end
     end
 
-    -- Determine which text elements to show based on format
     local showNameText = showText and fontSize > 0 and textPosition ~= "NONE"
     local showTimeText = showText and fontSize > 0 and textPosition ~= "NONE"
     if textFormat == "NAME_ONLY" then
@@ -329,7 +263,6 @@ function ns:ApplyVisualConfig(bar, config)
         showTimeText = false
     end
 
-    -- Icon offset calculation
     local iconActive      = showIcon and iconSize > 0
     local leftOffset      = (iconActive and not iconOnRight) and (iconSize + 4) or 4
     local rightOffset     = (iconActive and iconOnRight) and -(iconSize + 4) or -4
@@ -344,15 +277,11 @@ function ns:ApplyVisualConfig(bar, config)
                 bar.nameText:SetJustifyH("RIGHT")
                 bar.nameText:SetPoint("LEFT",  bar, "LEFT",  leftOffset + 40, 0)
                 bar.nameText:SetPoint("RIGHT", bar, "RIGHT", rightOffset,     0)
-            else  -- INSIDE_LEFT (default)
+            else
                 bar.nameText:SetJustifyH("LEFT")
                 bar.nameText:SetPoint("LEFT",  bar, "LEFT",  leftOffset,      0)
                 bar.nameText:SetPoint("RIGHT", bar, "RIGHT", nameRightOffset, 0)
             end
-            -- Sync the displayed name to the current barData. Without this,
-            -- editing Bar Name in the options panel wouldn't reflect on the
-            -- live bar until a state transition (re-enable, next tracker
-            -- tick) fired via the engine's SetText sites.
             bar.nameText:SetText(ns.GetBarDisplayName(bar.barData))
         else
             bar.nameText:Hide()
@@ -367,7 +296,7 @@ function ns:ApplyVisualConfig(bar, config)
             if textPosition == "INSIDE_RIGHT" then
                 bar.timeText:SetJustifyH("LEFT")
                 bar.timeText:SetPoint("LEFT", bar, "LEFT", leftOffset, 0)
-            else  -- INSIDE_LEFT (default)
+            else
                 bar.timeText:SetJustifyH("RIGHT")
                 bar.timeText:SetPoint("RIGHT", bar, "RIGHT", rightOffset, 0)
             end
@@ -375,19 +304,63 @@ function ns:ApplyVisualConfig(bar, config)
             bar.timeText:Hide()
         end
     end
+end
 
-    -- Spark visibility and sizing
-    local showSpark = visual.showSpark ~= false
-    if style == "ComboPoint" then
-        showSpark = false
+-- Apply all current visual settings to `bar`. Safe to call repeatedly;
+-- always reads from ns:GetVisual() and the bar's own display overrides.
+function ns:ApplyVisualConfig(bar, config)
+    if not bar then return end
+
+    local visual = ns:GetVisual()
+    local display = config or (bar.barData and bar.barData.display) or {}
+
+    -- Resolve style and dimensions
+    local style    = display.style or "Full"
+    local iconSize = visual.iconSize or 20
+    local fontSize = visual.fontSize or 11
+    if style == "Compact" then
+        local barHeight = visual.barHeight or 20
+        iconSize = math.max(barHeight * 0.6, 8)
+        fontSize = math.max(fontSize - 2, 7)
+    elseif style == "ComboPoint" then
+        iconSize = 0
+        fontSize = 0
     end
 
+    -- Texture and colour
+    local textureName = display.textureOverride or visual.texture or "Flat"
+    if textureName == "Custom" and visual.customTexture and visual.customTexture ~= "" then
+        textureName = visual.customTexture
+    end
+    bar:SetStatusBarTexture(ResolveTexture(textureName))
+
+    local r, g, b = GetBarColor(bar, config)
+    bar:SetStatusBarColor(r, g, b)
+
+    if bar.background then
+        bar.background:SetVertexColor(0, 0, 0, display.barAlpha or 0.6)
+    end
+    if bar.border then
+        bar.border:SetVertexColor(0, 0, 0, 0.8)
+    end
+
+    -- Per-bar display.showIcon is authoritative; fall back to global
+    local showIcon
+    if display.showIcon ~= nil then
+        showIcon = display.showIcon
+    else
+        showIcon = visual.showIcon ~= false
+    end
+
+    -- Delegate to helpers
+    local iconActive, iconOnRight = ApplyIconConfig(bar, display, visual, showIcon, iconSize, style)
+    ApplyTextConfig(bar, display, visual, style, fontSize, iconActive, iconSize, iconOnRight)
+
+    -- Spark
+    local showSpark = visual.showSpark ~= false
+    if style == "ComboPoint" then showSpark = false end
     if bar.sparkFrame then
-        if showSpark then
-            bar.sparkFrame:Show()
-        else
-            bar.sparkFrame:Hide()
-        end
+        if showSpark then bar.sparkFrame:Show() else bar.sparkFrame:Hide() end
     end
 end
 

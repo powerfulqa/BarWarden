@@ -17,6 +17,8 @@ function ns:ReleaseBar(bar)
     bar:Hide()
     bar:SetScript("OnUpdate", nil)
     bar:SetParent(UIParent)
+    -- Cancel any active glow so the glow timer doesn't animate a pooled bar
+    if ns.CancelBarGlow then ns:CancelBarGlow(bar) end
     -- Clear stale state so recycled bars don't carry over old data
     bar.barData = nil
     bar.barIndex = nil

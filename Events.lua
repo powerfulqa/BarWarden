@@ -10,6 +10,7 @@ local eventHandlers = {}
 local throttleTimers = {}
 
 local UNIT_HEALTH_THROTTLE = 0.25 -- 4 Hz max
+local UNIT_AURA_THROTTLE   = 0.1  -- 10 Hz max — prevents bursts from rapid aura churn
 
 local function OnEvent(self, event, ...)
     local handler = eventHandlers[event]
@@ -90,7 +91,7 @@ end
 local GAMEPLAY_EVENTS = {
     { "SPELL_UPDATE_COOLDOWN",     Dispatch("OnSpellCooldownUpdate") },
     { "ACTIONBAR_UPDATE_COOLDOWN", Dispatch("OnSpellCooldownUpdate") },
-    { "UNIT_AURA",                 DispatchUnit("OnUnitAura") },
+    { "UNIT_AURA",                 ThrottledHandler("UNIT_AURA", UNIT_AURA_THROTTLE, DispatchUnit("OnUnitAura")) },
     { "PLAYER_TARGET_CHANGED",     DispatchFixed("OnTargetChanged", "target") },
     { "PLAYER_FOCUS_CHANGED",      DispatchFixed("OnFocusChanged",  "focus") },
     { "PLAYER_REGEN_ENABLED",      OnCombatStateChanged },

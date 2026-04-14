@@ -6,7 +6,8 @@ local addonName, ns = ...
 -- Called exclusively via ns:CheckTracker(barConfig) from BarEngine.lua.
 -- ============================================================================
 
-local GCD_THRESHOLD = 1.5
+local GCD_THRESHOLD = ns.GCD_THRESHOLD
+local MAX_AURA_INDEX = ns.MAX_AURA_INDEX
 
 -- stableExpiry prevents bar jitter from fluctuating server expiration times.
 -- Key: "unit:spellId_or_name". If the server returns a shorter expiration
@@ -31,11 +32,15 @@ local function getUnit(barConfig, default)
     return barConfig.unit or default
 end
 
--- getSpellTokens: split a (possibly comma-separated) spell string into a list.
--- Supports: "Rupture" → {"Rupture"}
---           "Rupture, Garrote" → {"Rupture", "Garrote"}
-local function getSpellTokens(spell)
+-- getSpellTokens: split a (possibly comma-separated) spell string into a
+-- list. Caches the result on the barConfig to avoid re-parsing every scan.
+-- The cache is keyed by the raw spell string so an edit in the options panel
+-- (which writes a new spellName) automatically invalidates it.
+local function getSpellTokens(barConfig, spell)
     if not spell then return nil end
+    if barConfig._tokenCache and barConfig._tokenCacheKey == spell then
+        return barConfig._tokenCache
+    end
     local tokens = {}
     for token in spell:gmatch("([^,]+)") do
         local t = token:match("^%s*(.-)%s*$")  -- trim whitespace
@@ -43,7 +48,10 @@ local function getSpellTokens(spell)
             tokens[#tokens + 1] = t
         end
     end
-    return #tokens > 0 and tokens or nil
+    local result = #tokens > 0 and tokens or nil
+    barConfig._tokenCache = result
+    barConfig._tokenCacheKey = spell
+    return result
 end
 
 -- smoothExpiry: apply stable-expiry smoothing.
@@ -55,6 +63,68 @@ local function smoothExpiry(key, expirationTime)
     end
     stableExpiry[key] = expirationTime
     return expirationTime
+end
+
+-- clearExpiry: remove cached expiry entries for a spell that is no longer
+-- active (prevents stale entries from accumulating).
+local function clearExpiry(unit, numericId, tokens)
+    if numericId then
+        stableExpiry[unit .. ":" .. tostring(numericId)] = nil
+    elseif tokens then
+        for _, token in ipairs(tokens) do
+            stableExpiry[unit .. ":" .. token] = nil
+        end
+    end
+end
+
+-- ----------------------------------------------------------------------------
+-- ScanAuras: shared aura-scan loop for Buff, Debuff, and Proc trackers.
+--
+-- auraFunc:    UnitBuff or UnitDebuff
+-- unit:        unit token to scan
+-- barConfig:   the bar's config table (for token cache + onlyMine)
+-- spell:       the raw spell string from getSpell()
+-- filterMine:  if true, skip auras not cast by "player"
+-- ----------------------------------------------------------------------------
+
+local function ScanAuras(auraFunc, unit, barConfig, spell, filterMine)
+    local numericId = tonumber(spell)
+    local tokens = (not numericId) and getSpellTokens(barConfig, spell) or nil
+
+    for i = 1, MAX_AURA_INDEX do
+        local name, _, icon, count, _, duration, expirationTime, caster, _, _, spellId = auraFunc(unit, i)
+        if not name then break end
+
+        local match = false
+        if numericId then
+            match = (spellId == numericId)
+        elseif tokens then
+            for _, token in ipairs(tokens) do
+                if name == token then match = true; break end
+            end
+        end
+
+        if match then
+            if filterMine and caster ~= "player" then
+                -- Aura matches but wasn't cast by the player; keep scanning
+            else
+                local remaining = 0
+                local maxVal = 0
+                if duration and duration > 0 and expirationTime then
+                    local key = unit .. ":" .. tostring(spellId or name)
+                    local stableExp = smoothExpiry(key, expirationTime)
+                    remaining = stableExp - GetTime()
+                    if remaining < 0 then remaining = 0 end
+                    maxVal = duration
+                end
+                return true, remaining, maxVal, icon, name, count or 0
+            end
+        end
+    end
+
+    -- No match; clear cached expiry entries
+    clearExpiry(unit, numericId, tokens)
+    return false, 0, 0, nil, spell, 0
 end
 
 -- ----------------------------------------------------------------------------
@@ -102,8 +172,7 @@ end
 
 -- ----------------------------------------------------------------------------
 -- Buff Tracker
--- Supports comma-separated spell names and numeric spell IDs.
--- Applies expiration time smoothing to prevent bar jitter.
+-- Delegates to ScanAuras with UnitBuff; defaults to "player".
 -- ----------------------------------------------------------------------------
 
 local function CheckBuff(barConfig)
@@ -112,54 +181,13 @@ local function CheckBuff(barConfig)
     if not spell then
         return false, 0, 0, nil, nil, 0
     end
-
-    -- Parse spell string into tokens (handles "Spell A, Spell B")
-    local numericId = tonumber(spell)
-    local tokens = (not numericId) and getSpellTokens(spell) or nil
-
-    for i = 1, 40 do
-        local name, _, icon, count, _, duration, expirationTime, _, _, _, spellId = UnitBuff(unit, i)
-        if not name then break end
-
-        local match = false
-        if numericId then
-            match = (spellId == numericId)
-        elseif tokens then
-            for _, token in ipairs(tokens) do
-                if name == token then match = true; break end
-            end
-        end
-
-        if match then
-            local remaining = 0
-            local maxVal = 0
-            if duration and duration > 0 and expirationTime then
-                local key = unit .. ":" .. tostring(spellId or name)
-                local stableExp = smoothExpiry(key, expirationTime)
-                remaining = stableExp - GetTime()
-                if remaining < 0 then remaining = 0 end
-                maxVal = duration
-            end
-            return true, remaining, maxVal, icon, name, count or 0
-        end
-    end
-
-    -- No match found; clear any cached expiry for this bar's tracked name
-    if numericId then
-        stableExpiry[unit .. ":" .. tostring(numericId)] = nil
-    elseif tokens then
-        for _, token in ipairs(tokens) do
-            stableExpiry[unit .. ":" .. token] = nil
-        end
-    end
-
-    return false, 0, 0, nil, spell, 0
+    return ScanAuras(UnitBuff, unit, barConfig, spell, false)
 end
 
 -- ----------------------------------------------------------------------------
 -- Debuff Tracker
--- Supports comma-separated spell names, numeric spell IDs, and onlyMine filter.
--- Applies expiration time smoothing.
+-- Delegates to ScanAuras with UnitDebuff; defaults to "target".
+-- onlyMine defaults to true so only the player's debuffs are matched.
 -- ----------------------------------------------------------------------------
 
 local function CheckDebuff(barConfig)
@@ -168,54 +196,9 @@ local function CheckDebuff(barConfig)
     if not spell then
         return false, 0, 0, nil, nil, 0
     end
-
     local onlyMine = barConfig.onlyMine
     if onlyMine == nil then onlyMine = true end
-
-    local numericId = tonumber(spell)
-    local tokens = (not numericId) and getSpellTokens(spell) or nil
-
-    for i = 1, 40 do
-        local name, _, icon, count, _, duration, expirationTime, caster, _, _, spellId = UnitDebuff(unit, i)
-        if not name then break end
-
-        local match = false
-        if numericId then
-            match = (spellId == numericId)
-        elseif tokens then
-            for _, token in ipairs(tokens) do
-                if name == token then match = true; break end
-            end
-        end
-
-        if match then
-            if onlyMine and caster ~= "player" then
-                -- This aura matches but wasn't cast by the player; keep scanning
-            else
-                local remaining = 0
-                local maxVal = 0
-                if duration and duration > 0 and expirationTime then
-                    local key = unit .. ":" .. tostring(spellId or name)
-                    local stableExp = smoothExpiry(key, expirationTime)
-                    remaining = stableExp - GetTime()
-                    if remaining < 0 then remaining = 0 end
-                    maxVal = duration
-                end
-                return true, remaining, maxVal, icon, name, count or 0
-            end
-        end
-    end
-
-    -- No match; clear cached expiry
-    if numericId then
-        stableExpiry[unit .. ":" .. tostring(numericId)] = nil
-    elseif tokens then
-        for _, token in ipairs(tokens) do
-            stableExpiry[unit .. ":" .. token] = nil
-        end
-    end
-
-    return false, 0, 0, nil, spell, 0
+    return ScanAuras(UnitDebuff, unit, barConfig, spell, onlyMine)
 end
 
 -- ----------------------------------------------------------------------------

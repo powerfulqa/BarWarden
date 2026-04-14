@@ -248,6 +248,9 @@ function ns:MoveBarDown(frameIndex, barIndex)
     local frameData = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex]
     if not frameData or not frameData.bars then return end
     if barIndex >= #frameData.bars then return end
+    -- toIndex is barIndex + 2 because SwapBars removes the bar first (shifting
+    -- indices down by one) then inserts at (toIndex - 1). The net effect is a
+    -- swap with the bar immediately below: remove@barIndex → insert@(barIndex+1).
     SwapBars(frameIndex, barIndex, barIndex + 2)
 end
 
