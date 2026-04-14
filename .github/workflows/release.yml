@@ -29,7 +29,7 @@ jobs:
         run: |
           mkdir -p build/BarWarden
           # Copy only addon files, exclude git/github/dev files
-          rsync -av --exclude='.git' --exclude='.github' --exclude='.gitignore' --exclude='.claude*' --exclude='NeedToKnow' --exclude='RoguePowerBars' --exclude='*.md' . build/BarWarden/
+          rsync -av --exclude='.git' --exclude='.github' --exclude='.gitignore' --exclude='.claude*' --exclude='docs' --exclude='build' --exclude='logs' --exclude='NeedToKnow' --exclude='RoguePowerBars' --exclude='*.md' . build/BarWarden/
           # Include README inside the zip for reference
           cp README.md build/BarWarden/
           cd build
