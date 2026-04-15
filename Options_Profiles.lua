@@ -345,6 +345,50 @@ local function CreateProfilesTab(parent)
     end)
     resetBtn:SetPoint("TOPLEFT", loadBtn, "BOTTOMLEFT", 0, -12)
 
+    -- ========================================================================
+    -- Class Starter buttons: Load (replace) + Add (append). Both consult
+    -- ClassPresets.lua and show a confirm dialog with a preset summary.
+    -- ========================================================================
+    local starterBtn = ns:CreateButton(frame, "Load Class Starter", 160, function()
+        local className, classToken = UnitClass("player")
+        if not classToken or not (ns.ClassPresets and ns.ClassPresets[classToken]) then
+            ns:Print("No starter profile available for your class.")
+            return
+        end
+        local summary = ns.GetClassPresetSummary and ns:GetClassPresetSummary(classToken) or ""
+        StaticPopup_Show("BARWARDEN_CONFIRM_STARTER", className or classToken, summary, {
+            onAccept = function()
+                if ns.LoadClassStarter then
+                    ns:LoadClassStarter(classToken)
+                    selectedProfileName = nil
+                    frame:RefreshList()
+                end
+            end,
+        })
+    end)
+    starterBtn:SetPoint("LEFT", resetBtn, "RIGHT", 4, 0)
+
+    local appendBtn = ns:CreateButton(frame, "Add Class Starter", 160, function()
+        local className, classToken = UnitClass("player")
+        if not classToken or not (ns.ClassPresets and ns.ClassPresets[classToken]) then
+            ns:Print("No starter profile available for your class.")
+            return
+        end
+        local summary = ns.GetClassPresetSummary and ns:GetClassPresetSummary(classToken) or ""
+        StaticPopup_Show("BARWARDEN_CONFIRM_STARTER_APPEND", className or classToken, summary, {
+            onAccept = function()
+                if ns.AppendClassStarter then
+                    ns:AppendClassStarter(classToken)
+                    selectedProfileName = nil
+                    frame:RefreshList()
+                end
+            end,
+        })
+    end)
+    -- Place Add on a new row below Load Class Starter so the combined button
+    -- width doesn't spill off the right edge of the Profiles tab.
+    appendBtn:SetPoint("TOPLEFT", starterBtn, "BOTTOMLEFT", 0, -4)
+
     -- Initial refresh when shown
     frame:SetScript("OnShow", function(self)
         self:RefreshList()

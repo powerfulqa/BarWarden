@@ -9,7 +9,7 @@ local addonName, ns = ...
 -- ============================================================================
 
 local SCHEMA = {
-    -- Enable toggle: stateful — calls ns:SetEnabled and conditionally
+    -- Enable toggle: stateful, calls ns:SetEnabled and conditionally
     -- ns:RebuildAllFrames, so it uses the get/set escape hatch instead
     -- of a DBSet path.
     {
@@ -26,7 +26,7 @@ local SCHEMA = {
         end,
     },
 
-    -- Lock toggle: also stateful — two-branch Lock/UnlockAllFrames side
+    -- Lock toggle: also stateful, two-branch Lock/UnlockAllFrames side
     -- effect, so it stays as a closure rather than a DBSet path.
     {
         type    = "toggle",
@@ -43,7 +43,7 @@ local SCHEMA = {
         end,
     },
 
-    -- Minimap toggle: simple DBSet — strict validation catches typos at load.
+    -- Minimap toggle: simple DBSet; strict validation catches typos at load.
     {
         type    = "toggle",
         label   = "Show Minimap Icon",

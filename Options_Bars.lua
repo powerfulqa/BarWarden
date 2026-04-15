@@ -4,7 +4,13 @@ local addonName, ns = ...
 -- Options_Bars.lua - Tab 2: Bars / Groups configuration
 -- ============================================================================
 
-local TRACK_MODES = { "Cooldown", "Buff", "Debuff", "Proc", "Item", "Enchant MH", "Enchant OH", "Totem" }
+local TRACK_MODES = {
+    "Cooldown", "Buff", "Debuff", "Proc",
+    "Item", "Enchant MH", "Enchant OH", "Totem",
+    -- Class resources (Combo Points/Runic Power/Soul Shards are event-driven;
+    -- Runes is time-based with spellId as the slot number 1..6).
+    "Combo Points", "Runes", "Runic Power", "Soul Shards",
+}
 local TARGET_UNITS = { "player", "target", "focus", "pet", "mouseover" }
 local GROUP_LIST_HEIGHT = 16
 local BAR_LIST_HEIGHT = 16
@@ -26,6 +32,7 @@ local function NewBar(name)
             combatOnly = false,
             outOfCombatOnly = false,
             requireBuff = nil,
+            requireClass = nil,  -- set by class-starter presets; hides bar for other classes
             healthBelow = nil,
             inGroup = false,
             inRaid = false,
@@ -48,6 +55,8 @@ local function NewBar(name)
             glowOnReady = false,
             -- Icon crop (nil = inherit global)
             iconCrop = nil,
+            -- Per-bar scale multiplier (nil = 1.0 = group default)
+            scaleOverride = nil,
         },
     }
 end
@@ -428,7 +437,8 @@ local function CreateBarsTab(parent)
 
     local ec = CreateFrame("Frame", nil, editorScroll)  -- ec = editor content (scroll child)
     ec:SetWidth(340)   -- initial width; OnShow resizes to match the scroll viewport
-    ec:SetHeight(620)  -- tall enough for the single-column layout (was 500 in a 2-col version)
+    ec:SetHeight(660)  -- tall enough for the single-column layout, including
+                       -- the per-bar Bar Scale slider added in 2026-04-15 polish.
     editorScroll:SetScrollChild(ec)
 
     local editorHeader = ec:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -521,7 +531,7 @@ local function CreateBarsTab(parent)
     end)
     targetDD:SetPoint("TOPLEFT", trackModeDD, "BOTTOMLEFT", 0, -18)
 
-    -- Only Mine checkbox — +16 x offset reverses the dropdown's -16 so
+    -- Only Mine checkbox: +16 x offset reverses the dropdown's -16 so
     -- this aligns with barNameEdit / spellEdit on the left.
     local onlyMineCB = ns:CreateCheckbox(ec, "Only Mine", "Only track auras cast by you", function(self, checked)
         local bar = frame:GetSelectedBar()
@@ -660,6 +670,22 @@ local function CreateBarsTab(parent)
     lingerSlider:SetPoint("TOPLEFT", displayHeader, "BOTTOMLEFT", 4, -24)
     lingerSlider:SetWidth(180)
 
+    -- Per-bar scale override. Writes nil back to the DB when value is 1 so
+    -- the bar stays on "group default" rather than an explicit 1x override.
+    local scaleSlider = ns:CreateSlider(ec, "Bar Scale", 0.5, 2.0, 0.1, function(self, value)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            bar.display.scaleOverride = (value ~= 1.0) and value or nil
+            ns:RefreshBarSettings()
+        end
+    end,
+    "Scale this bar individually. 1.0 is the group default. Values above "
+ .. "1.0 may visually overlap neighbouring bars in multi-column groups; "
+ .. "increase Bar Spacing in the Visuals tab or use a single-column group "
+ .. "to compensate.")
+    scaleSlider:SetPoint("TOPLEFT", lingerSlider, "BOTTOMLEFT", 0, -24)
+    scaleSlider:SetWidth(180)
+
     local showBarNameCB = ns:CreateCheckbox(ec, "Show Bar Name",
         "Display the Bar Name text on this bar.", function(self, checked)
         local bar = frame:GetSelectedBar()
@@ -668,7 +694,7 @@ local function CreateBarsTab(parent)
             ns:RefreshBarSettings()
         end
     end)
-    showBarNameCB:SetPoint("TOPLEFT", lingerSlider, "BOTTOMLEFT", 0, -24)
+    showBarNameCB:SetPoint("TOPLEFT", scaleSlider, "BOTTOMLEFT", 0, -24)
 
     local showBarIconCB = ns:CreateCheckbox(ec, "Show Icon",
         "Display the spell icon on this bar.", function(self, checked)
@@ -914,30 +940,34 @@ local function CreateBarsTab(parent)
         healthEdit:SetText(cond.healthBelow and tostring(cond.healthBelow) or "")
         requireBuffEdit:SetText(cond.requireBuff or "")
 
-        -- Display options
-        lingerSlider:SetValue(bar.display.lingerTime or 0)
-        showBarNameCB:SetChecked(bar.display.showName)
-        showBarIconCB:SetChecked(bar.display.showIcon)
-        barOpacitySlider:SetValue((bar.display.barAlpha or 0.6) * 100)
-        sparkleCB:SetChecked(bar.display.sparkleAlert)
-        sparkleThresholdSlider:SetValue(bar.display.sparkleThreshold or 5)
+        -- Display options. Guard against bar.display being nil; older saved
+        -- bars (pre-display-table) would otherwise silent-error on the first
+        -- field access, crash UpdateBarEditor and leave the panel blank.
+        local display = bar.display or {}
+        lingerSlider:SetValue(display.lingerTime or 0)
+        scaleSlider:SetValue(display.scaleOverride or 1.0)
+        showBarNameCB:SetChecked(display.showName)
+        showBarIconCB:SetChecked(display.showIcon)
+        barOpacitySlider:SetValue((display.barAlpha or 0.6) * 100)
+        sparkleCB:SetChecked(display.sparkleAlert)
+        sparkleThresholdSlider:SetValue(display.sparkleThreshold or 5)
 
-        if bar.display.colorOverride then
-            colorSwatch.color.r = bar.display.colorOverride.r
-            colorSwatch.color.g = bar.display.colorOverride.g
-            colorSwatch.color.b = bar.display.colorOverride.b
-            colorSwatch.swatch:SetTexture(bar.display.colorOverride.r, bar.display.colorOverride.g, bar.display.colorOverride.b, 1)
+        if display.colorOverride then
+            colorSwatch.color.r = display.colorOverride.r
+            colorSwatch.color.g = display.colorOverride.g
+            colorSwatch.color.b = display.colorOverride.b
+            colorSwatch.swatch:SetTexture(display.colorOverride.r, display.colorOverride.g, display.colorOverride.b, 1)
         else
             colorSwatch.swatch:SetTexture(1, 1, 1, 1)
         end
 
         -- New feature controls
-        colorByTimeCB:SetChecked(bar.display.colorByTime)
-        cbtHighSlider:SetValue(bar.display.colorHighSeconds or 10)
-        cbtMedSlider:SetValue(bar.display.colorMedSeconds or 5)
-        glowOnReadyCB:SetChecked(bar.display.glowOnReady)
-        glowDurationSlider:SetValue(bar.display.glowDuration or 3)
-        cropIconCB:SetChecked(bar.display.iconCrop)
+        colorByTimeCB:SetChecked(display.colorByTime)
+        cbtHighSlider:SetValue(display.colorHighSeconds or 10)
+        cbtMedSlider:SetValue(display.colorMedSeconds or 5)
+        glowOnReadyCB:SetChecked(display.glowOnReady)
+        glowDurationSlider:SetValue(display.glowDuration or 3)
+        cropIconCB:SetChecked(display.iconCrop)
     end
 
     local function UpdateGroupName()

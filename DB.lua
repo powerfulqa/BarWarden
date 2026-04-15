@@ -45,6 +45,11 @@ ns.DEFAULTS = {
             ["Enchant MH"] = { r = 0.2, g = 0.8, b = 0.6 },
             ["Enchant OH"] = { r = 0.2, g = 0.8, b = 0.6 },
             Totem    = { r = 0.8, g = 0.4, b = 0.2 },
+            -- Class resources
+            ["Combo Points"] = { r = 1.0, g = 0.6, b = 0.2 },
+            ["Runic Power"]  = { r = 0.4, g = 0.2, b = 0.8 },
+            ["Soul Shards"]  = { r = 0.8, g = 0.2, b = 0.8 },
+            ["Runes"]        = { r = 0.7, g = 0.2, b = 0.2 },
         },
         activeAlpha = 1.0,
         inactiveAlpha = 0.3,
@@ -53,6 +58,8 @@ ns.DEFAULTS = {
         showSpark = true,
         -- Icon crop
         iconCrop = true,
+        -- Radial cooldown spiral overlay on bar icons (TellMeWhen-style)
+        showCooldownSpiral = true,
     },
 
     -- Frames (groups of bars)
@@ -84,6 +91,7 @@ ns.DEFAULTS = {
                         combatOnly = false,
                         outOfCombatOnly = false,
                         requireBuff = nil,
+                        requireClass = nil,  -- "DEATHKNIGHT", "ROGUE", ... (hides bar for other classes)
                         healthBelow = nil,
                         inGroup = false,
                         inRaid = false,
@@ -104,7 +112,7 @@ ns.DEFAULTS = {
 
 -- One-time migration to canonicalise legacy field names. Runs only when
 -- BarWardenDB.schemaVersion is absent or below CURRENT_SCHEMA. Only writes
--- to nil keys — never overwrites existing user data.
+-- to nil keys; never overwrites existing user data.
 local CURRENT_SCHEMA = 4
 
 local function MigrateDB()
@@ -188,7 +196,7 @@ function ns:InitDB()
         BarWardenDB = ns:CopyTable(ns.DEFAULTS)
     else
         -- Merge only config tables (global, visual) so new settings added in
-        -- future versions are picked up.  Do NOT merge into "frames" — that is
+        -- future versions are picked up.  Do NOT merge into "frames": that is
         -- user data (an array) and MergeDefaults would corrupt it by injecting
         -- the sample-frame defaults into the user's first group/bar.
         if type(BarWardenDB.global) ~= "table" then
@@ -243,7 +251,7 @@ function ns:InitDB()
 
     -- One-time migration: move any per-character profiles into the account store.
     -- Check with next() because an empty table {} is truthy in Lua but has nothing
-    -- to migrate — we still clear the key so it isn't re-checked every login.
+    -- to migrate, so we still clear the key so it isn't re-checked every login.
     if type(BarWardenDB.profiles) == "table" then
         for name, profile in pairs(BarWardenDB.profiles) do
             if not BarWardenAccountDB.profiles[name] then

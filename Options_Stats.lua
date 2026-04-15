@@ -59,15 +59,23 @@ local function FormatUptime(seconds)
 end
 
 -- ============================================================================
--- Helper: build a filtered + sorted list of activity keys
+-- Helper: build a filtered + sorted list of activity keys.
+-- `searchText` is an optional substring filter applied to the spell name
+-- (case-insensitive). Pass nil or empty to disable the text filter.
 -- ============================================================================
-local function GetFilteredKeys(categoryFilter)
+local function GetFilteredKeys(categoryFilter, searchText)
     local allKeys = ns.GetAllActivityKeys and ns:GetAllActivityKeys() or {}
     local result = {}
+    local needle = (searchText and searchText ~= "") and searchText:lower() or nil
 
     for key in pairs(allKeys) do
-        local _, _, category = ns:GetActivityMeta(key)
-        if categoryFilter == "All" or category == categoryFilter then
+        local name, _, category = ns:GetActivityMeta(key)
+        local categoryMatch = (categoryFilter == "All" or category == categoryFilter)
+        local searchMatch = true
+        if needle then
+            searchMatch = name and name:lower():find(needle, 1, true) ~= nil
+        end
+        if categoryMatch and searchMatch then
             result[#result + 1] = key
         end
     end
@@ -101,6 +109,7 @@ local function CreateStatsTab(parent)
     local selectedFilter = "All"
     local selectedGroupIdx = 1
     local filteredKeys = {}
+    local searchText = ""
 
     -- Title
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -119,6 +128,17 @@ local function CreateStatsTab(parent)
     -- Category filter dropdown (positioned with reset buttons at the bottom)
     local filterDD = ns:CreateDropdown(frame, "", CATEGORY_FILTERS, function(dd, value)
         selectedFilter = value
+        selectedKey = nil
+        frame:RefreshList()
+    end)
+
+    -- Search filter: live substring match on spell name. Uses OnTextChanged
+    -- (not the default CreateEditBox commit-on-exit) so the list filters as
+    -- the user types.
+    local searchEdit = ns:CreateEditBox(frame, "Search", 120, nil,
+        "Filter the list by a substring of the spell name. Case-insensitive.")
+    searchEdit:HookScript("OnTextChanged", function(self)
+        searchText = self:GetText() or ""
         selectedKey = nil
         frame:RefreshList()
     end)
@@ -340,7 +360,7 @@ local function CreateStatsTab(parent)
     end)
     createBarBtn:SetPoint("TOPLEFT", listFrame, "BOTTOMLEFT", 0, -8)
 
-    -- Group picker dropdown (no label — sits next to Create Bar button)
+    -- Group picker dropdown (no label; sits next to Create Bar button)
     local groupItems = {}
     groupDD = ns:CreateDropdown(frame, "", groupItems, function() end)
     groupDD:SetPoint("LEFT", createBarBtn, "RIGHT", -4, -2)
@@ -385,8 +405,10 @@ local function CreateStatsTab(parent)
     end)
     resetSessionBtn:SetPoint("TOPLEFT", createBarBtn, "BOTTOMLEFT", 0, -8)
 
-    -- Position the filter dropdown on the same row as the reset buttons
+    -- Position the filter dropdown on the same row as the reset buttons,
+    -- with the search field to its right for compact filtering.
     filterDD:SetPoint("LEFT", resetSessionBtn, "RIGHT", 99, -3)
+    searchEdit:SetPoint("LEFT", filterDD, "RIGHT", 30, 3)
 
     local resetAllBtn = ns:CreateButton(frame, "Reset All", 100, function()
         StaticPopup_Show("BARWARDEN_CONFIRM_STATS_RESET", nil, nil, {
@@ -408,7 +430,7 @@ local function CreateStatsTab(parent)
     -- Refresh
     -- ========================================================================
     function frame:RefreshList()
-        filteredKeys = GetFilteredKeys(selectedFilter)
+        filteredKeys = GetFilteredKeys(selectedFilter, searchText)
         local offset = FauxScrollFrame_GetOffset(scrollFrame)
         FauxScrollFrame_Update(scrollFrame, #filteredKeys, MAX_STAT_ROWS, STAT_ROW_HEIGHT)
 

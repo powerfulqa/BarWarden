@@ -248,7 +248,7 @@ local function Bar_OnUpdate(self, elapsed)
     end
 
     -- Spark position: manual calculation.
-    -- GetStatusBarTexture():RIGHT does not track the fill edge in WoW 3.3.5a —
+    -- GetStatusBarTexture():RIGHT does not track the fill edge in WoW 3.3.5a:
     -- the texture anchor reflects the full region, not the clipped fill width.
     if self.sparkFrame and self.sparkFrame:IsShown() then
         local barWidth = self:GetWidth()
@@ -281,7 +281,7 @@ ns.Bar_OnUpdate = Bar_OnUpdate
 
 -- Bar-level stats recording has been replaced by the passive ActivityTracker
 -- (ActivityTracker.lua). These stubs exist so ActivateBar/DeactivateBar don't
--- need conditional checks — they're simply no-ops now.
+-- need conditional checks; they're simply no-ops now.
 local function RecordActivation(bar) end
 local function RecordDeactivation(bar) end
 
@@ -299,6 +299,9 @@ function ns:ActivateBar(bar, expirationTime, duration)
     bar.barState = BAR_STATE.ACTIVE
     bar.textElapsed = 0
     bar.lingerRemaining = 0
+    -- Clear resource-bar flag so a bar switching from resource mode back to
+    -- a time-based mode reverts to the standard OnUpdate countdown path.
+    bar.isResourceBar = false
 
     -- Only record stats on fresh activations, not expiry-drift re-entries
     if not wasAlreadyActive then
@@ -320,6 +323,18 @@ function ns:ActivateBar(bar, expirationTime, duration)
 
     local visual = ns:GetVisual()
     bar:SetAlpha(visual.activeAlpha or 1.0)
+
+    -- Drive the icon cooldown spiral. SetCooldown expects (start, duration)
+    -- where start is when the CD began; we derive it from expirationTime.
+    if bar.cooldownFrame then
+        if visual.showCooldownSpiral ~= false and duration and duration > 0 then
+            local start = expirationTime - duration
+            bar.cooldownFrame:SetCooldown(start, duration)
+            bar.cooldownFrame:Show()
+        else
+            bar.cooldownFrame:Hide()
+        end
+    end
 
     -- Name is set by caller; here we ensure the field is non-nil at minimum.
     if bar.nameText and bar.nameText:GetText() == "" then
@@ -346,6 +361,103 @@ function ns:ActivateBar(bar, expirationTime, duration)
 end
 
 -- ----------------------------------------------------------------------------
+-- UpdateResourceBar: static/event-driven bar update for value-based resources
+-- (Combo Points, Runic Power, Soul Shards).
+--
+-- Unlike ActivateBar (time-based countdown), this path does NOT attach
+-- Bar_OnUpdate. The bar's fill is set once per call from current/max and
+-- stays put until the next event or scan pass refreshes it. This prevents
+-- Bar_OnUpdate from "depleting" a bar that represents a static resource
+-- value (e.g. 3 of 5 combo points) over time.
+--
+-- Runes do NOT come through here; their cooldown is time-based so they use
+-- the standard ActivateBar path.
+-- ----------------------------------------------------------------------------
+
+function ns:UpdateResourceBar(bar, current, max, icon, name, stacks)
+    if not bar then return end
+
+    local wasInactive = (bar.barState ~= BAR_STATE.ACTIVE)
+
+    bar.isResourceBar = true
+    bar.barState = BAR_STATE.ACTIVE
+    bar.stacks = stacks or current or 0
+    bar.expirationTime = nil
+    bar.duration = max
+    bar.textElapsed = nil
+    bar.lingerRemaining = 0
+
+    if wasInactive then
+        RecordActivation(bar)
+    end
+
+    bar:SetMinMaxValues(0, 1)
+    local progress = 0
+    if max and max > 0 then
+        progress = current / max
+    end
+    if progress < 0 then progress = 0 end
+    if progress > 1 then progress = 1 end
+    bar:SetValue(progress)
+
+    -- Resource bars don't tick; updates arrive via events or the 0.25 s scan
+    bar:SetScript("OnUpdate", nil)
+
+    if ns.ApplyVisualConfig then
+        ns:ApplyVisualConfig(bar)
+    end
+
+    local visual = ns:GetVisual()
+    bar:SetAlpha(visual.activeAlpha or 1.0)
+
+    if bar.iconTexture and icon then
+        bar.iconTexture:SetTexture(icon)
+    end
+    if bar.nameText then
+        bar.nameText:SetText(ns.GetBarDisplayName(bar.barData))
+    end
+    -- Text. Default: "current/max" (e.g. "3/5"). Runes: "Ns" countdown while
+    -- on CD, blank when ready (stacks carries ceil(cdRemaining)). Respects
+    -- textFormat NONE / NAME_ONLY to suppress.
+    if bar.timeText then
+        local textFormat = visual.textFormat or "NAME_DURATION"
+        local trackMode  = bar.barData and bar.barData.trackMode
+        if textFormat == "NONE" or textFormat == "NAME_ONLY" then
+            bar.timeText:SetText("")
+        elseif trackMode == "Runes" then
+            if stacks and stacks > 0 then
+                bar.timeText:SetText(string.format("%ds", stacks))
+            else
+                bar.timeText:SetText("")
+            end
+        else
+            local maxLabel = (max and max > 1) and max or 1
+            bar.timeText:SetText(string.format("%d/%d", current or 0, maxLabel))
+        end
+    end
+
+    -- Spark is irrelevant for a static fill bar, so hide it so it doesn't sit
+    -- mid-bar where a previous time-based activation left it.
+    if bar.sparkFrame then
+        bar.sparkFrame:Hide()
+    end
+
+    -- Cooldown spiral is meaningless on a resource bar (no countdown).
+    if bar.cooldownFrame then
+        bar.cooldownFrame:Hide()
+    end
+
+    bar:Show()
+    activeBars[bar] = true
+
+    local parent = bar:GetParent()
+    if parent then
+        if not parent:IsShown() then parent:Show() end
+        MarkGroupDirty(parent)
+    end
+end
+
+-- ----------------------------------------------------------------------------
 -- DeactivateBar: Stop tracking and handle cleanup
 -- ----------------------------------------------------------------------------
 
@@ -360,6 +472,7 @@ function ns:DeactivateBar(bar, skipGlow)
     bar.duration = nil
     bar.textElapsed = nil
     bar.lingerRemaining = nil
+    bar.isResourceBar = false
 
     -- Stop OnUpdate (save CPU)
     bar:SetScript("OnUpdate", nil)
@@ -388,6 +501,11 @@ function ns:DeactivateBar(bar, skipGlow)
         bar.sparkFrame:SetPoint("CENTER", bar, "LEFT", 0, 0)
     end
 
+    -- Cooldown spiral: hide so a deactivated bar doesn't keep a stale sweep.
+    if bar.cooldownFrame then
+        bar.cooldownFrame:Hide()
+    end
+
     -- Keep name visible so user can see which spell the bar tracks
     if bar.nameText then
         bar.nameText:SetText(ns.GetBarDisplayName(bar.barData))
@@ -398,7 +516,7 @@ function ns:DeactivateBar(bar, skipGlow)
 
     -- Apply inactive alpha or hide if hideWhenInactive is set.
     -- If a glow-on-ready animation just started, defer the hide until the
-    -- glow finishes — the glow timer already checks hideWhenInactive on
+    -- glow finishes; the glow timer already checks hideWhenInactive on
     -- expiry and hides + relayouts at that point. Hiding now would cause
     -- the layout to reposition other bars, then the glow timer's per-frame
     -- Show() would force this bar visible at a stale position, overlapping.
@@ -466,7 +584,7 @@ function ns:ActivateTestMode()
             bar.isTestBar = true
         end
     end
-    ns:Print("Test mode ON — all bars showing 30s countdown. Type /bw test to stop.")
+    ns:Print("Test mode ON: all bars showing 30s countdown. Type /bw test to stop.")
 end
 
 function ns:DeactivateTestMode()
@@ -560,7 +678,20 @@ local function ScanBar(bar, unitFilter)
     EnsureBarVisible(bar)
 
     -- Dispatch to canonical tracker (Trackers.lua)
-    local isActive, remaining, duration, icon, name = ns:CheckTracker(bd)
+    local isActive, remaining, duration, icon, name, stacks = ns:CheckTracker(bd)
+
+    -- Event-driven resource bars (Combo Points, Runic Power, Soul Shards).
+    -- These use UpdateResourceBar instead of ActivateBar so Bar_OnUpdate's
+    -- time-based depletion never runs on them. Runes are time-based and fall
+    -- through to the standard path below.
+    if ns:IsResourceTrackMode(bd.trackMode) then
+        if isActive then
+            ns:UpdateResourceBar(bar, remaining, duration, icon, name, stacks)
+        elseif bar.barState == BAR_STATE.ACTIVE then
+            ns:DeactivateBar(bar)
+        end
+        return
+    end
 
     -- Tracker reports active: activate or update the bar
     if isActive and remaining and remaining > 0 then
@@ -724,6 +855,38 @@ function ns:OnTotemUpdate()
     RunScan(function()
         for _, bar in ipairs(bars) do
             if bar.barData and bar.barData.trackMode == "Totem" then
+                ScanBar(bar, nil)
+            end
+        end
+    end)
+end
+
+-- Resource events: re-scan only bars whose trackMode matches the event source.
+-- Runic Power and Soul Shards are picked up by the 0.25 s OnUpdate scan loop
+-- (Core.lua); they deliberately don't have their own events to avoid the
+-- volume of UNIT_POWER / BAG_UPDATE in raid combat.
+
+function ns:OnComboPointsChanged(unit)
+    if unit and unit ~= "player" then return end
+    local bars = ns:GetAllBars()
+    if not bars or #bars == 0 then return end
+    RunScan(function()
+        for _, bar in ipairs(bars) do
+            if bar.barData and bar.barData.trackMode == "Combo Points" then
+                ScanBar(bar, nil)
+            end
+        end
+    end)
+end
+
+-- Handles both RUNE_POWER_UPDATE (cooldown state changed) and
+-- RUNE_TYPE_UPDATE (death rune conversion swapped slot's type).
+function ns:OnRuneUpdate()
+    local bars = ns:GetAllBars()
+    if not bars or #bars == 0 then return end
+    RunScan(function()
+        for _, bar in ipairs(bars) do
+            if bar.barData and bar.barData.trackMode == "Runes" then
                 ScanBar(bar, nil)
             end
         end

@@ -10,7 +10,7 @@ local eventHandlers = {}
 local throttleTimers = {}
 
 local UNIT_HEALTH_THROTTLE = 0.25 -- 4 Hz max
-local UNIT_AURA_THROTTLE   = 0.1  -- 10 Hz max — prevents bursts from rapid aura churn
+local UNIT_AURA_THROTTLE   = 0.1  -- 10 Hz max; prevents bursts from rapid aura churn
 
 local function OnEvent(self, event, ...)
     local handler = eventHandlers[event]
@@ -111,6 +111,12 @@ local GAMEPLAY_EVENTS = {
     { "UNIT_INVENTORY_CHANGED",    Dispatch("OnEnchantUpdate") },
     { "PLAYER_TOTEM_UPDATE",       Dispatch("OnTotemUpdate") },
     { "COMBAT_LOG_EVENT_UNFILTERED", DispatchVarargs("OnCombatLogEvent") },
+    -- Resource events (Combo Points + DK runes). Runic Power and Soul Shards
+    -- are intentionally event-less; the 0.25 s scan loop in Core.lua catches
+    -- them, which avoids the firehose of UNIT_POWER / BAG_UPDATE in combat.
+    { "UNIT_COMBO_POINTS",         DispatchUnit("OnComboPointsChanged") },
+    { "RUNE_POWER_UPDATE",         Dispatch("OnRuneUpdate") },
+    { "RUNE_TYPE_UPDATE",          Dispatch("OnRuneUpdate") },
 }
 
 function ns:EnableEvents()

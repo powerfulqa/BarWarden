@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- Bar.lua - Bar frame construction and visual configuration
 -- ============================================================================
 
--- Texture lookup table — all files live in BarWarden/Textures/
+-- Texture lookup table: all files live in BarWarden/Textures/
 local T = "Interface\\AddOns\\BarWarden\\Textures\\"
 
 local TEXTURES = {
@@ -145,6 +145,16 @@ function ns:CreateBarFrame(parent)
         bar.iconTexture:SetAllPoints()
     end
 
+    -- Cooldown spiral overlay on the icon (radial sweep driven by
+    -- SetCooldown(start, duration) in ActivateBar). Hidden until a CD
+    -- activates, hidden for resource bars, and hidden entirely when
+    -- visual.showCooldownSpiral is false.
+    if bar.icon then
+        bar.cooldownFrame = CreateFrame("Cooldown", nil, bar.icon)
+        bar.cooldownFrame:SetAllPoints(bar.icon)
+        bar.cooldownFrame:Hide()
+    end
+
     -- Spark must be created before name/time so that, within the OVERLAY
     -- layer, WoW's creation-order rule draws the text on top of it.
     bar.sparkFrame = bar:CreateTexture(nil, "OVERLAY")
@@ -176,7 +186,7 @@ function ns:CreateBarFrame(parent)
 end
 
 -- ----------------------------------------------------------------------------
--- ApplyVisualConfig helpers — split by concern for readability.
+-- ApplyVisualConfig helpers, split by concern for readability.
 -- Each helper receives the bar, the display-override table, the global
 -- visual table, and the resolved style/dimension values it needs.
 -- ----------------------------------------------------------------------------
@@ -361,6 +371,13 @@ function ns:ApplyVisualConfig(bar, config)
     if style == "ComboPoint" then showSpark = false end
     if bar.sparkFrame then
         if showSpark then bar.sparkFrame:Show() else bar.sparkFrame:Hide() end
+    end
+
+    -- Cooldown spiral: ApplyVisualConfig only ENFORCES the toggle (hides it
+    -- when the user turned it off). The per-bar show/hide + SetCooldown call
+    -- lives in BarEngine's ActivateBar / DeactivateBar / UpdateResourceBar.
+    if bar.cooldownFrame and visual.showCooldownSpiral == false then
+        bar.cooldownFrame:Hide()
     end
 end
 

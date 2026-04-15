@@ -19,7 +19,7 @@ coreFrame:SetScript("OnUpdate", function(self, elapsed)
     scanTimer = scanTimer + elapsed
     if scanTimer >= SCAN_INTERVAL then
         scanTimer = 0
-        -- Activity tracker: detect cooldown expiry (lightweight — only tracked CDs)
+        -- Activity tracker: detect cooldown expiry (lightweight, only tracked CDs)
         if ns.CheckCooldownExpiry then ns:CheckCooldownExpiry() end
         -- Bar engine scan (skip if no bars configured)
         local bars = ns.allBars
@@ -93,7 +93,7 @@ end
 -- ----------------------------------------------------------------------------
 
 -- Called once at ADDON_LOADED. Sets up the DB, options panel, frames, and
--- minimap. Does NOT register gameplay events — that is OnEnable's job.
+-- minimap. Does NOT register gameplay events; that is OnEnable's job.
 function ns:OnInitialize()
     -- Activity tracker session data (in-memory, resets each login/reload)
     ns.activitySession = {}
@@ -184,7 +184,7 @@ function ns:SetEnabled(enabled)
     end
 end
 
--- /bw and /barwarden — dispatch table replaces the long if/elseif chain.
+-- /bw and /barwarden: dispatch table replaces the long if/elseif chain.
 local SLASH_COMMANDS = {}
 
 SLASH_COMMANDS.help = function()

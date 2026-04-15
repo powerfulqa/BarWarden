@@ -10,6 +10,7 @@
 Templates.xml
 Utils.lua
 DB.lua
+AuraGroups.lua
 Conditions.lua
 Events.lua
 ActivityTracker.lua
@@ -22,6 +23,7 @@ DragReorder.lua
 MinimapButton.lua
 Widgets.lua
 Dialogs.lua
+ClassPresets.lua
 Options.lua
 Options_Builder.lua
 Options_General.lua

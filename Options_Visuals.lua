@@ -245,6 +245,14 @@ local function CreateVisualsTab(parent)
           db = "visual.iconCrop", refresh = "RefreshAllBars",
           spacing = 12, offsetX = 16 },
 
+        { type = "toggle", label = "Cooldown Spiral",
+          tooltip = "Overlay a radial sweep on the bar icon that matches the "
+                 .. "cooldown or buff duration. Gives a second visual read on "
+                 .. "the timer in addition to the bar fill. Has no effect on "
+                 .. "resource bars (combo points, runes, etc.).",
+          db = "visual.showCooldownSpiral", refresh = "RefreshAllBars",
+          spacing = 8 },
+
         -- -------------------- Section: Bar Opacity --------------------
         { type = "header", text = "Bar Opacity",
           spacing = 20 },
@@ -264,7 +272,7 @@ local function CreateVisualsTab(parent)
           db = "visual.fadeWhenInactive", refresh = "RefreshAllBars",
           spacing = 20, offsetX = -4 },
 
-        -- Fade Speed deliberately has NO refresh method — fade speed only
+        -- Fade Speed deliberately has NO refresh method; fade speed only
         -- matters during the next opacity transition, not immediately.
         { type = "slider", id = "fadeSpeed", label = "Fade Speed",
           db = "visual.fadeSpeed",
@@ -282,7 +290,7 @@ local function CreateVisualsTab(parent)
 
     -- Re-skin section headers to GameFontNormalLarge (the default builder
     -- uses GameFontNormal). Iterate content's FontString regions and match
-    -- by text — headers don't have schema ids, and the text is unique.
+    -- by text, since headers don't have schema ids and the text is unique.
     local knownHeaders = {
         ["Bar Dimensions"] = true, ["Bar Visuals"] = true,
         ["Text Options"]   = true, ["Icon"]        = true,

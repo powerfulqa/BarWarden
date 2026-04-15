@@ -72,7 +72,7 @@ function ns:DBSet(path, refreshMethod)
     end
     if parent[key] == nil then
         error(string.format(
-            "ns:DBSet: leaf %q is not declared in ns.DEFAULTS — add it there first",
+            "ns:DBSet: leaf %q is not declared in ns.DEFAULTS; add it there first",
             path), 2)
     end
     if refreshMethod and not ns[refreshMethod] then
@@ -92,7 +92,7 @@ end
 -- Read BarWardenDB.<path>, returning `default` if any segment is missing
 -- or the leaf is nil. For use in Refresh handlers.
 --
--- Unlike DBSet, DBGet does NOT validate at call time — its whole purpose
+-- Unlike DBSet, DBGet does NOT validate at call time; its whole purpose
 -- is to gracefully fall back when a path is absent (e.g. before MergeDefaults
 -- has populated a new field on a pre-existing save).
 function ns:DBGet(path, default)
@@ -211,7 +211,7 @@ function ns:CreateEditBox(parent, label, width, onChange, tooltip)
     --
     -- Historical note: v1.5.x tried to make Escape revert via
     -- HookScript("OnEscapePressed", ...) that restored the snapshot before
-    -- ClearFocus — but in WoW 3.3.5a, HookScript runs AFTER the template's
+    -- ClearFocus. But in WoW 3.3.5a, HookScript runs AFTER the template's
     -- default OnEscapePressed, so the template's ClearFocus fires
     -- OnEditFocusLost (committing the in-progress text) before the hook
     -- gets a chance to restore the snapshot. Making Escape revert properly

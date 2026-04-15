@@ -9,6 +9,16 @@ local addonName, ns = ...
 local GCD_THRESHOLD = ns.GCD_THRESHOLD
 local MAX_AURA_INDEX = ns.MAX_AURA_INDEX
 
+-- ns.SpellDurations: optional per-spell cooldown-duration override.
+-- Keys are numeric spell IDs; values are seconds. When present, CheckCooldown
+-- prefers the override over GetSpellCooldown's reported duration. Empty by
+-- default. Users can populate this to work around private-server CD patches
+-- where GetSpellCooldown returns the wrong value.
+--
+-- Example (paste into a user-addon or directly append in Trackers.lua):
+--   ns.SpellDurations[47568] = 60    -- Empower Rune Weapon forced to 60 s
+ns.SpellDurations = ns.SpellDurations or {}
+
 -- stableExpiry prevents bar jitter from fluctuating server expiration times.
 -- Key: "unit:spellId_or_name". If the server returns a shorter expiration
 -- than what we last saw, we keep the longer cached value.
@@ -33,8 +43,13 @@ local function getUnit(barConfig, default)
 end
 
 -- getSpellTokens: split a (possibly comma-separated) spell string into a
--- list. Caches the result on the barConfig to avoid re-parsing every scan.
--- The cache is keyed by the raw spell string so an edit in the options panel
+-- list of tokens. Each token is either a number (spell ID) or a string
+-- (spell name), depending on how the user wrote it. Tokens starting with
+-- `@` are expanded to their entries in ns.AuraGroups (AuraGroups.lua),
+-- enabling shortcuts like `@Stunned` or `Rupture, @Bleeding`.
+--
+-- Caches the result on the barConfig to avoid re-parsing every scan. The
+-- cache is keyed by the raw spell string so an edit in the options panel
 -- (which writes a new spellName) automatically invalidates it.
 local function getSpellTokens(barConfig, spell)
     if not spell then return nil end
@@ -42,10 +57,21 @@ local function getSpellTokens(barConfig, spell)
         return barConfig._tokenCache
     end
     local tokens = {}
-    for token in spell:gmatch("([^,]+)") do
-        local t = token:match("^%s*(.-)%s*$")  -- trim whitespace
+    for rawToken in spell:gmatch("([^,]+)") do
+        local t = rawToken:match("^%s*(.-)%s*$")
         if t and t ~= "" then
-            tokens[#tokens + 1] = t
+            if t:sub(1, 1) == "@" then
+                local groupName = t:sub(2)
+                local group = ns.AuraGroups and ns.AuraGroups[groupName]
+                if group then
+                    for _, id in ipairs(group) do
+                        tokens[#tokens + 1] = id
+                    end
+                end
+            else
+                local asNumber = tonumber(t)
+                tokens[#tokens + 1] = asNumber or t
+            end
         end
     end
     local result = #tokens > 0 and tokens or nil
@@ -100,7 +126,11 @@ local function ScanAuras(auraFunc, unit, barConfig, spell, filterMine)
             match = (spellId == numericId)
         elseif tokens then
             for _, token in ipairs(tokens) do
-                if name == token then match = true; break end
+                if type(token) == "number" then
+                    if spellId == token then match = true; break end
+                else
+                    if name == token then match = true; break end
+                end
             end
         end
 
@@ -154,6 +184,13 @@ local function CheckCooldown(barConfig)
 
     if not start or enabled ~= 1 then
         return false, 0, 0, spellIcon, spellName, 0
+    end
+
+    -- Apply ns.SpellDurations override, if the user has one for this spell.
+    -- Resolves name to ID for the lookup when the user passed a name.
+    local overrideID = spellID or select(10, GetSpellInfo(spellName))
+    if overrideID and ns.SpellDurations[overrideID] then
+        duration = ns.SpellDurations[overrideID]
     end
 
     if duration <= GCD_THRESHOLD then
@@ -326,19 +363,143 @@ local function CheckTotem(barConfig)
     end
 end
 
+-- ----------------------------------------------------------------------------
+-- Resource Trackers (class resources: combo points, runic power, soul shards,
+-- death knight runes).
+--
+-- Combo Points / Runic Power / Soul Shards are value-based: the bar fills to
+-- show current / max and does not count down with time. The engine dispatches
+-- these via UpdateResourceBar (BarEngine.lua) instead of the time-based
+-- Bar_OnUpdate; see ns.RESOURCE_TRACK_MODES below.
+--
+-- Runes ARE time-based (rune cooldown), so they use the standard depleting
+-- path unchanged. barConfig.spellId selects the rune slot (1..6).
+-- ----------------------------------------------------------------------------
+
+local COMBO_ICON       = "Interface\\Icons\\Ability_Rogue_Eviscerate"
+local RUNIC_POWER_ICON = "Interface\\Icons\\Spell_Deathknight_EmpowerRuneblade"
+local SHARD_ICON       = "Interface\\Icons\\INV_Misc_Gem_Amethyst_02"
+local SOUL_SHARD_ITEM_ID = 6265
+local DEFAULT_MAX_SOUL_SHARDS = 10
+-- Fallback rune CD for when GetRuneCooldown returns zero or has never been
+-- called for a slot. Unholy Presence reduces this in-game but 10s is the
+-- baseline and a safe default for the "freshly logged in, never used" case.
+local DEFAULT_RUNE_CD = 10
+
+-- GetRuneType returns 1=Blood, 2=Unholy, 3=Frost, 4=Death.
+local RUNE_ICONS = {
+    [1] = "Interface\\Icons\\Spell_Deathknight_BloodPresence",
+    [2] = "Interface\\Icons\\Spell_Deathknight_UnholyPresence",
+    [3] = "Interface\\Icons\\Spell_Deathknight_FrostPresence",
+    [4] = "Interface\\Icons\\Spell_Deathknight_ClassIcon",
+}
+local RUNE_NAMES = {
+    [1] = "Blood Rune",
+    [2] = "Unholy Rune",
+    [3] = "Frost Rune",
+    [4] = "Death Rune",
+}
+
+local function CheckComboPoints(barConfig)
+    local cp = GetComboPoints("player", "target") or 0
+    -- Always show the bar (even at 0 CP) so the user sees the resource slot.
+    return true, cp, 5, COMBO_ICON, "Combo Points", cp
+end
+
+local function CheckRunicPower(barConfig)
+    -- Power type 6 is SPELL_POWER_RUNIC_POWER on 3.3.5a.
+    local power = UnitPower("player", 6) or 0
+    local maxPower = UnitPowerMax("player", 6) or 100
+    if maxPower <= 0 then maxPower = 100 end
+    return true, power, maxPower, RUNIC_POWER_ICON, "Runic Power", power
+end
+
+local function CheckSoulShards(barConfig)
+    local count = GetItemCount(SOUL_SHARD_ITEM_ID) or 0
+    local max = tonumber(barConfig.maxValue) or DEFAULT_MAX_SOUL_SHARDS
+    if max <= 0 then max = DEFAULT_MAX_SOUL_SHARDS end
+    local icon = GetItemIcon(SOUL_SHARD_ITEM_ID) or SHARD_ICON
+    return true, count, max, icon, "Soul Shards", count
+end
+
+-- Runes are a resource-style bar (see RESOURCE_TRACK_MODES below) even though
+-- the underlying data is a countdown. The bar FILLS as the rune regenerates
+-- and stays full when ready, matching the intuition from Blizzard's default
+-- DK rune display. Text shows "Ns" countdown while on CD, blank when ready.
+--
+-- Returns (isActive, current, max, icon, name, stacks) where:
+--   current = max when ready, 0..max as the rune regenerates
+--   max     = the rune's cooldown duration (10 s baseline; server may vary)
+--   stacks  = ceil(cdRemaining) in seconds, 0 means ready (used by the text
+--             display in UpdateResourceBar)
+local function CheckRunes(barConfig)
+    -- Slot lives in spellId (numeric 1..6). spellName falls back for users who
+    -- typed it in the text box as a string.
+    local slot = tonumber(barConfig.spellId) or tonumber(barConfig.spellName) or 1
+    if slot < 1 or slot > 6 then slot = 1 end
+
+    local runeType = GetRuneType and GetRuneType(slot) or 1
+    local icon = RUNE_ICONS[runeType] or RUNE_ICONS[1]
+    local name = RUNE_NAMES[runeType] or "Rune"
+
+    local start, duration, ready = GetRuneCooldown(slot)
+
+    -- Never-used slot or private-server API glitch: treat as ready at baseline.
+    if not duration or duration <= 0 then
+        return true, DEFAULT_RUNE_CD, DEFAULT_RUNE_CD, icon, name, 0
+    end
+
+    -- Ready: full bar, no countdown text.
+    if ready then
+        return true, duration, duration, icon, name, 0
+    end
+
+    -- On cooldown: bar fills from 0 toward max as the rune regenerates.
+    local cdRemaining = (start + duration) - GetTime()
+    if cdRemaining <= 0 then
+        return true, duration, duration, icon, name, 0
+    end
+
+    local current = duration - cdRemaining
+    if current < 0 then current = 0 end
+
+    return true, current, duration, icon, name, math.ceil(cdRemaining)
+end
+
+-- Event-driven resource modes. BarEngine's ScanBar checks this set to pick
+-- the static (UpdateResourceBar) path instead of time-based ActivateBar.
+-- Runes are here even though their data is a cooldown countdown, because we
+-- want the bar to FILL (not deplete) as the rune regenerates; the
+-- 0.25 s scan loop + RUNE_POWER_UPDATE / RUNE_TYPE_UPDATE events refresh
+-- the fill level at a rate that is visibly smooth enough in practice.
+ns.RESOURCE_TRACK_MODES = {
+    ["Combo Points"] = true,
+    ["Runic Power"]  = true,
+    ["Soul Shards"]  = true,
+    ["Runes"]        = true,
+}
+
+function ns:IsResourceTrackMode(mode)
+    return ns.RESOURCE_TRACK_MODES[mode] == true
+end
+
 -- Dispatch table keyed by barConfig.trackMode.
 -- Proc is just Buff restricted to "player"; CheckBuff already defaults unit
 -- to "player" via getUnit(barConfig, "player"), so no separate function exists.
 ns.TRACKERS = {
-    ["Cooldown"]   = CheckCooldown,
-    ["Buff"]       = CheckBuff,
-    ["Debuff"]     = CheckDebuff,
-    ["Proc"]       = CheckBuff,
-    ["Item"]       = CheckItem,
-    ["Enchant"]    = CheckEnchant,
-    ["Enchant MH"] = CheckEnchant,
-    ["Enchant OH"] = CheckEnchant,
-    ["Totem"]      = CheckTotem,
+    ["Cooldown"]     = CheckCooldown,
+    ["Buff"]         = CheckBuff,
+    ["Debuff"]       = CheckDebuff,
+    ["Proc"]         = CheckBuff,
+    ["Item"]         = CheckItem,
+    ["Enchant"]      = CheckEnchant,
+    ["Enchant MH"]   = CheckEnchant,
+    ["Enchant OH"]   = CheckEnchant,
+    ["Totem"]        = CheckTotem,
+    ["Combo Points"] = CheckComboPoints,
+    ["Runic Power"]  = CheckRunicPower,
+    ["Soul Shards"]  = CheckSoulShards,
+    ["Runes"]        = CheckRunes,
 }
 
 -- Check tracking state for `barConfig` by dispatching on its trackMode.

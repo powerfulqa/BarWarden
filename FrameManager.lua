@@ -207,6 +207,11 @@ function ns:UpdateGroupLayout(group)
         bar:SetPoint("TOPLEFT", group, "TOPLEFT", xOff, yOff)
         bar:SetWidth(barWidth)
         bar:SetHeight(barHeight)
+        -- Per-bar scale override. nil (or 1) means "use group default".
+        -- Values != 1 may visually overlap neighbouring bars in multi-column
+        -- groups; the per-bar editor slider's tooltip warns about this.
+        local scaleOverride = bar.barData and bar.barData.display and bar.barData.display.scaleOverride
+        bar:SetScale(scaleOverride or 1)
         visibleCount = visibleCount + 1
     end
 
@@ -466,7 +471,7 @@ function ns:BuildBarsForFrame(frameIndex)
         bar.frameIndex = frameIndex
         bar.barState = ns.BAR_STATE and ns.BAR_STATE.INACTIVE or 0
         -- Apply visual config immediately so font, texture, icon position, and
-        -- text settings are correct on login — not just when the bar activates.
+        -- text settings are correct on login, not just when the bar activates.
         if ns.ApplyVisualConfig then
             ns:ApplyVisualConfig(bar)
         end

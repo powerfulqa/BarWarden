@@ -301,7 +301,7 @@ end
 
 -- ----------------------------------------------------------------------------
 -- Cooldown expiry check: called from the periodic scan timer (0.25s)
--- Lightweight — only iterates cooldowns we've already detected, not the
+-- Lightweight: only iterates cooldowns we've already detected, not the
 -- full spellbook.
 -- ----------------------------------------------------------------------------
 

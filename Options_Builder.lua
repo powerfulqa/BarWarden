@@ -8,23 +8,23 @@ local addonName, ns = ...
 -- returns a Refresh closure that re-reads DB values into the live widgets.
 --
 -- opts table (all optional):
---   firstX / firstY   — x/y offset of the first widget from parent's TOPLEFT
---                        (defaults 16, -80 — correct for a tab that renders
+--   firstX / firstY   : x/y offset of the first widget from parent's TOPLEFT
+--                        (defaults 16, -80; correct for a tab that renders
 --                        directly under the panel title).
 --
 -- Any entry may carry:
---   spacing = <px>           — vertical gap to previous widget (default 8).
---   offsetX = <px>           — extra x offset on the anchor (default 0).
+--   spacing = <px>           : vertical gap to previous widget (default 8).
+--   offsetX = <px>           : extra x offset on the anchor (default 0).
 --                               Useful for dropdowns (invisible left padding)
 --                               or for fine-tuning alignment between
 --                               different widget types.
---   anchorTo = "<id>"        — override "anchor to previous" and anchor this
+--   anchorTo = "<id>"        : override "anchor to previous" and anchor this
 --                               widget relative to another already-rendered
 --                               entry's widget. Does NOT affect the chain
---                               pointer — the next entry without anchorTo
+--                               pointer; the next entry without anchorTo
 --                               anchors to THIS entry normally.
 --
--- Inspired by Ace3's AceConfig pattern, but homegrown and minimal — no
+-- Inspired by Ace3's AceConfig pattern, but homegrown and minimal, with no
 -- library dependency. Used by Options_General.lua (v1.4.0) and
 -- Options_Visuals.lua.
 --
@@ -150,7 +150,7 @@ BUILDERS.dropdown = function(parent, entry)
     if not entry.items then
         error("Options_Builder: dropdown entry requires `items`", 2)
     end
-    -- ns:CreateDropdown callback signature is (dd, value, index) — wrap
+    -- ns:CreateDropdown callback signature is (dd, value, index); wrap
     -- BuildSetCallback's (self, value) to match.
     local cb = BuildSetCallback(entry)
     local wrapped = function(dd, value, index) cb(dd, value, index) end

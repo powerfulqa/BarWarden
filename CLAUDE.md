@@ -37,21 +37,23 @@ control flow, many returns, many parameters, complex boolean logic.
 
 ```
 BarWarden/
-├── BarWarden.toc       Load order matters — see below
+├── BarWarden.toc       Load order matters, see below
 ├── Templates.xml       StatusBar template referenced by Bar.lua
 ├── Utils.lua           Shared helpers (CopyTable, MergeDefaults, GetVisual, ...)
 ├── DB.lua              SavedVariables schema, defaults, migrations
-├── Conditions.lua      Visibility condition evaluator
+├── AuraGroups.lua      Named aura equivalency groups (@Stunned, @Bleeding, ...)
+├── Conditions.lua      Visibility condition registry + evaluator
 ├── Events.lua          Central event dispatcher + factory wrappers
 ├── Bar.lua             Bar frame construction + visual config
 ├── BarPool.lua         Object pool for bar recycling
-├── BarEngine.lua       State machine, OnUpdate, scan loop
-├── Trackers.lua        Per-trackMode checkers (Cooldown/Buff/Debuff/Item/Enchant/Totem)
+├── BarEngine.lua       State machine, OnUpdate, scan loop, resource bars
+├── Trackers.lua        Per-trackMode checkers (8 aura/CD modes + 4 resource modes)
 ├── FrameManager.lua    Group frame creation, layout, positioning
 ├── DragReorder.lua     Drag-to-reorder with ghost bar + drop indicator
 ├── MinimapButton.lua   Minimap button + drag positioning
 ├── Widgets.lua         CheckBox/Slider/Dropdown/EditBox/Button factories
 ├── Dialogs.lua         StaticPopup definitions
+├── ClassPresets.lua    Per-class starter profiles + LoadClassStarter loader
 ├── Options.lua         Options panel frame + tab management
 ├── Options_*.lua       Per-tab UI (General/Bars/Visuals/Profiles/Stats)
 ├── Core.lua            ADDON_LOADED, slash commands, /bw enable/disable
@@ -284,16 +286,109 @@ To add a new event:
 For high-frequency events, wrap with `ThrottledHandler(eventName, intervalSec, handler)`.
 Currently used for `UNIT_HEALTH` at 0.25s.
 
-### Visibility conditions
-Add a check function in [Conditions.lua](Conditions.lua) and append it
-to the local `CHECKS` table — the loop in `EvaluateConditions` picks it
-up automatically. Order in the table is the short-circuit order.
+### Visibility conditions (extensible registry)
+
+Register a check function via `ns:RegisterCondition(name, checkFn)` in
+[Conditions.lua](Conditions.lua). Built-in conditions register themselves
+at module load. The evaluator iterates the registered list in
+registration order, so short-circuit order follows the order of the
+`RegisterCondition` calls at the bottom of the file.
+
+```lua
+ns:RegisterCondition("requireClass", function(conditions)
+    local required = conditions.requireClass
+    if not required or required == "" then return true end
+    local _, playerClass = UnitClass("player")
+    return playerClass == required
+end)
+```
+
+Each check returns `true` to KEEP the bar visible, `false` to hide it.
+The per-bar `conditions` table stores arbitrary keys; your check reads
+whatever key it needs.
 
 ### Tracker modes
+
 Add a new `CheckXxx(barConfig)` in [Trackers.lua](Trackers.lua) returning
 `(isActive, remaining, duration, icon, name, stacks)`. Register in
 `ns.TRACKERS = { ... }` keyed by the trackMode string. `BarEngine` finds
 it via `ns:CheckTracker(barConfig)`.
+
+**Two kinds of trackers:**
+
+1. **Time-based** (Cooldown, Buff, Debuff, Proc, Item, Enchant, Totem).
+   `remaining` is seconds-until-the-thing-ends. `BarEngine.ActivateBar`
+   attaches `Bar_OnUpdate` which depletes the bar as time passes.
+
+2. **Event-driven / value-based resources** (Combo Points, Runic Power,
+   Soul Shards, Runes). Register the track-mode name in
+   `ns.RESOURCE_TRACK_MODES = { ["ModeName"] = true }` as well. The
+   scan loop dispatches these through `ns:UpdateResourceBar(bar, current,
+   max, icon, name, stacks)` instead of `ActivateBar`. No `Bar_OnUpdate`
+   is attached, so the bar stays at its fill level until the next scan
+   or event refreshes it. Used when the tracked quantity is NOT a
+   countdown (e.g. 3 of 5 combo points, or 45/100 runic power). Runes
+   are technically time-based but use this path anyway because we want
+   the bar to FILL as the rune regenerates (rather than deplete).
+
+Resource bars reinterpret the tracker tuple: `remaining` becomes
+"current value", `duration` becomes "max value".
+
+### Class presets + starter profiles
+
+[ClassPresets.lua](ClassPresets.lua) exports `ns.ClassPresets[classToken]`
+for each of the ten 3.3.5a classes. Each preset is a table of groups and
+bars shaped like the runtime `ns.db.frames` structure. Two loaders:
+
+- `ns:LoadClassStarter(classToken?)` replaces the active profile's
+  groups/bars with the preset. Defaults to the player's class if
+  `classToken` is nil. Called from the "Load Class Starter" button in
+  [Options_Profiles.lua](Options_Profiles.lua). Fires
+  `"OnProfileChanged"` so the frame cache rebuilds.
+- `ns:AppendClassStarter(classToken?)` concatenates preset groups onto
+  `ns.db.frames` instead of replacing. Same event fire on completion.
+
+Each bar preset is a partial config (trackMode, spellId or spellName,
+name, unit, onlyMine). `MakeFullBar` fills in the default `conditions`
+and `display` tables. Resource-mode bars get `conditions.requireClass =
+classToken` automatically so copying a DK preset across profiles doesn't
+leak rune bars onto non-DK characters.
+
+**Curation sources** (all inside `3.3.5.a/`):
+- `!ElvinCDs/spells.lua` for per-class cooldowns with metadata flags.
+- `EventAlert/EventAlertSpellArray.lua` for per-class procs.
+- `Forte_<Class>/Forte_<Class>.lua` for cross-reference of duration.
+- `ClassTimer/Bars/<Class>.lua` for category structure.
+
+When editing the presets: **use spell NAMES for Buff/Debuff/Proc entries**
+(rank-agnostic matching via `UnitBuff` name comparison). **Use spell IDs
+for Cooldown entries** (`GetSpellCooldown` accepts either; IDs are
+language-independent).
+
+### Aura equivalency groups
+
+[AuraGroups.lua](AuraGroups.lua) exports `ns.AuraGroups = { [name] =
+{ id1, id2, ... } }` with universal groups (`Stunned`, `Silenced`,
+`Bleeding`, etc.). The `getSpellTokens` helper in
+[Trackers.lua](Trackers.lua) expands any comma-separated token that
+starts with `@` to the group's spell IDs. So a bar with spell field
+`@Stunned` fires on any stun listed in `ns.AuraGroups.Stunned`, and a
+bar with `Rupture, @Stunned` matches Rupture OR any stun.
+
+To add a new group: extend `ns.AuraGroups` in `AuraGroups.lua`. No
+parser changes needed.
+
+### Spell duration overrides
+
+`ns.SpellDurations = { [spellID] = seconds }` in
+[Trackers.lua](Trackers.lua) is an opt-in override table. `CheckCooldown`
+consults it BEFORE `GetSpellCooldown`'s returned duration. Useful when a
+private server has patched a cooldown value and `GetSpellCooldown`
+returns the old duration (or zero).
+
+Populate by editing `ns.SpellDurations` directly in `Trackers.lua` or
+from an external source file. Keys are numeric spell IDs. Empty by
+default.
 
 ### Bar pool
 Always borrow from [BarPool.lua](BarPool.lua) (`ns:AcquireBar` /
@@ -301,15 +396,33 @@ Always borrow from [BarPool.lua](BarPool.lua) (`ns:AcquireBar` /
 of Bar.lua / BarPool.lua.
 
 ### SavedVariables
-- `BarWardenDB` — per-character settings.
-- `BarWardenAccountDB` — account-wide profiles.
+- `BarWardenDB` is per-character settings.
+- `BarWardenAccountDB` holds account-wide profiles.
 - `ns.DEFAULTS` is the schema source of truth in [DB.lua](DB.lua).
 - Bumping the schema means: add a `if savedVersion < N` block in
   `MigrateDB()` and bump `CURRENT_SCHEMA`. Never overwrite non-nil
   user data; only fill nil keys.
-- `MergeDefaults` is for the `global` and `visual` config tables only —
-  **never** call it on `frames` (it would inject sample-bar defaults
+- `MergeDefaults` is for the `global` and `visual` config tables only.
+  **Never** call it on `frames` (it would inject sample-bar defaults
   into the user's array).
+
+### Per-bar `conditions` keys
+
+Centralised so all checks live in one schema. Defaults in `ns.DEFAULTS`
+mirror the per-bar struct created by `NewBar()` in
+[Options_Bars.lua](Options_Bars.lua):
+
+| Key | Type | Effect |
+|---|---|---|
+| `combatOnly` | bool | Show only while `UnitAffectingCombat("player")`. |
+| `outOfCombatOnly` | bool | Inverse of above. |
+| `requireBuff` | string \| spellID | Show only while the named buff is on player. |
+| `requireClass` | class token | Show only if player class matches ("DEATHKNIGHT", "ROGUE", ...). Used by resource bars in starter profiles to prevent cross-class leak. |
+| `healthBelow` | number (0-100) | Show only when player HP% is below this. |
+| `inGroup` | bool | Show only in a party. |
+| `inRaid` | bool | Show only in a raid. |
+| `hideWhenInactive` | bool | Fully hide (not just dim) when the tracker is inactive. |
+| `showEmpty` | bool | When true (default), show the bar at inactive alpha if tracker is inactive but bar is otherwise valid. |
 
 ### Slash commands
 All routed through `SlashHandler` in [Core.lua](Core.lua). Add new
