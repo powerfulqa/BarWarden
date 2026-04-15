@@ -10,20 +10,25 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 
 ## What Can It Do?
 
-- **Track your abilities** with 8 different modes: Cooldown, Buff, Debuff, Proc, Item, Enchant MH, Enchant OH, and Totem
+- **Track your abilities** with 12 different modes: Cooldown, Buff, Debuff, Proc, Item, Enchant MH, Enchant OH, Totem, Combo Points, Runes, Runic Power, and Soul Shards
+- **Class starter profiles** for all 10 WotLK classes — one-click load of curated cooldowns, procs, and resources tailored to your class
+- **Class resource trackers** for Combo Points (rogue/druid), Runes (DK), Runic Power (DK), and Soul Shards (warlock) that fill as the resource builds rather than counting down
 - **Organise bars into groups** like "Cooldowns", "Target Debuffs", or "Buffs" (up to 20 groups, 30 bars each)
 - **Multi-column layouts** so you can display bars in 1 to 4 columns per group
 - **Sort bars dynamically** by remaining time, alphabetically, or manual order per group
 - **Colour-by-time** bars transition green to yellow to red as the timer counts down (per-bar, configurable thresholds)
 - **Glow on ready** bars flash when a cooldown finishes or a buff expires so you know the spell is available
 - **Sparkle alert** bars pulse when the timer drops below a configurable threshold
+- **Cooldown spiral overlay** on bar icons gives a second visual read of the remaining time
+- **Aura equivalency groups** like `@Stunned`, `@Bleeding`, `@Silenced`, `@Feared`, `@Rooted` — one bar tracks any spell in that group
 - **13 bar textures** to choose from, including Flat, Smooth, Gloss, Aluminium, and more
 - **15 fonts** including 5 built-in WoW fonts and 10 custom ones like Adventure, Heroic, and Transformers
 - **5 duration display styles**: seconds with decimal, whole seconds, min:sec, short text, or auto-adapting
 - **Colour your bars** by class, by tracking mode, or pick your own colour (with per-bar overrides)
 - **Per-bar text and icon control** so each bar can show or hide its name and spell icon independently
+- **Per-bar scale override** for bars that need to stand out larger (or shrink smaller) than their group default
 - **Icon crop** trims border pixels to prevent stretching on non-square bars
-- **Set conditions** on bars so they only show in combat, below a health threshold, in a group, and more
+- **Set conditions** on bars so they only show in combat, below a health threshold, in a group, for a specific class, and more
 - **Test mode** shows all bars with fake 30s timers so you can preview your layout without triggering spells
 - **Account-wide profiles** so you can save a setup on one character and load it on another
 - **Drag bars to reorder** them within a group when frames are unlocked
@@ -35,6 +40,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Settings saved per character** so each of your characters can have their own layout
 - **Activity Tracker** passively monitors every cooldown, buff, debuff, enchant, and totem on your character — discover what to track, then create bars directly from the stats screen
 - **Create Bar from stats** select any discovered spell in the Activity Tracker and add it as a bar to any group with one click
+- **Live search** on the Activity Tracker so you can filter hundreds of detected effects by name
 - **Bug report command** generates a copyable diagnostic snapshot for easy troubleshooting
 - **Minimap button right-click** to quickly enable or disable the addon
 - **Live-reactive settings** — changes in the options panel apply to the bars on the spot, no disable/re-enable needed
@@ -176,6 +182,40 @@ Tracks active totems by name or slot number (1-4). Useful for shamans tracking t
 
 You can also use a slot number: `1` for Fire, `2` for Earth, `3` for Water, `4` for Air.
 
+### Class Resources
+
+Four resource trackers for class-specific mechanics. Unlike time-based trackers, these **fill as the resource builds** rather than counting down. The bar shows current / maximum and updates event-driven.
+
+- **Combo Points** — Rogue and Druid (cat form). Fills from 0 to 5 as combo points accumulate on your target.
+- **Runes** — Death Knight. Tracks one of six rune slots; fills as the rune regenerates, stays full when ready, shows countdown text while on cooldown. Use `1-6` in the Spell field for the slot.
+- **Runic Power** — Death Knight. Fills from 0 to 100 (or higher with talents).
+- **Soul Shards** — Warlock. Tracks current soul shard count in your bag.
+
+**Example:** Track combo points on your current target.
+- Track Mode: `Combo Points`
+
+Class resource bars are pre-populated by the class starter profiles — see the Profiles tab.
+
+### Aura Equivalency Groups
+
+Instead of listing every crowd-control spell by hand, you can use a single group token. These expand automatically at scan time:
+
+| Token | Matches |
+|-------|---------|
+| `@Stunned` | All stuns (Cheap Shot, Kidney Shot, Hammer of Justice, etc.) |
+| `@Bleeding` | All bleeds (Rupture, Garrote, Rip, Rend, Deep Wounds, etc.) |
+| `@Silenced` | All silences (Counterspell, Silence, Spell Lock, etc.) |
+| `@Incapacitated` | All incapacitates (Sap, Gouge, Repentance, etc.) |
+| `@Feared` | All fears (Fear, Scare Beast, Psychic Scream, etc.) |
+| `@Rooted` | All roots (Frost Nova, Entangling Roots, Freezing Trap, etc.) |
+| `@MovementSlowed` | All slows (Hamstring, Piercing Howl, Frostbolt, etc.) |
+| `@Disarmed` | All disarms (Disarm, Dismantle, etc.) |
+
+**Example:** One bar that shows any stun on your target.
+- Track Mode: `Debuff` | Target: `target` | Spell: `@Stunned`
+
+You can combine group tokens with regular spell names using commas: `@Stunned, Blind`.
+
 ---
 
 ## Settings Tabs
@@ -199,8 +239,8 @@ You can also use a slot number: `1` for Fire, `2` for Earth, `3` for Water, `4` 
 - Add, Delete, and reorder bars with Up/Down buttons
 - Configure bar name, spell name or ID, track mode, and target unit
 - Toggle "Only Mine" filtering for debuffs
-- Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide When Inactive, Show Empty, Health Below %, Require Buff
-- Per-bar display options: Linger Time, Show Bar Name, Show Icon, Bar Darkness, Sparkle Alert with threshold, Colour Override, Colour by Time with high/med thresholds, Glow on Ready with duration, Crop Icon
+- Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide When Inactive, Show Empty, Health Below %, Require Buff, Require Class
+- Per-bar display options: Linger Time, Show Bar Name, Show Icon, Bar Darkness, Sparkle Alert with threshold, Colour Override, Colour by Time with high/med thresholds, Glow on Ready with duration, Crop Icon, Scale Override
 
 #### Useful Per-Bar Options Explained
 
@@ -222,6 +262,14 @@ You can also use a slot number: `1` for Fire, `2` for Earth, `3` for Water, `4` 
   bear-form abilities that only show in bear form, proc reactions
   that only show while the proc is up. Leave empty to disable.
   Example: `Stealth` on Ambush, `Clearcasting` on your next free cast.
+- **Require Class** — pin a bar to a specific class so it only shows
+  when played on (for example) a Rogue. Used internally by the class
+  starter profiles so copying a preset across characters doesn't leak
+  rune bars onto non-DK characters. Accepts a class token like
+  `ROGUE`, `DEATHKNIGHT`, `WARLOCK`, etc.
+- **Scale Override** — per-bar scale multiplier. Leave at 1.0 to match
+  the group's scale; set higher to make a critical cooldown stand out,
+  or lower to tuck ambient trackers into the corner.
 
 ### Visuals
 
@@ -233,7 +281,7 @@ Global settings that apply to all bars.
 
 **Text Options:** Text Position (Left, Right), Font (15 choices), Font Size, Text Format (Name+Duration, Name Only, Duration Only, Name+Stacks, Stacks Only, None), Duration Style (seconds.ms, seconds, min:sec, short text, auto)
 
-**Icon:** Icon Size, Icon Position (Left, Right), Crop Icons
+**Icon:** Icon Size, Icon Position (Left, Right), Crop Icons, Cooldown Spiral overlay
 
 **Bar Opacity:** Active Opacity, Inactive Opacity, Fade When Inactive, Fade Speed
 
@@ -247,11 +295,19 @@ Save and Load bar layouts. Profiles are account-wide.
 - Export and import profiles to share between characters
 - Reset everything back to factory defaults
 
+**Class Starter Profiles** — pre-curated bar loadouts for all 10 WotLK classes, drawn from the common cooldowns, procs, and resources that matter for each class.
+
+- **Load Class Starter** — replaces your current groups with the preset for your class (or a class you pick)
+- **Append Class Starter** — adds the preset's groups alongside your existing ones
+- A preview dialog lists what will be added before you commit
+- Resource bars (combo points, runes, etc.) are automatically gated to the right class so copying a preset across characters doesn't leak them
+
 ### Activity Tracker
 
 Passive monitoring of everything happening on your character. BarWarden automatically detects every cooldown you use, every buff you gain, every debuff you apply, weapon enchants, and totems — no configuration needed.
 
 - **Category filter** dropdown: All, Cooldowns, Buffs, Debuffs, Enchants, Totems
+- **Search box** next to the filter — type part of a spell name to narrow the list live
 - **Spell icons** displayed alongside each entry for quick identification
 - **Session stats** (activations and uptime) reset every login or `/reload`
 - **All-time stats** persist across sessions in SavedVariables

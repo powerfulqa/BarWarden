@@ -205,7 +205,7 @@ local function CreateBarsTab(parent)
 
     local groupSettingsContent = CreateFrame("Frame", nil, groupSettingsScroll)
     groupSettingsContent:SetWidth(160)
-    groupSettingsContent:SetHeight(450)
+    groupSettingsContent:SetHeight(340)
     groupSettingsScroll:SetScrollChild(groupSettingsContent)
 
     -- Group-settings schema: declarative via BuildSettings.
@@ -231,8 +231,9 @@ local function CreateBarsTab(parent)
               local gf = ns.groupFrames[selectedGroupIndex]
               if gf and gf.titleText then gf.titleText:SetText(text) end
               frame:Refresh()
-          end },
-        { type = "toggle", label = "Show Bar Name",
+          end,
+          offsetX = 4 },
+        { type = "toggle", label = "Show Group Name",
           tooltip = "Show or hide the group name on the bar frame.",
           get = function() local g = getGroup(); return g and g.showTitle ~= false end,
           set = function(_, checked)
@@ -291,7 +292,7 @@ local function CreateBarsTab(parent)
               local gf = ns.groupFrames[selectedGroupIndex]
               if gf then ns:UpdateGroupLayout(gf) end
           end,
-          offsetX = -16, spacing = 20 },
+          offsetX = -16, spacing = 28 },
     }
 
     local refreshGroupSettings = ns:BuildSettings(groupSettingsContent, GROUP_SETTINGS_SCHEMA, nil,

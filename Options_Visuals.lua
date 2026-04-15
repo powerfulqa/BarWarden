@@ -124,27 +124,34 @@ local function CreateVisualsTab(parent)
           -- First widget; offsetX=0 against firstX=16 => (16, -10).
         },
 
+        -- Spacing convention:
+        --   24 = section break (above each header after the first)
+        --   16 = within-section widget gap
+        --   12 = sub-widget gap (related toggles/colors)
+        --   8  = branch widget (off-chain)
+        --   4  = warning text under its owner
+
         -- -------------------- Section: Bar Dimensions --------------------
-        { type = "header", text = "Bar Dimensions", spacing = 12 },
+        { type = "header", text = "Bar Dimensions", spacing = 16 },
         { type = "slider", label = "Bar Height",
           db = "visual.barHeight", refresh = "RefreshAllBars",
           min = 4, max = 60, step = 1, width = 200,
-          spacing = 20, offsetX = 4 },
+          spacing = 16, offsetX = 4 },
         { type = "slider", label = "Bar Spacing",
           db = "visual.barSpacing", refresh = "RefreshAllBars",
           min = 0, max = 30, step = 1, width = 200,
-          spacing = 24,
+          spacing = 16,
           tooltip = "Vertical pixels of padding between stacked bars "
                  .. "within a group. 0 = bars touch each other." },
 
         -- -------------------- Section: Bar Visuals --------------------
         { type = "header", text = "Bar Visuals",
-          spacing = 20, offsetX = -4 },
+          spacing = 24, offsetX = -4 },
 
         { type = "dropdown", id = "colorModeDD", label = "Color Mode",
           db = "visual.colorMode", refresh = "RefreshAllBars",
           items = colorModeItems,
-          spacing = 20, offsetX = -16,
+          spacing = 24, offsetX = -16,
           onChange = function(value)
               if widgets.colorSwatch then
                   if value == "CUSTOM" then widgets.colorSwatch:Show()
@@ -154,7 +161,7 @@ local function CreateVisualsTab(parent)
 
         { type = "color", id = "colorSwatch", label = "Default Bar Color",
           db = "visual.defaultColor", refresh = "RefreshAllBars",
-          spacing = 8, offsetX = 20 },
+          spacing = 12, offsetX = 20 },
 
         { type = "toggle", label = "Allow Per-Bar Color Override",
           tooltip = "When enabled, individual bars can override the global color setting.",
@@ -164,7 +171,7 @@ local function CreateVisualsTab(parent)
         { type = "dropdown", id = "textureDD", label = "Bar Texture",
           db = "visual.texture", refresh = "RefreshAllBars",
           items = textureItems,
-          spacing = 24, offsetX = -16,
+          spacing = 16, offsetX = -16,
           onChange = function(value)
               local show = (value == "Custom")
               if widgets.customTexBox then
@@ -196,7 +203,7 @@ local function CreateVisualsTab(parent)
 
         -- -------------------- Section: Text Options --------------------
         { type = "header", text = "Text Options",
-          anchorTo = "textureDD", spacing = 20, offsetX = 16 },
+          anchorTo = "textureDD", spacing = 24, offsetX = 16 },
 
         { type = "dropdown", label = "Text Position",
           db = "visual.textPosition", refresh = "RefreshAllBars",
@@ -206,12 +213,12 @@ local function CreateVisualsTab(parent)
         { type = "dropdown", label = "Font",
           db = "visual.font", refresh = "RefreshAllBars",
           items = fontItems,
-          spacing = 24 },
+          spacing = 16 },
 
         { type = "slider", label = "Font Size",
           db = "visual.fontSize", refresh = "RefreshAllBars",
           min = 6, max = 24, step = 1, width = 200,
-          spacing = 24, offsetX = 16 },
+          spacing = 16, offsetX = 16 },
 
         { type = "dropdown", label = "Text Format",
           db = "visual.textFormat", refresh = "RefreshAllBars",
@@ -221,16 +228,16 @@ local function CreateVisualsTab(parent)
         { type = "dropdown", label = "Duration Style",
           db = "visual.durationStyle", refresh = "RefreshAllBars",
           items = durationStyleItems,
-          spacing = 24 },
+          spacing = 16 },
 
         -- -------------------- Section: Icon --------------------
         { type = "header", text = "Icon",
-          spacing = 20, offsetX = 16 },
+          spacing = 24, offsetX = 16 },
 
         { type = "slider", label = "Icon Size",
           db = "visual.iconSize", refresh = "RefreshAllBars",
           min = 0, max = 60, step = 1, width = 200,
-          spacing = 20, offsetX = 4,
+          spacing = 16, offsetX = 4,
           tooltip = "Size (in pixels) of the spell icon shown on each bar. "
                  .. "Set to 0 to hide icons globally. Individual bars can "
                  .. "override this via Show Icon in the per-bar editor." },
@@ -251,33 +258,33 @@ local function CreateVisualsTab(parent)
                  .. "the timer in addition to the bar fill. Has no effect on "
                  .. "resource bars (combo points, runes, etc.).",
           db = "visual.showCooldownSpiral", refresh = "RefreshAllBars",
-          spacing = 8 },
+          spacing = 12 },
 
         -- -------------------- Section: Bar Opacity --------------------
         { type = "header", text = "Bar Opacity",
-          spacing = 20 },
+          spacing = 24 },
 
         { type = "slider", label = "Active Opacity",
           db = "visual.activeAlpha", refresh = "RefreshAllBars",
           min = 0, max = 1, step = 0.05, width = 200,
-          spacing = 20, offsetX = 4 },
+          spacing = 16, offsetX = 4 },
 
         { type = "slider", label = "Inactive Opacity",
           db = "visual.inactiveAlpha", refresh = "RefreshAllBars",
           min = 0, max = 1, step = 0.05, width = 200,
-          spacing = 24 },
+          spacing = 16 },
 
         { type = "toggle", label = "Fade When Inactive",
           tooltip = "Gradually fade bars to inactive opacity when not tracking anything.",
           db = "visual.fadeWhenInactive", refresh = "RefreshAllBars",
-          spacing = 20, offsetX = -4 },
+          spacing = 12, offsetX = -4 },
 
         -- Fade Speed deliberately has NO refresh method; fade speed only
         -- matters during the next opacity transition, not immediately.
         { type = "slider", id = "fadeSpeed", label = "Fade Speed",
           db = "visual.fadeSpeed",
           min = 0.1, max = 2.0, step = 0.1, width = 200,
-          spacing = 20, offsetX = 4,
+          spacing = 16, offsetX = 4,
           tooltip = "How quickly bars fade between Active Opacity and "
                  .. "Inactive Opacity when entering or leaving an active "
                  .. "state. Lower = slower, more pronounced fade; higher "
