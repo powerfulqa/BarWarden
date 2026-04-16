@@ -141,9 +141,26 @@ StaticPopupDialogs["BARWARDEN_CONFIRM_RESET"] = {
     preferredIndex = 4,
 }
 
+-- Welcome starter: first-login prompt for brand-new characters with no bars.
+-- Friendly tone, no mention of replacing anything.
+StaticPopupDialogs["BARWARDEN_WELCOME_STARTER"] = {
+    text = "Welcome to BarWarden!\n\nWould you like to load a %s starter profile?\n\n%s\n\nYou can customise these bars or start fresh from the Bars / Groups tab at any time.",
+    button1 = "Yes, load it",
+    button2 = "No thanks",
+    OnAccept = function(self)
+        if self.data and self.data.onAccept then
+            self.data.onAccept()
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 4,
+}
+
 -- Confirm Load Class Starter (replaces current groups/bars with a preset).
--- First %s is the class name, second %s is the preset summary (group count +
--- bar count + group names).
+-- Used from the Profiles tab when the player already has bars configured.
+-- First %s is the class name, second %s is the preset summary.
 StaticPopupDialogs["BARWARDEN_CONFIRM_STARTER"] = {
     text = "Load the %s starter profile?\n\n%s\n\nThis will REPLACE your current groups and bars on this character. Save a profile first if you want to keep them.",
     button1 = "Load",

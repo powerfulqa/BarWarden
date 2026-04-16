@@ -164,7 +164,9 @@ local function CheckFirstLoginStarter()
 
     ns.db.starterPrompted = true
     local summary = ns.GetClassPresetSummary and ns:GetClassPresetSummary(classToken) or ""
-    StaticPopup_Show("BARWARDEN_CONFIRM_STARTER", className or classToken, summary, {
+    -- Use the welcome dialog (friendly tone, no "replace" warning) since
+    -- the character has no bars to lose.
+    StaticPopup_Show("BARWARDEN_WELCOME_STARTER", className or classToken, summary, {
         onAccept = function()
             if ns.LoadClassStarter then
                 ns:LoadClassStarter(classToken)
