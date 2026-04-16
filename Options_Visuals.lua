@@ -260,6 +260,14 @@ local function CreateVisualsTab(parent)
           db = "visual.showCooldownSpiral", refresh = "RefreshAllBars",
           spacing = 12 },
 
+        { type = "toggle", label = "Icon Tooltip",
+          tooltip = "Show the spell or item tooltip when hovering the bar's "
+                 .. "icon. Useful for identifying what a bar tracks without "
+                 .. "opening the settings panel. Only the icon is hover-sensitive; "
+                 .. "the bar body still passes clicks through to the game world.",
+          db = "visual.showBarTooltip",
+          spacing = 8 },
+
         -- -------------------- Section: Bar Opacity --------------------
         { type = "header", text = "Bar Opacity",
           spacing = 24 },

@@ -156,8 +156,11 @@ function ns:CreateBarFrame(parent)
 
         -- Spell tooltip on icon hover. Only the icon frame is mouse-enabled
         -- (not the bar body) so clicks pass through to the game world.
+        -- Gated on visual.showBarTooltip (default off).
         bar.icon:EnableMouse(true)
         bar.icon:SetScript("OnEnter", function(self)
+            local visual = ns:GetVisual()
+            if not visual.showBarTooltip then return end
             local bd = bar.barData
             if not bd then return end
             GameTooltip:SetOwner(self, "ANCHOR_TOP")

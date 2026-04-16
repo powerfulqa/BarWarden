@@ -60,6 +60,8 @@ ns.DEFAULTS = {
         iconCrop = true,
         -- Radial cooldown spiral overlay on bar icons (TellMeWhen-style)
         showCooldownSpiral = true,
+        -- Spell tooltip when hovering a bar's icon (off by default)
+        showBarTooltip = false,
     },
 
     -- Frames (groups of bars). Empty by default: the auto-prompt at
