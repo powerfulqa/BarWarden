@@ -149,6 +149,70 @@ function ns:CancelBarGlow(bar)
 end
 
 -- ----------------------------------------------------------------------------
+-- Pulse on Ready: centre-screen icon flash when a cooldown/buff expires.
+-- Queues multiple pulses if several CDs expire at the same time; each plays
+-- in sequence so they don't overlap.
+-- ----------------------------------------------------------------------------
+
+local PULSE_ICON_SIZE = 64
+local PULSE_FADE_IN  = 0.15
+local PULSE_HOLD     = 0.6
+local PULSE_FADE_OUT = 0.5
+local PULSE_TOTAL    = PULSE_FADE_IN + PULSE_HOLD + PULSE_FADE_OUT
+
+local pulseFrame = CreateFrame("Frame", "BarWardenPulseFrame", UIParent)
+pulseFrame:SetFrameStrata("TOOLTIP")
+pulseFrame:SetFrameLevel(200)
+pulseFrame:SetSize(PULSE_ICON_SIZE, PULSE_ICON_SIZE)
+pulseFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 100)
+pulseFrame:Hide()
+
+local pulseIcon = pulseFrame:CreateTexture(nil, "ARTWORK")
+pulseIcon:SetAllPoints()
+
+local pulseQueue = {}
+local pulseActive = false
+local pulseStartTime = 0
+
+local function StartNextPulse()
+    if #pulseQueue == 0 then
+        pulseActive = false
+        pulseFrame:Hide()
+        return
+    end
+    local tex = table.remove(pulseQueue, 1)
+    pulseIcon:SetTexture(tex)
+    pulseIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    pulseStartTime = GetTime()
+    pulseActive = true
+    pulseFrame:SetAlpha(0)
+    pulseFrame:Show()
+end
+
+pulseFrame:SetScript("OnUpdate", function(self, elapsed)
+    if not pulseActive then return end
+    local age = GetTime() - pulseStartTime
+
+    if age < PULSE_FADE_IN then
+        self:SetAlpha(age / PULSE_FADE_IN)
+    elseif age < PULSE_FADE_IN + PULSE_HOLD then
+        self:SetAlpha(1)
+    elseif age < PULSE_TOTAL then
+        self:SetAlpha(1 - (age - PULSE_FADE_IN - PULSE_HOLD) / PULSE_FADE_OUT)
+    else
+        StartNextPulse()
+    end
+end)
+
+function ns:TriggerPulse(iconTexture)
+    if not iconTexture then return end
+    pulseQueue[#pulseQueue + 1] = iconTexture
+    if not pulseActive then
+        StartNextPulse()
+    end
+end
+
+-- ----------------------------------------------------------------------------
 -- FormatDuration: pure function mapping (seconds, style) → display string.
 -- Extracted from Bar_OnUpdate to reduce nesting and isolate text logic.
 -- ----------------------------------------------------------------------------
@@ -489,6 +553,13 @@ function ns:DeactivateBar(bar, skipGlow)
         local parent = bar:GetParent()
         if parent then MarkGroupDirty(parent) end
         glowTimerFrame:Show()
+    end
+
+    -- Pulse on ready: centre-screen icon flash (Doom_CooldownPulse pattern).
+    -- Uses the bar's current icon texture so the user sees which spell is ready.
+    if not skipGlow and glowDisplay and glowDisplay.pulseOnReady then
+        local tex = bar.iconTexture and bar.iconTexture:GetTexture()
+        if tex then ns:TriggerPulse(tex) end
     end
 
     -- Reset bar display

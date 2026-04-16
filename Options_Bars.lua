@@ -55,8 +55,9 @@ local function NewBar(name)
             style = nil,
             -- Colour-by-time (nil = inherit global)
             colorByTime = nil,
-            -- Glow on ready
+            -- Glow on ready / pulse on ready
             glowOnReady = false,
+            pulseOnReady = false,
             -- Icon crop (nil = inherit global)
             iconCrop = nil,
             -- Per-bar scale multiplier (nil = 1.0 = group default)
@@ -781,6 +782,13 @@ local function CreateBarsTab(parent)
         dispCheck("Glow on Ready", "glowOnReady",
             "Flash the icon when the cooldown finishes and the spell is ready.",
             { spacing = 20, offsetX = -4 }),
+
+        dispCheck("Pulse on Ready", "pulseOnReady",
+            "Flash the spell icon at the centre of the screen when this "
+         .. "cooldown or buff expires. Gives a strong visual cue that the "
+         .. "spell is available again, even if the bar is at the edge of "
+         .. "your view.",
+            { spacing = 8 }),
 
         dispSlider("Glow Duration (sec)", "glowDuration", 1, 10, 1, 3,
             "How long the icon keeps pulsing when Glow on Ready fires "
