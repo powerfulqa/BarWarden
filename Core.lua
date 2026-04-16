@@ -144,10 +144,40 @@ local function OnAddonLoaded(event, loadedName)
     coreFrame:UnregisterEvent("ADDON_LOADED")
 end
 
+-- Auto-prompt: if the character still has the default sample layout and a
+-- class starter preset exists, offer to load it. Fires once per character
+-- at PLAYER_LOGIN (UI is fully loaded, safe for StaticPopup). The
+-- starterPrompted flag persists in SavedVariables so the user is never
+-- asked twice even if they decline.
+local function CheckFirstLoginStarter()
+    if not ns.db or ns.db.starterPrompted then return end
+    if not ns.ClassPresets then return end
+
+    local className, classToken = UnitClass("player")
+    if not classToken or not ns.ClassPresets[classToken] then return end
+
+    -- Only prompt if the layout looks like a fresh install (0 or 1 groups).
+    -- Checking the group name is brittle; checking the count catches both
+    -- "default sample bar" and "user deleted everything".
+    local frames = ns.db.frames
+    if not frames or #frames > 1 then return end
+
+    ns.db.starterPrompted = true
+    local summary = ns.GetClassPresetSummary and ns:GetClassPresetSummary(classToken) or ""
+    StaticPopup_Show("BARWARDEN_CONFIRM_STARTER", className or classToken, summary, {
+        onAccept = function()
+            if ns.LoadClassStarter then
+                ns:LoadClassStarter(classToken)
+            end
+        end,
+    })
+end
+
 local function OnPlayerLogin()
     if ns.db and ns.db.global.enabled then
         ns:OnEnable()
     end
+    CheckFirstLoginStarter()
 end
 
 local function OnPlayerLogout()
