@@ -541,19 +541,25 @@ function ns:DeactivateBar(bar, skipGlow)
         MarkGroupDirty(parent)
     end
 
-    -- If showAll=false, hide the group frame once all its bars are inactive
-    if BarWardenDB and not BarWardenDB.global.showAll then
-        if parent and parent.bars then
-            local anyActive = false
-            for _, b in ipairs(parent.bars) do
-                if activeBars[b] then
-                    anyActive = true
-                    break
-                end
+    -- Hide the group frame only if EVERY bar in it is either actively hidden
+    -- (hideWhenInactive=true) or currently active (tracked by ActivateBar).
+    -- If any bar wants to stay visible at inactive alpha (the default when
+    -- hideWhenInactive is false), the group stays visible too.
+    if parent and parent.bars then
+        local anyWantVisible = false
+        for _, b in ipairs(parent.bars) do
+            if activeBars[b] then
+                anyWantVisible = true
+                break
             end
-            if not anyActive then
-                parent:Hide()
+            local bc = b.barData and b.barData.conditions
+            if not bc or not bc.hideWhenInactive then
+                anyWantVisible = true
+                break
             end
+        end
+        if not anyWantVisible then
+            parent:Hide()
         end
     end
 end
@@ -639,11 +645,13 @@ local function EnsureBarVisible(bar)
 
     local parent = bar:GetParent()
     if parent then
-        -- Ensure the group frame is visible
-        if not parent:IsShown() and BarWardenDB and BarWardenDB.global.showAll then
+        -- If the bar should be visible, so should its parent group frame.
+        -- The previous guard (showAll) prevented this, leaving groups hidden
+        -- when all bars were inactive; that made bars invisible even with
+        -- showEmpty=true on a fresh-login character with no active CDs.
+        if not parent:IsShown() then
             parent:Show()
         end
-        -- Mark for re-layout so the group resizes and bars reposition
         MarkGroupDirty(parent)
     end
 end

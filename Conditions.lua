@@ -111,3 +111,36 @@ ns:RegisterCondition("inRaid", function(conditions)
     end
     return true
 end)
+
+-- Smart-visibility conditions (player state). All four APIs are confirmed
+-- present on 3.3.5a (used by WeakAuras, DiminishingReturns, Forte, etc.).
+-- The 0.25 s scan loop evaluates these cheaply; no dedicated events needed.
+
+ns:RegisterCondition("hideWhileMounted", function(conditions)
+    if conditions.hideWhileMounted then
+        return not IsMounted()
+    end
+    return true
+end)
+
+ns:RegisterCondition("hideWhileResting", function(conditions)
+    if conditions.hideWhileResting then
+        return not IsResting()
+    end
+    return true
+end)
+
+ns:RegisterCondition("hideInVehicle", function(conditions)
+    if conditions.hideInVehicle then
+        return not UnitInVehicle("player")
+    end
+    return true
+end)
+
+ns:RegisterCondition("onlyInInstance", function(conditions)
+    if conditions.onlyInInstance then
+        local inInstance = IsInInstance()
+        return inInstance
+    end
+    return true
+end)

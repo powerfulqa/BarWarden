@@ -421,6 +421,10 @@ mirror the per-bar struct created by `NewBar()` in
 | `healthBelow` | number (0-100) | Show only when player HP% is below this. |
 | `inGroup` | bool | Show only in a party. |
 | `inRaid` | bool | Show only in a raid. |
+| `hideWhileMounted` | bool | Hide while `IsMounted()` is true. |
+| `hideWhileResting` | bool | Hide while in an inn or capital city (`IsResting()`). |
+| `hideInVehicle` | bool | Hide while in a vehicle (`UnitInVehicle("player")`). |
+| `onlyInInstance` | bool | Show only inside a dungeon, raid, arena, or battleground (`IsInInstance()`). |
 | `hideWhenInactive` | bool | Fully hide (not just dim) when the tracker is inactive. |
 | `showEmpty` | bool | When true (default), show the bar at inactive alpha if tracker is inactive but bar is otherwise valid. |
 

@@ -133,11 +133,14 @@ function ns:CreateGroupFrame(groupData, frameIndex)
         frame.titleText:Hide()
     end
 
-    -- Visibility
-    if groupData.visible == false or (BarWardenDB and not BarWardenDB.global.showAll) then
-        frame:Hide()
-    else
+    -- Show the group by default. The old guard `(not showAll)` always evaluated
+    -- true because showAll was never in DEFAULTS, causing every new group to
+    -- start hidden. Groups are only hidden if the per-group `visible` flag is
+    -- explicitly false (not currently exposed in the UI, but respected here).
+    if groupData.visible ~= false then
         frame:Show()
+    else
+        frame:Hide()
     end
 
     -- Lock state
@@ -527,10 +530,11 @@ function ns:RebuildAllFrames()
         ns:UnlockAllFrames()
     end
 
-    -- Apply visibility
-    if not BarWardenDB.global.showAll then
-        ns:HideAllFrames()
-    end
+    -- Per-group visibility is already handled inside CreateGroupFrame (respects
+    -- groupData.visible). The old `showAll` guard here unconditionally hid every
+    -- group because showAll was never declared in DEFAULTS (always nil). Removed
+    -- so mid-session profile loads (Load Class Starter, profile switches) don't
+    -- create-then-immediately-hide all groups.
 
     -- Rebuild the flat bar list used by the scan engine
     if ns.RebuildAllBarsCache then

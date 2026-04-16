@@ -36,6 +36,10 @@ local function NewBar(name)
             healthBelow = nil,
             inGroup = false,
             inRaid = false,
+            hideWhileMounted = false,
+            hideWhileResting = false,
+            hideInVehicle = false,
+            onlyInInstance = false,
             hideWhenInactive = false,
             showEmpty = true,
         },
@@ -601,6 +605,51 @@ local function CreateBarsTab(parent)
     end)
     inRaidCB:SetPoint("TOPLEFT", inGroupCB, "BOTTOMLEFT", 0, -2)
 
+    -- Smart-visibility conditions (player state).
+    local mountedCB = ns:CreateCheckbox(ec, "Hide While Mounted",
+        "Hide this bar while you are on a mount.", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            if not bar.conditions then bar.conditions = {} end
+            bar.conditions.hideWhileMounted = checked
+            ns:RefreshBarSettings()
+        end
+    end)
+    mountedCB:SetPoint("TOPLEFT", inRaidCB, "BOTTOMLEFT", 0, -2)
+
+    local restingCB = ns:CreateCheckbox(ec, "Hide While Resting",
+        "Hide this bar while in an inn or capital city (resting).", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            if not bar.conditions then bar.conditions = {} end
+            bar.conditions.hideWhileResting = checked
+            ns:RefreshBarSettings()
+        end
+    end)
+    restingCB:SetPoint("TOPLEFT", mountedCB, "BOTTOMLEFT", 0, -2)
+
+    local vehicleCB = ns:CreateCheckbox(ec, "Hide In Vehicle",
+        "Hide this bar while in a vehicle (siege engines, drakes, etc.).", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            if not bar.conditions then bar.conditions = {} end
+            bar.conditions.hideInVehicle = checked
+            ns:RefreshBarSettings()
+        end
+    end)
+    vehicleCB:SetPoint("TOPLEFT", restingCB, "BOTTOMLEFT", 0, -2)
+
+    local instanceCB = ns:CreateCheckbox(ec, "Only In Instance",
+        "Only show this bar inside a dungeon, raid, arena, or battleground.", function(self, checked)
+        local bar = frame:GetSelectedBar()
+        if bar then
+            if not bar.conditions then bar.conditions = {} end
+            bar.conditions.onlyInInstance = checked
+            ns:RefreshBarSettings()
+        end
+    end)
+    instanceCB:SetPoint("TOPLEFT", vehicleCB, "BOTTOMLEFT", 0, -2)
+
     local hideInactiveCB = ns:CreateCheckbox(ec, "Hide When Inactive", "Hide bar when not tracking", function(self, checked)
         local bar = frame:GetSelectedBar()
         if bar then
@@ -609,7 +658,7 @@ local function CreateBarsTab(parent)
             ns:RefreshBarSettings()
         end
     end)
-    hideInactiveCB:SetPoint("TOPLEFT", inRaidCB, "BOTTOMLEFT", 0, -2)
+    hideInactiveCB:SetPoint("TOPLEFT", instanceCB, "BOTTOMLEFT", 0, -2)
 
     local showEmptyCB = ns:CreateCheckbox(ec, "Show Empty Bar", "Show bar even when not active", function(self, checked)
         local bar = frame:GetSelectedBar()
@@ -936,6 +985,10 @@ local function CreateBarsTab(parent)
         oocOnlyCB:SetChecked(cond.outOfCombatOnly)
         inGroupCB:SetChecked(cond.inGroup)
         inRaidCB:SetChecked(cond.inRaid)
+        mountedCB:SetChecked(cond.hideWhileMounted)
+        restingCB:SetChecked(cond.hideWhileResting)
+        vehicleCB:SetChecked(cond.hideInVehicle)
+        instanceCB:SetChecked(cond.onlyInInstance)
         hideInactiveCB:SetChecked(cond.hideWhenInactive)
         showEmptyCB:SetChecked(cond.showEmpty)
         healthEdit:SetText(cond.healthBelow and tostring(cond.healthBelow) or "")
