@@ -337,16 +337,20 @@ Resource bars reinterpret the tracker tuple: `remaining` becomes
 ### Class presets + starter profiles
 
 [ClassPresets.lua](ClassPresets.lua) exports `ns.ClassPresets[classToken]`
-for each of the ten 3.3.5a classes. Each preset is a table of groups and
-bars shaped like the runtime `ns.db.frames` structure. Two loaders:
+for each of the ten 3.3.5a classes. Each entry has a `groups` table
+(class-level fallback) and a `specs` table with per-talent-tree presets
+for all 30 WotLK specs. Two loaders:
 
-- `ns:LoadClassStarter(classToken?)` replaces the active profile's
-  groups/bars with the preset. Defaults to the player's class if
-  `classToken` is nil. Called from the "Load Class Starter" button in
+- `ns:LoadClassStarter(classToken?)` detects the player's active talent
+  spec via `ns:DetectSpec()` and loads the spec-level preset if available,
+  falling back to the class-level groups. Defaults to the player's class
+  if `classToken` is nil. Called from the "Load Starter" button in
   [Options_Profiles.lua](Options_Profiles.lua). Fires
   `"OnProfileChanged"` so the frame cache rebuilds.
-- `ns:AppendClassStarter(classToken?)` concatenates preset groups onto
-  `ns.db.frames` instead of replacing. Same event fire on completion.
+- `ns:AppendClassStarter(classToken?)` same logic but concatenates
+  preset groups onto `ns.db.frames` instead of replacing.
+- `ns:DetectSpec()` returns `(classToken, specIndex, specName)` by
+  counting talent points per tree via `GetTalentTabInfo(tab)`.
 
 Each bar preset is a partial config (trackMode, spellId or spellName,
 name, unit, onlyMine). `MakeFullBar` fills in the default `conditions`

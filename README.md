@@ -11,7 +11,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 ## What Can It Do?
 
 - **Track your abilities** with 12 different modes: Cooldown, Buff, Debuff, Proc, Item, Enchant MH, Enchant OH, Totem, Combo Points, Runes, Runic Power, and Soul Shards
-- **Class starter profiles** for all 10 WotLK classes — one-click load of curated cooldowns, procs, and resources tailored to your class
+- **Spec-aware starter profiles** for all 30 WotLK talent specs — one-click load of curated cooldowns, procs, and resources tailored to your active spec (falls back to class-level if no talents are spent)
 - **Class resource trackers** for Combo Points (rogue/druid), Runes (DK), Runic Power (DK), and Soul Shards (warlock) that fill as the resource builds rather than counting down
 - **Organise bars into groups** like "Cooldowns", "Target Debuffs", or "Buffs" (up to 20 groups, 30 bars each)
 - **Multi-column layouts** so you can display bars in 1 to 4 columns per group
@@ -32,7 +32,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Per-group conditions** hide an entire group at once (combat only, mounted, resting, vehicle, instance only) instead of ticking every bar individually
 - **Set conditions** on bars so they only show in combat, below a health threshold, in a group, for a specific class, and more
 - **Smart visibility** hides bars automatically while mounted, resting, in a vehicle, or only shows them inside dungeons and raids
-- **Auto-prompt on first login** offers to load your class starter profile when you log in on a fresh character with no bars configured
+- **Auto-prompt on first login** offers to load your spec starter profile when you log in on a fresh character with no bars configured
 - **Test mode** shows all bars with fake 30s timers so you can preview your layout without triggering spells
 - **Account-wide profiles** so you can save a setup on one character and load it on another
 - **Drag bars to reorder** them within a group when frames are unlocked
