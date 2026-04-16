@@ -62,50 +62,11 @@ ns.DEFAULTS = {
         showCooldownSpiral = true,
     },
 
-    -- Frames (groups of bars)
-    -- Default frame: one sample bar tracking Hearthstone cooldown (item 6948).
-    -- Every player has a Hearthstone so this gives immediate visual feedback.
-    -- Delete this frame or add more via the Bars/Groups tab in the options panel.
-    frames = {
-        {
-            name = "Sample Cooldowns",
-            enabled = true,
-            locked = false,
-            visible = true,
-            position = { point = "CENTER", relativePoint = "CENTER", x = 0, y = -100 },
-            width = 200,
-            columns = 1,
-            sortMode = "manual",
-            bgAlpha = 0.6,
-            borderAlpha = 0.8,
-            scale = 1.0,
-            bars = {
-                {
-                    trackMode = "Item",
-                    spell = 6948,   -- Hearthstone
-                    unit = "player",
-                    onlyMine = true,
-                    enabled = true,
-                    display = {},
-                    conditions = {
-                        combatOnly = false,
-                        outOfCombatOnly = false,
-                        requireBuff = nil,
-                        requireClass = nil,  -- "DEATHKNIGHT", "ROGUE", ... (hides bar for other classes)
-                        healthBelow = nil,
-                        inGroup = false,
-                        inRaid = false,
-                        hideWhileMounted = false,
-                        hideWhileResting = false,
-                        hideInVehicle = false,
-                        onlyInInstance = false,
-                        hideWhenInactive = false,
-                        showEmpty = true,
-                    },
-                },
-            },
-        },
-    },
+    -- Frames (groups of bars). Empty by default: the auto-prompt at
+    -- PLAYER_LOGIN (Core.lua CheckFirstLoginStarter) offers to load a
+    -- curated class starter on first login, replacing the old sample
+    -- Hearthstone bar that just added clutter.
+    frames = {},
 
     -- Activity tracker: passive spell/aura/cooldown monitoring (persistent across sessions)
     activity = {},
