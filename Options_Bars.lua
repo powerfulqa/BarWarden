@@ -548,334 +548,261 @@ local function CreateBarsTab(parent)
     onlyMineCB:SetPoint("TOPLEFT", targetDD, "BOTTOMLEFT", 16, -6)
 
     -- ========================================================================
-    -- CONDITIONS SECTION
+    -- CONDITIONS + DISPLAY: declarative schema (ns:BuildSettings).
+    --
+    -- All entries use get/set closures (not db paths) because the target bar
+    -- is dynamic: it changes whenever the user selects a different bar in the
+    -- list. refreshEditorSettings() is called from UpdateBarEditor on every
+    -- bar selection change, re-reading all values from the new bar.
     -- ========================================================================
-    local condHeader = ec:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    condHeader:SetPoint("TOPLEFT", onlyMineCB, "BOTTOMLEFT", 0, -12)
-    condHeader:SetText("Conditions")
 
-    local combatOnlyCB
-    local oocOnlyCB
+    local editorWidgets = {}
 
-    combatOnlyCB = ns:CreateCheckbox(ec, "Combat Only", "Show only in combat", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            if not bar.conditions then bar.conditions = {} end
-            bar.conditions.combatOnly = checked
-            if checked then
-                bar.conditions.outOfCombatOnly = false
-                oocOnlyCB:SetChecked(false)
-            end
-            ns:RefreshBarSettings()
-        end
-    end)
-    combatOnlyCB:SetPoint("TOPLEFT", condHeader, "BOTTOMLEFT", 0, -4)
+    -- GetSelectedBar is defined later in CreateBarsTab. At BuildSettings
+    -- build time the method doesn't exist yet, so guard against nil.
+    local function getBar()
+        return frame.GetSelectedBar and frame:GetSelectedBar() or nil
+    end
+    local function getCond()
+        local bar = getBar()
+        return bar and (bar.conditions or {}) or {}
+    end
+    local function getDisp()
+        local bar = getBar()
+        return bar and (bar.display or {}) or {}
+    end
 
-    oocOnlyCB = ns:CreateCheckbox(ec, "Out of Combat Only", "Show only out of combat", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            if not bar.conditions then bar.conditions = {} end
-            bar.conditions.outOfCombatOnly = checked
-            if checked then
-                bar.conditions.combatOnly = false
-                combatOnlyCB:SetChecked(false)
-            end
-            ns:RefreshBarSettings()
-        end
-    end)
-    oocOnlyCB:SetPoint("TOPLEFT", combatOnlyCB, "BOTTOMLEFT", 0, -2)
+    -- Factory: condition-toggle schema entry (1 line per checkbox)
+    local function condCheck(label, field, tip, extra)
+        local e = { type = "toggle", label = label, tooltip = tip,
+            get = function() return getCond()[field] end,
+            set = function(_, v)
+                local bar = getBar(); if not bar then return end
+                if not bar.conditions then bar.conditions = {} end
+                bar.conditions[field] = v
+                ns:RefreshBarSettings()
+            end,
+            spacing = 2 }
+        if extra then for k, v in pairs(extra) do e[k] = v end end
+        return e
+    end
 
-    local inGroupCB = ns:CreateCheckbox(ec, "In Group", "Show only when in a group", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            if not bar.conditions then bar.conditions = {} end
-            bar.conditions.inGroup = checked
-            ns:RefreshBarSettings()
-        end
-    end)
-    inGroupCB:SetPoint("TOPLEFT", oocOnlyCB, "BOTTOMLEFT", 0, -2)
+    -- Factory: display-toggle schema entry
+    local function dispCheck(label, field, tip, extra)
+        local e = { type = "toggle", label = label, tooltip = tip,
+            get = function() return getDisp()[field] end,
+            set = function(_, v)
+                local bar = getBar(); if not bar then return end
+                if not bar.display then bar.display = {} end
+                bar.display[field] = v and true or false
+                ns:RefreshBarSettings()
+            end,
+            spacing = 2 }
+        if extra then for k, v in pairs(extra) do e[k] = v end end
+        return e
+    end
 
-    local inRaidCB = ns:CreateCheckbox(ec, "In Raid", "Show only when in a raid", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            if not bar.conditions then bar.conditions = {} end
-            bar.conditions.inRaid = checked
-            ns:RefreshBarSettings()
-        end
-    end)
-    inRaidCB:SetPoint("TOPLEFT", inGroupCB, "BOTTOMLEFT", 0, -2)
+    -- Factory: display-slider schema entry
+    local function dispSlider(label, field, mn, mx, st, default, tip, extra)
+        local e = { type = "slider", label = label, tooltip = tip,
+            min = mn, max = mx, step = st, width = 180,
+            get = function() return getDisp()[field] or default end,
+            set = function(_, v)
+                local bar = getBar(); if not bar then return end
+                if not bar.display then bar.display = {} end
+                bar.display[field] = v
+                ns:RefreshBarSettings()
+            end,
+            spacing = 24, offsetX = 4 }
+        if extra then for k, v in pairs(extra) do e[k] = v end end
+        return e
+    end
 
-    -- Smart-visibility conditions (player state).
-    local mountedCB = ns:CreateCheckbox(ec, "Hide While Mounted",
-        "Hide this bar while you are on a mount.", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            if not bar.conditions then bar.conditions = {} end
-            bar.conditions.hideWhileMounted = checked
-            ns:RefreshBarSettings()
-        end
-    end)
-    mountedCB:SetPoint("TOPLEFT", inRaidCB, "BOTTOMLEFT", 0, -2)
+    local EDITOR_SCHEMA = {
+        -- ---- Conditions ----
+        { type = "header", text = "Conditions" },
 
-    local restingCB = ns:CreateCheckbox(ec, "Hide While Resting",
-        "Hide this bar while in an inn or capital city (resting).", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            if not bar.conditions then bar.conditions = {} end
-            bar.conditions.hideWhileResting = checked
-            ns:RefreshBarSettings()
-        end
-    end)
-    restingCB:SetPoint("TOPLEFT", mountedCB, "BOTTOMLEFT", 0, -2)
+        -- Combat / OOC are mutually exclusive: set writes both DB fields,
+        -- onChange visually unchecks the partner widget via editorWidgets ref.
+        { type = "toggle", id = "combatOnly", label = "Combat Only",
+          tooltip = "Show only in combat",
+          get = function() return getCond().combatOnly end,
+          set = function(_, v)
+              local bar = getBar(); if not bar then return end
+              if not bar.conditions then bar.conditions = {} end
+              bar.conditions.combatOnly = v
+              if v then bar.conditions.outOfCombatOnly = false end
+              ns:RefreshBarSettings()
+          end,
+          onChange = function(v)
+              if v and editorWidgets.oocOnly then editorWidgets.oocOnly:SetChecked(false) end
+          end,
+          spacing = 4 },
 
-    local vehicleCB = ns:CreateCheckbox(ec, "Hide In Vehicle",
-        "Hide this bar while in a vehicle (siege engines, drakes, etc.).", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            if not bar.conditions then bar.conditions = {} end
-            bar.conditions.hideInVehicle = checked
-            ns:RefreshBarSettings()
-        end
-    end)
-    vehicleCB:SetPoint("TOPLEFT", restingCB, "BOTTOMLEFT", 0, -2)
+        { type = "toggle", id = "oocOnly", label = "Out of Combat Only",
+          tooltip = "Show only out of combat",
+          get = function() return getCond().outOfCombatOnly end,
+          set = function(_, v)
+              local bar = getBar(); if not bar then return end
+              if not bar.conditions then bar.conditions = {} end
+              bar.conditions.outOfCombatOnly = v
+              if v then bar.conditions.combatOnly = false end
+              ns:RefreshBarSettings()
+          end,
+          onChange = function(v)
+              if v and editorWidgets.combatOnly then editorWidgets.combatOnly:SetChecked(false) end
+          end,
+          spacing = 2 },
 
-    local instanceCB = ns:CreateCheckbox(ec, "Only In Instance",
-        "Only show this bar inside a dungeon, raid, arena, or battleground.", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            if not bar.conditions then bar.conditions = {} end
-            bar.conditions.onlyInInstance = checked
-            ns:RefreshBarSettings()
-        end
-    end)
-    instanceCB:SetPoint("TOPLEFT", vehicleCB, "BOTTOMLEFT", 0, -2)
+        condCheck("In Group",            "inGroup",           "Show only when in a group"),
+        condCheck("In Raid",             "inRaid",            "Show only when in a raid"),
+        condCheck("Hide While Mounted",  "hideWhileMounted",  "Hide this bar while you are on a mount."),
+        condCheck("Hide While Resting",  "hideWhileResting",  "Hide this bar while in an inn or capital city (resting)."),
+        condCheck("Hide In Vehicle",     "hideInVehicle",     "Hide this bar while in a vehicle (siege engines, drakes, etc.)."),
+        condCheck("Only In Instance",    "onlyInInstance",    "Only show this bar inside a dungeon, raid, arena, or battleground."),
+        condCheck("Hide When Inactive",  "hideWhenInactive",  "Hide bar completely when not tracking anything."),
+        condCheck("Show Empty Bar",      "showEmpty",         "Show bar at inactive alpha even when not active."),
 
-    local hideInactiveCB = ns:CreateCheckbox(ec, "Hide When Inactive", "Hide bar when not tracking", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            if not bar.conditions then bar.conditions = {} end
-            bar.conditions.hideWhenInactive = checked
-            ns:RefreshBarSettings()
-        end
-    end)
-    hideInactiveCB:SetPoint("TOPLEFT", instanceCB, "BOTTOMLEFT", 0, -2)
+        { type = "editbox", label = "Health Below %", width = 60,
+          tooltip = "Only show this bar when your own HP is below this percentage. "
+                 .. "Useful for execute-range spells (Kill Shot, Hammer of Wrath, "
+                 .. "Execute) and panic buttons (Healthstone). Enter a number 1-100 "
+                 .. "and press Enter to apply, or leave empty to disable.",
+          get = function()
+              local v = getCond().healthBelow
+              return v and tostring(v) or ""
+          end,
+          set = function(_, text)
+              local bar = getBar(); if not bar then return end
+              if not bar.conditions then bar.conditions = {} end
+              local val = tonumber(text)
+              bar.conditions.healthBelow = (val and val > 0 and val <= 100) and val or nil
+              ns:RefreshBarSettings()
+          end,
+          spacing = 18, offsetX = 6 },
 
-    local showEmptyCB = ns:CreateCheckbox(ec, "Show Empty Bar", "Show bar even when not active", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            if not bar.conditions then bar.conditions = {} end
-            bar.conditions.showEmpty = checked
-            ns:RefreshBarSettings()
-        end
-    end)
-    showEmptyCB:SetPoint("TOPLEFT", hideInactiveCB, "BOTTOMLEFT", 0, -2)
+        { type = "editbox", label = "Require Buff", width = 140,
+          tooltip = "Only show this bar while you have the named buff active. "
+                 .. "Accepts a buff name or spell ID. Useful for state-gated abilities "
+                 .. "(stealth-only cooldowns, bear-form abilities, proc reactions). "
+                 .. "Press Enter to apply, or leave empty to disable.",
+          get = function() return getCond().requireBuff or "" end,
+          set = function(_, text)
+              local bar = getBar(); if not bar then return end
+              if not bar.conditions then bar.conditions = {} end
+              bar.conditions.requireBuff = (text and text ~= "") and text or nil
+              ns:RefreshBarSettings()
+          end,
+          spacing = 18 },
 
-    local healthEdit = ns:CreateEditBox(ec, "Health Below %", 60, function(self, text)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            if not bar.conditions then bar.conditions = {} end
-            local val = tonumber(text)
-            bar.conditions.healthBelow = (val and val > 0 and val <= 100) and val or nil
-            ns:RefreshBarSettings()
-        end
-    end,
-    "Only show this bar when your own HP is below this percentage. "
- .. "Useful for execute-range spells (Kill Shot, Hammer of Wrath, "
- .. "Execute) and panic buttons (Healthstone). Enter a number 1-100 "
- .. "and press Enter to apply, or leave empty to disable.")
-    healthEdit:SetPoint("TOPLEFT", showEmptyCB, "BOTTOMLEFT", 6, -18)
+        -- ---- Display Options ----
+        { type = "header", text = "Display Options", spacing = 12 },
 
-    local requireBuffEdit = ns:CreateEditBox(ec, "Require Buff", 140, function(self, text)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            if not bar.conditions then bar.conditions = {} end
-            bar.conditions.requireBuff = (text and text ~= "") and text or nil
-            ns:RefreshBarSettings()
-        end
-    end,
-    "Only show this bar while you have the named buff active. "
- .. "Accepts a buff name or spell ID. Useful for state-gated abilities "
- .. "(stealth-only cooldowns, bear-form abilities, proc reactions). "
- .. "Press Enter to apply, or leave empty to disable.")
-    requireBuffEdit:SetPoint("TOPLEFT", healthEdit, "BOTTOMLEFT", 0, -18)
+        dispSlider("Linger Time (sec)", "lingerTime", 0, 5, 0.5, 0,
+            "After a tracked cooldown or buff expires, the bar holds at 0 for "
+         .. "this many seconds before fading out. Pairs nicely with Glow on "
+         .. "Ready so you can see the moment a spell came off cooldown. "
+         .. "Set to 0 for the bar to disappear instantly on expiry."),
 
-    -- ========================================================================
-    -- DISPLAY OPTIONS SECTION
-    -- ========================================================================
-    local displayHeader = ec:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    displayHeader:SetPoint("TOPLEFT", requireBuffEdit, "BOTTOMLEFT", 0, -12)
-    displayHeader:SetText("Display Options")
+        { type = "slider", label = "Bar Scale",
+          min = 0.5, max = 2.0, step = 0.1, width = 180,
+          tooltip = "Scale this bar individually. 1.0 is the group default. Values above "
+                 .. "1.0 may visually overlap neighbouring bars in multi-column groups; "
+                 .. "increase Bar Spacing in the Visuals tab or use a single-column group "
+                 .. "to compensate.",
+          get = function() return getDisp().scaleOverride or 1.0 end,
+          set = function(_, v)
+              local bar = getBar(); if not bar then return end
+              if not bar.display then bar.display = {} end
+              bar.display.scaleOverride = (v ~= 1.0) and v or nil
+              ns:RefreshBarSettings()
+          end,
+          spacing = 24 },
 
-    local lingerSlider = ns:CreateSlider(ec, "Linger Time (sec)", 0, 5, 0.5, function(self, value)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.lingerTime = value
-            ns:RefreshBarSettings()
-        end
-    end,
-    "After a tracked cooldown or buff expires, the bar holds at 0 for "
- .. "this many seconds before fading out. Pairs nicely with Glow on "
- .. "Ready so you can see the moment a spell came off cooldown. "
- .. "Set to 0 for the bar to disappear instantly on expiry.")
-    lingerSlider:SetPoint("TOPLEFT", displayHeader, "BOTTOMLEFT", 4, -24)
-    lingerSlider:SetWidth(180)
+        dispCheck("Show Bar Name", "showName",
+            "Display the Bar Name text on this bar.", { spacing = 24 }),
+        dispCheck("Show Icon", "showIcon",
+            "Display the spell icon on this bar."),
 
-    -- Per-bar scale override. Writes nil back to the DB when value is 1 so
-    -- the bar stays on "group default" rather than an explicit 1x override.
-    local scaleSlider = ns:CreateSlider(ec, "Bar Scale", 0.5, 2.0, 0.1, function(self, value)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.scaleOverride = (value ~= 1.0) and value or nil
-            ns:RefreshBarSettings()
-        end
-    end,
-    "Scale this bar individually. 1.0 is the group default. Values above "
- .. "1.0 may visually overlap neighbouring bars in multi-column groups; "
- .. "increase Bar Spacing in the Visuals tab or use a single-column group "
- .. "to compensate.")
-    scaleSlider:SetPoint("TOPLEFT", lingerSlider, "BOTTOMLEFT", 0, -24)
-    scaleSlider:SetWidth(180)
+        { type = "slider", label = "Bar Darkness",
+          min = 0, max = 100, step = 1, width = 180,
+          tooltip = "How dark the bar's empty/unfilled background is. 0 = fully "
+                 .. "transparent (invisible background), 100 = solid black background. "
+                 .. "Lower values make the filled portion stand out more; higher "
+                 .. "values make empty bars easier to see at a glance.",
+          get = function() return (getDisp().barAlpha or 0.6) * 100 end,
+          set = function(_, v)
+              local bar = getBar(); if not bar then return end
+              if not bar.display then bar.display = {} end
+              bar.display.barAlpha = v / 100
+              ns:RefreshBarSettings()
+          end,
+          spacing = 24, offsetX = 4 },
 
-    local showBarNameCB = ns:CreateCheckbox(ec, "Show Bar Name",
-        "Display the Bar Name text on this bar.", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.showName = checked and true or false
-            ns:RefreshBarSettings()
-        end
-    end)
-    showBarNameCB:SetPoint("TOPLEFT", scaleSlider, "BOTTOMLEFT", 0, -24)
+        dispCheck("Sparkle Alert", "sparkleAlert",
+            "Flash the bar when the timer is about to expire.",
+            { spacing = 24, offsetX = -4 }),
 
-    local showBarIconCB = ns:CreateCheckbox(ec, "Show Icon",
-        "Display the spell icon on this bar.", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.showIcon = checked and true or false
-            ns:RefreshBarSettings()
-        end
-    end)
-    showBarIconCB:SetPoint("TOPLEFT", showBarNameCB, "BOTTOMLEFT", 0, -2)
+        dispSlider("Alert Threshold (sec)", "sparkleThreshold", 1, 15, 1, 5,
+            "When Sparkle Alert is enabled, the bar flashes once the remaining "
+         .. "time drops below this many seconds. Lower = later warning; higher "
+         .. "= more lead time. Has no effect unless Sparkle Alert is ticked.",
+            { spacing = 20 }),
 
-    local barOpacitySlider = ns:CreateSlider(ec, "Bar Darkness", 0, 100, 1, function(self, value)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.barAlpha = value / 100
-            ns:RefreshBarSettings()
-        end
-    end,
-    "How dark the bar's empty/unfilled background is. 0 = fully "
- .. "transparent (invisible background), 100 = solid black background. "
- .. "Lower values make the filled portion stand out more; higher "
- .. "values make empty bars easier to see at a glance.")
-    barOpacitySlider:SetPoint("TOPLEFT", showBarIconCB, "BOTTOMLEFT", 4, -24)
-    barOpacitySlider:SetWidth(180)
+        { type = "color", label = "Color Override",
+          get = function()
+              return getDisp().colorOverride or { r = 1, g = 1, b = 1 }
+          end,
+          set = function(_, color)
+              local bar = getBar(); if not bar then return end
+              if not bar.display then bar.display = {} end
+              bar.display.colorOverride = { r = color.r, g = color.g, b = color.b }
+              ns:RefreshBarSettings()
+          end,
+          spacing = 8, offsetX = -4 },
 
-    local sparkleCB = ns:CreateCheckbox(ec, "Sparkle Alert",
-        "Flash the bar when the timer is about to expire.", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.sparkleAlert = checked and true or false
-            ns:RefreshBarSettings()
-        end
-    end)
-    sparkleCB:SetPoint("TOPLEFT", barOpacitySlider, "BOTTOMLEFT", -4, -24)
+        dispCheck("Colour by Time", "colorByTime",
+            "Bar colour changes from green to red as the timer counts down.",
+            { spacing = 12, offsetX = -4 }),
 
-    local sparkleThresholdSlider = ns:CreateSlider(ec, "Alert Threshold (sec)", 1, 15, 1, function(self, value)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.sparkleThreshold = value
-            ns:RefreshBarSettings()
-        end
-    end,
-    "When Sparkle Alert is enabled, the bar flashes once the remaining "
- .. "time drops below this many seconds. Lower = later warning; higher "
- .. "= more lead time. Has no effect unless Sparkle Alert is ticked.")
-    sparkleThresholdSlider:SetPoint("TOPLEFT", sparkleCB, "BOTTOMLEFT", 4, -20)
-    sparkleThresholdSlider:SetWidth(180)
+        dispSlider("High Threshold (sec)", "colorHighSeconds", 1, 30, 1, 10,
+            "When Colour by Time is enabled, the bar stays green while "
+         .. "remaining time is at or above this many seconds, then fades "
+         .. "toward yellow as it counts down. Set higher for earlier warning; "
+         .. "lower to keep the bar green for longer.",
+            { spacing = 20 }),
 
-    local colorSwatch = ns:CreateColorSwatch(ec, "Color Override", { r = 1, g = 1, b = 1, a = 1 }, function(self, color)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.colorOverride = { r = color.r, g = color.g, b = color.b }
-            ns:RefreshBarSettings()
-        end
-    end)
-    colorSwatch:SetPoint("TOPLEFT", sparkleThresholdSlider, "BOTTOMLEFT", -4, -8)
+        dispSlider("Med Threshold (sec)", "colorMedSeconds", 1, 30, 1, 5,
+            "When Colour by Time is enabled, the bar fades from yellow to red "
+         .. "once remaining time drops below this many seconds. Should be "
+         .. "lower than High Threshold; the gap between them is the "
+         .. "yellow zone."),
 
-    -- Colour by Time (per-bar override)
-    local colorByTimeCB = ns:CreateCheckbox(ec, "Colour by Time",
-        "Bar colour changes from green to red as the timer counts down.", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.colorByTime = checked and true or false
-            ns:RefreshBarSettings()
-        end
-    end)
-    colorByTimeCB:SetPoint("TOPLEFT", colorSwatch, "BOTTOMLEFT", -4, -12)
+        dispCheck("Glow on Ready", "glowOnReady",
+            "Flash the icon when the cooldown finishes and the spell is ready.",
+            { spacing = 20, offsetX = -4 }),
 
-    local cbtHighSlider = ns:CreateSlider(ec, "High Threshold (sec)", 1, 30, 1, function(self, value)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.colorHighSeconds = value
-            ns:RefreshBarSettings()
-        end
-    end,
-    "When Colour by Time is enabled, the bar stays green while "
- .. "remaining time is at or above this many seconds, then fades "
- .. "toward yellow as it counts down. Set higher for earlier warning; "
- .. "lower to keep the bar green for longer.")
-    cbtHighSlider:SetPoint("TOPLEFT", colorByTimeCB, "BOTTOMLEFT", 4, -20)
-    cbtHighSlider:SetWidth(180)
+        dispSlider("Glow Duration (sec)", "glowDuration", 1, 10, 1, 3,
+            "How long the icon keeps pulsing when Glow on Ready fires "
+         .. "(spell comes off cooldown / buff expires). Has no effect unless "
+         .. "Glow on Ready is ticked.",
+            { spacing = 20 }),
 
-    local cbtMedSlider = ns:CreateSlider(ec, "Med Threshold (sec)", 1, 30, 1, function(self, value)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.colorMedSeconds = value
-            ns:RefreshBarSettings()
-        end
-    end,
-    "When Colour by Time is enabled, the bar fades from yellow to red "
- .. "once remaining time drops below this many seconds. Should be "
- .. "lower than High Threshold; the gap between them is the "
- .. "yellow zone.")
-    cbtMedSlider:SetPoint("TOPLEFT", cbtHighSlider, "BOTTOMLEFT", 0, -24)
-    cbtMedSlider:SetWidth(180)
+        dispCheck("Crop Icon", "iconCrop",
+            "Trim icon border pixels to prevent stretching.",
+            { spacing = 20, offsetX = -4 }),
+    }
 
-    -- Glow on Ready
-    local glowOnReadyCB = ns:CreateCheckbox(ec, "Glow on Ready",
-        "Flash the icon when the cooldown finishes and the spell is ready.", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.glowOnReady = checked and true or false
-            ns:RefreshBarSettings()
-        end
-    end)
-    glowOnReadyCB:SetPoint("TOPLEFT", cbtMedSlider, "BOTTOMLEFT", -4, -20)
+    -- Container frame for the schema-managed region, anchored below the
+    -- imperative identity widgets (barEnabled through onlyMine).
+    local editorSettingsFrame = CreateFrame("Frame", nil, ec)
+    editorSettingsFrame:SetPoint("TOPLEFT", onlyMineCB, "BOTTOMLEFT", 0, -12)
+    editorSettingsFrame:SetWidth(340)
+    editorSettingsFrame:SetHeight(800)
 
-    -- Glow duration slider
-    local glowDurationSlider = ns:CreateSlider(ec, "Glow Duration (sec)", 1, 10, 1, function(self, value)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.glowDuration = value
-            ns:RefreshBarSettings()
-        end
-    end,
-    "How long the icon keeps pulsing when Glow on Ready fires "
- .. "(spell comes off cooldown / buff expires). Has no effect unless "
- .. "Glow on Ready is ticked.")
-    glowDurationSlider:SetPoint("TOPLEFT", glowOnReadyCB, "BOTTOMLEFT", 4, -20)
-    glowDurationSlider:SetWidth(180)
-
-    -- Crop Icon (per-bar override)
-    local cropIconCB = ns:CreateCheckbox(ec, "Crop Icon",
-        "Trim icon border pixels to prevent stretching.", function(self, checked)
-        local bar = frame:GetSelectedBar()
-        if bar then
-            bar.display.iconCrop = checked and true or false
-            ns:RefreshBarSettings()
-        end
-    end)
-    cropIconCB:SetPoint("TOPLEFT", glowDurationSlider, "BOTTOMLEFT", -4, -20)
+    local refreshEditorSettings = ns:BuildSettings(
+        editorSettingsFrame, EDITOR_SCHEMA, editorWidgets,
+        { firstX = 0, firstY = 0 })
 
     -- ========================================================================
     -- HELPER: Get selected bar data
@@ -979,49 +906,10 @@ local function CreateBarsTab(parent)
             end
         end
 
-        -- Conditions (guard: bars created outside the UI may lack this table)
-        local cond = bar.conditions or {}
-        combatOnlyCB:SetChecked(cond.combatOnly)
-        oocOnlyCB:SetChecked(cond.outOfCombatOnly)
-        inGroupCB:SetChecked(cond.inGroup)
-        inRaidCB:SetChecked(cond.inRaid)
-        mountedCB:SetChecked(cond.hideWhileMounted)
-        restingCB:SetChecked(cond.hideWhileResting)
-        vehicleCB:SetChecked(cond.hideInVehicle)
-        instanceCB:SetChecked(cond.onlyInInstance)
-        hideInactiveCB:SetChecked(cond.hideWhenInactive)
-        showEmptyCB:SetChecked(cond.showEmpty)
-        healthEdit:SetText(cond.healthBelow and tostring(cond.healthBelow) or "")
-        requireBuffEdit:SetText(cond.requireBuff or "")
-
-        -- Display options. Guard against bar.display being nil; older saved
-        -- bars (pre-display-table) would otherwise silent-error on the first
-        -- field access, crash UpdateBarEditor and leave the panel blank.
-        local display = bar.display or {}
-        lingerSlider:SetValue(display.lingerTime or 0)
-        scaleSlider:SetValue(display.scaleOverride or 1.0)
-        showBarNameCB:SetChecked(display.showName)
-        showBarIconCB:SetChecked(display.showIcon)
-        barOpacitySlider:SetValue((display.barAlpha or 0.6) * 100)
-        sparkleCB:SetChecked(display.sparkleAlert)
-        sparkleThresholdSlider:SetValue(display.sparkleThreshold or 5)
-
-        if display.colorOverride then
-            colorSwatch.color.r = display.colorOverride.r
-            colorSwatch.color.g = display.colorOverride.g
-            colorSwatch.color.b = display.colorOverride.b
-            colorSwatch.swatch:SetTexture(display.colorOverride.r, display.colorOverride.g, display.colorOverride.b, 1)
-        else
-            colorSwatch.swatch:SetTexture(1, 1, 1, 1)
-        end
-
-        -- New feature controls
-        colorByTimeCB:SetChecked(display.colorByTime)
-        cbtHighSlider:SetValue(display.colorHighSeconds or 10)
-        cbtMedSlider:SetValue(display.colorMedSeconds or 5)
-        glowOnReadyCB:SetChecked(display.glowOnReady)
-        glowDurationSlider:SetValue(display.glowDuration or 3)
-        cropIconCB:SetChecked(display.iconCrop)
+        -- Conditions + Display: delegate to the BuildSettings Refresh closure.
+        -- It re-reads all 28 fields from the currently-selected bar via the
+        -- get closures in EDITOR_SCHEMA. Nil-safe (getCond/getDisp guard).
+        refreshEditorSettings()
     end
 
     local function UpdateGroupName()
