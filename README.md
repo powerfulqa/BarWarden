@@ -29,6 +29,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Per-bar scale override** for bars that need to stand out larger (or shrink smaller) than their group default
 - **Icon crop** trims border pixels to prevent stretching on non-square bars
 - **Set conditions** on bars so they only show in combat, below a health threshold, in a group, for a specific class, and more
+- **Smart visibility** hides bars automatically while mounted, resting, in a vehicle, or only shows them inside dungeons and raids
 - **Test mode** shows all bars with fake 30s timers so you can preview your layout without triggering spells
 - **Account-wide profiles** so you can save a setup on one character and load it on another
 - **Drag bars to reorder** them within a group when frames are unlocked
@@ -239,7 +240,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Add, Delete, and reorder bars with Up/Down buttons
 - Configure bar name, spell name or ID, track mode, and target unit
 - Toggle "Only Mine" filtering for debuffs
-- Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide When Inactive, Show Empty, Health Below %, Require Buff, Require Class
+- Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide While Mounted, Hide While Resting, Hide In Vehicle, Only In Instance, Hide When Inactive, Show Empty, Health Below %, Require Buff, Require Class
 - Per-bar display options: Linger Time, Show Bar Name, Show Icon, Bar Darkness, Sparkle Alert with threshold, Colour Override, Colour by Time with high/med thresholds, Glow on Ready with duration, Crop Icon, Scale Override
 
 #### Useful Per-Bar Options Explained
