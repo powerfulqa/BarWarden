@@ -80,6 +80,7 @@ local function NewGroup(name)
         borderAlpha = 0.8,
         scale = 1.0,
         sortMode = "manual",
+        groupConditions = {},
         bars = {},
     }
 end
@@ -298,6 +299,53 @@ local function CreateBarsTab(parent)
               if gf then ns:UpdateGroupLayout(gf) end
           end,
           offsetX = -16, spacing = 28 },
+
+        -- Group-level visibility conditions. These hide the ENTIRE group
+        -- (frame + all bars) when the condition fails, saving the user from
+        -- ticking the same checkbox on every bar individually.
+        { type = "header", text = "Group Conditions", spacing = 16 },
+        { type = "toggle", label = "Combat Only",
+          tooltip = "Hide this entire group when out of combat.",
+          get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.combatOnly end,
+          set = function(_, v) local g = getGroup(); if not g then return end
+              if not g.groupConditions then g.groupConditions = {} end
+              g.groupConditions.combatOnly = v
+              if v then g.groupConditions.outOfCombatOnly = false end
+              ns:RefreshBarSettings() end,
+          spacing = 4 },
+        { type = "toggle", label = "Out of Combat Only",
+          tooltip = "Hide this entire group when in combat.",
+          get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.outOfCombatOnly end,
+          set = function(_, v) local g = getGroup(); if not g then return end
+              if not g.groupConditions then g.groupConditions = {} end
+              g.groupConditions.outOfCombatOnly = v
+              if v then g.groupConditions.combatOnly = false end
+              ns:RefreshBarSettings() end,
+          spacing = 2 },
+        { type = "toggle", label = "Hide Mounted",
+          tooltip = "Hide this entire group while mounted.",
+          get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.hideWhileMounted end,
+          set = function(_, v) local g = getGroup(); if not g then return end
+              if not g.groupConditions then g.groupConditions = {} end; g.groupConditions.hideWhileMounted = v; ns:RefreshBarSettings() end,
+          spacing = 2 },
+        { type = "toggle", label = "Hide Resting",
+          tooltip = "Hide this entire group while in an inn or capital city.",
+          get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.hideWhileResting end,
+          set = function(_, v) local g = getGroup(); if not g then return end
+              if not g.groupConditions then g.groupConditions = {} end; g.groupConditions.hideWhileResting = v; ns:RefreshBarSettings() end,
+          spacing = 2 },
+        { type = "toggle", label = "Hide In Vehicle",
+          tooltip = "Hide this entire group while in a vehicle.",
+          get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.hideInVehicle end,
+          set = function(_, v) local g = getGroup(); if not g then return end
+              if not g.groupConditions then g.groupConditions = {} end; g.groupConditions.hideInVehicle = v; ns:RefreshBarSettings() end,
+          spacing = 2 },
+        { type = "toggle", label = "Only In Instance",
+          tooltip = "Only show this entire group inside a dungeon, raid, arena, or battleground.",
+          get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.onlyInInstance end,
+          set = function(_, v) local g = getGroup(); if not g then return end
+              if not g.groupConditions then g.groupConditions = {} end; g.groupConditions.onlyInInstance = v; ns:RefreshBarSettings() end,
+          spacing = 2 },
     }
 
     local refreshGroupSettings = ns:BuildSettings(groupSettingsContent, GROUP_SETTINGS_SCHEMA, nil,

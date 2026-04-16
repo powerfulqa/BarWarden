@@ -748,7 +748,20 @@ local function ScanBar(bar, unitFilter)
         end
     end
 
-    -- Condition check: hide bar without disrupting tracking state
+    -- Group-level conditions: if the group has conditions (e.g. combatOnly,
+    -- hideWhileMounted) that fail, hide the bar before checking per-bar
+    -- conditions. Reuses ns:EvaluateConditions since the registered checks
+    -- read field names from whatever table they're given.
+    local groupData = bar.frameIndex and BarWardenDB and BarWardenDB.frames
+                      and BarWardenDB.frames[bar.frameIndex]
+    if groupData and groupData.groupConditions then
+        if not ns:EvaluateConditions(nil, groupData.groupConditions) then
+            HideBarForConditions(bar)
+            return
+        end
+    end
+
+    -- Per-bar condition check: hide bar without disrupting tracking state
     if not BarConditionsMet(bar) then
         HideBarForConditions(bar)
         return
@@ -812,6 +825,19 @@ function ns:ScanAllBars(unit)
             ScanBar(bar, unit)
         end
     end)
+
+    -- Post-scan: hide group frames whose bars are ALL hidden (e.g. the whole
+    -- group failed a group-level condition). Without this, the group backdrop
+    -- and title bar would linger visually even though every bar inside is gone.
+    for _, group in pairs(ns.groupFrames) do
+        if group:IsShown() and group.bars then
+            local anyVisible = false
+            for _, b in ipairs(group.bars) do
+                if b:IsShown() then anyVisible = true; break end
+            end
+            if not anyVisible then group:Hide() end
+        end
+    end
 end
 
 -- ----------------------------------------------------------------------------

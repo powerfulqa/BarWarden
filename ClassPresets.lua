@@ -615,18 +615,19 @@ end
 local function BuildGroupFromPreset(groupPreset, positionIndex, classToken)
     local defaultPos = { point = "CENTER", relativePoint = "CENTER", x = 0, y = -(positionIndex * 100) }
     local group = {
-        name          = groupPreset.name or ("Group " .. positionIndex),
-        enabled       = true,
-        locked        = false,
-        visible       = true,
-        position      = groupPreset.position or defaultPos,
-        width         = groupPreset.width or 200,
-        columns       = groupPreset.columns or 1,
-        sortMode      = groupPreset.sortMode or "manual",
-        bgAlpha       = 0.6,
-        borderAlpha   = 0.8,
-        scale         = 1.0,
-        bars          = {},
+        name            = groupPreset.name or ("Group " .. positionIndex),
+        enabled         = true,
+        locked          = false,
+        visible         = true,
+        position        = groupPreset.position or defaultPos,
+        width           = groupPreset.width or 200,
+        columns         = groupPreset.columns or 1,
+        sortMode        = groupPreset.sortMode or "manual",
+        bgAlpha         = 0.6,
+        borderAlpha     = 0.8,
+        scale           = 1.0,
+        groupConditions = {},
+        bars            = {},
     }
     for _, barPreset in ipairs(groupPreset.bars) do
         group.bars[#group.bars + 1] = MakeFullBar(barPreset, classToken)
