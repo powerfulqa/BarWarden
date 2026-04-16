@@ -707,19 +707,20 @@ end
 
 -- Ensure a bar is shown at inactive alpha (restores it when conditions become met)
 local function EnsureBarVisible(bar)
-    if bar:IsShown() then return end
+    -- Check both the bar AND its parent group: a bar can be "shown"
+    -- (IsShown=true) while its parent is hidden (e.g. group conditions
+    -- hid the group, then RefreshAllBars re-showed the bar without
+    -- re-showing the parent). In that case we must still proceed to
+    -- re-show the parent.
+    local parent = bar:GetParent()
+    if bar:IsShown() and (not parent or parent:IsShown()) then return end
     local cond = bar.barData and bar.barData.conditions
     if cond and cond.hideWhenInactive then return end
     local visual = ns:GetVisual()
     bar:SetAlpha(visual.inactiveAlpha or 0.3)
     bar:Show()
 
-    local parent = bar:GetParent()
     if parent then
-        -- If the bar should be visible, so should its parent group frame.
-        -- The previous guard (showAll) prevented this, leaving groups hidden
-        -- when all bars were inactive; that made bars invisible even with
-        -- showEmpty=true on a fresh-login character with no active CDs.
         if not parent:IsShown() then
             parent:Show()
         end
