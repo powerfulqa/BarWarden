@@ -18,6 +18,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Sort bars dynamically** by remaining time, alphabetically, or manual order per group
 - **Colour-by-time** bars transition green to yellow to red as the timer counts down (per-bar, configurable thresholds)
 - **Glow on ready** bars flash when a cooldown finishes or a buff expires so you know the spell is available
+- **Pulse on ready** optionally flashes the spell icon at the centre of the screen when a cooldown completes, so you notice even if the bar is at the edge of your view
 - **Sparkle alert** bars pulse when the timer drops below a configurable threshold
 - **Cooldown spiral overlay** on bar icons gives a second visual read of the remaining time
 - **Aura equivalency groups** like `@Stunned`, `@Bleeding`, `@Silenced`, `@Feared`, `@Rooted` — one bar tracks any spell in that group
@@ -28,8 +29,10 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Per-bar text and icon control** so each bar can show or hide its name and spell icon independently
 - **Per-bar scale override** for bars that need to stand out larger (or shrink smaller) than their group default
 - **Icon crop** trims border pixels to prevent stretching on non-square bars
+- **Per-group conditions** hide an entire group at once (combat only, mounted, resting, vehicle, instance only) instead of ticking every bar individually
 - **Set conditions** on bars so they only show in combat, below a health threshold, in a group, for a specific class, and more
 - **Smart visibility** hides bars automatically while mounted, resting, in a vehicle, or only shows them inside dungeons and raids
+- **Auto-prompt on first login** offers to load your class starter profile when you log in on a fresh character with no bars configured
 - **Test mode** shows all bars with fake 30s timers so you can preview your layout without triggering spells
 - **Account-wide profiles** so you can save a setup on one character and load it on another
 - **Drag bars to reorder** them within a group when frames are unlocked
@@ -46,6 +49,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Minimap button right-click** to quickly enable or disable the addon
 - **Live-reactive settings** — changes in the options panel apply to the bars on the spot, no disable/re-enable needed
 - **Inline help tooltips** on most per-bar and visual settings — hover any slider, dropdown, or text field for a plain-English explanation
+- **Spell tooltip on icon hover** optionally shows the full spell or item tooltip when you mouse over a bar's icon (toggle in Visuals tab)
 
 ---
 
@@ -235,13 +239,14 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Width, Scale, Columns
 - Background Opacity, Border Opacity
 - Sort Mode (Manual, Remaining Time, Alphabetical)
+- Group Conditions (Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**
 - Add, Delete, and reorder bars with Up/Down buttons
 - Configure bar name, spell name or ID, track mode, and target unit
 - Toggle "Only Mine" filtering for debuffs
 - Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide While Mounted, Hide While Resting, Hide In Vehicle, Only In Instance, Hide When Inactive, Show Empty, Health Below %, Require Buff, Require Class
-- Per-bar display options: Linger Time, Show Bar Name, Show Icon, Bar Darkness, Sparkle Alert with threshold, Colour Override, Colour by Time with high/med thresholds, Glow on Ready with duration, Crop Icon, Scale Override
+- Per-bar display options: Linger Time, Show Bar Name, Show Icon, Bar Darkness, Sparkle Alert with threshold, Colour Override, Colour by Time with high/med thresholds, Glow on Ready with duration, Pulse on Ready, Crop Icon, Scale Override
 
 #### Useful Per-Bar Options Explained
 
