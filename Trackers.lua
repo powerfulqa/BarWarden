@@ -24,6 +24,22 @@ ns.SpellDurations = ns.SpellDurations or {}
 -- than what we last saw, we keep the longer cached value.
 local stableExpiry = {}
 
+-- Wipe stale entries for a specific unit (e.g. on target/focus change) or
+-- the whole table. Called from BarEngine event handlers to prevent unbounded
+-- growth when units despawn without a final aura scan.
+function ns:ClearStableExpiry(unit)
+    if unit then
+        local prefix = unit .. ":"
+        for key in pairs(stableExpiry) do
+            if key:sub(1, #prefix) == prefix then
+                stableExpiry[key] = nil
+            end
+        end
+    else
+        wipe(stableExpiry)
+    end
+end
+
 -- Bar configs use canonical fields after DB.lua's v1 migration: spellName
 -- (string), spellId (number), itemId (number). Legacy `spell`/`spellInput`
 -- are migrated away and no longer referenced here.

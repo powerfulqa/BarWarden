@@ -6,7 +6,7 @@ local addonName, ns = ...
 
 ns.DEFAULTS = {
     -- Schema version: increment when a migration pass is needed
-    schemaVersion = 3,
+    schemaVersion = 4,
 
     -- Global settings
     global = {

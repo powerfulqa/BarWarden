@@ -27,6 +27,13 @@ function ns:ReleaseBar(bar)
     bar.frameIndex = nil
     bar.barState = 0
     bar.isResourceBar = false   -- resource-bar flag must not leak across pool reuse
+    bar.expirationTime = nil
+    bar.duration = nil
+    bar.lingerRemaining = nil
+    bar.stacks = nil
+    bar.textElapsed = nil
+    bar.isTestBar = nil
+    bar._lastSparkX = nil
     bar:SetValue(0)
     if bar.nameText then bar.nameText:SetText("") end
     if bar.timeText then bar.timeText:SetText("") end

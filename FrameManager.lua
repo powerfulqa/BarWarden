@@ -15,6 +15,23 @@ ns.MAX_BARS_PER_FRAME = MAX_BARS_PER_FRAME
 local MIN_SCALE = 0.5
 local MAX_SCALE = 2.0
 
+-- Pre-allocated sort comparators (avoids closure allocation on every layout)
+local sortNow = 0
+
+local function CompareRemaining(a, b)
+    local ra = (a.expirationTime and a.barState == ns.BAR_STATE.ACTIVE)
+               and (a.expirationTime - sortNow) or 9999
+    local rb = (b.expirationTime and b.barState == ns.BAR_STATE.ACTIVE)
+               and (b.expirationTime - sortNow) or 9999
+    return ra < rb
+end
+
+local function CompareAlpha(a, b)
+    local na = (a.barData and a.barData.name) or ""
+    local nb = (b.barData and b.barData.name) or ""
+    return na < nb
+end
+
 -- Backdrop table for group frames
 local GROUP_BACKDROP = {
     bgFile = "Interface\\Buttons\\WHITE8x8",
@@ -185,19 +202,10 @@ function ns:UpdateGroupLayout(group)
     end
 
     if sortMode == "remaining" then
-        table.sort(visible, function(a, b)
-            local ra = (a.expirationTime and a.barState == ns.BAR_STATE.ACTIVE)
-                       and (a.expirationTime - GetTime()) or 9999
-            local rb = (b.expirationTime and b.barState == ns.BAR_STATE.ACTIVE)
-                       and (b.expirationTime - GetTime()) or 9999
-            return ra < rb
-        end)
+        sortNow = GetTime()
+        table.sort(visible, CompareRemaining)
     elseif sortMode == "alpha" then
-        table.sort(visible, function(a, b)
-            local na = (a.barData and a.barData.name) or ""
-            local nb = (b.barData and b.barData.name) or ""
-            return na < nb
-        end)
+        table.sort(visible, CompareAlpha)
     end
 
     local visibleCount = 0
@@ -456,9 +464,12 @@ function ns:BuildBarsForFrame(frameIndex)
     local frameData = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex]
     if not frameData or not frameData.bars then return end
 
-    -- Release existing bars
+    -- Deactivate then release existing bars back to pool.
+    -- skipGlow=true prevents glow-on-ready from firing during rebuild.
     if frame.bars then
         for i = #frame.bars, 1, -1 do
+            ns:DeactivateBar(frame.bars[i], true)
+            if ns.CancelBarGlow then ns:CancelBarGlow(frame.bars[i]) end
             ns:ReleaseBar(frame.bars[i])
             frame.bars[i] = nil
         end

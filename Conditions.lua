@@ -1,4 +1,5 @@
 local addonName, ns = ...
+local MAX_AURA_INDEX = ns.MAX_AURA_INDEX
 
 -- ============================================================================
 -- Conditions.lua: extensible visibility-condition registry + evaluator.
@@ -78,7 +79,7 @@ end)
 ns:RegisterCondition("requireBuff", function(conditions)
     local buffName = conditions.requireBuff
     if not buffName then return true end
-    for i = 1, 40 do
+    for i = 1, MAX_AURA_INDEX do
         local name, _, _, _, _, _, _, _, _, _, spellId = UnitBuff("player", i)
         if not name then break end
         if name == buffName or (tonumber(buffName) and spellId == tonumber(buffName)) then

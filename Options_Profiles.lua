@@ -8,6 +8,14 @@ local PROFILE_ROW_HEIGHT = 20
 local MAX_PROFILE_ROWS = 5
 local selectedProfileName = nil
 
+local function RequireSelectedProfile()
+    if not selectedProfileName or not ns.profiles[selectedProfileName] then
+        ns:Print("Select a profile first.")
+        return nil
+    end
+    return selectedProfileName
+end
+
 -- ============================================================================
 -- Helper: get sorted profile names
 -- ============================================================================
@@ -183,8 +191,8 @@ local function CreateProfilesTab(parent)
     createBtn:SetPoint("TOPLEFT", activeLabel, "BOTTOMLEFT", 0, -8)
 
     local deleteBtn = ns:CreateButton(frame, "Delete", 80, function()
-        if not selectedProfileName then ns:Print("Select a profile first."); return end
-        local name = selectedProfileName
+        local name = RequireSelectedProfile()
+        if not name then return end
         StaticPopup_Show("BARWARDEN_CONFIRM_DELETE", name, nil, {
             onAccept = function()
                 ns.profiles[name] = nil
@@ -199,7 +207,7 @@ local function CreateProfilesTab(parent)
     deleteBtn:SetPoint("LEFT", createBtn, "RIGHT", 4, 0)
 
     local duplicateBtn = ns:CreateButton(frame, "Duplicate", 80, function()
-        if not selectedProfileName or not ns.profiles[selectedProfileName] then ns:Print("Select a profile first."); return end
+        if not RequireSelectedProfile() then return end
         local src = ns.profiles[selectedProfileName]
         local newName = selectedProfileName .. " (Copy)"
         local i = 2
@@ -218,7 +226,7 @@ local function CreateProfilesTab(parent)
     duplicateBtn:SetPoint("LEFT", deleteBtn, "RIGHT", 4, 0)
 
     local renameBtn = ns:CreateButton(frame, "Rename", 80, function()
-        if not selectedProfileName then ns:Print("Select a profile first."); return end
+        if not RequireSelectedProfile() then return end
         local oldName = selectedProfileName
         StaticPopup_Show("BARWARDEN_RENAME", nil, nil, {
             currentName = oldName,
@@ -239,7 +247,7 @@ local function CreateProfilesTab(parent)
 
     -- Second row of buttons
     local loadBtn = ns:CreateButton(frame, "Load", 80, function()
-        if not selectedProfileName or not ns.profiles[selectedProfileName] then ns:Print("Select a profile first."); return end
+        if not RequireSelectedProfile() then return end
         local profile = ns.profiles[selectedProfileName]
         if profile.data then
             if profile.data.frames then
@@ -256,7 +264,7 @@ local function CreateProfilesTab(parent)
     loadBtn:SetPoint("TOPLEFT", createBtn, "BOTTOMLEFT", 0, -4)
 
     local saveBtn = ns:CreateButton(frame, "Save", 80, function()
-        if not selectedProfileName or not ns.profiles[selectedProfileName] then ns:Print("Select a profile first."); return end
+        if not RequireSelectedProfile() then return end
         local profile = ns.profiles[selectedProfileName]
         profile.data = {
             frames = ns:CopyTable(ns.db.frames),
@@ -268,7 +276,7 @@ local function CreateProfilesTab(parent)
     saveBtn:SetPoint("LEFT", loadBtn, "RIGHT", 4, 0)
 
     local exportBtn = ns:CreateButton(frame, "Export", 80, function()
-        if not selectedProfileName or not ns.profiles[selectedProfileName] then ns:Print("Select a profile first."); return end
+        if not RequireSelectedProfile() then return end
         local profile = ns.profiles[selectedProfileName]
         local serialized = ns:Serialize(profile.data or {})
         local encoded = ns.Base64Encode(serialized)

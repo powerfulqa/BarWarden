@@ -314,11 +314,16 @@ local function Bar_OnUpdate(self, elapsed)
     -- Spark position: manual calculation.
     -- GetStatusBarTexture():RIGHT does not track the fill edge in WoW 3.3.5a:
     -- the texture anchor reflects the full region, not the clipped fill width.
+    -- Cache the integer pixel position to avoid ClearAllPoints/SetPoint every frame.
     if self.sparkFrame and self.sparkFrame:IsShown() then
         local barWidth = self:GetWidth()
         if barWidth and barWidth > 0 then
-            self.sparkFrame:ClearAllPoints()
-            self.sparkFrame:SetPoint("CENTER", self, "LEFT", barWidth * progress, 0)
+            local sparkX = math.floor(barWidth * progress + 0.5)
+            if sparkX ~= self._lastSparkX then
+                self._lastSparkX = sparkX
+                self.sparkFrame:ClearAllPoints()
+                self.sparkFrame:SetPoint("CENTER", self, "LEFT", sparkX, 0)
+            end
         end
     end
 
@@ -571,6 +576,7 @@ function ns:DeactivateBar(bar, skipGlow)
         bar.sparkFrame:ClearAllPoints()
         bar.sparkFrame:SetPoint("CENTER", bar, "LEFT", 0, 0)
     end
+    bar._lastSparkX = nil
 
     -- Cooldown spiral: hide so a deactivated bar doesn't keep a stale sweep.
     if bar.cooldownFrame then
@@ -869,102 +875,58 @@ end
 -- Each handler filters bars by relevant track mode(s) to avoid wasteful scans.
 -- ----------------------------------------------------------------------------
 
-function ns:OnSpellCooldownUpdate()
-    local bars = ns:GetAllBars()
-    if not bars or #bars == 0 then return end
-    RunScan(function()
-        for _, bar in ipairs(bars) do
-            if bar.barData and bar.barData.trackMode == "Cooldown" then
-                ScanBar(bar, nil)
-            end
-        end
-    end)
-end
+-- Shared scan helper: iterate all bars, scanning only those whose trackMode
+-- is in the provided set. Avoids duplicating the get-bars / RunScan / filter
+-- boilerplate across every event handler.
+local AURA_MODES = { Buff = true, Debuff = true, Proc = true }
 
-function ns:OnUnitAura(unit)
-    -- Activity tracking: passive aura monitoring
-    if unit == "player" and ns.ScanBuffActivity then ns:ScanBuffActivity() end
-    if unit == "target" and ns.ScanDebuffActivity then ns:ScanDebuffActivity() end
-
+local function ScanBarsByMode(modes, unit)
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
     RunScan(function()
         for _, bar in ipairs(bars) do
             local mode = bar.barData and bar.barData.trackMode
-            if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
+            if modes[mode] then
                 ScanBar(bar, unit)
             end
         end
     end)
 end
 
-function ns:OnTargetChanged()
-    -- Activity tracking: re-scan debuffs on the new target
-    if ns.ScanDebuffActivity then ns:ScanDebuffActivity() end
+function ns:OnSpellCooldownUpdate()
+    ScanBarsByMode({ Cooldown = true }, nil)
+end
 
-    local bars = ns:GetAllBars()
-    if not bars or #bars == 0 then return end
-    RunScan(function()
-        for _, bar in ipairs(bars) do
-            local mode = bar.barData and bar.barData.trackMode
-            if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
-                ScanBar(bar, "target")
-            end
-        end
-    end)
+function ns:OnUnitAura(unit)
+    -- Activity tracking: passive aura monitoring
+    if unit == "player" and ns.ScanBuffActivity then ns:ScanBuffActivity() end
+    if unit == "target" and ns.ScanDebuffActivity then ns:ScanDebuffActivity() end
+    ScanBarsByMode(AURA_MODES, unit)
+end
+
+function ns:OnTargetChanged()
+    if ns.ScanDebuffActivity then ns:ScanDebuffActivity() end
+    if ns.ClearStableExpiry then ns:ClearStableExpiry("target") end
+    ScanBarsByMode(AURA_MODES, "target")
 end
 
 function ns:OnFocusChanged()
-    local bars = ns:GetAllBars()
-    if not bars or #bars == 0 then return end
-    RunScan(function()
-        for _, bar in ipairs(bars) do
-            local mode = bar.barData and bar.barData.trackMode
-            if mode == "Buff" or mode == "Debuff" or mode == "Proc" then
-                ScanBar(bar, "focus")
-            end
-        end
-    end)
+    if ns.ClearStableExpiry then ns:ClearStableExpiry("focus") end
+    ScanBarsByMode(AURA_MODES, "focus")
 end
 
 function ns:OnBagCooldownUpdate()
-    local bars = ns:GetAllBars()
-    if not bars or #bars == 0 then return end
-    RunScan(function()
-        for _, bar in ipairs(bars) do
-            if bar.barData and bar.barData.trackMode == "Item" then
-                ScanBar(bar, nil)
-            end
-        end
-    end)
+    ScanBarsByMode({ Item = true }, nil)
 end
 
 function ns:OnEnchantUpdate()
     if ns.ScanEnchantActivity then ns:ScanEnchantActivity() end
-
-    local bars = ns:GetAllBars()
-    if not bars or #bars == 0 then return end
-    RunScan(function()
-        for _, bar in ipairs(bars) do
-            if bar.barData and bar.barData.trackMode == "Enchant" then
-                ScanBar(bar, nil)
-            end
-        end
-    end)
+    ScanBarsByMode({ Enchant = true }, nil)
 end
 
 function ns:OnTotemUpdate()
     if ns.ScanTotemActivity then ns:ScanTotemActivity() end
-
-    local bars = ns:GetAllBars()
-    if not bars or #bars == 0 then return end
-    RunScan(function()
-        for _, bar in ipairs(bars) do
-            if bar.barData and bar.barData.trackMode == "Totem" then
-                ScanBar(bar, nil)
-            end
-        end
-    end)
+    ScanBarsByMode({ Totem = true }, nil)
 end
 
 -- Resource events: re-scan only bars whose trackMode matches the event source.
@@ -974,33 +936,29 @@ end
 
 function ns:OnComboPointsChanged(unit)
     if unit and unit ~= "player" then return end
-    local bars = ns:GetAllBars()
-    if not bars or #bars == 0 then return end
-    RunScan(function()
-        for _, bar in ipairs(bars) do
-            if bar.barData and bar.barData.trackMode == "Combo Points" then
-                ScanBar(bar, nil)
-            end
-        end
-    end)
+    ScanBarsByMode({ ["Combo Points"] = true }, nil)
 end
 
 -- Handles both RUNE_POWER_UPDATE (cooldown state changed) and
 -- RUNE_TYPE_UPDATE (death rune conversion swapped slot's type).
 function ns:OnRuneUpdate()
-    local bars = ns:GetAllBars()
-    if not bars or #bars == 0 then return end
-    RunScan(function()
-        for _, bar in ipairs(bars) do
-            if bar.barData and bar.barData.trackMode == "Runes" then
-                ScanBar(bar, nil)
-            end
-        end
-    end)
+    ScanBarsByMode({ Runes = true }, nil)
 end
 
 function ns:OnPlayerEnteringWorld()
     ns:ScanAllBars()
+    -- Re-resolve icons for inactive bars. GetSpellInfo(spellName) returns nil
+    -- at ADDON_LOADED because the spell book isn't loaded yet, so name-based
+    -- bars (Buff/Debuff/Proc) miss their icon during BuildBarsForFrame. By
+    -- PLAYER_ENTERING_WORLD the spell book is ready and the lookup succeeds.
+    if ns.ResolveBarIcon then
+        for _, bar in ipairs(ns:GetAllBars()) do
+            if bar.iconTexture and not bar.iconTexture:GetTexture() and bar.barData then
+                local icon = ns.ResolveBarIcon(bar.barData)
+                if icon then bar.iconTexture:SetTexture(icon) end
+            end
+        end
+    end
 end
 
 function ns:OnCombatStateChanged(inCombat)
