@@ -153,6 +153,41 @@ function ns:CreateBarFrame(parent)
         bar.cooldownFrame = CreateFrame("Cooldown", nil, bar.icon)
         bar.cooldownFrame:SetAllPoints(bar.icon)
         bar.cooldownFrame:Hide()
+
+        -- Spell tooltip on icon hover. Only the icon frame is mouse-enabled
+        -- (not the bar body) so clicks pass through to the game world.
+        bar.icon:EnableMouse(true)
+        bar.icon:SetScript("OnEnter", function(self)
+            local bd = bar.barData
+            if not bd then return end
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            local mode = bd.trackMode
+            local sid = bd.spellId
+            local sname = bd.spellName
+            local iid = bd.itemId
+            if mode == "Item" and iid then
+                GameTooltip:SetHyperlink("item:" .. iid)
+            elseif sid then
+                GameTooltip:SetHyperlink("spell:" .. sid)
+            elseif sname and sname ~= "" then
+                local _, _, _, _, _, _, _, _, _, rid = GetSpellInfo(sname)
+                if rid then
+                    GameTooltip:SetHyperlink("spell:" .. rid)
+                else
+                    GameTooltip:AddLine(sname, 1, 1, 1)
+                    GameTooltip:Show()
+                end
+            else
+                local name = ns.GetBarDisplayName and ns.GetBarDisplayName(bd) or ""
+                if name ~= "" then
+                    GameTooltip:AddLine(name, 1, 1, 1)
+                    GameTooltip:Show()
+                end
+            end
+        end)
+        bar.icon:SetScript("OnLeave", function()
+            GameTooltip:Hide()
+        end)
     end
 
     -- Spark must be created before name/time so that, within the OVERLAY
