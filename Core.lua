@@ -163,10 +163,15 @@ local function CheckFirstLoginStarter()
     if not frames or #frames > 1 then return end
 
     ns.db.starterPrompted = true
-    local summary = ns.GetClassPresetSummary and ns:GetClassPresetSummary(classToken) or ""
+    local summary, _, _, label
+    if ns.GetClassPresetSummary then
+        summary, _, _, label = ns:GetClassPresetSummary(classToken)
+    end
+    summary = summary or ""
+    label = label or className or classToken
     -- Use the welcome dialog (friendly tone, no "replace" warning) since
     -- the character has no bars to lose.
-    StaticPopup_Show("BARWARDEN_WELCOME_STARTER", className or classToken, summary, {
+    StaticPopup_Show("BARWARDEN_WELCOME_STARTER", label, summary, {
         onAccept = function()
             if ns.LoadClassStarter then
                 ns:LoadClassStarter(classToken)

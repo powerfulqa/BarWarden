@@ -349,14 +349,16 @@ local function CreateProfilesTab(parent)
     -- Class Starter buttons: Load (replace) + Add (append). Both consult
     -- ClassPresets.lua and show a confirm dialog with a preset summary.
     -- ========================================================================
-    local starterBtn = ns:CreateButton(frame, "Load Class Starter", 160, function()
-        local className, classToken = UnitClass("player")
+    local starterBtn = ns:CreateButton(frame, "Load Starter", 160, function()
+        local _, classToken = UnitClass("player")
         if not classToken or not (ns.ClassPresets and ns.ClassPresets[classToken]) then
             ns:Print("No starter profile available for your class.")
             return
         end
-        local summary = ns.GetClassPresetSummary and ns:GetClassPresetSummary(classToken) or ""
-        StaticPopup_Show("BARWARDEN_CONFIRM_STARTER", className or classToken, summary, {
+        local summary, _, _, label = ns:GetClassPresetSummary(classToken)
+        summary = summary or ""
+        label = label or UnitClass("player") or classToken
+        StaticPopup_Show("BARWARDEN_CONFIRM_STARTER", label, summary, {
             onAccept = function()
                 if ns.LoadClassStarter then
                     ns:LoadClassStarter(classToken)
@@ -368,14 +370,16 @@ local function CreateProfilesTab(parent)
     end)
     starterBtn:SetPoint("LEFT", resetBtn, "RIGHT", 4, 0)
 
-    local appendBtn = ns:CreateButton(frame, "Add Class Starter", 160, function()
-        local className, classToken = UnitClass("player")
+    local appendBtn = ns:CreateButton(frame, "Add Starter", 160, function()
+        local _, classToken = UnitClass("player")
         if not classToken or not (ns.ClassPresets and ns.ClassPresets[classToken]) then
             ns:Print("No starter profile available for your class.")
             return
         end
-        local summary = ns.GetClassPresetSummary and ns:GetClassPresetSummary(classToken) or ""
-        StaticPopup_Show("BARWARDEN_CONFIRM_STARTER_APPEND", className or classToken, summary, {
+        local summary, _, _, label = ns:GetClassPresetSummary(classToken)
+        summary = summary or ""
+        label = label or UnitClass("player") or classToken
+        StaticPopup_Show("BARWARDEN_CONFIRM_STARTER_APPEND", label, summary, {
             onAccept = function()
                 if ns.AppendClassStarter then
                     ns:AppendClassStarter(classToken)
