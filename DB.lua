@@ -126,6 +126,12 @@ local function MigrateDB()
     -- Cooldown bars even when the user had set spellName (e.g. "Evasion").
     -- Fix: for non-Item bars, if both spellName and spellId are set, the spellId
     -- was injected by the bug (the UI only sets one or the other). Clear it.
+    --
+    -- WARNING: this is a one-shot heuristic specific to the pre-v2 bug. If a
+    -- future schema ever makes dual spellName+spellId a legitimate state, this
+    -- block must be revisited; running it under that schema would silently
+    -- delete user data. The guard is `savedVersion < 2` so new installs never
+    -- hit it, but keep this in mind before bumping CURRENT_SCHEMA.
     if savedVersion < 2 then
         for _, frameData in ipairs(BarWardenDB.frames or {}) do
             for _, bar in ipairs(frameData.bars or {}) do
@@ -159,6 +165,12 @@ local function MigrateDB()
 end
 
 function ns:InitDB()
+    -- Wiping the visual-table cache here covers the cold-start case where
+    -- ns:GetVisual() was called before BarWardenDB existed and cached the
+    -- DEFAULTS pointer. After this function returns, callers get the live
+    -- SavedVariables table instead.
+    ns:InvalidateVisualCache()
+
     if not BarWardenDB then
         BarWardenDB = ns:CopyTable(ns.DEFAULTS)
     else
@@ -180,9 +192,12 @@ function ns:InitDB()
         if type(BarWardenDB.frames) ~= "table" then
             BarWardenDB.frames = ns:CopyTable(ns.DEFAULTS.frames)
         end
-        if BarWardenDB.schemaVersion == nil then
-            BarWardenDB.schemaVersion = ns.DEFAULTS.schemaVersion
-        end
+        -- Do NOT default schemaVersion here. A pre-schema save (missing
+        -- field) must be treated as version 0 so MigrateDB's `or 0` fallback
+        -- kicks in and the v0 -> v1 legacy-field rename actually runs.
+        -- Stamping CURRENT_SCHEMA here would skip every migration for
+        -- users upgrading from a pre-schemaVersion release. MigrateDB
+        -- writes the final schemaVersion when it finishes.
         MigrateDB()
     end
     ns.db = BarWardenDB

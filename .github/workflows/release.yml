@@ -9,7 +9,19 @@ permissions:
   contents: write
 
 jobs:
+  # Gate: a bad build can't be released. Runs the same suite as tests.yml but
+  # inline here so the release job's `needs: test` actually blocks on it.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+      - name: Run test suite
+        run: lua5.1 tests/run.lua
+
   release:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,7 +41,7 @@ jobs:
         run: |
           mkdir -p build/BarWarden
           # Copy only addon files, exclude git/github/dev files
-          rsync -av --exclude='.git' --exclude='.github' --exclude='.gitignore' --exclude='.claude*' --exclude='docs' --exclude='build' --exclude='logs' --exclude='NeedToKnow' --exclude='RoguePowerBars' --exclude='*.md' . build/BarWarden/
+          rsync -av --exclude='.git' --exclude='.github' --exclude='.gitignore' --exclude='.claude*' --exclude='docs' --exclude='build' --exclude='logs' --exclude='NeedToKnow' --exclude='RoguePowerBars' --exclude='3.3.5.a' --exclude='tests' --exclude='*.md' . build/BarWarden/
           # Include README inside the zip for reference
           cp README.md build/BarWarden/
           cd build

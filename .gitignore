@@ -12,3 +12,7 @@ logs/security/
 
 # Design docs (internal planning)
 docs/superpowers/
+
+# Local dump of reference addons (ElvinCDs, Forte, ClassTimer, etc.)
+# used for curation lookups. Never ship; never commit.
+3.3.5.a/

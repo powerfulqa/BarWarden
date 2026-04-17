@@ -188,12 +188,16 @@ local function CheckCooldown(barConfig)
     end
 
     local spellID = tonumber(spell)
-    local spellName, _, spellIcon
+    local spellName, spellIcon, resolvedID
 
     if spellID then
         spellName, _, spellIcon = GetSpellInfo(spellID)
+        resolvedID = spellID
     else
-        spellName, _, spellIcon = GetSpellInfo(spell)
+        -- Single GetSpellInfo call captures both name/icon and the numeric ID
+        -- used later for the SpellDurations override lookup; the earlier
+        -- `select(10, GetSpellInfo(spellName))` repeat call is now redundant.
+        spellName, _, spellIcon, _, _, _, _, _, _, resolvedID = GetSpellInfo(spell)
     end
 
     if not spellName then
@@ -207,10 +211,8 @@ local function CheckCooldown(barConfig)
     end
 
     -- Apply ns.SpellDurations override, if the user has one for this spell.
-    -- Resolves name to ID for the lookup when the user passed a name.
-    local overrideID = spellID or select(10, GetSpellInfo(spellName))
-    if overrideID and ns.SpellDurations[overrideID] then
-        duration = ns.SpellDurations[overrideID]
+    if resolvedID and ns.SpellDurations[resolvedID] then
+        duration = ns.SpellDurations[resolvedID]
     end
 
     if duration <= GCD_THRESHOLD then

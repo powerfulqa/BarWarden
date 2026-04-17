@@ -65,6 +65,18 @@ local COLOR_HIGH = { r = 0, g = 0.8, b = 0   }
 local COLOR_MED  = { r = 1, g = 0.8, b = 0   }
 local COLOR_LOW  = { r = 1, g = 0.2, b = 0.2 }
 
+-- Which fontstrings a given textFormat wants visible. Keeps the visibility
+-- logic in ApplyTextConfig a single lookup + two ands, rather than a
+-- four-branch if/elseif that the eye has to trace.
+local TEXT_FORMAT_VISIBILITY = {
+    NAME_DURATION = { name = true,  time = true  },
+    DURATION      = { name = false, time = true  },
+    NAME_ONLY     = { name = true,  time = false },
+    NAME_STACKS   = { name = true,  time = true  },
+    STACKS        = { name = false, time = true  },
+    NONE          = { name = false, time = false },
+}
+
 local function LerpColor(a, b, t)
     return a + (b - a) * t
 end
@@ -291,7 +303,12 @@ local function ApplyIconConfig(bar, display, visual, showIcon, iconSize, style)
     return true, iconOnRight
 end
 
-local function ApplyTextConfig(bar, display, visual, style, fontSize, showIcon, iconSize, iconOnRight)
+-- layout fields:
+--   style, fontSize, iconActive (bool from ApplyIconConfig), iconSize, iconOnRight
+local function ApplyTextConfig(bar, display, visual, layout)
+    local style    = layout.style
+    local fontSize = layout.fontSize
+
     local showText
     if display.showName ~= nil then
         showText = display.showName
@@ -315,18 +332,14 @@ local function ApplyTextConfig(bar, display, visual, style, fontSize, showIcon, 
         if textPosition == "NONE" then textPosition = "INSIDE_LEFT" end
     end
 
-    local showNameText = showText and fontSize > 0 and textPosition ~= "NONE"
-    local showTimeText = showText and fontSize > 0 and textPosition ~= "NONE"
-    if textFormat == "NAME_ONLY" then
-        showTimeText = false
-    elseif textFormat == "DURATION" or textFormat == "STACKS" then
-        showNameText = false
-    elseif textFormat == "NONE" then
-        showNameText = false
-        showTimeText = false
-    end
+    local baseVisible = showText and fontSize > 0 and textPosition ~= "NONE"
+    local vis = TEXT_FORMAT_VISIBILITY[textFormat] or TEXT_FORMAT_VISIBILITY.NAME_DURATION
+    local showNameText = baseVisible and vis.name
+    local showTimeText = baseVisible and vis.time
 
-    local iconActive      = showIcon and iconSize > 0
+    local iconActive      = layout.iconActive
+    local iconSize        = layout.iconSize
+    local iconOnRight     = layout.iconOnRight
     local leftOffset      = (iconActive and not iconOnRight) and (iconSize + 4) or 4
     local rightOffset     = (iconActive and iconOnRight) and -(iconSize + 4) or -4
     local nameRightOffset = rightOffset - 40
@@ -417,7 +430,13 @@ function ns:ApplyVisualConfig(bar, config)
 
     -- Delegate to helpers
     local iconActive, iconOnRight = ApplyIconConfig(bar, display, visual, showIcon, iconSize, style)
-    ApplyTextConfig(bar, display, visual, style, fontSize, iconActive, iconSize, iconOnRight)
+    ApplyTextConfig(bar, display, visual, {
+        style       = style,
+        fontSize    = fontSize,
+        iconActive  = iconActive,
+        iconSize    = iconSize,
+        iconOnRight = iconOnRight,
+    })
 
     -- Spark
     local showSpark = visual.showSpark ~= false

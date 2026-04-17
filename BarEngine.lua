@@ -8,6 +8,15 @@ local GetTime = GetTime
 local floor, sin, abs, pi = math.floor, math.sin, math.abs, math.pi
 local pairs, ipairs, wipe = pairs, ipairs, wipe
 
+-- Bar.lua loads before BarEngine.lua (see .toc), so ns.GetTimeBasedColor is
+-- defined by the time this upvalue is captured at file scope. Hoisted to
+-- avoid the per-frame `ns.` field lookup inside Bar_OnUpdate.
+local GetTimeBasedColor = ns.GetTimeBasedColor
+
+-- Sentinel used by Bar_OnUpdate when a bar's display table is absent. Sharing
+-- a single frozen-ish empty table avoids allocating `{}` every frame.
+local EMPTY_DISPLAY = {}
+
 -- ----------------------------------------------------------------------------
 -- Bar State Enum
 -- ----------------------------------------------------------------------------
@@ -291,7 +300,7 @@ local function Bar_OnUpdate(self, elapsed)
     end
 
     -- Hoist display + visual once for all per-frame work below
-    local display = self.barData and self.barData.display or {}
+    local display = (self.barData and self.barData.display) or EMPTY_DISPLAY
 
     -- Active state
     local remaining = self.expirationTime - now
@@ -313,16 +322,17 @@ local function Bar_OnUpdate(self, elapsed)
 
     local visual = ns:GetVisual()
 
-    -- Every frame: smooth bar movement
+    -- Every frame: smooth bar movement. Min/max is set to (0, 1) at bar
+    -- activation (ActivateBar / UpdateResourceBar) and never changes, so we
+    -- skip the redundant per-frame SetMinMaxValues call.
     local duration = self.duration or 1
     local progress = remaining / duration
     if progress < 0 then progress = 0 end
     if progress > 1 then progress = 1 end
-    self:SetMinMaxValues(0, 1)
     self:SetValue(progress)
 
     -- Colour-by-time: override bar colour based on remaining seconds
-    local cbtr, cbtg, cbtb = ns.GetTimeBasedColor(remaining, display, visual)
+    local cbtr, cbtg, cbtb = GetTimeBasedColor(remaining, display, visual)
     if cbtr then
         self:SetStatusBarColor(cbtr, cbtg, cbtb)
     end
@@ -364,20 +374,12 @@ end
 
 ns.Bar_OnUpdate = Bar_OnUpdate
 
--- Bar-level stats recording has been replaced by the passive ActivityTracker
--- (ActivityTracker.lua). These stubs exist so ActivateBar/DeactivateBar don't
--- need conditional checks; they're simply no-ops now.
-local function RecordActivation(bar) end
-local function RecordDeactivation(bar) end
-
 -- ----------------------------------------------------------------------------
 -- ActivateBar: Start tracking a bar with given expiration and duration
 -- ----------------------------------------------------------------------------
 
 function ns:ActivateBar(bar, expirationTime, duration)
     if not bar then return end
-
-    local wasAlreadyActive = (bar.barState == BAR_STATE.ACTIVE)
 
     bar.expirationTime = expirationTime
     bar.duration = duration
@@ -387,11 +389,6 @@ function ns:ActivateBar(bar, expirationTime, duration)
     -- Clear resource-bar flag so a bar switching from resource mode back to
     -- a time-based mode reverts to the standard OnUpdate countdown path.
     bar.isResourceBar = false
-
-    -- Only record stats on fresh activations, not expiry-drift re-entries
-    if not wasAlreadyActive then
-        RecordActivation(bar)
-    end
 
     -- Set initial bar range
     bar:SetMinMaxValues(0, 1)
@@ -462,8 +459,6 @@ end
 function ns:UpdateResourceBar(bar, current, max, icon, name, stacks)
     if not bar then return end
 
-    local wasInactive = (bar.barState ~= BAR_STATE.ACTIVE)
-
     bar.isResourceBar = true
     bar.barState = BAR_STATE.ACTIVE
     bar.stacks = stacks or current or 0
@@ -471,10 +466,6 @@ function ns:UpdateResourceBar(bar, current, max, icon, name, stacks)
     bar.duration = max
     bar.textElapsed = nil
     bar.lingerRemaining = 0
-
-    if wasInactive then
-        RecordActivation(bar)
-    end
 
     bar:SetMinMaxValues(0, 1)
     local progress = 0
@@ -548,9 +539,6 @@ end
 
 function ns:DeactivateBar(bar, skipGlow)
     if not bar then return end
-
-    -- Record uptime for statistics before clearing state
-    RecordDeactivation(bar)
 
     bar.barState = BAR_STATE.INACTIVE
     bar.expirationTime = nil
@@ -966,6 +954,20 @@ function ns:OnGroupChanged()
 end
 
 function ns:OnUnitHealth(unit)
-    -- Re-evaluate health-threshold conditions (unit may affect requireBuff check)
-    ns:ScanAllBars()
+    -- The only condition that reads unit health is `healthBelow` (Conditions.lua),
+    -- which checks UnitHealth("player") exclusively. Ignore non-player ticks
+    -- (party/raid) and only re-scan bars that actually opted in; otherwise a
+    -- raid's worth of UNIT_HEALTH traffic would trigger full rescans at the
+    -- event throttle rate for no behavioural reason.
+    if unit and unit ~= "player" then return end
+    local bars = ns:GetAllBars()
+    if not bars or #bars == 0 then return end
+    RunScan(function()
+        for _, bar in ipairs(bars) do
+            local bd = bar.barData
+            if bd and bd.conditions and bd.conditions.healthBelow then
+                ScanBar(bar, nil)
+            end
+        end
+    end)
 end

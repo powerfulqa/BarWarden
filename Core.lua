@@ -70,6 +70,9 @@ function ns:RefreshAllBars()
 end
 
 function ns:ApplySettings()
+    -- Profile load/reset can replace BarWardenDB.visual wholesale, so drop
+    -- the cached reference before any refresh reads it.
+    ns:InvalidateVisualCache()
     ns:RefreshAllBars()
     -- Restart the scan timer in case it idled due to an empty bar cache
     coreFrame:Show()

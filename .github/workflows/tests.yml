@@ -1,0 +1,20 @@
+name: Tests
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Lua 5.1
+        # Lua 5.1 matches the WoW 3.3.5a client runtime. Any syntax or
+        # semantic drift from 5.4 (which most dev boxes have) surfaces here.
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+
+      - name: Run test suite
+        run: lua5.1 tests/run.lua

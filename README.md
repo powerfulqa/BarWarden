@@ -317,6 +317,7 @@ Passive monitoring of everything happening on your character. BarWarden automati
 - **Category filter** dropdown: All, Cooldowns, Buffs, Debuffs, Enchants, Totems
 - **Search box** next to the filter — type part of a spell name to narrow the list live
 - **Spell icons** displayed alongside each entry for quick identification
+- **Live auto-refresh** — the stats panel updates itself every 2 seconds while visible, so session duration, activations, and uptime totals tick live without clicking around
 - **Session stats** (activations and uptime) reset every login or `/reload`
 - **All-time stats** persist across sessions in SavedVariables
 - **Sorted by activity** — most-used spells appear at the top

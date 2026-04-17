@@ -470,7 +470,23 @@ local function CreateStatsTab(parent)
     -- Refresh when shown
     frame:SetScript("OnShow", function(self)
         selectedKey = nil
+        self._refreshAccum = 0
         self:RefreshList()
+    end)
+
+    -- Auto-refresh: WoW only runs OnUpdate on shown frames, so when another
+    -- options tab is active this frame is hidden and the handler doesn't
+    -- fire at all. No explicit visibility gate needed. 2s cadence means
+    -- activations and uptime update live (session timer ticks, new procs
+    -- appear) without forcing the user to re-click onto a row to redraw.
+    local AUTO_REFRESH_INTERVAL = 2.0
+    frame._refreshAccum = 0
+    frame:SetScript("OnUpdate", function(self, elapsed)
+        self._refreshAccum = self._refreshAccum + elapsed
+        if self._refreshAccum >= AUTO_REFRESH_INTERVAL then
+            self._refreshAccum = 0
+            self:RefreshList()
+        end
     end)
 
     return frame

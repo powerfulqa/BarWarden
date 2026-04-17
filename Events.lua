@@ -77,10 +77,20 @@ local function DispatchFixed(method, arg)
     end
 end
 
--- DispatchVarargs: forwards all event args (needed for COMBAT_LOG_EVENT_UNFILTERED)
-local function DispatchVarargs(method)
-    return function(_, ...)
-        if ns[method] then ns[method](ns, ...) end
+-- DispatchCombatLogCast: specialised dispatcher for COMBAT_LOG_EVENT_UNFILTERED.
+-- CLEU is the single highest-volume event on 3.3.5a (tens of thousands per
+-- minute in a raid), but BarWarden only cares about the player's own
+-- SPELL_CAST_SUCCESS for activity tracking. Filtering at dispatch time lets
+-- the other 95%+ of events bail before any method lookup or vararg forwarding.
+local playerGUID  -- resolved lazily; UnitGUID returns nil before PLAYER_LOGIN
+local function DispatchCombatLogCast(method)
+    return function(_, timestamp, subEvent, sourceGUID, ...)
+        if subEvent ~= "SPELL_CAST_SUCCESS" then return end
+        if not playerGUID then playerGUID = UnitGUID("player") end
+        if sourceGUID ~= playerGUID then return end
+        if ns[method] then
+            ns[method](ns, timestamp, subEvent, sourceGUID, ...)
+        end
     end
 end
 
@@ -110,7 +120,7 @@ local GAMEPLAY_EVENTS = {
     { "PLAYER_ENTERING_WORLD",     Dispatch("OnPlayerEnteringWorld") },
     { "UNIT_INVENTORY_CHANGED",    Dispatch("OnEnchantUpdate") },
     { "PLAYER_TOTEM_UPDATE",       Dispatch("OnTotemUpdate") },
-    { "COMBAT_LOG_EVENT_UNFILTERED", DispatchVarargs("OnCombatLogEvent") },
+    { "COMBAT_LOG_EVENT_UNFILTERED", DispatchCombatLogCast("OnCombatLogEvent") },
     -- Resource events (Combo Points + DK runes). Runic Power and Soul Shards
     -- are intentionally event-less; the 0.25 s scan loop in Core.lua catches
     -- them, which avoids the firehose of UNIT_POWER / BAG_UPDATE in combat.

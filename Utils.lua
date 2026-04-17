@@ -64,8 +64,23 @@ ns.MAX_AURA_INDEX = 40    -- WoW 3.3.5a maximum buff/debuff index
 
 -- Current visual settings, falling back to defaults before the DB is loaded
 -- or if a fresh install hasn't populated the visual table yet.
+--
+-- Cached once BarWardenDB is loaded because Bar_OnUpdate and other hot paths
+-- call this every frame. The cache holds a *reference* to the live visual
+-- table, so edits via the options UI (which mutate BarWardenDB.visual in
+-- place) are reflected without invalidation. Explicit invalidation is only
+-- needed when the pointer itself changes, e.g. profile load/reset replacing
+-- BarWardenDB.visual with a new table.
+local cachedVisual
 function ns:GetVisual()
-    return (BarWardenDB and BarWardenDB.visual) or ns.DEFAULTS.visual
+    if cachedVisual then return cachedVisual end
+    if not BarWardenDB then return ns.DEFAULTS.visual end
+    cachedVisual = BarWardenDB.visual or ns.DEFAULTS.visual
+    return cachedVisual
+end
+
+function ns:InvalidateVisualCache()
+    cachedVisual = nil
 end
 
 -- ----------------------------------------------------------------------------

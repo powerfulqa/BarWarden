@@ -516,24 +516,93 @@ table at the top must be kept in sync.
 
 ---
 
-## 6. Verification (no test suite exists)
+## 6. Verification
 
-There are no unit tests. Verification = WoW client + behavioural diff.
+Three layers, in order of cost and fidelity.
 
-1. **`luac -p file.lua`** catches syntax errors without launching the game.
-2. **In-game smoke test**:
-   - Login → bars render identically to before the change.
-   - `/bw` → all 5 tabs open; settings reflect saved state.
-   - Cast a tracked spell → cooldown bar appears, ticks, expires.
-   - Apply a tracked buff/debuff/enchant/totem → matching tracker activates.
-   - `/bw test` → fake 30s timers appear; entering combat auto-exits test mode.
-   - Drag-reorder bars → ghost + drop indicator behave correctly.
-   - `/reload` → state persists.
-3. **Static cross-checks** to add to your verification:
-   - `grep "BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual"` →
-     must be zero hits outside `ns:GetVisual()`.
-   - `grep "function.*On[A-Z].*%(event"` in [Events.lua](Events.lua) →
-     must only match `OnCombatStateChanged`.
+### 6a. Static syntax check
+
+```
+luac -p <file.lua>
+```
+
+Dev boxes usually have Lua 5.4; WoW runs 5.1. For parsing the difference
+rarely bites (the codebase doesn't use `goto`, `//`, bitwise ops, or
+`<const>`), so a 5.4 `luac -p` pass is fine locally. If a file fails in
+CI but passes locally, drop to `lua5.1` to reproduce.
+
+### 6b. Test suite ([`tests/`](tests/))
+
+Pure-logic modules are covered by a standalone Lua test suite that runs
+under a controllable WoW-globals mock in [tests/mock_wow.lua](tests/mock_wow.lua).
+It does NOT cover frame code, the OnUpdate scan loop, or anything that
+calls `CreateFrame`; those stay in the in-game loop (6c).
+
+**Run locally:** `lua tests/run.lua` from the repo root. Exit 0 on
+all-pass, 1 on any failure. Boxes that only have Lua 5.4 installed
+still run the suite correctly.
+
+**CI:**
+- [`.github/workflows/tests.yml`](.github/workflows/tests.yml) runs on
+  every push and PR under Lua 5.1 (the WoW target).
+- [`.github/workflows/release.yml`](.github/workflows/release.yml) has
+  a `test` job that `release` `needs:`, so a tag push that fails tests
+  will NOT publish.
+
+**What's covered** (file → scope):
+- [test_utils.lua](tests/test_utils.lua) — `CopyTable`, `MergeDefaults`,
+  `FormatUptime`, Base64 round-trip, Serialize/Deserialize, profile
+  export/import, callback bus, `GetVisual` caching + invalidation.
+- [test_db_migrations.lua](tests/test_db_migrations.lua) — every
+  schema migration v0→v4, `MergeDefaults` not clobbering user frames,
+  legacy per-character profiles migrating to the account store. **This
+  is the file that catches silent data corruption when bumping the schema.**
+- [test_conditions.lua](tests/test_conditions.lua) — every built-in
+  visibility condition + short-circuit evaluator behaviour.
+- [test_trackers_logic.lua](tests/test_trackers_logic.lua) —
+  `CheckBuff`/`CheckDebuff`/`CheckCooldown`, `getSpellTokens` parsing,
+  `@group` expansion, `smoothExpiry` monotonicity, `ClearStableExpiry`,
+  `SpellDurations` override.
+- [test_aura_groups.lua](tests/test_aura_groups.lua) — structural
+  invariants on `ns.AuraGroups` (numeric ids, no dupes, core groups present).
+- [test_class_presets.lua](tests/test_class_presets.lua) — smoke test
+  that all 10 WotLK classes have well-formed groups + specs, every
+  bar has a valid `trackMode`.
+
+**How to add a test:**
+1. Pick the right `test_*.lua` file (or create one and add it to
+   `TEST_FILES` in [tests/run.lua](tests/run.lua)).
+2. Define `M.test_<name>` that raises via `assertx.*` on failure.
+3. If the code reads a WoW global not yet stubbed, extend
+   [tests/mock_wow.lua](tests/mock_wow.lua). Keep stubs data-driven:
+   mutate `mock.<state>` from the test, not via behavioural overrides.
+4. Modules with frame-creation at file scope (BarEngine, Events, Core)
+   require a frame stub that doesn't exist yet; keep those out of
+   scope. If a new test needs them, the work is to build the stub
+   layer first.
+
+**Out of scope:** Bar.lua, BarPool.lua, BarEngine.lua scan loop /
+state machine / OnUpdate, FrameManager.lua, DragReorder.lua,
+MinimapButton.lua, Widgets.lua, Dialogs.lua, Options_*.lua,
+BugReport.lua, ActivityTracker.lua. All frame-bound or event-driven.
+Exercise in 6c.
+
+### 6c. In-game smoke test
+
+- Login → bars render identically to before the change.
+- `/bw` → all 5 tabs open; settings reflect saved state.
+- Cast a tracked spell → cooldown bar appears, ticks, expires.
+- Apply a tracked buff/debuff/enchant/totem → matching tracker activates.
+- `/bw test` → fake 30s timers appear; entering combat auto-exits test mode.
+- Drag-reorder bars → ghost + drop indicator behave correctly.
+- `/reload` → state persists.
+
+### 6d. Static cross-checks
+
+- `grep "BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual"` →
+  zero hits outside `ns:GetVisual()`.
+- `grep "function.*On[A-Z].*%(event"` in [Events.lua](Events.lua) →
+  only matches `OnCombatStateChanged`.
 
 ---
 
