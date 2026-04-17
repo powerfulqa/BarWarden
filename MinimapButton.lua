@@ -1,159 +1,55 @@
 local addonName, ns = ...
 
 -- ============================================================================
--- MinimapButton.lua - Minimap icon: toggle config, drag to reposition
+-- MinimapButton.lua - LibDataBroker launcher + LibDBIcon-managed minimap icon.
+--
+-- BarWarden exposes itself as a standard LDB launcher, so addon families like
+-- Bazooka, Chocolate Bar, and SexyMap (which all consume LDB) can pick up the
+-- button without any per-addon plumbing. LibDBIcon handles the minimap-side
+-- display: creation, drag-to-reposition, show/hide, and the wrap-around edge
+-- cases. BarWarden only supplies the data object + a small refresh helper.
 -- ============================================================================
 
-local BUTTON_SIZE = 31
-local ICON_RADIUS = 80  -- distance from minimap center
-local DEFAULT_ANGLE = 220
+local LDB      = LibStub and LibStub("LibDataBroker-1.1", true)
+local LibDBIcon = LibStub and LibStub("LibDBIcon-1.0", true)
 
-local button
+-- The LDB object name doubles as the key LibDBIcon tracks registrations by.
+-- Keep it stable across sessions; a rename would orphan the existing button.
+local DATA_OBJECT_NAME = "BarWarden"
+local ICON_ENABLED     = "Interface\\Icons\\Spell_Nature_EnchantArmor"
 
--- --------------------------------------------------------------------------
--- Positioning helpers
--- --------------------------------------------------------------------------
-
-local function GetButtonPosition(angle)
-    local rad = math.rad(angle)
-    local x = math.cos(rad) * ICON_RADIUS
-    local y = math.sin(rad) * ICON_RADIUS
-    return x, y
-end
-
-local function UpdatePosition(angle)
-    local x, y = GetButtonPosition(angle)
-    button:ClearAllPoints()
-    button:SetPoint("CENTER", Minimap, "CENTER", x, y)
-end
+local dataObject    -- LDB data object (created lazily on InitMinimapButton)
 
 -- --------------------------------------------------------------------------
--- Drag handlers
+-- LDB data-object callbacks.
+--
+-- Any LDB display (minimap button, Bazooka plugin, WeakAuras status panel)
+-- receives these via the shared LDB registry; we don't have to know which
+-- consumer is rendering us.
 -- --------------------------------------------------------------------------
 
-local function OnDragStart()
-    button.isDragging = true
-    button:LockHighlight()
-end
-
-local function OnDragStop()
-    button.isDragging = false
-    button:UnlockHighlight()
-
-    local mx, my = Minimap:GetCenter()
-    local cx, cy = GetCursorPosition()
-    local scale = Minimap:GetEffectiveScale()
-    cx, cy = cx / scale, cy / scale
-
-    local angle = math.deg(math.atan2(cy - my, cx - mx))
-    if angle < 0 then angle = angle + 360 end
-
-    if BarWardenDB and BarWardenDB.global then
-        BarWardenDB.global.minimapIconPos = angle
-    end
-    UpdatePosition(angle)
-end
-
-local function OnUpdate()
-    if not button.isDragging then return end
-
-    local mx, my = Minimap:GetCenter()
-    local cx, cy = GetCursorPosition()
-    local scale = Minimap:GetEffectiveScale()
-    cx, cy = cx / scale, cy / scale
-
-    local angle = math.deg(math.atan2(cy - my, cx - mx))
-    if angle < 0 then angle = angle + 360 end
-    UpdatePosition(angle)
-end
-
--- --------------------------------------------------------------------------
--- Tooltip
--- --------------------------------------------------------------------------
-
-local function OnEnter(self)
-    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    local enabled = BarWardenDB and BarWardenDB.global and BarWardenDB.global.enabled
-    if enabled then
-        GameTooltip:AddLine("BarWarden", 1, 1, 1)
-    else
-        GameTooltip:AddLine("BarWarden (Disabled)", 1, 0.4, 0.4)
-    end
-    GameTooltip:AddLine("Left-click to open options", 0.8, 0.8, 0.8)
-    GameTooltip:AddLine("Right-click to enable/disable", 0.8, 0.8, 0.8)
-    GameTooltip:AddLine("Drag to reposition", 0.8, 0.8, 0.8)
-    GameTooltip:Show()
-end
-
-local function OnLeave()
-    GameTooltip:Hide()
-end
-
--- --------------------------------------------------------------------------
--- Click handler
--- --------------------------------------------------------------------------
-
-local function OnClick(self, clickButton)
-    if clickButton == "RightButton" then
-        local enabled = BarWardenDB and BarWardenDB.global and BarWardenDB.global.enabled
+local function OnClick(_, button)
+    if button == "RightButton" then
+        local enabled = ns.db and ns.db.global and ns.db.global.enabled
         ns:SetEnabled(not enabled)
     else
-        -- Use hardcoded name to match panel.name in Options.lua
-        -- (addonName from folder is lowercase "barwarden", panel is "BarWarden")
+        -- 3.3.5a double-call quirk: first call only scrolls the category list.
         InterfaceOptionsFrame_OpenToCategory("BarWarden")
         InterfaceOptionsFrame_OpenToCategory("BarWarden")
     end
 end
 
--- --------------------------------------------------------------------------
--- Create the button
--- --------------------------------------------------------------------------
-
-local function CreateMinimapButton()
-    button = CreateFrame("Button", "BarWardenMinimapButton", Minimap)
-    button:SetFrameStrata("MEDIUM")
-    button:SetWidth(BUTTON_SIZE)
-    button:SetHeight(BUTTON_SIZE)
-    button:SetFrameLevel(8)
-    button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
-
-    -- Icon overlay
-    local overlay = button:CreateTexture(nil, "OVERLAY")
-    overlay:SetWidth(53)
-    overlay:SetHeight(53)
-    overlay:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-    overlay:SetPoint("TOPLEFT")
-
-    -- Icon background
-    local icon = button:CreateTexture(nil, "BACKGROUND")
-    icon:SetWidth(20)
-    icon:SetHeight(20)
-    icon:SetTexture("Interface\\Icons\\Spell_Nature_EnchantArmor")
-    icon:SetPoint("CENTER", 0, 1)
-    button.icon = icon
-
-    button:RegisterForClicks("AnyUp")
-    button:RegisterForDrag("LeftButton")
-
-    button:SetMovable(true)
-
-    button:SetScript("OnClick", OnClick)
-    button:SetScript("OnDragStart", OnDragStart)
-    button:SetScript("OnDragStop", OnDragStop)
-    button:SetScript("OnUpdate", OnUpdate)
-    button:SetScript("OnEnter", OnEnter)
-    button:SetScript("OnLeave", OnLeave)
-
-    button.isDragging = false
-
-    -- Position from saved data
-    local angle = DEFAULT_ANGLE
-    if BarWardenDB and BarWardenDB.global and BarWardenDB.global.minimapIconPos then
-        angle = BarWardenDB.global.minimapIconPos
+local function OnTooltipShow(tt)
+    if not tt or not tt.AddLine then return end
+    local enabled = ns.db and ns.db.global and ns.db.global.enabled
+    if enabled then
+        tt:AddLine("BarWarden", 1, 1, 1)
+    else
+        tt:AddLine("BarWarden (Disabled)", 1, 0.4, 0.4)
     end
-    UpdatePosition(angle)
-
-    return button
+    tt:AddLine("Left-click to open options", 0.8, 0.8, 0.8)
+    tt:AddLine("Right-click to enable/disable", 0.8, 0.8, 0.8)
+    tt:AddLine("Drag to reposition", 0.8, 0.8, 0.8)
 end
 
 -- --------------------------------------------------------------------------
@@ -161,35 +57,68 @@ end
 -- --------------------------------------------------------------------------
 
 function ns:InitMinimapButton()
-    if button then return end
-    CreateMinimapButton()
-    ns:UpdateMinimapButtonVisibility()
+    -- Libraries are bundled in Libs/, so absence means a broken install.
+    -- Fail quietly rather than erroring so the rest of the addon still loads.
+    if not LDB or not LibDBIcon then return end
+    if dataObject then return end
+
+    dataObject = LDB:NewDataObject(DATA_OBJECT_NAME, {
+        type          = "launcher",
+        text          = "BarWarden",
+        icon          = ICON_ENABLED,
+        OnClick       = OnClick,
+        OnTooltipShow = OnTooltipShow,
+    })
+
+    -- Ensure the db sub-table exists even if the migration path didn't run
+    -- (e.g. a dev wipe of BarWardenDB between test reloads).
+    ns.db.minimap = ns.db.minimap or { hide = false, minimapPos = 220 }
+
+    LibDBIcon:Register(DATA_OBJECT_NAME, dataObject, ns.db.minimap)
     ns:UpdateMinimapButtonState()
 end
 
+-- Toggle button visibility. Called from the "Show Minimap Icon" toggle in
+-- Options_General.lua after it flips `ns.db.minimap.hide`.
 function ns:UpdateMinimapButtonVisibility()
-    if not button then return end
-    if BarWardenDB and BarWardenDB.global and BarWardenDB.global.minimapIcon then
-        button:Show()
+    if not LibDBIcon then return end
+    if ns.db and ns.db.minimap and ns.db.minimap.hide then
+        LibDBIcon:Hide(DATA_OBJECT_NAME)
     else
-        button:Hide()
+        LibDBIcon:Show(DATA_OBJECT_NAME)
     end
 end
 
+-- Desaturate the icon when the addon is globally disabled so users can see
+-- the state at a glance. SetDesaturated can taint on some 3.3.5a builds;
+-- fall back to a vertex-colour dim if it refuses.
 function ns:UpdateMinimapButtonState()
-    if not button or not button.icon then return end
-    local enabled = BarWardenDB and BarWardenDB.global and BarWardenDB.global.enabled
-    -- Use pcall to prevent SetDesaturated errors from tainting the button frame
-    local ok, desatOk = pcall(button.icon.SetDesaturated, button.icon, not enabled)
+    if not LibDBIcon then return end
+    -- GetMinimapButton is only present on newer LibDBIcon revisions; the
+    -- bundled copy exposes the `objects` table instead. Prefer the method
+    -- where available, fall back to the table where not.
+    local btn
+    if LibDBIcon.GetMinimapButton then
+        btn = LibDBIcon:GetMinimapButton(DATA_OBJECT_NAME)
+    elseif LibDBIcon.objects then
+        btn = LibDBIcon.objects[DATA_OBJECT_NAME]
+    end
+    if not btn or not btn.icon then return end
+
+    local enabled = ns.db and ns.db.global and ns.db.global.enabled
+    local ok, desatOk = pcall(btn.icon.SetDesaturated, btn.icon, not enabled)
     if not ok or not desatOk then
-        if not enabled then
-            button.icon:SetVertexColor(0.5, 0.5, 0.5)
+        if enabled then
+            btn.icon:SetVertexColor(1, 1, 1)
         else
-            button.icon:SetVertexColor(1, 1, 1)
+            btn.icon:SetVertexColor(0.5, 0.5, 0.5)
         end
     end
 end
 
+-- Exposed so /bw debug and tests can assert the minimap button is live.
 function ns:GetMinimapButton()
-    return button
+    if not LibDBIcon then return nil end
+    if LibDBIcon.objects then return LibDBIcon.objects[DATA_OBJECT_NAME] end
+    return nil
 end

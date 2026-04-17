@@ -50,6 +50,7 @@ function M.test_defaults_topLevelKeys()
         schemaVersion = true,
         global        = true,
         visual        = true,
+        minimap       = true,
         frames        = true,
         activity      = true,
         activeProfile = true,
@@ -71,7 +72,7 @@ function M.test_defaults_schemaVersionMatchesCurrent()
     -- one without the other means fresh installs land on the wrong version
     -- and either re-run migrations on clean data or skip them on upgrades.
     local ns = freshDB()
-    assertx.assertEqual(ns.DEFAULTS.schemaVersion, 4)
+    assertx.assertEqual(ns.DEFAULTS.schemaVersion, 5)
 end
 
 function M.test_defaults_framesIsEmptyArray()
@@ -91,11 +92,20 @@ end
 function M.test_defaults_globalExact()
     local ns = freshDB()
     assertx.assertDeepEqual(ns.DEFAULTS.global, {
-        enabled        = true,
-        locked         = true,
-        minimapIcon    = true,
-        minimapIconPos = 220,
+        enabled = true,
+        locked  = true,
     }, "DEFAULTS.global drift - see the file header for what to do")
+end
+
+-- Minimap state lives outside `global` because LibDBIcon-1.0 expects to
+-- own the `hide` + `minimapPos` keys directly on the db sub-table it was
+-- registered with.
+function M.test_defaults_minimapExact()
+    local ns = freshDB()
+    assertx.assertDeepEqual(ns.DEFAULTS.minimap, {
+        hide       = false,
+        minimapPos = 220,
+    }, "DEFAULTS.minimap drift")
 end
 
 -- --------------------------------------------------------------------------
@@ -116,8 +126,8 @@ function M.test_defaults_visualHasExactKeys()
         textFormat = 1, durationStyle = 1,
         -- Colour
         colorMode = 1, perBarColorOverride = 1, defaultColor = 1, trackModeColors = 1,
-        -- Alpha / fade
-        activeAlpha = 1, inactiveAlpha = 1, fadeWhenInactive = 1, fadeSpeed = 1,
+        -- Alpha
+        activeAlpha = 1, inactiveAlpha = 1,
         -- Bar features
         showSpark = 1, showCooldownSpiral = 1, showBarTooltip = 1,
     }
@@ -151,8 +161,6 @@ function M.test_defaults_visualCriticalValues()
     assertx.assertEqual(v.customTexture,  "")
     assertx.assertEqual(v.textEnabled,    true)
     assertx.assertEqual(v.perBarColorOverride, false)
-    assertx.assertEqual(v.fadeWhenInactive, true)
-    assertx.assertEqual(v.fadeSpeed,      0.3)
 end
 
 function M.test_defaults_defaultColorExact()

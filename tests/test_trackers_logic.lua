@@ -105,13 +105,17 @@ function M.test_unknownAuraGroup_returnsNoTokens()
     assertx.assertFalse(active, "unknown group should match nothing")
 end
 
-function M.test_tokenCacheStashedOnBarConfig()
+function M.test_tokenCacheDoesNotLeakIntoBarConfig()
+    -- Regression: pre-v1.10.2 stashed the parsed-token cache on barConfig,
+    -- which sits inside BarWardenDB.frames and gets written to SavedVariables.
+    -- The cache is now module-local in Trackers.lua, so scanning must not
+    -- introduce any `_token*` keys on the barConfig itself.
     local ns = fresh()
     mock.buffs.player[1] = buff("Slice and Dice", 5171, 20, 20)
     local bd = { spellName = "Slice and Dice" }
     ns.TRACKERS["Buff"](bd)
-    assertx.assertNotNil(bd._tokenCache,    "token cache not stashed on barConfig")
-    assertx.assertEqual(bd._tokenCacheKey, "Slice and Dice")
+    assertx.assertNil(bd._tokenCache,    "token cache must not leak onto barConfig")
+    assertx.assertNil(bd._tokenCacheKey, "token-cache key must not leak onto barConfig")
 end
 
 -- --------------------------------------------------------------------------

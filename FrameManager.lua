@@ -350,12 +350,18 @@ function ns:LockAllFrames()
             frame:StopMovingOrSizing()
             frame.isMoving = false
         end
+        if ns.DisableDragReorder then
+            ns:DisableDragReorder(frame)
+        end
     end
 end
 
 function ns:UnlockAllFrames()
     for _, frame in pairs(ns.groupFrames) do
         frame:EnableMouse(true)
+        if ns.EnableDragReorder then
+            ns:EnableDragReorder(frame)
+        end
     end
 end
 
@@ -545,6 +551,14 @@ function ns:BuildBarsForFrame(frameIndex)
             bar:SetAlpha(visual.inactiveAlpha or 0.3)
         end
         table.insert(frame.bars, bar)
+    end
+
+    -- Freshly-built bars inherit the current drag-reorder state. Without this
+    -- a mid-session add/duplicate would hand back bars that don't respond
+    -- to the drag ghost while the rest of the group does.
+    local locked = BarWardenDB and BarWardenDB.global and BarWardenDB.global.locked
+    if not locked and ns.EnableDragReorder then
+        ns:EnableDragReorder(frame)
     end
 end
 

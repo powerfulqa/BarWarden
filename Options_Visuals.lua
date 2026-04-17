@@ -290,27 +290,10 @@ local function CreateVisualsTab(parent)
           min = 0, max = 1, step = 0.05, width = 180,
           spacing = 16, offsetX = 4 },
 
-        { type = "slider", label = "Inactive Opacity",
+        { type = "slider", id = "inactiveAlpha", label = "Inactive Opacity",
           db = "visual.inactiveAlpha", refresh = "RefreshAllBars",
           min = 0, max = 1, step = 0.05, width = 180,
           spacing = 16 },
-
-        { type = "toggle", label = "Fade When Inactive",
-          tooltip = "Gradually fade bars to inactive opacity when not tracking anything.",
-          db = "visual.fadeWhenInactive", refresh = "RefreshAllBars",
-          spacing = 12, offsetX = -4 },
-
-        -- Fade Speed deliberately has NO refresh method; fade speed only
-        -- matters during the next opacity transition, not immediately.
-        { type = "slider", id = "fadeSpeed", label = "Fade Speed",
-          db = "visual.fadeSpeed",
-          min = 0.1, max = 2.0, step = 0.1, width = 180,
-          spacing = 16, offsetX = 4,
-          tooltip = "How quickly bars fade between Active Opacity and "
-                 .. "Inactive Opacity when entering or leaving an active "
-                 .. "state. Lower = slower, more pronounced fade; higher "
-                 .. "= snappier transition. Only matters when Fade When "
-                 .. "Inactive is ticked." },
     }
 
     frame.Refresh = ns:BuildSettings(content, SCHEMA, widgets,
@@ -344,7 +327,7 @@ local function CreateVisualsTab(parent)
         if w and w > 100 then
             content:SetWidth(w)
         end
-        local last = widgets.fadeSpeed
+        local last = widgets.inactiveAlpha
         if last then
             local lastBottom = last:GetBottom()
             local contentTop = content:GetTop()

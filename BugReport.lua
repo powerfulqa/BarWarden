@@ -48,7 +48,8 @@ local function GenerateReport()
         local g = ns.db.global
         add(string.format("Enabled: %s", tostring(g.enabled)))
         add(string.format("Locked: %s", tostring(g.locked)))
-        add(string.format("MinimapIcon: %s", tostring(g.minimapIcon)))
+        local minimapShown = ns.db.minimap and not ns.db.minimap.hide
+        add(string.format("MinimapIcon: %s", tostring(minimapShown)))
     else
         add("DB not loaded")
     end

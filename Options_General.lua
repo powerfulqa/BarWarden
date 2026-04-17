@@ -43,13 +43,22 @@ local SCHEMA = {
         end,
     },
 
-    -- Minimap toggle: simple DBSet; strict validation catches typos at load.
+    -- Minimap toggle: `minimap.hide` stores the LibDBIcon-compatible
+    -- "hide-when-true" flag, but the UI reads positively ("Show..."), so
+    -- get/set invert the value. Stateful enough to warrant closures over
+    -- the DBSet path.
     {
         type    = "toggle",
         label   = "Show Minimap Icon",
         tooltip = "Toggle the BarWarden minimap button.",
-        db      = "global.minimapIcon",
-        refresh = "UpdateMinimapButtonVisibility",
+        get     = function()
+            return not (ns.db and ns.db.minimap and ns.db.minimap.hide)
+        end,
+        set     = function(_, checked)
+            if not (ns.db and ns.db.minimap) then return end
+            ns.db.minimap.hide = not checked
+            ns:UpdateMinimapButtonVisibility()
+        end,
     },
 
     -- Slash Commands section (24px gap above for visual break).

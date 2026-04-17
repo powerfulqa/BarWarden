@@ -38,7 +38,6 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Copy and paste bars** between groups with the Dupe/Paste buttons
 - **Drag bars to reorder** them within a group when frames are unlocked
 - **Animated spark** that follows the bar as it counts down
-- **Smooth fading** between active and inactive states
 - **Bar linger effect** so bars stay visible briefly after a cooldown or buff expires
 - **Minimap button** you can drag around your minimap for quick access
 - **Track multiple spells on one bar** using commas, like `Rupture, Garrote`
@@ -291,7 +290,7 @@ Global settings that apply to all bars.
 
 **Icon:** Icon Size, Icon Position (Left, Right), Crop Icons, Cooldown Spiral overlay
 
-**Bar Opacity:** Active Opacity, Inactive Opacity, Fade When Inactive, Fade Speed
+**Bar Opacity:** Active Opacity, Inactive Opacity
 
 ### Profiles
 

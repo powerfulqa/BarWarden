@@ -68,13 +68,21 @@ end
 -- `@` are expanded to their entries in ns.AuraGroups (AuraGroups.lua),
 -- enabling shortcuts like `@Stunned` or `Rupture, @Bleeding`.
 --
--- Caches the result on the barConfig to avoid re-parsing every scan. The
--- cache is keyed by the raw spell string so an edit in the options panel
--- (which writes a new spellName) automatically invalidates it.
-local function getSpellTokens(barConfig, spell)
+-- Caches parsed tokens in a module-local table keyed by the raw spell
+-- string. Parsing is deterministic from the string, so string → tokens
+-- is a stable mapping and the cache never needs explicit invalidation.
+-- The table stays out of SavedVariables (prior versions stashed it on
+-- barConfig, which is persisted; DB migration v5 wipes the stale keys).
+local tokenCache = {}
+
+local function getSpellTokens(spell)
     if not spell then return nil end
-    if barConfig._tokenCache and barConfig._tokenCacheKey == spell then
-        return barConfig._tokenCache
+    local cached = tokenCache[spell]
+    if cached ~= nil then
+        -- `false` sentinel means "parsed, yielded zero tokens" (e.g. unknown
+        -- @group). Avoids re-parsing the same dud string every scan.
+        if cached == false then return nil end
+        return cached
     end
     local tokens = {}
     for rawToken in spell:gmatch("([^,]+)") do
@@ -95,8 +103,7 @@ local function getSpellTokens(barConfig, spell)
         end
     end
     local result = #tokens > 0 and tokens or nil
-    barConfig._tokenCache = result
-    barConfig._tokenCacheKey = spell
+    tokenCache[spell] = result == nil and false or result
     return result
 end
 
@@ -135,7 +142,7 @@ end
 
 local function ScanAuras(auraFunc, unit, barConfig, spell, filterMine)
     local numericId = tonumber(spell)
-    local tokens = (not numericId) and getSpellTokens(barConfig, spell) or nil
+    local tokens = (not numericId) and getSpellTokens(spell) or nil
 
     for i = 1, MAX_AURA_INDEX do
         local name, _, icon, count, _, duration, expirationTime, caster, _, _, spellId = auraFunc(unit, i)

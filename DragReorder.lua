@@ -159,6 +159,64 @@ local function SwapBars(frameIndex, fromIndex, toIndex)
 end
 
 -- ----------------------------------------------------------------------------
+-- Drag tracker: shared OnUpdate that follows the cursor while a drag is in
+-- progress. Lives on its own frame so that Bar_OnUpdate (BarEngine's
+-- countdown handler) is never clobbered. An active countdown bar stays
+-- smooth while being drag-reordered.
+-- ----------------------------------------------------------------------------
+local dragUpdater = CreateFrame("Frame", "BarWardenDragUpdater", UIParent)
+dragUpdater:Hide()
+
+dragUpdater:SetScript("OnUpdate", function()
+    local bar = dragState.bar
+    if not bar or not dragState.frameIndex then return end
+
+    local _, cursorY = GetCursorPosition()
+
+    -- Threshold gate: don't kick off the ghost until the user has actually
+    -- moved far enough to mean "drag", not "click".
+    if not dragState.active then
+        if math.abs(cursorY - dragState.startY) < DRAG_THRESHOLD then
+            return
+        end
+        dragState.active = true
+
+        local ghost = GetGhost()
+        ghost:SetWidth(bar:GetWidth())
+        ghost:SetHeight(bar:GetHeight())
+        local barData = bar.barData
+        ghost.label:SetText(barData and barData.spellName or barData and barData.name or "")
+        ghost:Show()
+    end
+
+    local ghost = GetGhost()
+    local scale = bar:GetEffectiveScale()
+    local cx, cy = GetCursorPosition()
+    ghost:ClearAllPoints()
+    ghost:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx / scale, cy / scale)
+
+    local groupFrame = ns.groupFrames[dragState.frameIndex]
+    if groupFrame then
+        dragState.dropIndex = CalcDropIndex(groupFrame)
+        UpdateIndicatorPosition(groupFrame, dragState.dropIndex)
+    end
+end)
+
+-- Reset drag state and hide all drag visuals. Called from OnMouseUp and
+-- from DisableDragReorder on lock / teardown.
+local function ClearDrag()
+    dragState.active = false
+    dragState.bar = nil
+    dragState.frameIndex = nil
+    dragState.startBarIndex = nil
+    dragState.dropIndex = nil
+
+    dragUpdater:Hide()
+    if dragState.ghost then dragState.ghost:Hide() end
+    if dragState.indicator then dragState.indicator:Hide() end
+end
+
+-- ----------------------------------------------------------------------------
 -- Bar OnMouseDown: Begin tracking potential drag
 -- ----------------------------------------------------------------------------
 local function Bar_OnMouseDown(self, button)
@@ -172,6 +230,10 @@ local function Bar_OnMouseDown(self, button)
     dragState.frameIndex = self.frameIndex
     dragState.startBarIndex = self.barIndex
     dragState.active = false
+    dragState.dropIndex = nil
+
+    -- Spin up the shared tracker; its first tick will check the threshold.
+    dragUpdater:Show()
 end
 
 -- ----------------------------------------------------------------------------
@@ -184,56 +246,7 @@ local function Bar_OnMouseUp(self, button)
         SwapBars(dragState.frameIndex, dragState.startBarIndex, dragState.dropIndex)
     end
 
-    -- Cleanup
-    dragState.active = false
-    dragState.bar = nil
-    dragState.startBarIndex = nil
-
-    local ghost = dragState.ghost
-    if ghost then ghost:Hide() end
-
-    local ind = dragState.indicator
-    if ind then ind:Hide() end
-end
-
--- ----------------------------------------------------------------------------
--- Bar OnUpdate: Track drag movement and update visuals
--- ----------------------------------------------------------------------------
-local function Bar_OnUpdate(self, elapsed)
-    if dragState.bar ~= self then return end
-    if not dragState.frameIndex then return end
-
-    local _, cursorY = GetCursorPosition()
-
-    -- Check drag threshold
-    if not dragState.active then
-        if math.abs(cursorY - dragState.startY) < DRAG_THRESHOLD then
-            return
-        end
-        dragState.active = true
-
-        -- Show ghost bar
-        local ghost = GetGhost()
-        ghost:SetWidth(self:GetWidth())
-        ghost:SetHeight(self:GetHeight())
-        local barData = self.barData
-        ghost.label:SetText(barData and barData.spellName or barData and barData.name or "")
-        ghost:Show()
-    end
-
-    -- Update ghost position to follow cursor
-    local ghost = GetGhost()
-    local scale = self:GetEffectiveScale()
-    local cx, cy = GetCursorPosition()
-    ghost:ClearAllPoints()
-    ghost:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx / scale, cy / scale)
-
-    -- Calculate drop target
-    local groupFrame = ns.groupFrames[dragState.frameIndex]
-    if groupFrame then
-        dragState.dropIndex = CalcDropIndex(groupFrame)
-        UpdateIndicatorPosition(groupFrame, dragState.dropIndex)
-    end
+    ClearDrag()
 end
 
 -- ----------------------------------------------------------------------------
@@ -255,7 +268,12 @@ function ns:MoveBarDown(frameIndex, barIndex)
 end
 
 -- ----------------------------------------------------------------------------
--- EnableDragReorder: Attach drag scripts to all bars in a group frame
+-- EnableDragReorder / DisableDragReorder: per-group toggle.
+--
+-- Drag tracking uses a dedicated update frame (see dragUpdater above) rather
+-- than the bar's own OnUpdate, so enabling drag does not disturb BarEngine's
+-- countdown handler on active bars. That means a cooldown that is currently
+-- ticking down can still be drag-reordered while unlocked.
 -- ----------------------------------------------------------------------------
 function ns:EnableDragReorder(groupFrame)
     if not groupFrame or not groupFrame.bars then return end
@@ -263,40 +281,39 @@ function ns:EnableDragReorder(groupFrame)
     for _, bar in ipairs(groupFrame.bars) do
         bar:EnableMouse(true)
         bar:SetScript("OnMouseDown", Bar_OnMouseDown)
-        bar:SetScript("OnMouseUp", Bar_OnMouseUp)
-        -- Only set drag OnUpdate on inactive bars; active bars must keep
-        -- BarEngine's Bar_OnUpdate for smooth fill. MouseDown/Up still fire.
-        if bar.barState ~= ns.BAR_STATE.ACTIVE then
-            bar:SetScript("OnUpdate", Bar_OnUpdate)
-        end
+        bar:SetScript("OnMouseUp",   Bar_OnMouseUp)
         bar.dragEnabled = true
     end
 end
 
--- ----------------------------------------------------------------------------
--- DisableDragReorder: Remove drag scripts from all bars in a group frame
--- ----------------------------------------------------------------------------
 function ns:DisableDragReorder(groupFrame)
     if not groupFrame or not groupFrame.bars then return end
 
     for _, bar in ipairs(groupFrame.bars) do
         bar:SetScript("OnMouseDown", nil)
-        bar:SetScript("OnMouseUp", nil)
-        if bar.dragEnabled then
-            -- Only clear OnUpdate on inactive bars; active bars are running
-            -- BarEngine's Bar_OnUpdate and must not have it cleared here.
-            if bar.barState ~= ns.BAR_STATE.ACTIVE then
-                bar:SetScript("OnUpdate", nil)
-            end
-            bar.dragEnabled = false
-        end
+        bar:SetScript("OnMouseUp",   nil)
+        bar.dragEnabled = false
     end
 
-    -- Cancel any active drag
-    if dragState.active then
-        dragState.active = false
-        dragState.bar = nil
-        if dragState.ghost then dragState.ghost:Hide() end
-        if dragState.indicator then dragState.indicator:Hide() end
+    -- Cancel any in-flight drag rooted in this group so the ghost/indicator
+    -- don't linger after a lock toggle.
+    if dragState.bar and dragState.bar:GetParent() == groupFrame then
+        ClearDrag()
+    end
+end
+
+-- Convenience: apply to every live group frame. Called from the global
+-- lock/unlock transitions in FrameManager.lua and from the
+-- `global.locked` toggle in Options_General.lua, so the drag wiring
+-- tracks frame-lock state without each call site repeating the loop.
+function ns:EnableDragReorderAll()
+    for _, gf in pairs(ns.groupFrames or {}) do
+        ns:EnableDragReorder(gf)
+    end
+end
+
+function ns:DisableDragReorderAll()
+    for _, gf in pairs(ns.groupFrames or {}) do
+        ns:DisableDragReorder(gf)
     end
 end

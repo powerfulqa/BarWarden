@@ -6,14 +6,20 @@ local addonName, ns = ...
 
 ns.DEFAULTS = {
     -- Schema version: increment when a migration pass is needed
-    schemaVersion = 4,
+    schemaVersion = 5,
 
     -- Global settings
     global = {
         enabled = true,
         locked = true,
-        minimapIcon = true,
-        minimapIconPos = 220,
+    },
+
+    -- Minimap icon state owned by LibDBIcon-1.0. The layout (hide / minimapPos)
+    -- is what LibDBIcon's Register/Show/Hide/Refresh read + mutate directly,
+    -- so keep these field names exactly.
+    minimap = {
+        hide = false,
+        minimapPos = 220,
     },
 
     -- Visual settings (global defaults)
@@ -53,8 +59,6 @@ ns.DEFAULTS = {
         },
         activeAlpha = 1.0,
         inactiveAlpha = 0.3,
-        fadeWhenInactive = true,
-        fadeSpeed = 0.3,
         showSpark = true,
         -- Icon crop
         iconCrop = true,
@@ -80,7 +84,7 @@ ns.DEFAULTS = {
 -- One-time migration to canonicalise legacy field names. Runs only when
 -- BarWardenDB.schemaVersion is absent or below CURRENT_SCHEMA. Only writes
 -- to nil keys; never overwrites existing user data.
-local CURRENT_SCHEMA = 4
+local CURRENT_SCHEMA = 5
 
 local function MigrateDB()
     local savedVersion = BarWardenDB.schemaVersion or 0
@@ -161,6 +165,40 @@ local function MigrateDB()
         end
     end
 
+    -- v4 → v5: housekeeping pass for keys that pre-v1.10.2 persisted but
+    -- no code ever reads, plus the switch from the hand-rolled minimap
+    -- button to LibDBIcon (which owns its own db sub-table).
+    --   * bar `_tokenCache` / `_tokenCacheKey` : the parsed-token cache used
+    --     to live on the bar config but is now module-local in Trackers.lua.
+    --   * visual `fadeWhenInactive` / `fadeSpeed` : exposed in the Visuals
+    --     tab and seeded in defaults, but BarEngine always did a hard
+    --     SetAlpha, so the toggles never animated anything. UI removed.
+    --   * global `minimapIcon` / `minimapIconPos` : replaced by the
+    --     LibDBIcon-shaped `minimap = { hide, minimapPos }` sub-table.
+    --     We invert `minimapIcon` (show-on) into `hide` (hide-on).
+    if savedVersion < 5 then
+        for _, frameData in ipairs(BarWardenDB.frames or {}) do
+            for _, bar in ipairs(frameData.bars or {}) do
+                bar._tokenCache = nil
+                bar._tokenCacheKey = nil
+            end
+        end
+        if type(BarWardenDB.visual) == "table" then
+            BarWardenDB.visual.fadeWhenInactive = nil
+            BarWardenDB.visual.fadeSpeed = nil
+        end
+        if type(BarWardenDB.global) == "table" then
+            if not BarWardenDB.minimap then
+                BarWardenDB.minimap = {
+                    hide = BarWardenDB.global.minimapIcon == false,
+                    minimapPos = BarWardenDB.global.minimapIconPos or 220,
+                }
+            end
+            BarWardenDB.global.minimapIcon = nil
+            BarWardenDB.global.minimapIconPos = nil
+        end
+    end
+
     BarWardenDB.schemaVersion = CURRENT_SCHEMA
 end
 
@@ -199,6 +237,16 @@ function ns:InitDB()
         -- users upgrading from a pre-schemaVersion release. MigrateDB
         -- writes the final schemaVersion when it finishes.
         MigrateDB()
+        -- Minimap state lives in its own sub-table because LibDBIcon-1.0
+        -- expects to own the `hide` + `minimapPos` keys directly. Runs
+        -- AFTER MigrateDB so the v4 → v5 migration gets a chance to seed
+        -- the table from legacy `global.minimapIcon*` before defaults
+        -- backfill anything missing.
+        if type(BarWardenDB.minimap) ~= "table" then
+            BarWardenDB.minimap = ns:CopyTable(ns.DEFAULTS.minimap)
+        else
+            ns:MergeDefaults(BarWardenDB.minimap, ns.DEFAULTS.minimap)
+        end
     end
     ns.db = BarWardenDB
 
