@@ -187,10 +187,8 @@ function ns:InitDB()
     end
     ns.db = BarWardenDB
 
-    -- Ensure stats table exists for persistent statistics tracking (legacy bar-driven)
-    if not BarWardenDB.stats then
-        BarWardenDB.stats = {}
-    end
+    -- Remove legacy stats table (replaced by ActivityTracker)
+    BarWardenDB.stats = nil
 
     -- Ensure activity table exists for passive activity tracking
     if not BarWardenDB.activity then

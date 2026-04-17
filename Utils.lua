@@ -35,25 +35,6 @@ function ns:MergeDefaults(target, defaults)
     end
 end
 
--- Format seconds as "X.X" (<60s), "M:SS" (<1h), or "H:MM:SS".
-function ns:FormatTime(seconds)
-    if not seconds or seconds < 0 then seconds = 0 end
-
-    if seconds < 60 then
-        return string.format("%.1f", seconds)
-    elseif seconds < 3600 then
-        local m = math.floor(seconds / 60)
-        local s = math.floor(seconds - m * 60)
-        return string.format("%d:%02d", m, s)
-    else
-        local h = math.floor(seconds / 3600)
-        local remaining = seconds - h * 3600
-        local m = math.floor(remaining / 60)
-        local s = math.floor(remaining - m * 60)
-        return string.format("%d:%02d:%02d", h, m, s)
-    end
-end
-
 -- ----------------------------------------------------------------------------
 -- Shared constants
 -- ----------------------------------------------------------------------------

@@ -84,6 +84,16 @@ local function FlushDirtyLayouts()
     wipe(dirtyGroups)
 end
 
+-- Returns true when every bar in a group is hidden, meaning the group
+-- frame itself should hide (no visible backdrop/title with nothing in it).
+local function AreAllBarsHidden(group)
+    if not group or not group.bars then return false end
+    for _, b in ipairs(group.bars) do
+        if b:IsShown() then return false end
+    end
+    return true
+end
+
 -- Wrap a scan body: increment depth, run fn, decrement, flush on exit.
 local function RunScan(fn, ...)
     scanDepth = scanDepth + 1
@@ -618,26 +628,8 @@ function ns:DeactivateBar(bar, skipGlow)
         MarkGroupDirty(parent)
     end
 
-    -- Hide the group frame only if EVERY bar in it is either actively hidden
-    -- (hideWhenInactive=true) or currently active (tracked by ActivateBar).
-    -- If any bar wants to stay visible at inactive alpha (the default when
-    -- hideWhenInactive is false), the group stays visible too.
-    if parent and parent.bars then
-        local anyWantVisible = false
-        for _, b in ipairs(parent.bars) do
-            if activeBars[b] then
-                anyWantVisible = true
-                break
-            end
-            local bc = b.barData and b.barData.conditions
-            if not bc or not bc.hideWhenInactive then
-                anyWantVisible = true
-                break
-            end
-        end
-        if not anyWantVisible then
-            parent:Hide()
-        end
+    if parent and AreAllBarsHidden(parent) then
+        parent:Hide()
     end
 end
 
@@ -837,12 +829,8 @@ function ns:ScanAllBars(unit)
     -- group failed a group-level condition). Without this, the group backdrop
     -- and title bar would linger visually even though every bar inside is gone.
     for _, group in pairs(ns.groupFrames) do
-        if group:IsShown() and group.bars then
-            local anyVisible = false
-            for _, b in ipairs(group.bars) do
-                if b:IsShown() then anyVisible = true; break end
-            end
-            if not anyVisible then group:Hide() end
+        if group:IsShown() and AreAllBarsHidden(group) then
+            group:Hide()
         end
     end
 end
