@@ -646,7 +646,7 @@ ns.ClassPresets = {
                     debuff("Rupture"), debuff("Garrote"), debuff("Deadly Poison"),
                 }},
                 { name = "Self Buffs", position = { point = "CENTER", relativePoint = "CENTER", x = 240, y = 120 }, columns = 1, bars = {
-                    buff("Slice and Dice"), buff("Hunger for Blood"), buff("Envenom"),
+                    buff("Slice and Dice"), buff("Hunger For Blood"), buff("Envenom"),
                 }},
                 { name = "Combo Points", position = { point = "CENTER", relativePoint = "CENTER", x = 240, y = -60 }, columns = 1, bars = { comboBar() }},
             }},

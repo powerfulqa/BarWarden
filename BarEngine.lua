@@ -381,6 +381,8 @@ ns.Bar_OnUpdate = Bar_OnUpdate
 function ns:ActivateBar(bar, expirationTime, duration)
     if not bar then return end
 
+    ns:CancelBarGlow(bar)
+
     bar.expirationTime = expirationTime
     bar.duration = duration
     bar.barState = BAR_STATE.ACTIVE
