@@ -18,7 +18,13 @@ local colorModeItems = {
     { text = "Custom Color",     value = "CUSTOM" },
 }
 
-local textureItems = {
+local textPosItems = {
+    { text = "Left",  value = "INSIDE_LEFT"  },
+    { text = "Right", value = "INSIDE_RIGHT" },
+}
+
+-- Hardcoded fallback lists (used when LibSharedMedia is not available)
+local BUILTIN_TEXTURE_ITEMS = {
     { text = "Flat",      value = "Flat"     },
     { text = "Smooth",    value = "Smooth"   },
     { text = "Gloss",     value = "Gloss"    },
@@ -35,20 +41,13 @@ local textureItems = {
     { text = "Custom",    value = "Custom"   },
 }
 
-local textPosItems = {
-    { text = "Left",  value = "INSIDE_LEFT"  },
-    { text = "Right", value = "INSIDE_RIGHT" },
-}
-
 local BW_FONT = "Interface\\AddOns\\BarWarden\\Fonts\\"
-local fontItems = {
-    -- WoW built-in fonts
+local BUILTIN_FONT_ITEMS = {
     { text = "Friz Quadrata", value = "Fonts\\FRIZQT__.TTF"        },
     { text = "Arial Narrow",  value = "Fonts\\ARIALN.TTF"          },
     { text = "Morpheus",      value = "Fonts\\MORPHEUS.TTF"        },
     { text = "Nimrod MT",     value = "Fonts\\NIM_____.ttf"        },
     { text = "Skurri",        value = "Fonts\\SKURRI.TTF"          },
-    -- BarWarden custom fonts
     { text = "Adventure",     value = BW_FONT .. "adventure.ttf"   },
     { text = "Bazooka",       value = BW_FONT .. "bazooka.ttf"     },
     { text = "Cooline",       value = BW_FONT .. "cooline.ttf"     },
@@ -60,6 +59,16 @@ local fontItems = {
     { text = "Transformers",  value = BW_FONT .. "transformers.ttf"},
     { text = "Yellow Jacket", value = BW_FONT .. "yellowjacket.ttf"},
 }
+
+-- Use LibSharedMedia dropdown items when available, falling back to the
+-- hardcoded lists. LSM items include textures/fonts from ALL addons on
+-- the client, giving users a unified selection.
+local textureItems = ns:LSMDropdownItems("statusbar") or BUILTIN_TEXTURE_ITEMS
+-- Append "Custom" to the LSM texture list so users can still enter a raw path
+if ns.LSM and textureItems ~= BUILTIN_TEXTURE_ITEMS then
+    textureItems[#textureItems + 1] = { text = "Custom", value = "Custom" }
+end
+local fontItems = ns:LSMDropdownItems("font") or BUILTIN_FONT_ITEMS
 
 local textFormatItems = {
     { text = "Name + Duration", value = "NAME_DURATION" },
@@ -139,11 +148,11 @@ local function CreateVisualsTab(parent)
         { type = "header", text = "Bar Dimensions", spacing = 16 },
         { type = "slider", label = "Bar Height",
           db = "visual.barHeight", refresh = "RefreshAllBars",
-          min = 4, max = 60, step = 1, width = 200,
+          min = 4, max = 60, step = 1, width = 180,
           spacing = 16, offsetX = 4 },
         { type = "slider", label = "Bar Spacing",
           db = "visual.barSpacing", refresh = "RefreshAllBars",
-          min = 0, max = 30, step = 1, width = 200,
+          min = 0, max = 30, step = 1, width = 180,
           spacing = 16,
           tooltip = "Vertical pixels of padding between stacked bars "
                  .. "within a group. 0 = bars touch each other." },
@@ -154,7 +163,7 @@ local function CreateVisualsTab(parent)
 
         { type = "dropdown", id = "colorModeDD", label = "Color Mode",
           db = "visual.colorMode", refresh = "RefreshAllBars",
-          items = colorModeItems,
+          items = colorModeItems, width = 160,
           spacing = 24, offsetX = -16,
           onChange = function(value)
               if widgets.colorSwatch then
@@ -174,7 +183,7 @@ local function CreateVisualsTab(parent)
 
         { type = "dropdown", id = "textureDD", label = "Bar Texture",
           db = "visual.texture", refresh = "RefreshAllBars",
-          items = textureItems,
+          items = textureItems, width = 160,
           spacing = 16, offsetX = -16,
           onChange = function(value)
               local show = (value == "Custom")
@@ -211,27 +220,27 @@ local function CreateVisualsTab(parent)
 
         { type = "dropdown", label = "Text Position",
           db = "visual.textPosition", refresh = "RefreshAllBars",
-          items = textPosItems,
+          items = textPosItems, width = 160,
           spacing = 24, offsetX = -16 },
 
         { type = "dropdown", label = "Font",
           db = "visual.font", refresh = "RefreshAllBars",
-          items = fontItems,
+          items = fontItems, width = 160,
           spacing = 16 },
 
         { type = "slider", label = "Font Size",
           db = "visual.fontSize", refresh = "RefreshAllBars",
-          min = 6, max = 24, step = 1, width = 200,
+          min = 6, max = 24, step = 1, width = 180,
           spacing = 16, offsetX = 16 },
 
         { type = "dropdown", label = "Text Format",
           db = "visual.textFormat", refresh = "RefreshAllBars",
-          items = textFormatItems,
+          items = textFormatItems, width = 160,
           spacing = 24, offsetX = -16 },
 
         { type = "dropdown", label = "Duration Style",
           db = "visual.durationStyle", refresh = "RefreshAllBars",
-          items = durationStyleItems,
+          items = durationStyleItems, width = 160,
           spacing = 16 },
 
         -- -------------------- Section: Icon --------------------
@@ -240,7 +249,7 @@ local function CreateVisualsTab(parent)
 
         { type = "slider", label = "Icon Size",
           db = "visual.iconSize", refresh = "RefreshAllBars",
-          min = 0, max = 60, step = 1, width = 200,
+          min = 0, max = 60, step = 1, width = 180,
           spacing = 16, offsetX = 4,
           tooltip = "Size (in pixels) of the spell icon shown on each bar. "
                  .. "Set to 0 to hide icons globally. Individual bars can "
@@ -248,7 +257,7 @@ local function CreateVisualsTab(parent)
 
         { type = "dropdown", label = "Icon Position",
           db = "visual.iconPosition", refresh = "RefreshAllBars",
-          items = iconPosItems,
+          items = iconPosItems, width = 160,
           spacing = 24, offsetX = -16 },
 
         { type = "toggle", label = "Crop Icons",
@@ -278,12 +287,12 @@ local function CreateVisualsTab(parent)
 
         { type = "slider", label = "Active Opacity",
           db = "visual.activeAlpha", refresh = "RefreshAllBars",
-          min = 0, max = 1, step = 0.05, width = 200,
+          min = 0, max = 1, step = 0.05, width = 180,
           spacing = 16, offsetX = 4 },
 
         { type = "slider", label = "Inactive Opacity",
           db = "visual.inactiveAlpha", refresh = "RefreshAllBars",
-          min = 0, max = 1, step = 0.05, width = 200,
+          min = 0, max = 1, step = 0.05, width = 180,
           spacing = 16 },
 
         { type = "toggle", label = "Fade When Inactive",
@@ -295,7 +304,7 @@ local function CreateVisualsTab(parent)
         -- matters during the next opacity transition, not immediately.
         { type = "slider", id = "fadeSpeed", label = "Fade Speed",
           db = "visual.fadeSpeed",
-          min = 0.1, max = 2.0, step = 0.1, width = 200,
+          min = 0.1, max = 2.0, step = 0.1, width = 180,
           spacing = 16, offsetX = 4,
           tooltip = "How quickly bars fade between Active Opacity and "
                  .. "Inactive Opacity when entering or leaving an active "
@@ -349,11 +358,4 @@ local function CreateVisualsTab(parent)
     return frame
 end
 
--- Register tab when options panel is created.
-local orig = ns.CreateOptionsPanel
-ns.CreateOptionsPanel = function(self)
-    local panel = orig(self)
-    local tab = CreateVisualsTab(panel)
-    ns.optionsTabs[3] = tab
-    return panel
-end
+ns:RegisterOptionsTab(3, CreateVisualsTab)

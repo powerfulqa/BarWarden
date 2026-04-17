@@ -154,7 +154,9 @@ BUILDERS.dropdown = function(parent, entry)
     -- BuildSetCallback's (self, value) to match.
     local cb = BuildSetCallback(entry)
     local wrapped = function(dd, value, index) cb(dd, value, index) end
-    return ns:CreateDropdown(parent, entry.label or "", entry.items, wrapped)
+    local dd = ns:CreateDropdown(parent, entry.label or "", entry.items, wrapped)
+    if entry.width then UIDropDownMenu_SetWidth(dd, entry.width) end
+    return dd
 end
 
 BUILDERS.editbox = function(parent, entry)

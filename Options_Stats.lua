@@ -10,7 +10,7 @@ local addonName, ns = ...
 -- ============================================================================
 
 local STAT_ROW_HEIGHT = 18
-local MAX_STAT_ROWS = 9
+local MAX_STAT_ROWS = 8
 local ICON_SIZE = 16
 
 local CATEGORY_FILTERS = {
@@ -130,26 +130,26 @@ local function CreateStatsTab(parent)
     -- Group labels row ("Session" and "All-Time" above their columns)
     local groupLabelFrame = CreateFrame("Frame", nil, frame)
     groupLabelFrame:SetPoint("TOPLEFT", sessionLabel, "BOTTOMLEFT", 0, -8)
-    groupLabelFrame:SetSize(420, 14)
+    groupLabelFrame:SetSize(380, 14)
 
     local gSession = groupLabelFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    gSession:SetPoint("LEFT", groupLabelFrame, "LEFT", 170, 0)
+    gSession:SetPoint("LEFT", groupLabelFrame, "LEFT", 140, 0)
     gSession:SetText("--- Session ---")
-    gSession:SetWidth(118)
+    gSession:SetWidth(100)
     gSession:SetJustifyH("CENTER")
     gSession:SetTextColor(0.5, 0.8, 1.0)
 
     local gAllTime = groupLabelFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     gAllTime:SetPoint("LEFT", gSession, "RIGHT", 8, 0)
     gAllTime:SetText("--- All-Time ---")
-    gAllTime:SetWidth(118)
+    gAllTime:SetWidth(100)
     gAllTime:SetJustifyH("CENTER")
     gAllTime:SetTextColor(1.0, 0.82, 0.0)
 
     -- Column headers
     local headerFrame = CreateFrame("Frame", nil, frame)
     headerFrame:SetPoint("TOPLEFT", groupLabelFrame, "BOTTOMLEFT", 0, -2)
-    headerFrame:SetSize(420, 14)
+    headerFrame:SetSize(380, 14)
 
     local hIcon = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hIcon:SetPoint("LEFT", headerFrame, "LEFT", 4, 0)
@@ -159,31 +159,31 @@ local function CreateStatsTab(parent)
     local hName = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hName:SetPoint("LEFT", hIcon, "RIGHT", 2, 0)
     hName:SetText("Name")
-    hName:SetWidth(140)
+    hName:SetWidth(110)
     hName:SetJustifyH("LEFT")
 
     local hSessAct = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hSessAct:SetPoint("LEFT", hName, "RIGHT", 4, 0)
     hSessAct:SetText("Procs")
-    hSessAct:SetWidth(50)
+    hSessAct:SetWidth(40)
     hSessAct:SetJustifyH("RIGHT")
 
     local hSessUp = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hSessUp:SetPoint("LEFT", hSessAct, "RIGHT", 4, 0)
     hSessUp:SetText("Uptime")
-    hSessUp:SetWidth(55)
+    hSessUp:SetWidth(50)
     hSessUp:SetJustifyH("RIGHT")
 
     local hAllAct = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hAllAct:SetPoint("LEFT", hSessUp, "RIGHT", 8, 0)
     hAllAct:SetText("Procs")
-    hAllAct:SetWidth(50)
+    hAllAct:SetWidth(40)
     hAllAct:SetJustifyH("RIGHT")
 
     local hAllUp = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hAllUp:SetPoint("LEFT", hAllAct, "RIGHT", 4, 0)
     hAllUp:SetText("Uptime")
-    hAllUp:SetWidth(55)
+    hAllUp:SetWidth(50)
     hAllUp:SetJustifyH("RIGHT")
 
     -- ========================================================================
@@ -191,7 +191,7 @@ local function CreateStatsTab(parent)
     -- ========================================================================
     local listFrame = CreateFrame("Frame", "BarWardenStatList", frame)
     listFrame:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -4)
-    listFrame:SetSize(420, MAX_STAT_ROWS * STAT_ROW_HEIGHT + 4)
+    listFrame:SetSize(380, MAX_STAT_ROWS * STAT_ROW_HEIGHT + 4)
 
     local listBg = listFrame:CreateTexture(nil, "BACKGROUND")
     listBg:SetAllPoints()
@@ -204,7 +204,7 @@ local function CreateStatsTab(parent)
     local rows = {}
     for i = 1, MAX_STAT_ROWS do
         local row = CreateFrame("Button", "BarWardenStatRow" .. i, listFrame)
-        row:SetSize(394, STAT_ROW_HEIGHT)
+        row:SetSize(354, STAT_ROW_HEIGHT)
         if i == 1 then
             row:SetPoint("TOPLEFT", listFrame, "TOPLEFT", 2, -2)
         else
@@ -230,31 +230,31 @@ local function CreateStatsTab(parent)
 
         local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         nameText:SetPoint("LEFT", iconTex, "RIGHT", 4, 0)
-        nameText:SetWidth(136)
+        nameText:SetWidth(106)
         nameText:SetJustifyH("LEFT")
         row.nameText = nameText
 
         local sessActText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         sessActText:SetPoint("LEFT", nameText, "RIGHT", 4, 0)
-        sessActText:SetWidth(50)
+        sessActText:SetWidth(40)
         sessActText:SetJustifyH("RIGHT")
         row.sessActText = sessActText
 
         local sessUpText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         sessUpText:SetPoint("LEFT", sessActText, "RIGHT", 4, 0)
-        sessUpText:SetWidth(55)
+        sessUpText:SetWidth(50)
         sessUpText:SetJustifyH("RIGHT")
         row.sessUpText = sessUpText
 
         local allActText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         allActText:SetPoint("LEFT", sessUpText, "RIGHT", 8, 0)
-        allActText:SetWidth(50)
+        allActText:SetWidth(40)
         allActText:SetJustifyH("RIGHT")
         row.allActText = allActText
 
         local allUpText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         allUpText:SetPoint("LEFT", allActText, "RIGHT", 4, 0)
-        allUpText:SetWidth(55)
+        allUpText:SetWidth(50)
         allUpText:SetJustifyH("RIGHT")
         row.allUpText = allUpText
 
@@ -342,7 +342,7 @@ local function CreateStatsTab(parent)
         ns:RebuildAllFrames()
         ns:Print("Bar created for " .. name .. " in " .. (g.name or "Group " .. groupIdx) .. ".")
     end)
-    createBarBtn:SetPoint("TOPLEFT", listFrame, "BOTTOMLEFT", 0, -8)
+    createBarBtn:SetPoint("TOPLEFT", listFrame, "BOTTOMLEFT", 0, -24)
 
     -- Group picker dropdown (no label; sits next to Create Bar button)
     local groupItems = {}
@@ -476,13 +476,4 @@ local function CreateStatsTab(parent)
     return frame
 end
 
--- ============================================================================
--- Register tab when options panel is created
--- ============================================================================
-local orig = ns.CreateOptionsPanel
-ns.CreateOptionsPanel = function(self)
-    local panel = orig(self)
-    local tab = CreateStatsTab(panel)
-    ns.optionsTabs[5] = tab
-    return panel
-end
+ns:RegisterOptionsTab(5, CreateStatsTab)

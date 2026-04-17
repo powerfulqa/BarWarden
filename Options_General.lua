@@ -82,12 +82,4 @@ local function CreateGeneralTab(parent)
     return frame
 end
 
--- Register tab when options panel is created.
-local orig = ns.CreateOptionsPanel
-ns.CreateOptionsPanel = function(self)
-    local panel = orig(self)
-    local tab = CreateGeneralTab(panel)
-    ns.optionsTabs[1] = tab
-    tab:Show()
-    return panel
-end
+ns:RegisterOptionsTab(1, CreateGeneralTab)

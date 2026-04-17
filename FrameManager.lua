@@ -208,14 +208,24 @@ function ns:UpdateGroupLayout(group)
         table.sort(visible, CompareAlpha)
     end
 
+    -- Growth direction: "DOWN" (default) anchors bars top-to-bottom with the
+    -- title at the top. "UP" anchors bars bottom-to-top with the title at the
+    -- bottom, so bars grow upward from the anchor point.
+    local growUp = (frameData and frameData.growDirection == "UP")
+
     local visibleCount = 0
     for _, bar in ipairs(visible) do
         local col = visibleCount % columns
         local row = math.floor(visibleCount / columns)
         local xOff = 4 + col * (barWidth + spacing)
-        local yOff = -(titleOffset + row * (barHeight + spacing))
         bar:ClearAllPoints()
-        bar:SetPoint("TOPLEFT", group, "TOPLEFT", xOff, yOff)
+        if growUp then
+            local yOff = titleOffset + row * (barHeight + spacing)
+            bar:SetPoint("BOTTOMLEFT", group, "BOTTOMLEFT", xOff, yOff)
+        else
+            local yOff = -(titleOffset + row * (barHeight + spacing))
+            bar:SetPoint("TOPLEFT", group, "TOPLEFT", xOff, yOff)
+        end
         bar:SetWidth(barWidth)
         bar:SetHeight(barHeight)
         -- Per-bar scale override. nil (or 1) means "use group default".
@@ -227,34 +237,59 @@ function ns:UpdateGroupLayout(group)
     end
 
     -- Update frame size to fit all columns and rows.
-    -- Before changing the height, re-anchor to TOPLEFT so the top edge stays
-    -- fixed and bars grow downward. Without this, frames still anchored at
-    -- CENTER (e.g. newly created groups that haven't been dragged yet) expand
-    -- upward as well as downward, pushing the title bar out of place.
     local rowCount = math.ceil(visibleCount / columns)
     if rowCount == 0 then rowCount = 1 end
     local totalHeight = titleOffset + (rowCount * (barHeight + spacing)) + 4
     local totalWidth = columns * barWidth + (columns - 1) * spacing + 8
 
-    if group:GetTop() then
+    -- Re-anchor to a fixed edge so the frame grows in the correct direction.
+    -- DOWN: pin TOPLEFT so bars grow downward.
+    -- UP: pin BOTTOMLEFT so bars grow upward.
+    local pinPoint = growUp and "BOTTOMLEFT" or "TOPLEFT"
+    local anchorFn = growUp and group.GetBottom or group.GetTop
+
+    if anchorFn(group) then
         local scale = group:GetEffectiveScale()
         local uiScale = UIParent:GetEffectiveScale()
         local left = group:GetLeft() * scale / uiScale
-        local top = group:GetTop() * scale / uiScale
-        local uiTop = UIParent:GetTop()
-        group:ClearAllPoints()
-        group:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, top - uiTop)
-        -- Persist so the next load also uses TOPLEFT
-        if group.frameIndex then
-            local db = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[group.frameIndex]
-            if db then
-                db.position = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = left, y = top - uiTop }
+        if growUp then
+            local bottom = group:GetBottom() * scale / uiScale
+            group:ClearAllPoints()
+            group:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
+            if group.frameIndex then
+                local db = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[group.frameIndex]
+                if db then
+                    db.position = { point = "BOTTOMLEFT", relativePoint = "BOTTOMLEFT", x = left, y = bottom }
+                end
+            end
+        else
+            local top = group:GetTop() * scale / uiScale
+            local uiTop = UIParent:GetTop()
+            group:ClearAllPoints()
+            group:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, top - uiTop)
+            if group.frameIndex then
+                local db = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[group.frameIndex]
+                if db then
+                    db.position = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = left, y = top - uiTop }
+                end
             end
         end
     end
 
     group:SetHeight(totalHeight)
     group:SetWidth(totalWidth)
+
+    -- Title bar position: top of frame for DOWN growth, bottom for UP growth.
+    if group.titleText then
+        group.titleText:ClearAllPoints()
+        if growUp then
+            group.titleText:SetPoint("BOTTOMLEFT", group, "BOTTOMLEFT", 4, 3)
+            group.titleText:SetPoint("BOTTOMRIGHT", group, "BOTTOMRIGHT", -4, 3)
+        else
+            group.titleText:SetPoint("TOPLEFT", group, "TOPLEFT", 4, -3)
+            group.titleText:SetPoint("TOPRIGHT", group, "TOPRIGHT", -4, -3)
+        end
+    end
 end
 
 -- ----------------------------------------------------------------------------
