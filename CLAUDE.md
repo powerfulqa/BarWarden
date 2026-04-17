@@ -38,8 +38,10 @@ control flow, many returns, many parameters, complex boolean logic.
 ```
 BarWarden/
 ├── BarWarden.toc       Load order matters, see below
+├── Libs/               LibStub + LibSharedMedia-3.0 (bundled, optional)
 ├── Templates.xml       StatusBar template referenced by Bar.lua
 ├── Utils.lua           Shared helpers (CopyTable, MergeDefaults, GetVisual, ...)
+├── SharedMedia.lua     Optional LSM integration (registers textures/fonts)
 ├── DB.lua              SavedVariables schema, defaults, migrations
 ├── AuraGroups.lua      Named aura equivalency groups (@Stunned, @Bleeding, ...)
 ├── Conditions.lua      Visibility condition registry + evaluator
@@ -54,7 +56,7 @@ BarWarden/
 ├── Widgets.lua         CheckBox/Slider/Dropdown/EditBox/Button factories
 ├── Dialogs.lua         StaticPopup definitions
 ├── ClassPresets.lua    Per-class starter profiles + LoadClassStarter loader
-├── Options.lua         Options panel frame + tab management
+├── Options.lua         Options panel frame + tab registration
 ├── Options_*.lua       Per-tab UI (General/Bars/Visuals/Profiles/Stats)
 ├── Core.lua            ADDON_LOADED, slash commands, /bw enable/disable
 └── BugReport.lua       Diagnostic report frame
@@ -68,10 +70,12 @@ local addonName, ns = ...
 to `ns` instead.
 
 ### Load order rule
-The `.toc` lists files in dependency order. `Utils.lua` and `DB.lua` come
-early (Utils provides `ns:GetVisual()`, `ns:CopyTable`, `ns:MergeDefaults`
-used everywhere; DB defines `ns.DEFAULTS` consumed by GetVisual). If you
-add a file, place it after every file it depends on.
+The `.toc` lists files in dependency order. `Libs/` loads first (LibStub,
+then LibSharedMedia-3.0). `Utils.lua` and `SharedMedia.lua` come next
+(Utils provides `ns:GetVisual()`, `ns:CopyTable`, `ns:MergeDefaults`
+used everywhere; SharedMedia registers textures/fonts with LSM if
+available). `DB.lua` follows (defines `ns.DEFAULTS` consumed by
+GetVisual). If you add a file, place it after every file it depends on.
 
 ---
 
@@ -189,7 +193,36 @@ dropdowns that read+write DB fields). **When NOT to use it:**
 stateful list UIs ([Options_Profiles.lua](Options_Profiles.lua)
 profile list), master-detail layouts ([Options_Bars.lua](Options_Bars.lua)
 group-and-bar lists), or read-only displays
-([Options_Stats.lua](Options_Stats.lua)) — these stay imperative.
+([Options_Stats.lua](Options_Stats.lua)) -- these stay imperative.
+
+### Options tab registration (`ns:RegisterOptionsTab`)
+
+Each `Options_*.lua` file registers its tab builder via:
+```lua
+ns:RegisterOptionsTab(tabIndex, CreateMyTab)
+```
+where `CreateMyTab(panel)` receives the options panel and returns the
+tab content frame. [Options.lua](Options.lua) iterates `ns.tabBuilders`
+during `CreateOptionsPanel` and stores the results in `ns.optionsTabs`.
+This replaces the old decorator-chain pattern where each file wrapped
+`ns.CreateOptionsPanel`. The table-driven approach is order-independent
+and easier to extend.
+
+### LibSharedMedia integration (optional)
+
+[SharedMedia.lua](SharedMedia.lua) registers BarWarden's textures and
+fonts with LibSharedMedia-3.0 if available. LSM is bundled in `Libs/`
+and declared as an `OptionalDeps` in the TOC.
+
+- `ns.LSM` -- the LSM library object, or nil if unavailable.
+- `ns:LSMFetch(mediaType, name)` -- resolves an LSM name to a file path.
+- `ns:LSMDropdownItems(mediaType)` -- returns a dropdown-compatible items
+  list from all registered LSM media of that type.
+
+Bar.lua's `ResolveTexture` and `ApplyTextConfig` consult LSM as a
+fallback when the stored name is not in the hardcoded lookup tables.
+Options_Visuals.lua uses `LSMDropdownItems` to populate the texture
+and font dropdowns, falling back to hardcoded lists when LSM is absent.
 
 ### DB-path widget callbacks (`ns:DBSet` / `ns:DBGet`)
 

@@ -1,7 +1,16 @@
 local addonName, ns = ...
 
--- Tab content frames (populated by Options_General, Options_Bars, Options_Visuals, Options_Profiles)
+-- Tab content frames (populated by tab builder functions registered below).
 ns.optionsTabs = {}
+
+-- Tab builder registry. Each Options_*.lua file calls ns:RegisterOptionsTab(index, builderFn)
+-- instead of wrapping ns.CreateOptionsPanel in a decorator chain. The builder
+-- function receives the panel frame and returns the tab content frame.
+ns.tabBuilders = {}
+
+function ns:RegisterOptionsTab(index, builderFn)
+    ns.tabBuilders[index] = builderFn
+end
 
 local TAB_NAMES = {"General", "Bars / Groups", "Visuals", "Profiles", "Statistics"}
 
@@ -75,6 +84,16 @@ function ns:CreateOptionsPanel()
     panel.refresh = function()
         if ns.db then
             ns:RefreshOptions()
+        end
+    end
+
+    -- Build all registered tabs. Each builder returns a content frame that
+    -- is stored in ns.optionsTabs[index]. Tab 1 is shown by default.
+    for index, builder in pairs(ns.tabBuilders) do
+        local tab = builder(panel)
+        if tab then
+            ns.optionsTabs[index] = tab
+            if index == 1 then tab:Show() end
         end
     end
 

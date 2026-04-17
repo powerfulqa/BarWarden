@@ -16,14 +16,14 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Organise bars into groups** like "Cooldowns", "Target Debuffs", or "Buffs" (up to 20 groups, 30 bars each)
 - **Multi-column layouts** so you can display bars in 1 to 4 columns per group
 - **Sort bars dynamically** by remaining time, alphabetically, or manual order per group
+- **Growth direction** per group: bars can grow downward (default) or upward from the anchor point
 - **Colour-by-time** bars transition green to yellow to red as the timer counts down (per-bar, configurable thresholds)
 - **Glow on ready** bars flash when a cooldown finishes or a buff expires so you know the spell is available
 - **Pulse on ready** optionally flashes the spell icon at the centre of the screen when a cooldown completes, so you notice even if the bar is at the edge of your view
 - **Sparkle alert** bars pulse when the timer drops below a configurable threshold
 - **Cooldown spiral overlay** on bar icons gives a second visual read of the remaining time
 - **Aura equivalency groups** like `@Stunned`, `@Bleeding`, `@Silenced`, `@Feared`, `@Rooted` — one bar tracks any spell in that group
-- **13 bar textures** to choose from, including Flat, Smooth, Gloss, Aluminium, and more
-- **15 fonts** including 5 built-in WoW fonts and 10 custom ones like Adventure, Heroic, and Transformers
+- **LibSharedMedia support** gives access to textures and fonts from all LSM-compatible addons on your client, plus BarWarden's own 13 bar textures and 15 fonts
 - **5 duration display styles**: seconds with decimal, whole seconds, min:sec, short text, or auto-adapting
 - **Colour your bars** by class, by tracking mode, or pick your own colour (with per-bar overrides)
 - **Per-bar text and icon control** so each bar can show or hide its name and spell icon independently
@@ -35,6 +35,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Auto-prompt on first login** offers to load your spec starter profile when you log in on a fresh character with no bars configured
 - **Test mode** shows all bars with fake 30s timers so you can preview your layout without triggering spells
 - **Account-wide profiles** so you can save a setup on one character and load it on another
+- **Copy and paste bars** between groups with the Dupe/Paste buttons
 - **Drag bars to reorder** them within a group when frames are unlocked
 - **Animated spark** that follows the bar as it counts down
 - **Smooth fading** between active and inactive states
@@ -239,10 +240,11 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Width, Scale, Columns
 - Background Opacity, Border Opacity
 - Sort Mode (Manual, Remaining Time, Alphabetical)
+- Growth Direction (Down, Up)
 - Group Conditions (Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**
-- Add, Delete, and reorder bars with Up/Down buttons
+- Add, Delete, reorder (Up/Dn), and copy/paste (Dupe/Paste) bars
 - Configure bar name, spell name or ID, track mode, and target unit
 - Toggle "Only Mine" filtering for debuffs
 - Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide While Mounted, Hide While Resting, Hide In Vehicle, Only In Instance, Hide When Inactive, Show Empty, Health Below %, Require Buff, Require Class
@@ -283,9 +285,9 @@ Global settings that apply to all bars.
 
 **Bar Dimensions:** Bar Height, Bar Spacing
 
-**Bar Visuals:** Colour Mode (Class, Track Mode, Custom), Default Colour swatch, Per-Bar Colour Override, Bar Texture (13 textures + custom path)
+**Bar Visuals:** Colour Mode (Class, Track Mode, Custom), Default Colour swatch, Per-Bar Colour Override, Bar Texture (13 built-in textures + LibSharedMedia textures + custom path)
 
-**Text Options:** Text Position (Left, Right), Font (15 choices), Font Size, Text Format (Name+Duration, Name Only, Duration Only, Name+Stacks, Stacks Only, None), Duration Style (seconds.ms, seconds, min:sec, short text, auto)
+**Text Options:** Text Position (Left, Right), Font (15 built-in + LibSharedMedia fonts), Font Size, Text Format (Name+Duration, Name Only, Duration Only, Name+Stacks, Stacks Only, None), Duration Style (seconds.ms, seconds, min:sec, short text, auto)
 
 **Icon:** Icon Size, Icon Position (Left, Right), Crop Icons, Cooldown Spiral overlay
 
@@ -375,7 +377,7 @@ Type `/bw bugreport` to generate a copyable diagnostic report you can paste into
 ## Requirements
 
 - World of Warcraft 3.3.5a (Interface version 30300)
-- No external library dependencies
+- LibSharedMedia-3.0 is bundled (optional; texture and font dropdowns fall back to built-in lists if LSM is unavailable)
 
 ---
 

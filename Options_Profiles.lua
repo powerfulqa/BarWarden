@@ -5,7 +5,7 @@ local addonName, ns = ...
 -- ============================================================================
 
 local PROFILE_ROW_HEIGHT = 20
-local MAX_PROFILE_ROWS = 5
+local MAX_PROFILE_ROWS = 6
 local selectedProfileName = nil
 
 local function RequireSelectedProfile()
@@ -61,7 +61,7 @@ local function CreateProfilesTab(parent)
     -- ========================================================================
     local listFrame = CreateFrame("Frame", "BarWardenProfileList", frame)
     listFrame:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -12)
-    listFrame:SetSize(400, MAX_PROFILE_ROWS * PROFILE_ROW_HEIGHT + 4)
+    listFrame:SetSize(375, MAX_PROFILE_ROWS * PROFILE_ROW_HEIGHT + 4)
 
     local listBg = listFrame:CreateTexture(nil, "BACKGROUND")
     listBg:SetAllPoints()
@@ -408,14 +408,4 @@ local function CreateProfilesTab(parent)
     return frame
 end
 
--- ============================================================================
--- Register tab when options panel is created
--- ============================================================================
-local orig = ns.CreateOptionsPanel
-ns.CreateOptionsPanel = function(self)
-    local panel = orig(self)
-    local tab = CreateProfilesTab(panel)
-    ns.optionsTabs[4] = tab
-    tab:Show()
-    return panel
-end
+ns:RegisterOptionsTab(4, CreateProfilesTab)

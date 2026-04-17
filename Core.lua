@@ -251,7 +251,7 @@ SLASH_COMMANDS.debug = function()
     DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Debug:|r")
     DEFAULT_CHAT_FRAME:AddMessage("  DB loaded: " .. tostring(ns.db ~= nil))
     DEFAULT_CHAT_FRAME:AddMessage("  Enabled: " .. tostring(ns.db and ns.db.global.enabled))
-    DEFAULT_CHAT_FRAME:AddMessage("  ShowAll: " .. tostring(ns.db and ns.db.global.showAll))
+    DEFAULT_CHAT_FRAME:AddMessage("  Locked: " .. tostring(ns.db and ns.db.global.locked))
     DEFAULT_CHAT_FRAME:AddMessage("  Schema version: " .. tostring(ns.db and ns.db.schemaVersion or "nil"))
     DEFAULT_CHAT_FRAME:AddMessage("  Bars in cache: " .. tostring(#(ns.allBars or {})))
     local gCount = 0

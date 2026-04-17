@@ -48,7 +48,6 @@ local function GenerateReport()
         local g = ns.db.global
         add(string.format("Enabled: %s", tostring(g.enabled)))
         add(string.format("Locked: %s", tostring(g.locked)))
-        add(string.format("ShowAll: %s", tostring(g.showAll)))
         add(string.format("MinimapIcon: %s", tostring(g.minimapIcon)))
     else
         add("DB not loaded")

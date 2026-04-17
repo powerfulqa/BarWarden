@@ -96,7 +96,15 @@ local function ResolveTexture(name)
     if not name or name == "" then
         return TEXTURES["Flat"]
     end
-    return TEXTURES[name] or name
+    -- Check the hardcoded table first (fast path for BarWarden's own names)
+    if TEXTURES[name] then return TEXTURES[name] end
+    -- Try LibSharedMedia if available (resolves names from other addons)
+    if ns.LSM then
+        local path = ns:LSMFetch("statusbar", name)
+        if path then return path end
+    end
+    -- Fall back to treating the name as a raw texture path
+    return name
 end
 
 local function GetBarColor(bar, config)
@@ -295,6 +303,11 @@ local function ApplyTextConfig(bar, display, visual, style, fontSize, showIcon, 
     local textPosition = visual.textPosition or "INSIDE_LEFT"
     local textFormat   = visual.textFormat   or "NAME_DURATION"
     local font         = visual.font         or "Fonts\\FRIZQT__.TTF"
+    -- Resolve LSM font name to path if available
+    if ns.LSM then
+        local resolved = ns:LSMFetch("font", font)
+        if resolved then font = resolved end
+    end
 
     -- Per-bar showName guarantees valid text settings
     if display.showName then
