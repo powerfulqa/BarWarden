@@ -20,7 +20,7 @@ coreFrame:SetScript("OnUpdate", function(self, elapsed)
     if scanTimer >= SCAN_INTERVAL then
         scanTimer = 0
         -- Activity tracker: detect cooldown expiry (lightweight, only tracked CDs)
-        if ns.CheckCooldownExpiry then ns:CheckCooldownExpiry() end
+        ns:CheckCooldownExpiry()
         -- Bar engine scan (skip if no bars configured)
         local bars = ns.allBars
         if bars and #bars > 0 and ns.ScanAllBars then
@@ -85,7 +85,7 @@ end
 -- next scan tick.
 function ns:RefreshBarSettings()
     ns:RefreshAllBars()
-    if ns.ScanAllBars then ns:ScanAllBars() end
+    ns:ScanAllBars()
 end
 
 -- ----------------------------------------------------------------------------
@@ -107,8 +107,10 @@ function ns:OnInitialize()
 
     -- Profile load/reset fires "OnProfileChanged"; subscribe the standard
     -- post-change work so call sites can fire-and-forget.
-    ns:RegisterCallback("OnProfileChanged", function() ns:ApplySettings()    end)
-    ns:RegisterCallback("OnProfileChanged", function() ns:RebuildAllFrames() end)
+    ns:RegisterCallback("OnProfileChanged", function()
+        ns:RebuildAllFrames()
+        ns:ApplySettings()
+    end)
 end
 
 -- Called whenever the addon should become active: at ADDON_LOADED if
@@ -117,7 +119,7 @@ function ns:OnEnable()
     ns:EnableEvents()
     -- Re-show the scan timer (it hides itself when no bars exist)
     coreFrame:Show()
-    if ns.StartActivityTracking then ns:StartActivityTracking() end
+    ns:StartActivityTracking()
     for _, frame in pairs(ns.groupFrames or {}) do
         if frame and frame.Show then frame:Show() end
     end
@@ -126,7 +128,7 @@ end
 -- Called whenever the addon should go quiet: from /bw disable and
 -- PLAYER_LOGOUT. Idempotent.
 function ns:OnDisable()
-    if ns.StopActivityTracking then ns:StopActivityTracking() end
+    ns:StopActivityTracking()
     ns:DisableEvents()
     for _, frame in pairs(ns.groupFrames or {}) do
         if frame and frame.Hide then frame:Hide() end

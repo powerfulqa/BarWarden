@@ -338,7 +338,7 @@ local function CreateProfilesTab(parent)
     -- ========================================================================
     -- Reset to Defaults button
     -- ========================================================================
-    local resetBtn = ns:CreateButton(frame, "Reset to Defaults", 140, function()
+    local resetBtn = ns:CreateButton(frame, "Reset to Defaults", 164, function()
         StaticPopup_Show("BARWARDEN_CONFIRM_RESET", nil, nil, {
             onAccept = function()
                 ns.db.frames = ns:CopyTable(ns.DEFAULTS.frames)
@@ -357,7 +357,7 @@ local function CreateProfilesTab(parent)
     -- Class Starter buttons: Load (replace) + Add (append). Both consult
     -- ClassPresets.lua and show a confirm dialog with a preset summary.
     -- ========================================================================
-    local starterBtn = ns:CreateButton(frame, "Load Starter", 160, function()
+    local starterBtn = ns:CreateButton(frame, "Load Class Starter", 164, function()
         local _, classToken = UnitClass("player")
         if not classToken or not (ns.ClassPresets and ns.ClassPresets[classToken]) then
             ns:Print("No starter profile available for your class.")
@@ -378,7 +378,7 @@ local function CreateProfilesTab(parent)
     end)
     starterBtn:SetPoint("LEFT", resetBtn, "RIGHT", 4, 0)
 
-    local appendBtn = ns:CreateButton(frame, "Add Starter", 160, function()
+    local appendBtn = ns:CreateButton(frame, "Add Class Starter", 164, function()
         local _, classToken = UnitClass("player")
         if not classToken or not (ns.ClassPresets and ns.ClassPresets[classToken]) then
             ns:Print("No starter profile available for your class.")
@@ -397,8 +397,7 @@ local function CreateProfilesTab(parent)
             end,
         })
     end)
-    -- Place Add on a new row below Load Class Starter so the combined button
-    -- width doesn't spill off the right edge of the Profiles tab.
+    -- Align under Load Starter (right half of the button grid).
     appendBtn:SetPoint("TOPLEFT", starterBtn, "BOTTOMLEFT", 0, -4)
 
     -- Initial refresh when shown

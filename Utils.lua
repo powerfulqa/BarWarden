@@ -35,6 +35,22 @@ function ns:MergeDefaults(target, defaults)
     end
 end
 
+-- Format seconds as a readable uptime string: "12.3s", "5m 30s", "2h 15m".
+function ns.FormatUptime(seconds)
+    if not seconds or seconds <= 0 then return "0s" end
+    if seconds < 60 then
+        return string.format("%.1fs", seconds)
+    end
+    if seconds < 3600 then
+        local m = math.floor(seconds / 60)
+        local s = math.floor(seconds % 60)
+        return string.format("%dm %ds", m, s)
+    end
+    local h = math.floor(seconds / 3600)
+    local m = math.floor((seconds - h * 3600) / 60)
+    return string.format("%dh %dm", h, m)
+end
+
 -- ----------------------------------------------------------------------------
 -- Shared constants
 -- ----------------------------------------------------------------------------

@@ -469,7 +469,7 @@ function ns:BuildBarsForFrame(frameIndex)
     if frame.bars then
         for i = #frame.bars, 1, -1 do
             ns:DeactivateBar(frame.bars[i], true)
-            if ns.CancelBarGlow then ns:CancelBarGlow(frame.bars[i]) end
+            ns:CancelBarGlow(frame.bars[i])
             ns:ReleaseBar(frame.bars[i])
             frame.bars[i] = nil
         end

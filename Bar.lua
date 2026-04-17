@@ -1,5 +1,7 @@
 local addonName, ns = ...
 
+local max = math.max
+
 -- ============================================================================
 -- Bar.lua - Bar frame construction and visual configuration
 -- ============================================================================
@@ -78,12 +80,12 @@ function ns.GetTimeBasedColor(remaining, display, visual)
     if remaining >= highSec then
         return COLOR_HIGH.r, COLOR_HIGH.g, COLOR_HIGH.b
     elseif remaining >= medSec then
-        local t = (remaining - medSec) / math.max(highSec - medSec, 0.001)
+        local t = (remaining - medSec) / max(highSec - medSec, 0.001)
         return LerpColor(COLOR_MED.r, COLOR_HIGH.r, t),
                LerpColor(COLOR_MED.g, COLOR_HIGH.g, t),
                LerpColor(COLOR_MED.b, COLOR_HIGH.b, t)
     else
-        local t = remaining / math.max(medSec, 0.001)
+        local t = remaining / max(medSec, 0.001)
         return LerpColor(COLOR_LOW.r, COLOR_MED.r, t),
                LerpColor(COLOR_LOW.g, COLOR_MED.g, t),
                LerpColor(COLOR_LOW.b, COLOR_MED.b, t)
@@ -368,8 +370,8 @@ function ns:ApplyVisualConfig(bar, config)
     local fontSize = visual.fontSize or 11
     if style == "Compact" then
         local barHeight = visual.barHeight or 20
-        iconSize = math.max(barHeight * 0.6, 8)
-        fontSize = math.max(fontSize - 2, 7)
+        iconSize = max(barHeight * 0.6, 8)
+        fontSize = max(fontSize - 2, 7)
     elseif style == "ComboPoint" then
         iconSize = 0
         fontSize = 0

@@ -40,23 +40,7 @@ local CATEGORY_TO_UNIT = {
     Totem    = "player",
 }
 
--- ============================================================================
--- Helper: format uptime seconds into readable string
--- ============================================================================
-local function FormatUptime(seconds)
-    if not seconds or seconds <= 0 then return "0s" end
-    if seconds < 60 then
-        return string.format("%.1fs", seconds)
-    end
-    if seconds < 3600 then
-        local m = math.floor(seconds / 60)
-        local s = math.floor(seconds % 60)
-        return string.format("%dm %ds", m, s)
-    end
-    local h = math.floor(seconds / 3600)
-    local m = math.floor((seconds - h * 3600) / 60)
-    return string.format("%dh %dm", h, m)
-end
+local FormatUptime = ns.FormatUptime
 
 -- ============================================================================
 -- Helper: build a filtered + sorted list of activity keys.
@@ -135,7 +119,7 @@ local function CreateStatsTab(parent)
     -- Search filter: live substring match on spell name. Uses OnTextChanged
     -- (not the default CreateEditBox commit-on-exit) so the list filters as
     -- the user types.
-    local searchEdit = ns:CreateEditBox(frame, "Search", 120, nil,
+    local searchEdit = ns:CreateEditBox(frame, "Search", 95, nil,
         "Filter the list by a substring of the spell name. Case-insensitive.")
     searchEdit:HookScript("OnTextChanged", function(self)
         searchText = self:GetText() or ""
@@ -146,7 +130,7 @@ local function CreateStatsTab(parent)
     -- Group labels row ("Session" and "All-Time" above their columns)
     local groupLabelFrame = CreateFrame("Frame", nil, frame)
     groupLabelFrame:SetPoint("TOPLEFT", sessionLabel, "BOTTOMLEFT", 0, -8)
-    groupLabelFrame:SetSize(460, 14)
+    groupLabelFrame:SetSize(420, 14)
 
     local gSession = groupLabelFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     gSession:SetPoint("LEFT", groupLabelFrame, "LEFT", 170, 0)
@@ -165,7 +149,7 @@ local function CreateStatsTab(parent)
     -- Column headers
     local headerFrame = CreateFrame("Frame", nil, frame)
     headerFrame:SetPoint("TOPLEFT", groupLabelFrame, "BOTTOMLEFT", 0, -2)
-    headerFrame:SetSize(460, 14)
+    headerFrame:SetSize(420, 14)
 
     local hIcon = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hIcon:SetPoint("LEFT", headerFrame, "LEFT", 4, 0)
@@ -207,7 +191,7 @@ local function CreateStatsTab(parent)
     -- ========================================================================
     local listFrame = CreateFrame("Frame", "BarWardenStatList", frame)
     listFrame:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -4)
-    listFrame:SetSize(460, MAX_STAT_ROWS * STAT_ROW_HEIGHT + 4)
+    listFrame:SetSize(420, MAX_STAT_ROWS * STAT_ROW_HEIGHT + 4)
 
     local listBg = listFrame:CreateTexture(nil, "BACKGROUND")
     listBg:SetAllPoints()
@@ -220,7 +204,7 @@ local function CreateStatsTab(parent)
     local rows = {}
     for i = 1, MAX_STAT_ROWS do
         local row = CreateFrame("Button", "BarWardenStatRow" .. i, listFrame)
-        row:SetSize(434, STAT_ROW_HEIGHT)
+        row:SetSize(394, STAT_ROW_HEIGHT)
         if i == 1 then
             row:SetPoint("TOPLEFT", listFrame, "TOPLEFT", 2, -2)
         else
@@ -405,10 +389,10 @@ local function CreateStatsTab(parent)
     end)
     resetSessionBtn:SetPoint("TOPLEFT", createBarBtn, "BOTTOMLEFT", 0, -8)
 
-    -- Position the filter dropdown on the same row as the reset buttons,
-    -- with the search field to its right for compact filtering.
+    -- Search sits alongside the group dropdown (same row as Create Bar).
+    -- Filter dropdown stays on the reset row below.
+    searchEdit:SetPoint("LEFT", groupDD, "RIGHT", 3, 1)
     filterDD:SetPoint("LEFT", resetSessionBtn, "RIGHT", 99, -3)
-    searchEdit:SetPoint("LEFT", filterDD, "RIGHT", 30, 3)
 
     local resetAllBtn = ns:CreateButton(frame, "Reset All", 100, function()
         StaticPopup_Show("BARWARDEN_CONFIRM_STATS_RESET", nil, nil, {

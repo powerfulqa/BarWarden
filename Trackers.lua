@@ -1,5 +1,9 @@
 local addonName, ns = ...
 
+local GetTime = GetTime
+local type, tonumber, tostring = type, tonumber, tostring
+local ceil = math.ceil
+
 -- ============================================================================
 -- Trackers.lua - Canonical tracking mode implementations.
 -- Each checker returns (isActive, remaining, duration, icon, name, stacks).
@@ -479,7 +483,7 @@ local function CheckRunes(barConfig)
     local current = duration - cdRemaining
     if current < 0 then current = 0 end
 
-    return true, current, duration, icon, name, math.ceil(cdRemaining)
+    return true, current, duration, icon, name, ceil(cdRemaining)
 end
 
 -- Event-driven resource modes. BarEngine's ScanBar checks this set to pick

@@ -4,6 +4,10 @@ local addonName, ns = ...
 -- BarEngine.lua - OnUpdate state machine, bar activation/deactivation, scanning
 -- ============================================================================
 
+local GetTime = GetTime
+local floor, sin, abs, pi = math.floor, math.sin, math.abs, math.pi
+local pairs, ipairs, wipe = pairs, ipairs, wipe
+
 -- ----------------------------------------------------------------------------
 -- Bar State Enum
 -- ----------------------------------------------------------------------------
@@ -117,12 +121,14 @@ glowTimerFrame:SetScript("OnUpdate", function(self, elapsed)
     local now = GetTime()
     local anyActive = false
     for bar, startTime in pairs(activeGlows) do
-        local glowDur = (bar.barData and bar.barData.display and bar.barData.display.glowDuration) or DEFAULT_GLOW_DURATION
+        local barData = bar.barData
+        local display = barData and barData.display
+        local glowDur = (display and display.glowDuration) or DEFAULT_GLOW_DURATION
         local age = now - startTime
         if age >= glowDur then
             -- Restore normal state: re-apply visuals and re-hide if needed
-            if ns.ApplyVisualConfig then ns:ApplyVisualConfig(bar) end
-            local cond = bar.barData and bar.barData.conditions
+            ns:ApplyVisualConfig(bar)
+            local cond = barData and barData.conditions
             if cond and cond.hideWhenInactive and bar.barState == BAR_STATE.INACTIVE then
                 bar:Hide()
                 local parent = bar:GetParent()
@@ -137,7 +143,7 @@ glowTimerFrame:SetScript("OnUpdate", function(self, elapsed)
         else
             anyActive = true
             -- Flash the entire bar between white and normal colour
-            local pulse = 0.5 + 0.5 * math.sin(age * 6 * math.pi)
+            local pulse = 0.5 + 0.5 * sin(age * 6 * pi)
             bar:SetStatusBarColor(1, 1, 1, pulse)
             bar:SetAlpha(0.6 + 0.4 * pulse)
             bar:Show()
@@ -231,21 +237,21 @@ local function FormatDuration(remaining, style)
     if style == "SECONDS" then
         return string.format("%d", remaining)
     elseif style == "MINSEC" then
-        local m = math.floor(remaining / 60)
-        local s = math.floor(remaining - m * 60)
+        local m = floor(remaining / 60)
+        local s = floor(remaining - m * 60)
         return m > 0 and string.format("%d:%02d", m, s) or string.format("%d", s)
     elseif style == "SHORT" then
-        local m = math.floor(remaining / 60)
-        local s = math.floor(remaining - m * 60)
+        local m = floor(remaining / 60)
+        local s = floor(remaining - m * 60)
         return m > 0 and string.format("%dm %ds", m, s) or string.format("%ds", s)
     elseif style == "AUTO" then
         if remaining >= 3600 then
-            local h = math.floor(remaining / 3600)
-            local m = math.floor((remaining - h * 3600) / 60)
-            return string.format("%d:%02d:%02d", h, m, math.floor(remaining - h * 3600 - m * 60))
+            local h = floor(remaining / 3600)
+            local m = floor((remaining - h * 3600) / 60)
+            return string.format("%d:%02d:%02d", h, m, floor(remaining - h * 3600 - m * 60))
         elseif remaining >= 60 then
-            local m = math.floor(remaining / 60)
-            local s = math.floor(remaining - m * 60)
+            local m = floor(remaining / 60)
+            local s = floor(remaining - m * 60)
             return string.format("%d:%02d", m, s)
         end
         return string.format("%.1f", remaining)
@@ -284,11 +290,13 @@ local function Bar_OnUpdate(self, elapsed)
         return
     end
 
+    -- Hoist display + visual once for all per-frame work below
+    local display = self.barData and self.barData.display or {}
+
     -- Active state
     local remaining = self.expirationTime - now
     if remaining <= 0 then
         -- Cooldown/buff has expired
-        local display = self.barData and self.barData.display or {}
         local lingerTime = display.lingerTime or 0
         if lingerTime > 0 then
             self.barState = BAR_STATE.LINGERING
@@ -303,8 +311,6 @@ local function Bar_OnUpdate(self, elapsed)
         return
     end
 
-    -- Hoist display + visual once for all per-frame work below
-    local display = self.barData and self.barData.display or {}
     local visual = ns:GetVisual()
 
     -- Every frame: smooth bar movement
@@ -328,7 +334,7 @@ local function Bar_OnUpdate(self, elapsed)
     if self.sparkFrame and self.sparkFrame:IsShown() then
         local barWidth = self:GetWidth()
         if barWidth and barWidth > 0 then
-            local sparkX = math.floor(barWidth * progress + 0.5)
+            local sparkX = floor(barWidth * progress + 0.5)
             if sparkX ~= self._lastSparkX then
                 self._lastSparkX = sparkX
                 self.sparkFrame:ClearAllPoints()
@@ -341,7 +347,7 @@ local function Bar_OnUpdate(self, elapsed)
     if display.sparkleAlert then
         local threshold = display.sparkleThreshold or 5
         if remaining <= threshold then
-            local pulse = 0.65 + 0.35 * math.sin(now * 6 * math.pi)
+            local pulse = 0.65 + 0.35 * sin(now * 6 * pi)
             self:SetAlpha(pulse)
         else
             self:SetAlpha(visual.activeAlpha or 1.0)
@@ -789,7 +795,7 @@ local function ScanBar(bar, unitFilter)
         local expirationTime = GetTime() + remaining
         -- 0.05s tolerance suppresses redundant ActivateBar calls from server jitter
         if bar.barState ~= BAR_STATE.ACTIVE
-           or math.abs((bar.expirationTime or 0) - expirationTime) > 0.05 then
+           or abs((bar.expirationTime or 0) - expirationTime) > 0.05 then
             ns:ActivateBar(bar, expirationTime, duration or remaining)
         end
         if bar.iconTexture and icon then bar.iconTexture:SetTexture(icon) end
@@ -893,7 +899,7 @@ function ns:OnUnitAura(unit)
 end
 
 function ns:OnTargetChanged()
-    if ns.ScanDebuffActivity then ns:ScanDebuffActivity() end
+    ns:ScanDebuffActivity()
     if ns.ClearStableExpiry then ns:ClearStableExpiry("target") end
     ScanBarsByMode(AURA_MODES, "target")
 end
@@ -908,12 +914,12 @@ function ns:OnBagCooldownUpdate()
 end
 
 function ns:OnEnchantUpdate()
-    if ns.ScanEnchantActivity then ns:ScanEnchantActivity() end
+    ns:ScanEnchantActivity()
     ScanBarsByMode({ Enchant = true }, nil)
 end
 
 function ns:OnTotemUpdate()
-    if ns.ScanTotemActivity then ns:ScanTotemActivity() end
+    ns:ScanTotemActivity()
     ScanBarsByMode({ Totem = true }, nil)
 end
 

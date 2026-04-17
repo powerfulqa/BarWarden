@@ -101,11 +101,21 @@ local function CreateVisualsTab(parent)
     frame:SetAllPoints(parent)
     frame:Hide()
 
+    -- Title + description: matches the layout of Bars, Profiles, and Stats tabs.
+    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -80)
+    title:SetText("Visuals")
+
+    local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+    desc:SetPoint("RIGHT", frame, "RIGHT", 16, 0)
+    desc:SetJustifyH("LEFT")
+    desc:SetText("These settings apply to all bars. Per-bar overrides are on the Bars tab.")
+
     -- Scroll frame so content doesn't clip at the bottom of the panel.
-    -- Start at -60 to sit below the panel title + subtitle (~54 px).
     local scrollFrame = CreateFrame("ScrollFrame", "BarWardenVisualsScrollFrame",
                                     frame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT",     frame, "TOPLEFT",     4,   -60)
+    scrollFrame:SetPoint("TOPLEFT",     desc, "BOTTOMLEFT",  -12,  -6)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28,   4)
 
     local content = CreateFrame("Frame", nil, scrollFrame)
@@ -118,12 +128,6 @@ local function CreateVisualsTab(parent)
     local widgets = {}
 
     local SCHEMA = {
-        -- -------------------- introductory note --------------------
-        { type = "note", style = "disabled",
-          text = "These settings apply to all bars globally. Per-bar options are in the Bars / Groups tab.",
-          -- First widget; offsetX=0 against firstX=16 => (16, -10).
-        },
-
         -- Spacing convention:
         --   24 = section break (above each header after the first)
         --   16 = within-section widget gap

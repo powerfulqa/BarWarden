@@ -18,19 +18,7 @@ local STATE_NAMES = {
     [2] = "LINGERING",
 }
 
--- ----------------------------------------------------------------------------
--- Format uptime for the report
--- ----------------------------------------------------------------------------
-local function FormatUptime(seconds)
-    if not seconds or seconds <= 0 then return "0s" end
-    if seconds < 60 then return string.format("%.1fs", seconds) end
-    local m = math.floor(seconds / 60)
-    local s = math.floor(seconds % 60)
-    if m < 60 then return string.format("%dm %ds", m, s) end
-    local h = math.floor(m / 60)
-    m = m % 60
-    return string.format("%dh %dm", h, m)
-end
+local FormatUptime = ns.FormatUptime
 
 -- ----------------------------------------------------------------------------
 -- Generate the report string
@@ -150,24 +138,26 @@ local function GenerateReport()
     end
     add("")
 
-    -- Statistics
-    add("--- Statistics ---")
+    -- Activity statistics (from ActivityTracker)
+    add("--- Activity Statistics ---")
     local sessionDuration = time() - (ns.sessionStartTime or time())
     add(string.format("Session duration: %dm %ds", math.floor(sessionDuration / 60), sessionDuration % 60))
     local hasStats = false
-    local allKeys = {}
-    for key in pairs(ns.sessionStats or {}) do allKeys[key] = true end
-    for key in pairs(ns.db and ns.db.stats or {}) do allKeys[key] = true end
+    local allKeys = ns.GetAllActivityKeys and ns:GetAllActivityKeys() or {}
     for key in pairs(allKeys) do
         hasStats = true
-        local session = ns.sessionStats and ns.sessionStats[key] or { activations = 0, uptime = 0 }
-        local allTime = ns.db and ns.db.stats and ns.db.stats[key] or { activations = 0, uptime = 0 }
-        add(string.format("  %s: %d act / %s uptime (session) | %d act / %s (all-time)",
-            key, session.activations, FormatUptime(session.uptime),
-            allTime.activations, FormatUptime(allTime.uptime)))
+        local name, _, category = ns:GetActivityMeta(key)
+        local session = ns.activitySession and ns.activitySession[key]
+        local persistent = ns.db and ns.db.activity and ns.db.activity[key]
+        local sAct = session and session.activations or 0
+        local sUp  = session and session.uptime or 0
+        local pAct = persistent and persistent.activations or 0
+        local pUp  = persistent and persistent.uptime or 0
+        add(string.format("  [%s] %s: %d / %s (session) | %d / %s (all-time)",
+            category or "?", name or key, sAct, FormatUptime(sUp), pAct, FormatUptime(pUp)))
     end
     if not hasStats then
-        add("  No statistics recorded yet.")
+        add("  No activity recorded yet.")
     end
 
     return table.concat(lines, "\n")

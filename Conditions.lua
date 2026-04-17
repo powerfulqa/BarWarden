@@ -55,10 +55,11 @@ end
 -- the player's class bail out before any of the more expensive checks run.
 -- ----------------------------------------------------------------------------
 
+local _, playerClass = UnitClass("player")
+
 ns:RegisterCondition("requireClass", function(conditions)
     local required = conditions.requireClass
     if not required or required == "" then return true end
-    local _, playerClass = UnitClass("player")
     return playerClass == required
 end)
 
