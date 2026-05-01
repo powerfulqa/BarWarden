@@ -1,8 +1,8 @@
 ## Interface: 30300
-## Title: |cff4db8ffBarWarden|r |cff9aff4d[v1.10.3]|r
+## Title: |cff4db8ffBarWarden|r |cff9aff4d[v1.10.4]|r
 ## Notes: |cffffb84dCustomizable cooldown, buff, and debuff bar tracking addon|r
 ## Author: Serv
-## Version: 1.10.3
+## Version: 1.10.4
 ## SavedVariables: BarWardenAccountDB
 ## SavedVariablesPerCharacter: BarWardenDB
 ## DefaultState: enabled

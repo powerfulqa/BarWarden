@@ -14,12 +14,13 @@ local MAX_STAT_ROWS = 8
 local ICON_SIZE = 16
 
 local CATEGORY_FILTERS = {
-    { text = "All",       value = "All" },
-    { text = "Cooldowns", value = "Cooldown" },
-    { text = "Buffs",     value = "Buff" },
-    { text = "Debuffs",   value = "Debuff" },
-    { text = "Enchants",  value = "Enchant" },
-    { text = "Totems",    value = "Totem" },
+    { text = "All",            value = "All" },
+    { text = "Auras",          value = "Aura" },     -- virtual: Buff + Debuff
+    { text = "Buffs",          value = "Buff" },
+    { text = "Target Debuffs", value = "Debuff" },
+    { text = "Cooldowns",      value = "Cooldown" },
+    { text = "Enchants",       value = "Enchant" },
+    { text = "Totems",         value = "Totem" },
 }
 
 -- Map activity category → bar trackMode
@@ -43,18 +44,43 @@ local CATEGORY_TO_UNIT = {
 local FormatUptime = ns.FormatUptime
 
 -- ============================================================================
+-- Sort: extract the numeric value for a key on the requested column.
+-- ============================================================================
+local function GetSortValue(key, column)
+    if column == "sessProcs" then
+        local s = ns.activitySession and ns.activitySession[key]
+        return s and s.activations or 0
+    elseif column == "sessUptime" then
+        local s = ns.activitySession and ns.activitySession[key]
+        return s and s.uptime or 0
+    elseif column == "allProcs" then
+        local p = ns.db and ns.db.activity and ns.db.activity[key]
+        return p and p.activations or 0
+    elseif column == "allUptime" then
+        local p = ns.db and ns.db.activity and ns.db.activity[key]
+        return p and p.uptime or 0
+    end
+    return 0
+end
+
+-- ============================================================================
 -- Helper: build a filtered + sorted list of activity keys.
 -- `searchText` is an optional substring filter applied to the spell name
 -- (case-insensitive). Pass nil or empty to disable the text filter.
+-- `sortColumn` is one of sessProcs / sessUptime / allProcs / allUptime.
+-- `sortDirection` is "asc" or "desc". Alphabetical-by-name is the tiebreak.
 -- ============================================================================
-local function GetFilteredKeys(categoryFilter, searchText)
+local function GetFilteredKeys(categoryFilter, searchText, sortColumn, sortDirection)
     local allKeys = ns.GetAllActivityKeys and ns:GetAllActivityKeys() or {}
     local result = {}
     local needle = (searchText and searchText ~= "") and searchText:lower() or nil
 
     for key in pairs(allKeys) do
         local name, _, category = ns:GetActivityMeta(key)
-        local categoryMatch = (categoryFilter == "All" or category == categoryFilter)
+        local categoryMatch =
+               categoryFilter == "All"
+            or (categoryFilter == "Aura" and (category == "Buff" or category == "Debuff"))
+            or category == categoryFilter
         local searchMatch = true
         if needle then
             searchMatch = name and name:lower():find(needle, 1, true) ~= nil
@@ -64,17 +90,19 @@ local function GetFilteredKeys(categoryFilter, searchText)
         end
     end
 
-    -- Sort by session activations descending (most active first)
+    local ascending = sortDirection == "asc"
     table.sort(result, function(a, b)
-        local sa = ns.activitySession and ns.activitySession[a]
-        local sb = ns.activitySession and ns.activitySession[b]
-        local aAct = sa and sa.activations or 0
-        local bAct = sb and sb.activations or 0
-        if aAct ~= bAct then return aAct > bAct end
-        -- Tie-break: alphabetical by name
         local aName = ns:GetActivityMeta(a) or ""
         local bName = ns:GetActivityMeta(b) or ""
-        return aName < bName
+        if sortColumn == "name" then
+            if ascending then return aName < bName else return aName > bName end
+        end
+        local av = GetSortValue(a, sortColumn)
+        local bv = GetSortValue(b, sortColumn)
+        if av ~= bv then
+            if ascending then return av < bv else return av > bv end
+        end
+        return aName < bName  -- alphabetical tiebreak
     end)
 
     return result
@@ -94,6 +122,9 @@ local function CreateStatsTab(parent)
     local selectedGroupIdx = 1
     local filteredKeys = {}
     local searchText = ""
+    local sortColumn = "sessProcs"   -- sessProcs | sessUptime | allProcs | allUptime
+    local sortDirection = "desc"     -- "asc" | "desc"
+    local sortHeaders = {}           -- sortKey -> { btn = <Button>, baseText = <string> }
 
     -- Title
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -156,35 +187,42 @@ local function CreateStatsTab(parent)
     hIcon:SetText("")
     hIcon:SetWidth(ICON_SIZE + 4)
 
-    local hName = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hName:SetPoint("LEFT", hIcon, "RIGHT", 2, 0)
-    hName:SetText("Name")
-    hName:SetWidth(110)
-    hName:SetJustifyH("LEFT")
+    -- Build a clickable column header. The button is the click region; the
+    -- inner FontString carries the label and gains an arrow indicator
+    -- ("▼"/"▲") when this column is the active sort. Hover brightens the
+    -- text so the click affordance is visible. `justify` is "LEFT" or "RIGHT"
+    -- to match the column's data alignment; `defaultDir` is the direction
+    -- used when this column first becomes active ("asc" for name, "desc" for
+    -- numeric columns where high-first reads naturally).
+    local function MakeSortHeader(anchor, anchorPoint, offsetX, width, baseText, sortKey, justify, defaultDir)
+        local btn = CreateFrame("Button", nil, headerFrame)
+        btn:SetSize(width, 14)
+        btn:SetPoint("LEFT", anchor, anchorPoint, offsetX, 0)
+        local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        fs:SetAllPoints(btn)
+        fs:SetJustifyH(justify or "RIGHT")
+        fs:SetText(baseText)
+        btn.fs = fs
+        btn:SetScript("OnEnter", function(self) self.fs:SetTextColor(1, 1, 1) end)
+        btn:SetScript("OnLeave", function(self) self.fs:SetTextColor(1, 0.82, 0) end)
+        btn:SetScript("OnClick", function()
+            if sortColumn == sortKey then
+                sortDirection = (sortDirection == "desc") and "asc" or "desc"
+            else
+                sortColumn = sortKey
+                sortDirection = defaultDir or "desc"
+            end
+            frame:RefreshList()
+        end)
+        sortHeaders[sortKey] = { btn = btn, baseText = baseText }
+        return btn
+    end
 
-    local hSessAct = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hSessAct:SetPoint("LEFT", hName, "RIGHT", 4, 0)
-    hSessAct:SetText("Procs")
-    hSessAct:SetWidth(40)
-    hSessAct:SetJustifyH("RIGHT")
-
-    local hSessUp = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hSessUp:SetPoint("LEFT", hSessAct, "RIGHT", 4, 0)
-    hSessUp:SetText("Uptime")
-    hSessUp:SetWidth(50)
-    hSessUp:SetJustifyH("RIGHT")
-
-    local hAllAct = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hAllAct:SetPoint("LEFT", hSessUp, "RIGHT", 8, 0)
-    hAllAct:SetText("Procs")
-    hAllAct:SetWidth(40)
-    hAllAct:SetJustifyH("RIGHT")
-
-    local hAllUp = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hAllUp:SetPoint("LEFT", hAllAct, "RIGHT", 4, 0)
-    hAllUp:SetText("Uptime")
-    hAllUp:SetWidth(50)
-    hAllUp:SetJustifyH("RIGHT")
+    local hName    = MakeSortHeader(hIcon,    "RIGHT", 2, 110, "Name",   "name",       "LEFT",  "asc")
+    local hSessAct = MakeSortHeader(hName,    "RIGHT", 4, 40,  "Procs",  "sessProcs",  "RIGHT", "desc")
+    local hSessUp  = MakeSortHeader(hSessAct, "RIGHT", 4, 50,  "Uptime", "sessUptime", "RIGHT", "desc")
+    local hAllAct  = MakeSortHeader(hSessUp,  "RIGHT", 8, 40,  "Procs",  "allProcs",   "RIGHT", "desc")
+    local hAllUp   = MakeSortHeader(hAllAct,  "RIGHT", 4, 50,  "Uptime", "allUptime",  "RIGHT", "desc")
 
     -- ========================================================================
     -- Stat list (FauxScrollFrame)
@@ -227,6 +265,33 @@ local function CreateStatsTab(parent)
         iconTex:SetSize(ICON_SIZE, ICON_SIZE)
         iconTex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
         row.iconTex = iconTex
+
+        -- Mouse-overlay button for the icon tooltip. Textures cannot carry
+        -- script handlers in 3.3.5a, so an invisible Button sized to the icon
+        -- drives OnEnter/OnLeave. A Button (not a Frame) means clicks on the
+        -- icon still select the row instead of being silently swallowed.
+        -- Mirrors the spellId-hyperlink fallback chain from Bar.lua's bar-icon
+        -- tooltip.
+        local iconHover = CreateFrame("Button", nil, row)
+        iconHover:SetAllPoints(iconTex)
+        iconHover:SetScript("OnEnter", function(self)
+            local key = row.activityKey
+            if not key then return end
+            local name, _, _, spellId = ns:GetActivityMeta(key)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            if spellId and spellId ~= 0 then
+                GameTooltip:SetHyperlink("spell:" .. spellId)
+            else
+                GameTooltip:AddLine(name or key, 1, 1, 1)
+                GameTooltip:Show()
+            end
+        end)
+        iconHover:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        iconHover:SetScript("OnClick", function()
+            selectedKey = row.activityKey
+            frame:RefreshList()
+        end)
+        row.iconHover = iconHover
 
         local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         nameText:SetPoint("LEFT", iconTex, "RIGHT", 4, 0)
@@ -413,8 +478,23 @@ local function CreateStatsTab(parent)
     -- ========================================================================
     -- Refresh
     -- ========================================================================
+    -- Update each sortable header's text to show an arrow next to the
+    -- currently active sort column. Called from RefreshList so the indicator
+    -- stays in sync after any state change.
+    local function UpdateHeaderArrows()
+        local arrow = (sortDirection == "asc") and " ▲" or " ▼"
+        for key, h in pairs(sortHeaders) do
+            if key == sortColumn then
+                h.btn.fs:SetText(h.baseText .. arrow)
+            else
+                h.btn.fs:SetText(h.baseText)
+            end
+        end
+    end
+
     function frame:RefreshList()
-        filteredKeys = GetFilteredKeys(selectedFilter, searchText)
+        UpdateHeaderArrows()
+        filteredKeys = GetFilteredKeys(selectedFilter, searchText, sortColumn, sortDirection)
         local offset = FauxScrollFrame_GetOffset(scrollFrame)
         FauxScrollFrame_Update(scrollFrame, #filteredKeys, MAX_STAT_ROWS, STAT_ROW_HEIGHT)
 

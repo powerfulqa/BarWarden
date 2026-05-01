@@ -313,13 +313,15 @@ Save and Load bar layouts. Profiles are account-wide.
 
 Passive monitoring of everything happening on your character. BarWarden automatically detects every cooldown you use, every buff you gain, every debuff you apply, weapon enchants, and totems — no configuration needed.
 
-- **Category filter** dropdown: All, Cooldowns, Buffs, Debuffs, Enchants, Totems
+- **Category filter** dropdown: All, Auras (buffs + debuffs), Buffs, Target Debuffs, Cooldowns, Enchants, Totems
 - **Search box** next to the filter — type part of a spell name to narrow the list live
+- **Click any column header** (Name / Procs / Uptime, session or all-time) to sort the list — click again to flip ascending/descending; an arrow next to the active column shows the current direction
+- **Hover an icon** in the list to see the full WoW spell tooltip
 - **Spell icons** displayed alongside each entry for quick identification
 - **Live auto-refresh** — the stats panel updates itself every 2 seconds while visible, so session duration, activations, and uptime totals tick live without clicking around
 - **Session stats** (activations and uptime) reset every login or `/reload`
 - **All-time stats** persist across sessions in SavedVariables
-- **Sorted by activity** — most-used spells appear at the top
+- **Sortable** — defaults to most-active first; click any column header to re-sort
 - **Create Bar button** — select any spell, pick a group, and create a pre-configured bar with one click
 - **Reset Session** clears current session data
 - **Reset All** clears everything (with confirmation)
