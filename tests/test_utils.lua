@@ -153,6 +153,27 @@ function M.test_exportImport_roundtrip()
     assertx.assertDeepEqual(imported, profile)
 end
 
+function M.test_exportProfile_appendsFingerprintSuffix()
+    local ns = fresh()
+    local exported = ns:ExportProfile({ visual = {}, frames = {} })
+    assertx.assertNotNil(exported)
+    assertx.assertTrue(exported:match(";fp=[0-9a-f]+$") ~= nil,
+        "export must end with ;fp=<6-hex-chars> fingerprint suffix")
+end
+
+function M.test_importProfile_acceptsLegacyStringWithoutFingerprint()
+    -- Backward compat: profile strings exported by versions before fingerprinting
+    -- (or hand-typed by users) must still import without complaint.
+    local ns = fresh()
+    local profile = { visual = { texture = "Flat" }, frames = {} }
+    local exported = ns:ExportProfile(profile)
+    -- Strip the fingerprint suffix to simulate a legacy string
+    local legacy = exported:gsub(";fp=[0-9a-f]+$", "")
+    assertx.assertTrue(legacy ~= exported, "fingerprint suffix should have been stripped")
+    local imported = ns:ImportProfile(legacy)
+    assertx.assertDeepEqual(imported, profile)
+end
+
 function M.test_importProfile_rejectsBadInput()
     local ns = fresh()
     assertx.assertNil(ns:ImportProfile(nil))
@@ -160,6 +181,33 @@ function M.test_importProfile_rejectsBadInput()
     assertx.assertNil(ns:ImportProfile("not-barwarden"))
     assertx.assertNil(ns:ImportProfile("BarWarden:v99:anything"),
         "future-version strings must be rejected, not silently decoded")
+end
+
+-- --------------------------------------------------------------------------
+-- Fingerprint
+-- --------------------------------------------------------------------------
+
+function M.test_fingerprint_isDeterministic()
+    local ns = fresh()
+    local a = ns:Fingerprint("hello world")
+    local b = ns:Fingerprint("hello world")
+    assertx.assertEqual(a, b, "same input must produce same fingerprint")
+end
+
+function M.test_fingerprint_returns6HexChars()
+    local ns = fresh()
+    local fp = ns:Fingerprint("anything")
+    assertx.assertTrue(fp:match("^[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]$") ~= nil,
+        "fingerprint must be exactly 6 lowercase hex chars; got: " .. tostring(fp))
+end
+
+function M.test_fingerprint_differentInputsDiffer()
+    local ns = fresh()
+    -- Sanity: small input perturbations should change the hash. Not a
+    -- crypto-strength check, just confirms the salt-mix is wired up.
+    local a = ns:Fingerprint("BarWarden@1.0.0")
+    local b = ns:Fingerprint("BarWarden@1.0.1")
+    assertx.assertTrue(a ~= b, "neighbouring versions must hash differently")
 end
 
 -- --------------------------------------------------------------------------

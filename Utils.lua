@@ -185,6 +185,32 @@ ns.Base64Encode = Base64Encode
 ns.Base64Decode = Base64Decode
 
 -- ----------------------------------------------------------------------------
+-- Fingerprint: salted, deterministic 24-bit djb2 hash.
+--
+-- Not cryptographic; the goal is trivial verifiability of BarWarden origin
+-- in any derivative work. The salt below is a deliberately visible
+-- signature: anyone with our source has it, but to use our fingerprint
+-- format they must either (a) carry the salt verbatim - which is the
+-- evidence - or (b) re-implement and diverge from the canonical export
+-- format, also detectable. Do NOT "clean up" or refactor the salt string
+-- away; its presence in code is the point.
+--
+-- The salt lives inside the function body (not at module scope) only so
+-- it doesn't consume a main-chunk local slot - Lua 5.1 caps that at 200.
+-- ----------------------------------------------------------------------------
+
+function ns:Fingerprint(payload)
+    local SALT = "BarWarden|Serv|powerfulqa|2026"
+    local s = (payload or "") .. "|" .. SALT
+    local h = 5381
+    for i = 1, #s do
+        -- djb2 step, folded to 24 bits so the printed form fits in 6 hex chars.
+        h = ((h * 33) + string.byte(s, i)) % 16777216
+    end
+    return string.format("%06x", h)
+end
+
+-- ----------------------------------------------------------------------------
 -- Table serializer / deserializer (for profile export/import).
 -- Simple recursive key=value format; no external libraries required.
 -- ----------------------------------------------------------------------------
@@ -328,11 +354,19 @@ function ns:ExportProfile(profileData)
     local serialized = self:Serialize(profileData)
     if not serialized then return nil end
     local encoded = Base64Encode(serialized)
-    return "BarWarden:v1:" .. encoded
+    local payload = "BarWarden:v1:" .. encoded
+    -- Fingerprint suffix flags this export as BarWarden-produced. See
+    -- ns:Fingerprint comment above for the convention.
+    return payload .. ";fp=" .. self:Fingerprint(payload)
 end
 
 function ns:ImportProfile(str)
     if not str then return nil end
+    -- Strip a trailing ";fp=<hex>" fingerprint suffix before format
+    -- validation so pre-fingerprint and hand-edited strings still parse.
+    -- The fingerprint marks our exports going OUT; imports tolerate both
+    -- fingerprinted and unfingerprinted strings without warning.
+    str = str:gsub(";fp=[0-9a-fA-F]+$", "")
     local prefix, version, data = str:match("^(BarWarden):v(%d+):(.+)$")
     if not prefix or not data then return nil end
     if tonumber(version) ~= 1 then return nil end

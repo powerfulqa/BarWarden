@@ -7,6 +7,30 @@ local addonName, ns = ...
 -- Read version once from the TOC so it is defined in a single place.
 ns.version = GetAddOnMetadata(addonName, "Version") or "unknown"
 
+-- ============================================================================
+-- Provenance: stamp author + source URL into globals so /run introspection
+-- and addon-management tools can identify the origin of any forked or
+-- repackaged copy. The double-underscore-prefix-with-addon-name form follows
+-- a convention shared with EbonClearance for cross-addon consistency.
+-- ns.author / ns.url are exposed as the single source of truth for any
+-- in-addon UI (the options panel byline, bug reports, etc).
+-- ============================================================================
+ns.author = "Serv"
+ns.url    = "https://github.com/powerfulqa/BarWarden"
+_G["BARWARDEN_IDENT"]      = "BarWarden"
+_G["BARWARDEN_AUTHOR"]     = ns.author
+_G["BARWARDEN_ORIGIN"]     = ns.url
+_G["__BarWarden_origin"]   = ns.url
+_G["__BarWarden_author"]   = ns.author
+
+-- Build watermark: precomputed fingerprint of "BarWarden@<version>". Exposed
+-- as a global so /run inspection and external auditors can read it. If this
+-- exact 6-char hex value (computed for our version) ever appears in another
+-- addon's source, that addon is a verbatim copy of BarWarden.
+if ns.Fingerprint then
+    _G["__BarWarden_watermark"] = ns:Fingerprint("BarWarden@" .. ns.version)
+end
+
 local coreFrame = CreateFrame("Frame", "BarWardenCoreFrame", UIParent)
 
 -- Periodic scan: reliable fallback for cooldowns already active on login/reload

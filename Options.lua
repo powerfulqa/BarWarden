@@ -31,13 +31,23 @@ function ns:CreateOptionsPanel()
     panel.name = "BarWarden"
     ns.optionsPanel = panel
 
-    -- Title
+    -- Title (version inline so it's visible from any tab without digging
+    -- into the General-tab footer).
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("BarWarden")
+    title:SetText("BarWarden v" .. (ns.version or "?"))
+
+    -- Author + source byline. Subdued olive so it sits below the title
+    -- without competing with it. Mirrors the byline style used by
+    -- EbonClearance. ns.author / ns.url are stamped in Core.lua and are the
+    -- single source of truth for provenance.
+    local byline = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    byline:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+    byline:SetText("|cff888866by " .. (ns.author or "?") .. "  \194\183  "
+                .. (ns.url or "?") .. "|r")
 
     local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+    subtitle:SetPoint("TOPLEFT", byline, "BOTTOMLEFT", 0, -4)
     subtitle:SetText("Cooldown, buff, and debuff bar tracking")
 
     -- Create tab buttons
