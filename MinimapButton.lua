@@ -1,3 +1,8 @@
+-- MinimapButton.lua - Minimap button and drag positioning.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 -- ============================================================================
@@ -59,6 +64,8 @@ end
 function ns:InitMinimapButton()
     -- Libraries are bundled in Libs/, so absence means a broken install.
     -- Fail quietly rather than erroring so the rest of the addon still loads.
+    -- EC-TRAP: this early-return is graceful degradation, not a dead guard. Do NOT
+    -- remove it or hard-require the libs. See CLAUDE.md (libs are intentional).
     if not LDB or not LibDBIcon then return end
     if dataObject then return end
 

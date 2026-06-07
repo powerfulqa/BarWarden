@@ -1,3 +1,8 @@
+-- Conditions.lua - Visibility condition registry and evaluator.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 local MAX_AURA_INDEX = ns.MAX_AURA_INDEX
 
@@ -100,6 +105,8 @@ ns:RegisterCondition("healthBelow", function(conditions)
     return pct < threshold
 end)
 
+-- EC-TRAP: GetNumPartyMembers / GetNumRaidMembers are the 3.3.5a group queries.
+-- Do NOT replace with GetNumGroupMembers (Cataclysm+, absent here). See CLAUDE.md.
 ns:RegisterCondition("inGroup", function(conditions)
     if conditions.inGroup then
         return GetNumPartyMembers() > 0

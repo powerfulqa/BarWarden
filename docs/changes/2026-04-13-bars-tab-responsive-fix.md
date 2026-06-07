@@ -1,9 +1,9 @@
-# Bars Tab — Responsive Per-Bar Editor Fix (RCA log)
+# Bars Tab - Responsive Per-Bar Editor Fix (RCA log)
 
 **Date:** 2026-04-13
 **Scope:** [Options_Bars.lua](../../Options_Bars.lua) per-bar editor
 only (lines ~416-530 before this change).
-**Status:** in progress — see "What landed" section at the bottom.
+**Status:** in progress - see "What landed" section at the bottom.
 
 If a regression is suspected on the Bars tab after this change, use the
 "How to RCA" section as a starting point.
@@ -16,7 +16,7 @@ In-game smoke testing at 1920×1080 default UI scale with no
 third-party UI-enlarging addon loaded revealed that the **Track Mode**
 and **Target** dropdowns in the per-bar editor clip at the right edge
 of the InterfaceOptionsFrame panel and are unreachable. The Target
-dropdown in particular is unusable — you can't change which unit a bar
+dropdown in particular is unusable - you can't change which unit a bar
 tracks.
 
 The dev machine had a third-party addon enlarging the
@@ -31,10 +31,10 @@ The per-bar editor in [Options_Bars.lua](../../Options_Bars.lua) had:
 - `ec:SetWidth(340)` / `ec:SetHeight(500)` hard-coded
   ([lines 428-429](../../Options_Bars.lua#L428-L429)).
 - Track Mode dropdown anchored at `barNameEdit:TOPRIGHT +20, +16`
-  ([line 510](../../Options_Bars.lua#L510)) — effectively x ≈ 160
+  ([line 510](../../Options_Bars.lua#L510)) - effectively x ≈ 160
   inside a 340 px content area.
 - Target dropdown stacked below Track Mode
-  ([line 521](../../Options_Bars.lua#L521)) — same x.
+  ([line 521](../../Options_Bars.lua#L521)) - same x.
 - WoW dropdowns created via `UIDropDownMenuTemplate` with
   `UIDropDownMenu_SetWidth(150)` ([Widgets.lua:51-77](../../Widgets.lua))
   have an invisible ~25 px padding on each side. The visual extent of
@@ -52,7 +52,7 @@ The per-bar editor in [Options_Bars.lua](../../Options_Bars.lua) had:
 Two behaviour-preserving changes to [Options_Bars.lua](../../Options_Bars.lua)
 only. Plan file: [mossy-baking-clover.md](file:///C:/Users/ch/.claude/plans/mossy-baking-clover.md).
 
-### Change A — content adapts to parent width (OnShow)
+### Change A - content adapts to parent width (OnShow)
 
 Mirror the pattern already in
 [Options_Visuals.lua:25-33](../../Options_Visuals.lua#L25-L33): on the
@@ -60,7 +60,7 @@ tab's `OnShow`, read `editorScroll:GetWidth()` and resize `ec` to
 match. The tab's `Refresh()` is called in the same handler so displayed
 values refresh alongside.
 
-### Change B — single-column vertical flow
+### Change B - single-column vertical flow
 
 Move Track Mode and Target dropdowns out of their right-of-barName
 horizontal position into a vertical column below Spell. The layout
@@ -80,7 +80,7 @@ Conditions header
 All anchors become top-to-bottom `TOPLEFT → BOTTOMLEFT` flows, matching
 the shape the Conditions and Display sections already use.
 
-### Change C — bump content height
+### Change C - bump content height
 
 `ec:SetHeight(500)` becomes `ec:SetHeight(620)` to accommodate the two
 extra vertical entries (~60 px of dropdown + gap each = ~120 px added;
@@ -97,7 +97,7 @@ These must remain equivalent after the change:
 | Changing Track Mode writes `bar.trackMode` and calls `ns:ScanAllBars()` | [Options_Bars.lua:503-508](../../Options_Bars.lua#L503-L508) | Same callback body; only the anchor changes |
 | Changing Target writes `bar.unit`, clears `bar.target` legacy, calls `ns:ScanAllBars()` | [Options_Bars.lua:513-519](../../Options_Bars.lua#L513-L519) | Same callback body |
 | Only Mine toggle writes `bar.onlyMine` and calls `ns:ScanAllBars()` | [Options_Bars.lua:493-499](../../Options_Bars.lua#L493-L499) | Same callback body; re-anchored to targetDD |
-| Conditions section follows after Only Mine | [Options_Bars.lua:527](../../Options_Bars.lua#L527) | Unchanged — `condHeader` still anchors to `onlyMineCB:BOTTOMLEFT`, which now sits below Target instead of below Spell |
+| Conditions section follows after Only Mine | [Options_Bars.lua:527](../../Options_Bars.lua#L527) | Unchanged - `condHeader` still anchors to `onlyMineCB:BOTTOMLEFT`, which now sits below Target instead of below Spell |
 | Bar editor's Refresh logic reads the same fields | (search for `frame.Refresh` in Options_Bars.lua) | Unchanged |
 | Editor scroll frame has vertical scrolling | [Options_Bars.lua:423](../../Options_Bars.lua#L423) | Unchanged |
 
@@ -110,7 +110,7 @@ These must remain equivalent after the change:
 **Look at:** the new `OnShow` handler on `frame`. Two common failure
 modes:
 1. `editorScroll` was declared `local` inside a narrower scope than
-   the OnShow — should be declared at the same block level as the
+   the OnShow - should be declared at the same block level as the
    OnShow hook.
 2. `frame` already had an OnShow (e.g. set earlier in `CreateBarsTab`);
    using `SetScript` overwrites. If so, read the previous OnShow and
@@ -135,7 +135,7 @@ onlyMineCB sits at the same x as barNameEdit/spellEdit).
 
 **Look at:** [Options_Bars.lua:527](../../Options_Bars.lua#L527).
 `condHeader:SetPoint("TOPLEFT", onlyMineCB, "BOTTOMLEFT", 0, -12)` is
-unchanged — if it visually looks wrong, the cause is upstream (Only
+unchanged - if it visually looks wrong, the cause is upstream (Only
 Mine is misplaced, or the dropdowns are taller than expected).
 
 ### Symptom: Content is cut off at the bottom (Display section unreachable by scroll)
@@ -162,7 +162,7 @@ other files change, so this is a clean single-file revert.
 ## What landed
 
 ### Files modified
-- [`Options_Bars.lua`](../../Options_Bars.lua) — three surgical edits:
+- [`Options_Bars.lua`](../../Options_Bars.lua) - three surgical edits:
 
   | Line (after) | What |
   |---|---|
@@ -177,7 +177,7 @@ other files change, so this is a clean single-file revert.
 - All Phase 1-3 / Phase 4 helpers untouched
 
 ### Verification performed
-- `luac -p Options_Bars.lua` — parses clean
+- `luac -p Options_Bars.lua` - parses clean
 - All 22 `.lua` files parse clean under `luac -p`
 - `grep "ec:SetWidth\|ec:SetHeight" Options_Bars.lua` shows the new values
   (including the `ec:SetWidth(w)` inside OnShow)
@@ -193,7 +193,7 @@ other files change, so this is a clean single-file revert.
 
 ### Smoke-test checklist for next in-game session
 
-1. `/reload` — addon loads, no Lua error popup.
+1. `/reload` - addon loads, no Lua error popup.
 2. `/bw` → Bars/Groups → select a group → select a bar.
 3. At **1920×1080 default UI scale, no third-party UI-enlarging
    addon loaded**:
@@ -203,7 +203,7 @@ other files change, so this is a clean single-file revert.
    - **Track Mode dropdown**: fully visible; its label aligns with the
      edit-box labels above; the expanded option list appears fully
      on-screen (not clipped at the right edge).
-   - **Target dropdown** — the one that was broken — fully visible;
+   - **Target dropdown** - the one that was broken - fully visible;
      expand → all of `player/target/focus/pet/mouseover` are visible
      and clickable.
    - Only Mine checkbox: visible, left-aligned under Target.
@@ -211,10 +211,10 @@ other files change, so this is a clean single-file revert.
      overlap.
    - Display section reachable via vertical scroll; nothing cut off
      at bottom.
-4. **Behavioural diff** — change Track Mode to each option in turn
+4. **Behavioural diff** - change Track Mode to each option in turn
    and confirm the live bar updates. Change Target from `player` to
    `target` and confirm the bar now reads the target's auras.
-5. **Other tabs unaffected** — open General, Visuals, Profiles, Stats
+5. **Other tabs unaffected** - open General, Visuals, Profiles, Stats
    in turn; nothing should look different.
 6. **Wider panel test** (if you reload the UI-enlarging addon on your
    other machine): content widens to match; no dead space on the right.

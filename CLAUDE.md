@@ -1,6 +1,6 @@
-# CLAUDE.md — BarWarden agent guide
+# CLAUDE.md - BarWarden agent guide
 
-This addon targets **WoW 3.3.5a (Wrath of the Lich King) — Interface 30300**.
+This addon targets **WoW 3.3.5a (Wrath of the Lich King) - Interface 30300**.
 Most online WoW addon docs (including the Wowhead Comprehensive Beginners
 Guide #5338) describe **retail**. Treat retail-only APIs and helpers as
 **absent** here unless you've grepped for them in the codebase.
@@ -24,7 +24,7 @@ control flow, many returns, many parameters, complex boolean logic.
 | Aura signature | `UnitBuff/UnitDebuff` returns 11 values: `name, rank, icon, count, dispelType, duration, expirationTime, source, isStealable, shouldConsolidate, spellId`. Retail dropped `rank`. |
 | `GetSpellInfo` | Returns `name, rank, icon, cost, isFunnel, powerType, castingTime, minRange, maxRange, spellId`. **`rank` still present** (gone in retail). |
 | Event names | `PARTY_MEMBERS_CHANGED` (3.3.5a) vs `GROUP_ROSTER_UPDATE` (Cata+). `RAID_ROSTER_UPDATE` still exists here. |
-| Interface options panel | `InterfaceOptionsFrame_OpenToCategory(name)` — **must be called twice** in 3.3.5a; the first call only scrolls. See [Core.lua](Core.lua). |
+| Interface options panel | `InterfaceOptionsFrame_OpenToCategory(name)` - **must be called twice** in 3.3.5a; the first call only scrolls. See [Core.lua](Core.lua). |
 | FontStrings inside `<StatusBar>` template | **Not registered as `_G` globals** in 3.3.5a. Always create them in Lua and store on the bar object. See the comment in [Bar.lua](Bar.lua) `CreateBarFrame`. |
 | Group queries | `GetNumPartyMembers()` / `GetNumRaidMembers()` (not `GetNumGroupMembers`). |
 | Texture coords | `SetTexCoord(0.08, 0.92, 0.08, 0.92)` is the standard icon trim (used in [Bar.lua](Bar.lua)). |
@@ -66,7 +66,7 @@ Every Lua file follows the namespace pattern:
 ```lua
 local addonName, ns = ...
 ```
-`ns` is the shared addon table. **Do not introduce new globals** — attach
+`ns` is the shared addon table. **Do not introduce new globals** - attach
 to `ns` instead.
 
 ### Load order rule
@@ -79,24 +79,24 @@ GetVisual). If you add a file, place it after every file it depends on.
 
 ---
 
-## 3. Established patterns (use these — don't reinvent)
+## 3. Established patterns (use these - don't reinvent)
 
 ### Lifecycle methods (Ace3-style)
 
 [Core.lua](Core.lua) exposes three methods. Touch them when adding init
 work or when a feature needs to react to enable/disable:
 
-- `ns:OnInitialize()` — called once at ADDON_LOADED. Sets up DB, options
+- `ns:OnInitialize()` - called once at ADDON_LOADED. Sets up DB, options
   panel, frames, minimap. **Does NOT register gameplay events.**
-- `ns:OnEnable()` — called whenever the addon should become active
+- `ns:OnEnable()` - called whenever the addon should become active
   (ADDON_LOADED-with-enabled, PLAYER_LOGIN, `/bw enable`,
   `ns:SetEnabled(true)`). Idempotent. Registers events + shows frames.
-- `ns:OnDisable()` — called whenever the addon should go quiet
+- `ns:OnDisable()` - called whenever the addon should go quiet
   (PLAYER_LOGOUT, `/bw disable`, `ns:SetEnabled(false)`). Idempotent.
   Unregisters events + hides frames.
 
 Don't add ad-hoc init in `OnAddonLoaded`/`OnPlayerLogin`/`OnPlayerLogout`
-handlers — extend the appropriate lifecycle method.
+handlers - extend the appropriate lifecycle method.
 
 ### Callback bus (`Register` / `Fire`)
 
@@ -111,10 +111,10 @@ end)
 ns:FireCallback("OnProfileChanged", selectedProfileName)
 ```
 
-Firing with no subscribers is a no-op — safe to fire from anywhere.
+Firing with no subscribers is a no-op - safe to fire from anywhere.
 
 **Existing callbacks:**
-- `"OnProfileChanged"` — fires from profile load/reset in
+- `"OnProfileChanged"` - fires from profile load/reset in
   [Options_Profiles.lua](Options_Profiles.lua). Subscribed by
   `ns:OnInitialize` to call `ApplySettings` + `RebuildAllFrames`.
 
@@ -126,7 +126,7 @@ a callback over inlining the chain at the call site.
 local visual = ns:GetVisual()
 ```
 Defined in [Utils.lua](Utils.lua). **Never** write the old long form
-(`BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual`) — it was
+(`BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual`) - it was
 deduplicated across 14 sites and we keep it that way.
 
 ### Declarative options schema (`ns:BuildSettings`)
@@ -156,15 +156,15 @@ Refresh closure that re-reads DB values back into the widgets.
 (Tab 1) and [Options_Visuals.lua](Options_Visuals.lua) (Tab 3).
 
 **Two ways to wire a setting:**
-- `db = "path"` + `refresh = "Method"` — uses `ns:DBSet` under the hood
+- `db = "path"` + `refresh = "Method"` - uses `ns:DBSet` under the hood
   (gets the strict registration-time validation for free).
-- `get = fn` + `set = fn` — escape hatch for stateful behaviour (e.g.
+- `get = fn` + `set = fn` - escape hatch for stateful behaviour (e.g.
   Lock toggle calls `Lock/UnlockAllFrames` in two branches; can't
   express that as a simple DB write).
 
 **Supported entry types**: `header`, `note`, `spacer`, `toggle`,
 `slider`, `dropdown`, `editbox`, `color`. Sliders and editboxes
-accept an optional `tooltip = "..."` field (dropdowns/colors don't —
+accept an optional `tooltip = "..."` field (dropdowns/colors don't -
 the underlying factories don't wire it). Add new types by extending
 the `BUILDERS` + `APPLIERS` dispatch tables in
 [Options_Builder.lua](Options_Builder.lua).
@@ -173,7 +173,7 @@ the `BUILDERS` + `APPLIERS` dispatch tables in
 - `id = "<name>"` on any entry exposes its widget via an optional
   caller-supplied `widgetRefs` table: `ns:BuildSettings(parent, SCHEMA, widgets)`.
 - `onChange = function(value) ... end` fires after user-writes AND
-  after Refresh — use it (with widget refs) to show/hide coupled
+  after Refresh - use it (with widget refs) to show/hide coupled
   widgets (e.g. colour-mode dropdown hiding the swatch).
 - `anchorTo = "<id>"` overrides "anchor to previous" so branch widgets
   (e.g. the custom-texture editbox that anchors to the texture
@@ -278,7 +278,7 @@ end
 
 `ns:RefreshAllBars` (same file) also applies `conditions.hideWhenInactive`
 on the spot rather than deferring to the engine's state-transition
-path — without this, toggling Hide When Inactive on an already-inactive
+path - without this, toggling Hide When Inactive on an already-inactive
 bar wouldn't visibly change anything until the bar's state churned.
 
 ### EditBox commit semantics
@@ -286,7 +286,7 @@ bar wouldn't visibly change anything until the bar's state churned.
 `ns:CreateEditBox` ([Widgets.lua](Widgets.lua)) commits on **any exit
 from the field**: Enter, click-away, tab-away, Escape. Diff-checks
 against a snapshot captured at `OnEditFocusGained` so the callback
-fires exactly once per real edit. Escape does NOT revert — the
+fires exactly once per real edit. Escape does NOT revert - the
 `HookScript` ordering vs `InputBoxTemplate`'s default `OnEscapePressed`
 makes a clean revert infeasible without a full `SetScript` override;
 "any exit commits" is the simpler, consistent UX we kept.
@@ -482,16 +482,16 @@ table at the top must be kept in sync.
 - **`pcall` swallowing real errors.** Only use `pcall` where Blizzard's
   API is genuinely unstable on bad input (e.g. profile import). Don't
   wrap normal logic.
-- **`C_Timer.After`** — doesn't exist. Use an OnUpdate frame with an
+- **`C_Timer.After`** - doesn't exist. Use an OnUpdate frame with an
   elapsed accumulator (see [Core.lua](Core.lua) periodic scan loop).
-- **`SetReverseFill`** — doesn't exist. Don't write it; don't store a
+- **`SetReverseFill`** - doesn't exist. Don't write it; don't store a
   `direction` flag and pretend to handle it.
-- **`GetNumGroupMembers`** — doesn't exist. Use `GetNumPartyMembers()`
+- **`GetNumGroupMembers`** - doesn't exist. Use `GetNumPartyMembers()`
   and `GetNumRaidMembers()`.
 - **Single `InterfaceOptionsFrame_OpenToCategory(...)` call.** It opens
   to the *previous* category on the first call. Always call twice.
 - **Reading FontStrings declared in a template via `_G[name .. "Text"]`**
-  in 3.3.5a — they may not be registered. Create them in Lua and store
+  in 3.3.5a - they may not be registered. Create them in Lua and store
   on the frame.
 - **Documentation-style comments stating the obvious** (`-- Set the alpha
   to the inactive value`). Comments must explain *why*, a non-obvious
@@ -506,11 +506,11 @@ table at the top must be kept in sync.
 - The OnUpdate scan loop in [Core.lua](Core.lua) runs every 0.25s. Any
   work added inside it multiplies by bar count × 4Hz. Profile additions.
 - [BarEngine.lua](BarEngine.lua) batches group relayouts during a scan
-  pass via `MarkGroupDirty` — call that, don't relayout per bar.
+  pass via `MarkGroupDirty` - call that, don't relayout per bar.
 - Aura scans walk indices 1..40 and break on the first nil name. Don't
   iterate beyond a `name == nil` early-exit.
 - Colour gradient stops in [Bar.lua](Bar.lua) (`COLOR_HIGH/MED/LOW`) are
-  module-level constants — keep them out of per-tick functions.
+  module-level constants - keep them out of per-tick functions.
 - Stable-expiry caching in [Trackers.lua](Trackers.lua) prevents bar
   jitter from server expirationTime drift. Don't bypass it.
 
@@ -550,22 +550,22 @@ still run the suite correctly.
   will NOT publish.
 
 **What's covered** (file → scope):
-- [test_utils.lua](tests/test_utils.lua) — `CopyTable`, `MergeDefaults`,
+- [test_utils.lua](tests/test_utils.lua) - `CopyTable`, `MergeDefaults`,
   `FormatUptime`, Base64 round-trip, Serialize/Deserialize, profile
   export/import, callback bus, `GetVisual` caching + invalidation.
-- [test_db_migrations.lua](tests/test_db_migrations.lua) — every
+- [test_db_migrations.lua](tests/test_db_migrations.lua) - every
   schema migration v0→v4, `MergeDefaults` not clobbering user frames,
   legacy per-character profiles migrating to the account store. **This
   is the file that catches silent data corruption when bumping the schema.**
-- [test_conditions.lua](tests/test_conditions.lua) — every built-in
+- [test_conditions.lua](tests/test_conditions.lua) - every built-in
   visibility condition + short-circuit evaluator behaviour.
-- [test_trackers_logic.lua](tests/test_trackers_logic.lua) —
+- [test_trackers_logic.lua](tests/test_trackers_logic.lua) -
   `CheckBuff`/`CheckDebuff`/`CheckCooldown`, `getSpellTokens` parsing,
   `@group` expansion, `smoothExpiry` monotonicity, `ClearStableExpiry`,
   `SpellDurations` override.
-- [test_aura_groups.lua](tests/test_aura_groups.lua) — structural
+- [test_aura_groups.lua](tests/test_aura_groups.lua) - structural
   invariants on `ns.AuraGroups` (numeric ids, no dupes, core groups present).
-- [test_class_presets.lua](tests/test_class_presets.lua) — smoke test
+- [test_class_presets.lua](tests/test_class_presets.lua) - smoke test
   that all 10 WotLK classes have well-formed groups + specs, every
   bar has a valid `trackMode`.
 
@@ -613,9 +613,9 @@ Exercise in 6c.
   (variable scoping, event-frame pattern, .toc structure, naming
   conventions, comment discipline) are accurate for 3.3.5a too. Skim it
   for the basics; ignore any `C_*` API or post-Cata helper it mentions.
-- WoWWiki / wowpedia (`wowwiki.fandom.com`, `warcraft.wiki.gg`) — when
+- WoWWiki / wowpedia (`wowwiki.fandom.com`, `warcraft.wiki.gg`) - when
   reading API docs, check the version annotations. If a function is
   marked "Cataclysm+" or "Mists+" or "Removed in X.X", it's not in 3.3.5a.
 - This codebase itself is the most reliable reference for what works
-  on 3.3.5a — when adding a new API call, check whether the addon
+  on 3.3.5a - when adding a new API call, check whether the addon
   already uses it nearby first.

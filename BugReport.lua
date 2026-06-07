@@ -1,3 +1,8 @@
+-- BugReport.lua - Copyable diagnostic report frame.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 -- ============================================================================

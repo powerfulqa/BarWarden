@@ -57,7 +57,7 @@ function M.assertError(fn, msg)
 end
 
 -- Asserts that `actual` has exactly the same top-level key set as `expected`
--- (value types/contents are not checked — use assertDeepEqual or specific
+-- (value types/contents are not checked - use assertDeepEqual or specific
 -- value asserts for that). The failure message enumerates missing/extra keys
 -- so a schema drift test can point straight at the offending field rather
 -- than emitting "tables differ".

@@ -1,3 +1,8 @@
+-- DB.lua - SavedVariables schema, defaults, and migrations.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 -- ============================================================================

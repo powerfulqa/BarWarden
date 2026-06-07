@@ -1,3 +1,8 @@
+-- SharedMedia.lua - Optional LibSharedMedia integration.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 -- ============================================================================
@@ -12,6 +17,10 @@ local addonName, ns = ...
 local LSM = LibStub and LibStub("LibSharedMedia-3.0", true) or nil
 ns.LSM = LSM
 
+-- EC-TRAP: bailing the whole file when LSM is absent is intentional optional-dep
+-- degradation, not dead code. Bar.lua and Options_Visuals.lua fall back to their
+-- hardcoded media lists. Do NOT make LSM a hard requirement. See CLAUDE.md
+-- (LibSharedMedia integration).
 if not LSM then return end
 
 -- Media type constants

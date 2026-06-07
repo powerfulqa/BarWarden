@@ -1,3 +1,8 @@
+-- Dialogs.lua - StaticPopup dialog definitions.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 -- All BarWarden dialogs use preferredIndex = 4 (STATICPOPUP_NUMDIALOGS)

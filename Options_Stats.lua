@@ -1,3 +1,8 @@
+-- Options_Stats.lua - Activity Tracker stats tab.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 -- ============================================================================

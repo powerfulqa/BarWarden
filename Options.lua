@@ -1,3 +1,8 @@
+-- Options.lua - Options panel frame and tab registration.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 -- Tab content frames (populated by tab builder functions registered below).
@@ -113,6 +118,8 @@ end
 
 -- Open options panel (call twice to work around Blizzard bug)
 function ns:OpenOptions()
+    -- EC-TRAP: the duplicated line is NOT a copy-paste bug. Do NOT dedupe it.
+    -- See CLAUDE.md (Interface options panel).
     InterfaceOptionsFrame_OpenToCategory("BarWarden")
     InterfaceOptionsFrame_OpenToCategory("BarWarden")
 end

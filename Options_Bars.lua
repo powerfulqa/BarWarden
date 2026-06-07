@@ -1,3 +1,8 @@
+-- Options_Bars.lua - Bars / Groups tab (group-and-bar editor).
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 -- ============================================================================

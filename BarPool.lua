@@ -1,3 +1,8 @@
+-- BarPool.lua - Object pool for bar frame recycling.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local _, ns = ...
 ns.barPool = {}
 

@@ -11,7 +11,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 ## What Can It Do?
 
 - **Track your abilities** with 12 different modes: Cooldown, Buff, Debuff, Proc, Item, Enchant MH, Enchant OH, Totem, Combo Points, Runes, Runic Power, and Soul Shards
-- **Spec-aware starter profiles** for all 30 WotLK talent specs — one-click load of curated cooldowns, procs, and resources tailored to your active spec (falls back to class-level if no talents are spent)
+- **Spec-aware starter profiles** for all 30 WotLK talent specs - one-click load of curated cooldowns, procs, and resources tailored to your active spec (falls back to class-level if no talents are spent)
 - **Class resource trackers** for Combo Points (rogue/druid), Runes (DK), Runic Power (DK), and Soul Shards (warlock) that fill as the resource builds rather than counting down
 - **Organise bars into groups** like "Cooldowns", "Target Debuffs", or "Buffs" (up to 20 groups, 30 bars each)
 - **Multi-column layouts** so you can display bars in 1 to 4 columns per group
@@ -22,7 +22,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Pulse on ready** optionally flashes the spell icon at the centre of the screen when a cooldown completes, so you notice even if the bar is at the edge of your view
 - **Sparkle alert** bars pulse when the timer drops below a configurable threshold
 - **Cooldown spiral overlay** on bar icons gives a second visual read of the remaining time
-- **Aura equivalency groups** like `@Stunned`, `@Bleeding`, `@Silenced`, `@Feared`, `@Rooted` — one bar tracks any spell in that group
+- **Aura equivalency groups** like `@Stunned`, `@Bleeding`, `@Silenced`, `@Feared`, `@Rooted` - one bar tracks any spell in that group
 - **LibSharedMedia support** gives access to textures and fonts from all LSM-compatible addons on your client, plus BarWarden's own 13 bar textures and 15 fonts
 - **5 duration display styles**: seconds with decimal, whole seconds, min:sec, short text, or auto-adapting
 - **Colour your bars** by class, by tracking mode, or pick your own colour (with per-bar overrides)
@@ -42,13 +42,13 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Minimap button** you can drag around your minimap for quick access
 - **Track multiple spells on one bar** using commas, like `Rupture, Garrote`
 - **Settings saved per character** so each of your characters can have their own layout
-- **Activity Tracker** passively monitors every cooldown, buff, debuff, enchant, and totem on your character — discover what to track, then create bars directly from the stats screen
+- **Activity Tracker** passively monitors every cooldown, buff, debuff, enchant, and totem on your character - discover what to track, then create bars directly from the stats screen
 - **Create Bar from stats** select any discovered spell in the Activity Tracker and add it as a bar to any group with one click
 - **Live search** on the Activity Tracker so you can filter hundreds of detected effects by name
 - **Bug report command** generates a copyable diagnostic snapshot for easy troubleshooting
 - **Minimap button right-click** to quickly enable or disable the addon
-- **Live-reactive settings** — changes in the options panel apply to the bars on the spot, no disable/re-enable needed
-- **Inline help tooltips** on most per-bar and visual settings — hover any slider, dropdown, or text field for a plain-English explanation
+- **Live-reactive settings** - changes in the options panel apply to the bars on the spot, no disable/re-enable needed
+- **Inline help tooltips** on most per-bar and visual settings - hover any slider, dropdown, or text field for a plain-English explanation
 - **Spell tooltip on icon hover** optionally shows the full spell or item tooltip when you mouse over a bar's icon (toggle in Visuals tab)
 
 ---
@@ -191,15 +191,15 @@ You can also use a slot number: `1` for Fire, `2` for Earth, `3` for Water, `4` 
 
 Four resource trackers for class-specific mechanics. Unlike time-based trackers, these **fill as the resource builds** rather than counting down. The bar shows current / maximum and updates event-driven.
 
-- **Combo Points** — Rogue and Druid (cat form). Fills from 0 to 5 as combo points accumulate on your target.
-- **Runes** — Death Knight. Tracks one of six rune slots; fills as the rune regenerates, stays full when ready, shows countdown text while on cooldown. Use `1-6` in the Spell field for the slot.
-- **Runic Power** — Death Knight. Fills from 0 to 100 (or higher with talents).
-- **Soul Shards** — Warlock. Tracks current soul shard count in your bag.
+- **Combo Points** - Rogue and Druid (cat form). Fills from 0 to 5 as combo points accumulate on your target.
+- **Runes** - Death Knight. Tracks one of six rune slots; fills as the rune regenerates, stays full when ready, shows countdown text while on cooldown. Use `1-6` in the Spell field for the slot.
+- **Runic Power** - Death Knight. Fills from 0 to 100 (or higher with talents).
+- **Soul Shards** - Warlock. Tracks current soul shard count in your bag.
 
 **Example:** Track combo points on your current target.
 - Track Mode: `Combo Points`
 
-Class resource bars are pre-populated by the class starter profiles — see the Profiles tab.
+Class resource bars are pre-populated by the class starter profiles - see the Profiles tab.
 
 ### Aura Equivalency Groups
 
@@ -251,30 +251,30 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 
 #### Useful Per-Bar Options Explained
 
-- **Linger Time** — number of seconds a bar keeps showing at 0 after its
+- **Linger Time** - number of seconds a bar keeps showing at 0 after its
   cooldown or buff has expired, before it fades out. Handy when paired
   with *Glow on Ready* so you can clearly see *the moment* a spell came
   off cooldown. `0` means the bar disappears the instant the timer runs
   out. Example: set to `2` on a Kick bar so you notice immediately when
   interrupt is back.
-- **Health Below %** — only show the bar when your own HP drops below
+- **Health Below %** - only show the bar when your own HP drops below
   this percentage. Useful for execute-range spells (Hammer of Wrath,
   Kill Shot, Execute) or panic buttons (Healthstone, Nitro Boosts) so
   they stay out of the way until they're actually relevant. Leave
   empty to disable. Example: `30` for a Hammer of Wrath bar, `50` for
   Healthstone.
-- **Require Buff** — only show the bar while you have the named buff
+- **Require Buff** - only show the bar while you have the named buff
   active. Accepts a buff name or a spell ID. Useful for state-gated
   abilities: stealth-only cooldowns that only show while stealthed,
   bear-form abilities that only show in bear form, proc reactions
   that only show while the proc is up. Leave empty to disable.
   Example: `Stealth` on Ambush, `Clearcasting` on your next free cast.
-- **Require Class** — pin a bar to a specific class so it only shows
+- **Require Class** - pin a bar to a specific class so it only shows
   when played on (for example) a Rogue. Used internally by the class
   starter profiles so copying a preset across characters doesn't leak
   rune bars onto non-DK characters. Accepts a class token like
   `ROGUE`, `DEATHKNIGHT`, `WARLOCK`, etc.
-- **Scale Override** — per-bar scale multiplier. Leave at 1.0 to match
+- **Scale Override** - per-bar scale multiplier. Leave at 1.0 to match
   the group's scale; set higher to make a critical cooldown stand out,
   or lower to tuck ambient trackers into the corner.
 
@@ -302,27 +302,27 @@ Save and Load bar layouts. Profiles are account-wide.
 - Export and import profiles to share between characters
 - Reset everything back to factory defaults
 
-**Class Starter Profiles** — pre-curated bar loadouts for all 10 WotLK classes, drawn from the common cooldowns, procs, and resources that matter for each class.
+**Class Starter Profiles** - pre-curated bar loadouts for all 10 WotLK classes, drawn from the common cooldowns, procs, and resources that matter for each class.
 
-- **Load Class Starter** — replaces your current groups with the preset for your class (or a class you pick)
-- **Append Class Starter** — adds the preset's groups alongside your existing ones
+- **Load Class Starter** - replaces your current groups with the preset for your class (or a class you pick)
+- **Append Class Starter** - adds the preset's groups alongside your existing ones
 - A preview dialog lists what will be added before you commit
 - Resource bars (combo points, runes, etc.) are automatically gated to the right class so copying a preset across characters doesn't leak them
 
 ### Activity Tracker
 
-Passive monitoring of everything happening on your character. BarWarden automatically detects every cooldown you use, every buff you gain, every debuff you apply, weapon enchants, and totems — no configuration needed.
+Passive monitoring of everything happening on your character. BarWarden automatically detects every cooldown you use, every buff you gain, every debuff you apply, weapon enchants, and totems - no configuration needed.
 
 - **Category filter** dropdown: All, Auras (buffs + debuffs), Buffs, Target Debuffs, Cooldowns, Enchants, Totems
-- **Search box** next to the filter — type part of a spell name to narrow the list live
-- **Click any column header** (Name / Procs / Uptime, session or all-time) to sort the list — click again to flip ascending/descending; an arrow next to the active column shows the current direction
+- **Search box** next to the filter - type part of a spell name to narrow the list live
+- **Click any column header** (Name / Procs / Uptime, session or all-time) to sort the list - click again to flip ascending/descending; an arrow next to the active column shows the current direction
 - **Hover an icon** in the list to see the full WoW spell tooltip
 - **Spell icons** displayed alongside each entry for quick identification
-- **Live auto-refresh** — the stats panel updates itself every 2 seconds while visible, so session duration, activations, and uptime totals tick live without clicking around
+- **Live auto-refresh** - the stats panel updates itself every 2 seconds while visible, so session duration, activations, and uptime totals tick live without clicking around
 - **Session stats** (activations and uptime) reset every login or `/reload`
 - **All-time stats** persist across sessions in SavedVariables
-- **Sortable** — defaults to most-active first; click any column header to re-sort
-- **Create Bar button** — select any spell, pick a group, and create a pre-configured bar with one click
+- **Sortable** - defaults to most-active first; click any column header to re-sort
+- **Create Bar button** - select any spell, pick a group, and create a pre-configured bar with one click
 - **Reset Session** clears current session data
 - **Reset All** clears everything (with confirmation)
 - Also available via `/bw stats` in chat

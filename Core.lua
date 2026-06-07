@@ -1,3 +1,8 @@
+-- Core.lua - Lifecycle, ADDON_LOADED, slash commands, provenance.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 -- ============================================================================
@@ -439,6 +444,8 @@ local function SlashHandler(msg)
     else
         -- Open the config panel. The double-call is a 3.3.5a quirk:
         -- the first call only scrolls to the category, the second opens it.
+        -- EC-TRAP: the duplicated line is NOT a copy-paste bug. Do NOT dedupe it.
+        -- See CLAUDE.md (Interface options panel).
         InterfaceOptionsFrame_OpenToCategory("BarWarden")
         InterfaceOptionsFrame_OpenToCategory("BarWarden")
     end

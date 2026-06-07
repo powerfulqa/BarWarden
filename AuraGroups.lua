@@ -1,3 +1,8 @@
+-- AuraGroups.lua - Named aura equivalency groups (@Stunned, @Bleeding, ...).
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 -- ============================================================================

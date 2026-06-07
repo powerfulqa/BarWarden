@@ -1,3 +1,8 @@
+-- Bar.lua - Bar frame construction and visual config.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 local max = math.max

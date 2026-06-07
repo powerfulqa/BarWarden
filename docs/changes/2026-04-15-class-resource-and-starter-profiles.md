@@ -8,13 +8,13 @@
 Two gaps surfaced in a comparative review against ~40 other tracker addons (19 from GitHub + 21 from the local `3.3.5.a/` pack):
 
 1. **No class-aware onboarding**. A fresh-install character saw a single Hearthstone-cooldown sample bar. Every comparable addon except WeakAuras ships or hardcodes class-specific defaults. New users had to manually build their first useful layout.
-2. **No class-resource tracking**. BarWarden could track buffs, debuffs, items, enchants, totems, procs, cooldowns — but not the four resources unique to class power systems: combo points (Rogue / Cat Druid), runes (DK, 6 slots), runic power (DK), soul shards (pre-Cata Warlock). Every other resource (Eclipse, Maelstrom, totem slots) was already covered by the existing Buff / Totem modes.
+2. **No class-resource tracking**. BarWarden could track buffs, debuffs, items, enchants, totems, procs, cooldowns - but not the four resources unique to class power systems: combo points (Rogue / Cat Druid), runes (DK, 6 slots), runic power (DK), soul shards (pre-Cata Warlock). Every other resource (Eclipse, Maelstrom, totem slots) was already covered by the existing Buff / Totem modes.
 
 These were addressed in the same session because §A (starter profiles) depends on §B (resource trackers): the DK preset ships rune bars + RP bar, Rogue ships a combo-point bar, Warlock ships a soul-shard bar.
 
 ## What changed
 
-### §B — Class-resource tracker
+### §B - Class-resource tracker
 
 - Four new trackers in `Trackers.lua`: `CheckComboPoints`, `CheckRunicPower`, `CheckSoulShards`, `CheckRunes`. Registered in `ns.TRACKERS` under the mode names `"Combo Points"`, `"Runic Power"`, `"Soul Shards"`, `"Runes"`.
 - `ns.RESOURCE_TRACK_MODES` set + `ns:IsResourceTrackMode()` predicate. Distinguishes event-driven value-based resources (CP / RP / Shards / Runes) from time-based trackers (Cooldown / Buff / etc.).
@@ -27,7 +27,7 @@ These were addressed in the same session because §A (starter profiles) depends 
 
 **Design decision: runes as a resource mode (post-§B).** The initial §B ship treated Runes as time-based (standard `ActivateBar` path, depleting bar, inactive when ready). Review found this UX-hostile: user couldn't see at a glance which runes were available. Fixed in the polish session: Runes is now in `RESOURCE_TRACK_MODES`, bar FILLS as the rune regenerates, stays full when ready. Text shows time-until-ready on countdown, blank when ready.
 
-### §A — Class starter profiles
+### §A - Class starter profiles
 
 - New file `ClassPresets.lua`. Exports `ns.ClassPresets[classToken] = { groups = { ... } }` for all ten classes. ~10-15 bars per class, organised into 2-4 groups (Cooldowns / Procs / DoTs / Resources as applicable).
 - `ns:LoadClassStarter(classToken)` replaces the active profile's `frames` with a defaults-filled deep copy of the preset. `ns:AppendClassStarter(classToken)` (polish session) appends instead of replacing.
@@ -37,7 +37,7 @@ These were addressed in the same session because §A (starter profiles) depends 
 
 **Design decision: class-level, not spec-level.** 3.3.5a has 30 specs. Shipping spec-level variants is 3× the curation work. Class-level presets cover the core kit; users can delete unused bars. `GetActiveTalentGroup()`-based variants deferred.
 
-**Design decision: curation sources.** `!ElvinCDs/spells.lua` (CDs with metadata flags) + `EventAlert/EventAlertSpellArray.lua` (procs per class). `Forte_<Class>/Forte_<Class>.lua` and `ClassTimer/Bars/<Class>.lua` were cross-references. ECM and retail Cooldowns addons were ruled out — retail spell IDs don't port to 3.3.5a (ability overhauls between Wrath and Cata).
+**Design decision: curation sources.** `!ElvinCDs/spells.lua` (CDs with metadata flags) + `EventAlert/EventAlertSpellArray.lua` (procs per class). `Forte_<Class>/Forte_<Class>.lua` and `ClassTimer/Bars/<Class>.lua` were cross-references. ECM and retail Cooldowns addons were ruled out - retail spell IDs don't port to 3.3.5a (ability overhauls between Wrath and Cata).
 
 ### Polish session (post-review)
 
@@ -87,7 +87,7 @@ Modified:
 Per CLAUDE.md's "no tests; verification is in-game" convention:
 
 - `luac -p` on all 24+ top-level Lua files: clean.
-- `grep —` across BarWarden code: zero em-dashes in new content (established project convention; see `feedback_no_em_dashes.md` memory).
+- `grep` for em dashes across BarWarden code: zero in new content (established project convention; see `feedback_no_em_dashes.md` memory).
 - Zero new globals leaked (all symbols scoped to `ns.` or `local`).
 - In-game behavioural verification: DK preset loads 4 groups (DK Cooldowns / Diseases / Runes / Runic Power); rune bars fill as runes regenerate; Rogue preset loads combo-point bar that fills 0 to 5; Warlock preset loads soul-shard bar reflecting bag count; `/bw test` preserves existing behaviour (resource bars stay in live state).
 

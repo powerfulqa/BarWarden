@@ -1,8 +1,8 @@
-# Phase 4 — Declarative Options Refactor (RCA log)
+# Phase 4 - Declarative Options Refactor (RCA log)
 
 **Date:** 2026-04-13
 **Scope this session:** [Options_General.lua](../../Options_General.lua) only (smallest tab; ~95 lines).
-**Status:** in progress — see "What landed" section at the bottom.
+**Status:** in progress - see "What landed" section at the bottom.
 
 If a regression is suspected after this change, use the "How to RCA"
 section as a starting point.
@@ -15,9 +15,9 @@ Phases 1-3 (Ace3-pattern lifts) added three building blocks:
 `ns:OnInitialize/OnEnable/OnDisable`, the `RegisterCallback`/`FireCallback`
 bus, and `ns:DBSet`/`ns:DBGet`. The original Ace3-pattern-lifts plan
 [(C:\Users\ch\.claude\plans\ace3-pattern-lifts.md)](file:///C:/Users/ch/.claude/plans/ace3-pattern-lifts.md)
-deferred a "Phase 4" — converting the imperative widget construction in
+deferred a "Phase 4" - converting the imperative widget construction in
 the Options_*.lua tabs to a data-driven schema (AceConfig style, but
-homegrown — no library dependency).
+homegrown - no library dependency).
 
 This session implements Phase 4 for **only one tab** as a controlled
 trial. If it lands cleanly and exercises well in-game, future sessions
@@ -48,7 +48,7 @@ function that re-reads DB values back into the live widgets.
 |---|---|---|
 | `header` | `text` | `spacing` |
 | `note` | `text` (string OR `function() return string`) | `style` (`"normal"` / `"disabled"`), `spacing` |
-| `spacer` | `height` | — |
+| `spacer` | `height` | - |
 | `toggle` | `label`, EITHER `db` (+ optional `refresh`) OR (`get` + `set`) | `tooltip`, `spacing` |
 
 This is a **deliberately minimal** initial cut. Other widget types
@@ -68,8 +68,8 @@ help text + version footer become a SCHEMA table walked by
 | Behaviour | Currently in (file:line) | Must still happen after |
 |---|---|---|
 | Enable toggle calls `ns:SetEnabled(checked)` AND `ns:RebuildAllFrames()` if newly enabled | [Options_General.lua:19-23](../../Options_General.lua#L19-L23) | Same call sequence in the `set` closure of the schema entry |
-| Lock toggle writes `BarWardenDB.global.locked` AND calls Lock/UnlockAllFrames | [Options_General.lua:32-39](../../Options_General.lua#L32-L39) | Same — uses `get`/`set` escape hatch (not DB path) because of the two-branch side effect |
-| Minimap toggle uses `ns:DBSet("global.minimapIcon", "UpdateMinimapButtonVisibility")` | [Options_General.lua:48-49](../../Options_General.lua#L48-L49) | Same — passes `db` + `refresh` to schema, walker calls `ns:DBSet` |
+| Lock toggle writes `BarWardenDB.global.locked` AND calls Lock/UnlockAllFrames | [Options_General.lua:32-39](../../Options_General.lua#L32-L39) | Same - uses `get`/`set` escape hatch (not DB path) because of the two-branch side effect |
+| Minimap toggle uses `ns:DBSet("global.minimapIcon", "UpdateMinimapButtonVisibility")` | [Options_General.lua:48-49](../../Options_General.lua#L48-L49) | Same - passes `db` + `refresh` to schema, walker calls `ns:DBSet` |
 | Initial Y offset of first widget is -80 (sits below panel title + subtitle from Options.lua) | [Options_General.lua:12, :25](../../Options_General.lua#L12) | Walker uses 16, -80 for the first widget anchor |
 | Subsequent widgets gap -8 vertically | [Options_General.lua:40, :51](../../Options_General.lua#L40) | Walker default `spacing = 8` |
 | Help section gap -24 (visual section break) | [Options_General.lua:57](../../Options_General.lua#L57) | Schema entry uses `spacing = 24` for the header |
@@ -88,13 +88,13 @@ and `Options_General.lua`.
 
 ### What does NOT change in this session
 
-- Other Options_*.lua files — all untouched.
-- Public `ns` API surface — `BuildSettings` is added; nothing existing is
+- Other Options_*.lua files - all untouched.
+- Public `ns` API surface - `BuildSettings` is added; nothing existing is
   removed or renamed.
-- DB schema — no defaults added, no migrations.
-- The 15 existing `ns:DBSet` call sites — all stay as-is.
-- The Phase 1-3 helpers — `OnInitialize`/`OnEnable`/`OnDisable`,
-  `RegisterCallback`/`FireCallback`, `DBSet`/`DBGet` — all unchanged.
+- DB schema - no defaults added, no migrations.
+- The 15 existing `ns:DBSet` call sites - all stay as-is.
+- The Phase 1-3 helpers - `OnInitialize`/`OnEnable`/`OnDisable`,
+  `RegisterCallback`/`FireCallback`, `DBSet`/`DBGet` - all unchanged.
 
 ---
 
@@ -126,7 +126,7 @@ and `Options_General.lua`.
 - The `set` closure in the SCHEMA's lock-toggle entry. Must:
   1. Write `BarWardenDB.global.locked = checked`
   2. Call `ns:LockAllFrames()` if checked, `ns:UnlockAllFrames()` if not
-- Both branches matter — single-branch `if checked then Lock else end`
+- Both branches matter - single-branch `if checked then Lock else end`
   is a regression.
 
 ### Symptom: Minimap toggle stops working
@@ -140,7 +140,7 @@ and `Options_General.lua`.
 ### Symptom: Toggles show stale values when reopening the tab
 
 **Look at:**
-- The `frame.Refresh` function returned by `ns:BuildSettings` — must
+- The `frame.Refresh` function returned by `ns:BuildSettings` - must
   walk every entry that has a `db` or `get` and update the widget.
 - The `ns.suppressCallbacks = true/false` bracketing must surround the
   refresh loop so SetChecked/SetValue calls don't write back to DB.
@@ -177,30 +177,30 @@ The Phase 1-3 work is in different files and survives the revert.
 ## What landed
 
 ### Files added
-- [`Options_Builder.lua`](../../Options_Builder.lua) — 155 lines.
+- [`Options_Builder.lua`](../../Options_Builder.lua) - 155 lines.
   Schema walker (`ns:BuildSettings`) + `BUILDERS` and `APPLIERS`
   dispatch tables. Initial supported entry types: `header`, `note`,
   `spacer`, `toggle`.
 
 ### Files modified
-- [`BarWarden.toc`](../../BarWarden.toc) — one-line insertion adding
+- [`BarWarden.toc`](../../BarWarden.toc) - one-line insertion adding
   `Options_Builder.lua` between `Options.lua` and `Options_General.lua`.
-- [`Options_General.lua`](../../Options_General.lua) — rewritten from
+- [`Options_General.lua`](../../Options_General.lua) - rewritten from
   imperative widget construction (95 lines) to a declarative `SCHEMA`
   table walked by `ns:BuildSettings` (93 lines). The line count is
-  near-parity for this small tab; the win is architectural — the schema
+  near-parity for this small tab; the win is architectural - the schema
   is data that can be scanned, edited, and extended without touching
   layout logic.
-- [`CLAUDE.md`](../../CLAUDE.md) — section 3 documents
+- [`CLAUDE.md`](../../CLAUDE.md) - section 3 documents
   `ns:BuildSettings` + the two wiring styles (`db`+`refresh` vs
   `get`+`set` escape hatch).
 
 ### Files NOT changed
 - All other Options_*.lua tabs (`Bars`, `Visuals`, `Profiles`, `Stats`)
-  — untouched.
+  - untouched.
 - Phase 1-3 helpers (`OnInitialize`/`OnEnable`/`OnDisable`,
-  callback bus, `DBSet`/`DBGet`) — untouched.
-- DB schema, `ns.DEFAULTS` — untouched.
+  callback bus, `DBSet`/`DBGet`) - untouched.
+- DB schema, `ns.DEFAULTS` - untouched.
 
 ### Verification performed
 - All 22 `.lua` files parse clean under `luac -p`.
@@ -220,8 +220,8 @@ The Phase 1-3 work is in different files and survives the revert.
 Run these in order; if any fails, follow the matching "How to RCA"
 section above.
 
-1. `/reload` — addon loads with no Lua error popup.
-2. `/bw` — General tab opens. All three toggles visible. Help text
+1. `/reload` - addon loads with no Lua error popup.
+2. `/bw` - General tab opens. All three toggles visible. Help text
    visible. Version footer visible.
 3. **Enable toggle**:
    - Toggle off → all bars hide, no events firing (verify with
@@ -254,7 +254,7 @@ section above.
   reduction; smoke-test surface is large because every visual control
   must be re-verified.
 - The per-bar editor sub-panel of [Options_Bars.lua](../../Options_Bars.lua)
-  (the master-detail list UI itself stays imperative — wrong shape for
+  (the master-detail list UI itself stays imperative - wrong shape for
   a schema).
 - [Options_Profiles.lua](../../Options_Profiles.lua) and
   [Options_Stats.lua](../../Options_Stats.lua) intentionally stay

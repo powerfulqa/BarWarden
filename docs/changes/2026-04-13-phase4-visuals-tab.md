@@ -1,4 +1,4 @@
-# Phase 4 — Options_Visuals.lua Declarative Conversion (RCA log)
+# Phase 4 - Options_Visuals.lua Declarative Conversion (RCA log)
 
 **Date:** 2026-04-13
 **Baseline:** v1.4.0 (commit `046c930`)
@@ -15,7 +15,7 @@ Phase 4 was introduced in v1.4.0 and proved against the tiny
 [Options_General.lua](../../Options_General.lua) tab (95 lines, 3
 toggles). The plan (see
 [mossy-baking-clover.md](file:///C:/Users/ch/.claude/plans/mossy-baking-clover.md))
-deferred the real line-count win — the 409-line Visuals tab — to a
+deferred the real line-count win - the 409-line Visuals tab - to a
 separate session so regressions wouldn't pile up.
 
 This session converts Visuals.
@@ -76,11 +76,11 @@ third arg.
 ### Symptom: Visuals tab is blank or throws on open
 
 **Look at:**
-- `ns:BuildSettings` error on unknown entry type — check the type
+- `ns:BuildSettings` error on unknown entry type - check the type
   string in each schema entry.
-- `ns:DBSet` strict validator error — a typoed path. Check the
+- `ns:DBSet` strict validator error - a typoed path. Check the
   specific entry the error message names.
-- A BUILDER returned nil — check the builder implementation for the
+- A BUILDER returned nil - check the builder implementation for the
   type the error message names.
 
 ### Symptom: A specific slider/dropdown/etc. doesn't do anything on change
@@ -135,7 +135,7 @@ No other files change. Quick single-pair revert.
 
 ## What landed
 
-### [Options_Builder.lua](../../Options_Builder.lua) — extended
+### [Options_Builder.lua](../../Options_Builder.lua) - extended
 - Header-comment block updated to describe the new types + `opts`.
 - New `BuildSetCallback(entry)` helper unifies user-change callback
   construction across all DB-backed builders, wiring `entry.onChange`
@@ -143,7 +143,7 @@ No other files change. Quick single-pair revert.
 - **New BUILDERS**: `slider`, `dropdown`, `editbox`, `color`. Each
   supports `db` + `refresh` happy-path OR `get` + `set` escape hatch.
 - **New APPLIERS**: `slider`, `dropdown`, `editbox`, `color`. APPLIER
-  signature extended to `(widget, value, entry)` — backwards-compatible
+  signature extended to `(widget, value, entry)` - backwards-compatible
   (existing `toggle` APPLIER ignores the third arg).
 - `ns:BuildSettings(parent, schema, widgetRefs?, opts?)`:
   - New third param `widgetRefs` table populated with `[entry.id] =
@@ -157,10 +157,10 @@ No other files change. Quick single-pair revert.
   - Refresh closure now also fires `entry.onChange(value)` after each
     APPLIER so state-coupled widgets sync on initial open too.
 
-### [Options_Visuals.lua](../../Options_Visuals.lua) — rewritten
+### [Options_Visuals.lua](../../Options_Visuals.lua) - rewritten
 - Imperative widget construction (~270 lines) collapsed into a ~145-line
   SCHEMA table. Imperative Refresh function (~95 lines) removed entirely
-  — the builder generates it.
+  - the builder generates it.
 - Forward-declared `local fadeSpeedSlider` removed; OnShow now reads
   `widgets.fadeSpeed` from the widget-ref table.
 - State coupling expressed via `onChange` hooks on `colorModeDD` and
@@ -194,7 +194,7 @@ affected the **next** entry, not itself. Options_General's schema
 
 User had casually said v1.4.0 "looks good" which masked the issue.
 The fix restores the intended v1.3.0 layout. No schema changes needed
-in Options_General.lua — the values were already authored with leading
+in Options_General.lua - the values were already authored with leading
 semantic.
 
 ### Line counts (this tab pair)
@@ -207,7 +207,7 @@ semantic.
 
 The builder grew more than Visuals shrank because it now supports 4
 new widget types plus widget refs + onChange + opts + anchorTo +
-offsetX — all reusable surface area for future tab conversions. The
+offsetX - all reusable surface area for future tab conversions. The
 real payoff arrives when Options_Bars's per-bar editor converts next,
 reusing the now-mature builder without adding new mechanism.
 
@@ -225,10 +225,10 @@ reusing the now-mature builder without adding new mechanism.
 
 ### Smoke-test checklist
 
-1. `/reload` — addon loads, no Lua error.
+1. `/reload` - addon loads, no Lua error.
 2. `/bw` → **Visuals** tab. Every section header visible at the larger
    font size. Every control present in the same visual order as v1.4.0.
-3. **Per-control drive test** — for each of the 20 interactive widgets,
+3. **Per-control drive test** - for each of the 20 interactive widgets,
    change the value, confirm the live bars react, then reopen the tab
    and confirm the value persists.
 4. **State-coupling test**:
@@ -239,14 +239,14 @@ reusing the now-mature builder without adding new mechanism.
    - Close the panel with Color Mode set to `Custom Color` and re-open
      → the swatch is already visible (Refresh-side onChange firing).
    - Same for Texture = `Custom`.
-5. **Scroll region** — no dead space below Fade Speed slider.
-6. **General tab** — the Slash Commands header now sits 24 px below
+5. **Scroll region** - no dead space below Fade Speed slider.
+6. **General tab** - the Slash Commands header now sits 24 px below
    the Minimap toggle (was 8 px in v1.4.0). The help text sits 6 px
    below the header (was 24 px in v1.4.0). The version footer sits
    16 px below the help text (was 6 px in v1.4.0). This is the
    v1.3.0 imperative layout, restored.
 7. **Bars / Profiles / Stats** tabs unchanged.
-8. **Profile load** — load a profile whose visual settings differ;
+8. **Profile load** - load a profile whose visual settings differ;
    open Visuals → all controls reflect the loaded values, coupled
    widgets show/hide correctly.
 

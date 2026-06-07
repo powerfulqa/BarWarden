@@ -1,3 +1,8 @@
+-- Trackers.lua - Per-trackMode checkers (aura, cooldown, resource modes).
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 local GetTime = GetTime
@@ -222,6 +227,9 @@ local function CheckCooldown(barConfig)
         duration = ns.SpellDurations[resolvedID]
     end
 
+    -- EC-TRAP: discarding cooldowns <= GCD_THRESHOLD (1.5s) looks like it drops real
+    -- short cooldowns, but it filters the global cooldown so bars react only to true
+    -- cooldowns. Do NOT remove. Threshold lives in Utils.lua (ns.GCD_THRESHOLD).
     if duration <= GCD_THRESHOLD then
         return false, 0, 0, spellIcon, spellName, 0
     end
@@ -292,6 +300,8 @@ local function CheckItem(barConfig)
     local displayName = itemName or tostring(itemRef)
 
     local start, duration, enabled
+    -- EC-TRAP: GetItemCooldown is the correct bare global on 3.3.5a (retail moved it
+    -- to C_Container). Do NOT "modernise" to C_Container.GetItemCooldown. See CLAUDE.md.
     if itemID then
         start, duration, enabled = GetItemCooldown(itemID)
     else

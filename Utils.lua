@@ -1,3 +1,8 @@
+-- Utils.lua - Shared helpers (CopyTable, MergeDefaults, GetVisual, ...).
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
 local addonName, ns = ...
 
 -- ============================================================================
@@ -55,6 +60,8 @@ end
 -- Shared constants
 -- ----------------------------------------------------------------------------
 
+-- EC-TRAP: the 1.5s floor intentionally hides global-cooldown triggers from the
+-- cooldown/item trackers. Lowering it will spam bars on every GCD. Do NOT "fix".
 ns.GCD_THRESHOLD = 1.5    -- ignore GCD triggers in cooldown/item trackers
 ns.MAX_AURA_INDEX = 40    -- WoW 3.3.5a maximum buff/debuff index
 
