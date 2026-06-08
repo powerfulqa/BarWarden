@@ -57,6 +57,38 @@ function ns.FormatUptime(seconds)
 end
 
 -- ----------------------------------------------------------------------------
+-- One-shot delay
+--
+-- 3.3.5a has no C_Timer.After, so schedule fn to run once after `seconds`
+-- via a shared OnUpdate ticker. Used by deferred UI tasks that must run
+-- after a frame has laid out (the Help deep-link scroll). The ticker frame
+-- is created lazily on first use so loading this file under the test mock
+-- (which does not stub CreateFrame) stays frame-free.
+-- ----------------------------------------------------------------------------
+
+local afterQueue
+local afterFrame
+
+function ns:After(seconds, fn)
+    if type(fn) ~= "function" then return end
+    if not afterFrame then
+        afterQueue = {}
+        afterFrame = CreateFrame("Frame")
+        afterFrame:SetScript("OnUpdate", function(_, elapsed)
+            for i = #afterQueue, 1, -1 do
+                local task = afterQueue[i]
+                task.remaining = task.remaining - elapsed
+                if task.remaining <= 0 then
+                    table.remove(afterQueue, i)
+                    task.fn()
+                end
+            end
+        end)
+    end
+    afterQueue[#afterQueue + 1] = { remaining = seconds or 0, fn = fn }
+end
+
+-- ----------------------------------------------------------------------------
 -- Shared constants
 -- ----------------------------------------------------------------------------
 

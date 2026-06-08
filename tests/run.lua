@@ -15,6 +15,7 @@ local TEST_FILES = {
     "test_aura_groups",
     "test_class_presets",
     "test_settings_schema",
+    "test_help",
 }
 
 local totalPass, totalFail = 0, 0

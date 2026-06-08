@@ -112,6 +112,7 @@ local function CreateBarsTab(parent)
     local groupHeader = leftPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     groupHeader:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", 0, 0)
     groupHeader:SetText("Groups")
+    ns:CreateHelpIcon(leftPanel, groupHeader, "LEFT", "RIGHT", 6, 0, "create-group")
 
     -- Group scroll frame
     local groupScrollFrame = CreateFrame("ScrollFrame", "BarWardenGroupScroll", leftPanel, "FauxScrollFrameTemplate")
@@ -384,6 +385,7 @@ local function CreateBarsTab(parent)
     local barHeader = rightPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     barHeader:SetPoint("TOPLEFT", rightPanel, "TOPLEFT", 0, 0)
     barHeader:SetText("Bars")
+    ns:CreateHelpIcon(rightPanel, barHeader, "LEFT", "RIGHT", 6, 0, "add-bar")
 
     -- Bar scroll frame
     -- Row layout: Name (70) + Mode (50) + Target (40) + padding = 180 px.
@@ -720,7 +722,7 @@ local function CreateBarsTab(parent)
 
     local EDITOR_SCHEMA = {
         -- ---- Conditions ----
-        { type = "header", text = "Conditions" },
+        { type = "header", text = "Conditions", id = "conditionsHeader" },
 
         -- Combat / OOC are mutually exclusive: set writes both DB fields,
         -- onChange visually unchecks the partner widget via editorWidgets ref.
@@ -911,6 +913,11 @@ local function CreateBarsTab(parent)
         editorSettingsFrame, EDITOR_SCHEMA, editorWidgets,
         { firstX = 0, firstY = 0 })
 
+    if editorWidgets.conditionsHeader then
+        ns:CreateHelpIcon(editorSettingsFrame, editorWidgets.conditionsHeader,
+            "LEFT", "RIGHT", 6, 0, "conditions-overview")
+    end
+
     -- ========================================================================
     -- HELPER: Get selected bar data
     -- ========================================================================
@@ -924,12 +931,27 @@ local function CreateBarsTab(parent)
     -- ========================================================================
     -- REFRESH
     -- ========================================================================
+    -- Empty-state lines, shown when a list has no rows.
+    local groupEmptyText = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    groupEmptyText:SetPoint("TOPLEFT", groupScrollFrame, "TOPLEFT", 4, -4)
+    groupEmptyText:SetWidth(170)
+    groupEmptyText:SetJustifyH("LEFT")
+    groupEmptyText:SetText("No groups yet. Click Add to create one.")
+    groupEmptyText:Hide()
+
+    local barEmptyText = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    barEmptyText:SetPoint("TOPLEFT", barScrollFrame, "TOPLEFT", 4, -4)
+    barEmptyText:SetWidth(180)
+    barEmptyText:SetJustifyH("LEFT")
+    barEmptyText:Hide()
+
     local function UpdateGroupList()
         local frames = BarWardenDB and BarWardenDB.frames or {}
         local offset = FauxScrollFrame_GetOffset(groupScrollFrame)
         local total = #frames
 
         FauxScrollFrame_Update(groupScrollFrame, total, MAX_GROUP_ROWS, GROUP_LIST_HEIGHT)
+        if total == 0 then groupEmptyText:Show() else groupEmptyText:Hide() end
 
         for i = 1, MAX_GROUP_ROWS do
             local row = groupRows[i]
@@ -959,6 +981,16 @@ local function CreateBarsTab(parent)
         local total = #bars
 
         FauxScrollFrame_Update(barScrollFrame, total, MAX_BAR_ROWS, BAR_LIST_HEIGHT)
+        if total == 0 then
+            if selectedGroupIndex then
+                barEmptyText:SetText("No bars in this group yet. Click Add to create one.")
+            else
+                barEmptyText:SetText("Select a group on the left to see its bars.")
+            end
+            barEmptyText:Show()
+        else
+            barEmptyText:Hide()
+        end
 
         for i = 1, MAX_BAR_ROWS do
             local row = barRows[i]

@@ -50,6 +50,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Live-reactive settings** - changes in the options panel apply to the bars on the spot, no disable/re-enable needed
 - **Inline help tooltips** on most per-bar and visual settings - hover any slider, dropdown, or text field for a plain-English explanation
 - **Spell tooltip on icon hover** optionally shows the full spell or item tooltip when you mouse over a bar's icon (toggle in Visuals tab)
+- **In-game Help tab** with a collapsible FAQ covering tracking modes, conditions, profiles, and troubleshooting, plus `[?]` icons next to the main settings that jump straight to the matching answer
 
 ---
 
@@ -327,6 +328,10 @@ Passive monitoring of everything happening on your character. BarWarden automati
 - **Reset All** clears everything (with confirmation)
 - Also available via `/bw stats` in chat
 - Stores up to 200 unique spells; oldest entries are automatically evicted
+
+### Help
+
+A built-in FAQ covering Getting Started, Tracking Modes, Conditions, Visuals, Profiles, the Activity Tracker, and Troubleshooting. Click a section to expand it. The `[?]` icons next to the main settings jump straight to the matching answer.
 
 ---
 

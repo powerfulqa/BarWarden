@@ -24,7 +24,7 @@ cleanup.
   30300**: timer bars for spell cooldowns, buffs, debuffs, procs, item
   cooldowns, weapon enchants, totems, and class resources, grouped into
   movable on-screen containers and configured through a tabbed Interface
-  Options panel. It ships as 26 `.lua` files plus the bundled `Libs/`.
+  Options panel. It ships as 27 `.lua` files plus the bundled `Libs/`.
   [BarWarden.toc](BarWarden.toc) lists every file in load order; add a
   new file after everything it depends on.
 - **The bundled libraries are intentional.** LibStub,
@@ -44,7 +44,7 @@ cleanup.
   help must lead with what happens, drop the mechanism, and avoid code
   jargon. Internal docstrings and comments may stay technical.
 - **Verify before commit:** `luac -p` on changed files, `lua tests/run.lua`
-  (110 logic tests; frame code is out of scope and rides the in-game
+  (117 logic tests; frame code is out of scope and rides the in-game
   smoke test), then `/reload` in game with `/console scriptErrors 1`.
 
 ## Conventions at a glance

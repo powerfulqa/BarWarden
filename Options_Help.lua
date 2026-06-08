@@ -1,0 +1,547 @@
+-- Options_Help.lua - Help / FAQ tab and the [?] deep-link target.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
+local addonName, ns = ...
+
+-- ============================================================================
+-- HELP_ENTRIES
+-- ----------------------------------------------------------------------------
+-- Ordered flat list. Two entry kinds:
+--   * Section marker:  { section = "<key>", title = "<display>" }
+--   * Content entry:   { id = "<stable-id>", q = "<question>", a = "<answer>" }
+-- The tab builder walks this list: section markers start a collapsible group,
+-- content entries render between markers. Section keys must match the seeded
+-- defaults in DB.lua (global.helpCollapsed). Content ids are stable: the [?]
+-- deep-link icons (ns:CreateHelpIcon) reference them, and test_help.lua checks
+-- that every deep-link target id resolves here.
+-- ============================================================================
+
+local HELP_ENTRIES = {
+    -- ===================================================================
+    { section = "gettingStarted", title = "Getting Started" },
+    -- ===================================================================
+    {
+        id = "what-is-barwarden",
+        q = "What does BarWarden do?",
+        a = "BarWarden draws timer bars that track your spell cooldowns, "
+          .. "buffs, debuffs, procs, item cooldowns, weapon enchants, totems, "
+          .. "and class resources. When something goes on cooldown or a buff "
+          .. "is applied, the matching bar fills and counts down so you always "
+          .. "know when it is ready or about to expire.",
+    },
+    {
+        id = "getting-started",
+        q = "I just installed this. Where do I start?",
+        a = "Type /bw to open the settings. The quickest setup is the "
+          .. "Profiles tab: Load Class Starter gives you a curated set of "
+          .. "bars for your class and spec in one click. To build your own, "
+          .. "go to the Bars / Groups tab, click Add to make a group, then "
+          .. "Add a bar inside it.",
+    },
+    {
+        id = "open-settings",
+        q = "How do I open the settings?",
+        a = "Left-click the BarWarden minimap button, or type /bw in chat. "
+          .. "Right-click the minimap button to quickly enable or disable the "
+          .. "addon. Hover any slider, dropdown, or text field for a tooltip "
+          .. "explaining what it does.",
+    },
+    {
+        id = "create-group",
+        q = "How do I create a group?",
+        a = "Groups are containers that hold your bars, like Cooldowns or "
+          .. "Target Debuffs. On the Bars / Groups tab, click Add to create a "
+          .. "group. Give it a name and set the width, scale, and columns. "
+          .. "Each group can hold up to 30 bars, and you can have up to 20 "
+          .. "groups.",
+    },
+    {
+        id = "add-bar",
+        q = "How do I add a bar?",
+        a = "Select a group on the left, then click Add on the right. Pick a "
+          .. "Track Mode (Cooldown, Buff, Debuff, and so on), choose a target, "
+          .. "and type the spell name or spell ID. The bar starts tracking the "
+          .. "next time that spell or effect is active.",
+    },
+    {
+        id = "move-groups",
+        q = "How do I move my groups around the screen?",
+        a = "Groups are locked by default so you do not move them by accident. "
+          .. "Type /bw lock to unlock everything, drag the groups where you "
+          .. "want them, then /bw lock again to lock them back in place.",
+    },
+
+    -- ===================================================================
+    { section = "trackingModes", title = "Tracking Modes" },
+    -- ===================================================================
+    {
+        id = "track-cooldown",
+        q = "Cooldown",
+        a = "Tracks when one of your spells is on cooldown. The bar fills and "
+          .. "counts down until the spell is ready again. Short global-cooldown "
+          .. "triggers (under 1.5s) are ignored so the bar only reacts to real "
+          .. "cooldowns.",
+    },
+    {
+        id = "track-buff-debuff",
+        q = "Buff and Debuff",
+        a = "Buff tracks a buff on you or another unit and shows its remaining "
+          .. "time and stack count. Debuff tracks a debuff on your target or "
+          .. "another unit; by default it shows only debuffs you applied. "
+          .. "Untick Only Mine to see debuffs from all sources.",
+    },
+    {
+        id = "track-proc",
+        q = "Proc",
+        a = "Tracks short-lived proc buffs on you. Works like Buff mode but "
+          .. "always targets yourself, which is handy for reactive abilities "
+          .. "like The Art of War or Clearcasting.",
+    },
+    {
+        id = "track-item",
+        q = "Item",
+        a = "Tracks an item's cooldown by item ID or name, useful for trinkets, "
+          .. "engineering tinkers, or your Hearthstone. To find an item ID, "
+          .. "hover the item and look it up on a database site like Wowhead.",
+    },
+    {
+        id = "track-enchant",
+        q = "Enchant (mainhand / offhand)",
+        a = "Tracks temporary weapon enchants like poisons, sharpening stones, "
+          .. "or shaman weapon buffs. Pick Enchant MH for your mainhand or "
+          .. "Enchant OH for your offhand. The Spell field is not used; use the "
+          .. "Bar Name field to label it, for example Deadly Poison.",
+    },
+    {
+        id = "track-totem",
+        q = "Totem",
+        a = "Tracks active totems by name or slot number. Use a slot number in "
+          .. "the Spell field: 1 Fire, 2 Earth, 3 Water, 4 Air. Useful for "
+          .. "shamans watching totem uptime.",
+    },
+    {
+        id = "track-resources",
+        q = "Class resources (Combo Points, Runes, Runic Power, Soul Shards)",
+        a = "These fill as the resource builds rather than counting down. "
+          .. "Combo Points (rogue/druid) fill 0 to 5 on your target. Runes "
+          .. "(DK) use 1-6 in the Spell field for the slot. Runic Power (DK) "
+          .. "fills 0 to 100. Soul Shards (warlock) shows the count in your "
+          .. "bag. The class starter profiles pre-fill these for you.",
+    },
+    {
+        id = "multiple-spells",
+        q = "Can one bar track more than one spell?",
+        a = "Yes. Separate the names with commas, for example "
+          .. "Rupture, Garrote. The bar reacts to whichever is active.",
+    },
+    {
+        id = "aura-groups",
+        q = "What are aura groups like @Stunned?",
+        a = "Instead of listing every crowd-control spell by hand, use a group "
+          .. "token: @Stunned, @Bleeding, @Silenced, @Incapacitated, @Feared, "
+          .. "@Rooted, @MovementSlowed, @Disarmed. One bar then tracks any "
+          .. "spell in that group. You can mix tokens and names: @Stunned, Blind.",
+    },
+
+    -- ===================================================================
+    { section = "conditions", title = "Conditions & Visibility" },
+    -- ===================================================================
+    {
+        id = "conditions-overview",
+        q = "What are conditions?",
+        a = "Conditions decide when a bar shows. Set them per bar so a bar only "
+          .. "appears in combat, below a health threshold, in a group, for a "
+          .. "specific class, and more. A bar whose conditions are not met is "
+          .. "hidden.",
+    },
+    {
+        id = "group-conditions",
+        q = "Can I hide a whole group at once?",
+        a = "Yes. Group Conditions (on the left of the Bars / Groups tab) hide "
+          .. "an entire group together: Combat Only, Out of Combat Only, Hide "
+          .. "Mounted, Hide Resting, Hide In Vehicle, Only In Instance. That "
+          .. "saves ticking every bar individually.",
+    },
+    {
+        id = "condition-health-buff-class",
+        q = "What do Health Below, Require Buff, and Require Class do?",
+        a = "Health Below % shows the bar only when your HP drops under a "
+          .. "percentage, good for execute spells or panic buttons. Require "
+          .. "Buff shows the bar only while you have a named buff (for example "
+          .. "Stealth on Ambush). Require Class pins a bar to one class so a "
+          .. "shared profile does not leak, say, rune bars onto non-DKs.",
+    },
+    {
+        id = "smart-visibility",
+        q = "Can bars hide themselves while mounted or resting?",
+        a = "Yes. Smart visibility hides bars while mounted, resting, or in a "
+          .. "vehicle, or shows them only inside dungeons and raids. Set these "
+          .. "per bar, or per group with Group Conditions.",
+    },
+
+    -- ===================================================================
+    { section = "visuals", title = "Visuals" },
+    -- ===================================================================
+    {
+        id = "visuals-overview",
+        q = "Where are the look-and-feel settings?",
+        a = "The Visuals tab holds settings that apply to all bars: height and "
+          .. "spacing, colour mode, bar texture, text position and font, "
+          .. "duration style, icon size, and opacity. Many of these can be "
+          .. "overridden per bar on the Bars / Groups tab.",
+    },
+    {
+        id = "colour-mode",
+        q = "How do I colour my bars?",
+        a = "Colour Mode (Visuals tab) sets the default: by class, by tracking "
+          .. "mode, or a custom colour you pick. Turn on Per-Bar Colour "
+          .. "Override to give an individual bar its own colour. Colour by Time "
+          .. "transitions a bar green to yellow to red as it counts down.",
+    },
+    {
+        id = "textures-fonts",
+        q = "Can I use my own textures and fonts?",
+        a = "BarWarden ships 13 bar textures and 15 fonts. If you have a "
+          .. "LibSharedMedia-aware addon, its textures and fonts appear in the "
+          .. "dropdowns too. You can also type a custom texture path.",
+    },
+    {
+        id = "duration-styles",
+        q = "How can I change how the timer text reads?",
+        a = "Duration Style (Visuals tab) offers seconds with a decimal, whole "
+          .. "seconds, min:sec, short text, or an auto style that adapts to the "
+          .. "time left.",
+    },
+
+    -- ===================================================================
+    { section = "profiles", title = "Profiles & Starters" },
+    -- ===================================================================
+    {
+        id = "profiles-overview",
+        q = "How do profiles work?",
+        a = "Profiles save and load whole bar layouts and are account-wide, so "
+          .. "you can set up bars on one character and load them on another. "
+          .. "Save your current setup under a name, load a saved profile to "
+          .. "switch, or rename and delete profiles on the Profiles tab.",
+    },
+    {
+        id = "class-starters",
+        q = "What are class starter profiles?",
+        a = "Pre-curated bar loadouts for all 10 classes, drawn from the "
+          .. "cooldowns, procs, and resources that matter for each. Load Class "
+          .. "Starter replaces your current groups with the preset for your "
+          .. "class and spec; Append Class Starter adds them alongside what you "
+          .. "already have. A preview lists what will be added before you "
+          .. "commit.",
+    },
+    {
+        id = "export-import",
+        q = "Can I share a profile with someone else?",
+        a = "Yes. Export turns a profile into a text string you can copy; the "
+          .. "other person uses Import and pastes it in. This is also how you "
+          .. "move a setup between accounts.",
+    },
+
+    -- ===================================================================
+    { section = "activity", title = "Activity Tracker" },
+    -- ===================================================================
+    {
+        id = "activity-overview",
+        q = "What is the Activity Tracker?",
+        a = "It passively watches everything on your character: every cooldown "
+          .. "you use, buff you gain, debuff you apply, weapon enchant, and "
+          .. "totem, with no setup needed. Use it to discover what is worth "
+          .. "tracking. Open it on the Help-adjacent Statistics tab or with "
+          .. "/bw stats.",
+    },
+    {
+        id = "create-bar-from-stats",
+        q = "Can I make a bar from something the tracker found?",
+        a = "Yes. Select any detected spell in the Activity Tracker, click "
+          .. "Create Bar, pick a group, and it adds a pre-configured bar with "
+          .. "one click.",
+    },
+    {
+        id = "activity-search-sort",
+        q = "How do I find something in the tracker list?",
+        a = "Use the search box to filter by name, the category dropdown to "
+          .. "narrow by type, and click any column header to sort (click again "
+          .. "to flip the direction). The list auto-refreshes while open.",
+    },
+
+    -- ===================================================================
+    { section = "troubleshooting", title = "Troubleshooting" },
+    -- ===================================================================
+    {
+        id = "trouble-not-in-menu",
+        q = "BarWarden does not appear in the AddOns menu.",
+        a = "Make sure the folder is named exactly BarWarden, so the path is "
+          .. "Interface/AddOns/BarWarden/BarWarden.toc. A GitHub download often "
+          .. "unzips as barwarden-main; rename it to BarWarden.",
+    },
+    {
+        id = "trouble-bars-not-showing",
+        q = "My bars are not showing.",
+        a = "Check the addon is enabled (/bw enable). A group may have been "
+          .. "dragged off screen: type /bw reset to rebuild everything. Make "
+          .. "sure the bar has a valid spell name entered.",
+    },
+    {
+        id = "trouble-spell-not-tracked",
+        q = "A spell is not being tracked.",
+        a = "Some private servers use different spell IDs than you expect. Try "
+          .. "the spell name (like Evasion) instead of a number. Run /bw scan "
+          .. "to see exactly what the game returns for each bar's lookup.",
+    },
+    {
+        id = "trouble-minimap-missing",
+        q = "The minimap button is missing.",
+        a = "Open /bw, go to the General tab, and tick Show Minimap Icon.",
+    },
+    {
+        id = "trouble-lua-errors",
+        q = "I am seeing Lua errors.",
+        a = "Type /bw bugreport to generate a copyable diagnostic snapshot for "
+          .. "a bug report, or /bw debug for a quick chat dump. As a last "
+          .. "resort you can reset to defaults from the Profiles tab.",
+    },
+    {
+        id = "trouble-test-mode",
+        q = "How do I preview my layout without casting?",
+        a = "Type /bw test to show every bar with a fake 30s timer so you can "
+          .. "arrange your layout. Entering combat automatically turns test "
+          .. "mode off.",
+    },
+}
+
+ns.HELP_ENTRIES = HELP_ENTRIES  -- exposed for test_help.lua
+
+local HELP_TAB_INDEX = 6
+local ENTRY_WIDTH = 520  -- content width (544) minus indent + right margin
+
+-- ----------------------------------------------------------------------------
+-- Deep-link scroll generation counter. A later OpenHelpEntry supersedes any
+-- in-flight deferred scroll from an earlier rapid click.
+-- ----------------------------------------------------------------------------
+local scrollGeneration = 0
+
+local function GetCollapsed()
+    if ns.db and ns.db.global and ns.db.global.helpCollapsed then
+        return ns.db.global.helpCollapsed
+    end
+    return {}
+end
+
+-- ----------------------------------------------------------------------------
+-- Tab builder
+-- ----------------------------------------------------------------------------
+local function CreateHelpTab(parent)
+    local frame = CreateFrame("Frame", "BarWardenHelpTab", parent)
+    frame:SetAllPoints(parent)
+    frame:Hide()
+
+    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -80)
+    title:SetText("Help")
+
+    local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+    desc:SetPoint("RIGHT", frame, "RIGHT", 16, 0)
+    desc:SetJustifyH("LEFT")
+    desc:SetText("Click a section to expand it. The [?] icons around the "
+              .. "settings jump straight to the matching answer here.")
+
+    local scrollFrame = CreateFrame("ScrollFrame", "BarWardenHelpScrollFrame",
+                                    frame, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT",     desc, "BOTTOMLEFT",  -12,  -6)
+    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28,   4)
+
+    local content = CreateFrame("Frame", nil, scrollFrame)
+    content:SetWidth(544)
+    content:SetHeight(1)
+    scrollFrame:SetScrollChild(content)
+
+    frame.scrollFrame = scrollFrame
+    frame.content = content
+
+    -- Build a widget per entry once; collapse just hides/re-anchors them.
+    local items = {}       -- ordered render items
+    local itemById = {}    -- id -> content-entry container, for deep-link
+    frame.items = items
+    frame.itemById = itemById
+
+    local currentSection
+
+    for _, entry in ipairs(HELP_ENTRIES) do
+        if entry.section then
+            currentSection = entry.section
+
+            local header = CreateFrame("Button", nil, content)
+            header:SetSize(ENTRY_WIDTH, 20)
+            local htext = header:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            htext:SetPoint("LEFT", header, "LEFT", 0, 0)
+            header.label = htext
+            header.sectionTitle = entry.title
+
+            local sectionKey = entry.section
+            header.UpdateArrow = function(collapsed)
+                htext:SetText("|cffffd870" .. (collapsed and "+ " or "- ")
+                           .. header.sectionTitle .. "|r")
+            end
+            header:SetScript("OnClick", function()
+                local c = GetCollapsed()
+                c[sectionKey] = not c[sectionKey]
+                frame.Relayout()
+            end)
+            header:SetScript("OnEnter", function()
+                htext:SetTextColor(1, 1, 1)
+            end)
+            header:SetScript("OnLeave", function()
+                htext:SetTextColor(1, 0.82, 0)
+            end)
+
+            items[#items + 1] = { kind = "section", widget = header, section = sectionKey }
+        else
+            local e = CreateFrame("Frame", nil, content)
+            e:SetWidth(ENTRY_WIDTH)
+
+            local flash = e:CreateTexture(nil, "BACKGROUND")
+            flash:SetAllPoints()
+            flash:SetTexture(0.30, 0.56, 1.0, 0.25)
+            flash:SetAlpha(0)
+            e.flash = flash
+
+            local q = e:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            q:SetPoint("TOPLEFT", e, "TOPLEFT", 0, 0)
+            q:SetWidth(ENTRY_WIDTH)
+            q:SetJustifyH("LEFT")
+            q:SetText("|cff4db8ff" .. entry.q .. "|r")
+
+            local a = e:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            a:SetPoint("TOPLEFT", q, "BOTTOMLEFT", 0, -3)
+            a:SetWidth(ENTRY_WIDTH)
+            a:SetJustifyH("LEFT")
+            a:SetText(entry.a)
+
+            e.Flash = function()
+                if not UIFrameFlash then return end
+                UIFrameFlash(e.flash, 0.25, 0.45, 1.4, false, 0, 0.35)
+            end
+
+            e._measure = function()
+                local qh = q:GetStringHeight() or 12
+                local ah = a:GetStringHeight() or 12
+                e:SetHeight(qh + 3 + ah)
+            end
+
+            items[#items + 1] = { kind = "q", id = entry.id, widget = e, section = currentSection }
+            if entry.id then itemById[entry.id] = e end
+        end
+    end
+
+    -- Walk items top to bottom, anchoring each visible one to content by a
+    -- cumulative offset (no prev-widget chain, so a hidden entry never strands
+    -- the ones below it). Collapsed sections hide their content entries.
+    function frame.Relayout()
+        local collapsed = GetCollapsed()
+        local y = -8
+        for _, item in ipairs(items) do
+            if item.kind == "section" then
+                item.widget.UpdateArrow(collapsed[item.section])
+                item.widget:ClearAllPoints()
+                item.widget:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
+                item.widget:Show()
+                y = y - 20 - 6
+            else
+                if collapsed[item.section] then
+                    item.widget:Hide()
+                else
+                    item.widget._measure()
+                    item.widget:ClearAllPoints()
+                    item.widget:SetPoint("TOPLEFT", content, "TOPLEFT", 16, y)
+                    item.widget:Show()
+                    y = y - item.widget:GetHeight() - 10
+                end
+            end
+        end
+        content:SetHeight(math.max(1, -y + 20))
+    end
+
+    -- Lay out on first show and whenever shown (collapse state may have
+    -- changed via a deep-link while the tab was hidden).
+    frame:SetScript("OnShow", function() frame.Relayout() end)
+    frame.Relayout()
+
+    ns._helpTab = frame
+    return frame
+end
+
+ns:RegisterOptionsTab(HELP_TAB_INDEX, CreateHelpTab)
+
+-- ----------------------------------------------------------------------------
+-- ns:OpenHelpEntry(id): deep-link from a [?] icon. Opens the panel, switches
+-- to the Help tab, expands the owning section, then scrolls to + flashes the
+-- entry. Passing nil just opens the Help tab.
+-- ----------------------------------------------------------------------------
+function ns:OpenHelpEntry(id)
+    -- Expand the section that owns this entry before the tab lays out.
+    if id and ns.db and ns.db.global then
+        local owner
+        for _, entry in ipairs(HELP_ENTRIES) do
+            if entry.section then
+                owner = entry.section
+            elseif entry.id == id then
+                break
+            end
+        end
+        if owner then
+            ns.db.global.helpCollapsed = ns.db.global.helpCollapsed or {}
+            ns.db.global.helpCollapsed[owner] = false
+        end
+    end
+
+    -- EC-TRAP: the duplicated line is NOT a copy-paste bug. Do NOT dedupe it.
+    -- See CLAUDE.md (Interface options panel).
+    InterfaceOptionsFrame_OpenToCategory("BarWarden")
+    InterfaceOptionsFrame_OpenToCategory("BarWarden")
+    if ns.SelectOptionsTab then ns:SelectOptionsTab(HELP_TAB_INDEX) end
+
+    local tab = ns._helpTab
+    if tab and tab.Relayout then tab.Relayout() end
+    if not id or not tab then return end
+
+    scrollGeneration = scrollGeneration + 1
+    local gen = scrollGeneration
+
+    local function doScroll()
+        if scrollGeneration ~= gen then return end
+        local widget = tab.itemById and tab.itemById[id]
+        local sf = tab.scrollFrame
+        if not widget or not sf or not widget:GetTop() or not sf:GetTop() then
+            return
+        end
+        -- widget:GetTop() already reflects the current scroll, so the target
+        -- offset is current + (scrollTop - widgetTop). A naive scrollTop -
+        -- widgetTop only works from a scroll of 0 and sends the second pass
+        -- back to the top.
+        local current = sf:GetVerticalScroll() or 0
+        local offset = current + (sf:GetTop() - widget:GetTop())
+        if offset < 0 then offset = 0 end
+        local range = sf:GetVerticalScrollRange() or 0
+        if offset > range then offset = range end
+        sf:SetVerticalScroll(offset)
+        if widget.Flash then widget.Flash() end
+    end
+
+    -- Two passes: the first after OnShow + Relayout settle, the second after
+    -- the scroll range re-measures with the now-expanded section. Both are
+    -- gated by the generation counter so a later click cancels them.
+    if ns.After then
+        ns:After(0.05, doScroll)
+        ns:After(0.20, doScroll)
+    else
+        doScroll()
+    end
+end

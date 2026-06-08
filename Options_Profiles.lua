@@ -405,6 +405,8 @@ local function CreateProfilesTab(parent)
     -- Align under Load Starter (right half of the button grid).
     appendBtn:SetPoint("TOPLEFT", starterBtn, "BOTTOMLEFT", 0, -4)
 
+    ns:CreateHelpIcon(frame, starterBtn, "LEFT", "RIGHT", 6, 0, "class-starters")
+
     -- Initial refresh when shown
     frame:SetScript("OnShow", function(self)
         self:RefreshList()

@@ -17,6 +17,21 @@ ns.DEFAULTS = {
     global = {
         enabled = true,
         locked = true,
+        -- Help-tab section collapse state: sectionKey -> true when collapsed.
+        -- Seeded so Getting Started is open and the rest start collapsed.
+        -- Additive key, backfilled by MergeDefaults on existing saves (no
+        -- schema bump needed; see InitDB). Section keys match HELP_ENTRIES
+        -- in Options_Help.lua. MergeDefaults fills nil keys only, so a user's
+        -- later expand/collapse choices and any newly added section are
+        -- preserved / default-collapsed respectively.
+        helpCollapsed = {
+            trackingModes   = true,
+            conditions      = true,
+            visuals         = true,
+            profiles        = true,
+            activity        = true,
+            troubleshooting = true,
+        },
     },
 
     -- Minimap icon state owned by LibDBIcon-1.0. The layout (hide / minimapPos)

@@ -38,5 +38,6 @@ Options_Bars.lua
 Options_Visuals.lua
 Options_Profiles.lua
 Options_Stats.lua
+Options_Help.lua
 Core.lua
 BugReport.lua

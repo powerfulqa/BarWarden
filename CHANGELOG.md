@@ -13,6 +13,23 @@ exhaustive notes.
 
 ---
 
+### v1.11.0
+
+In-game help. A new Help tab answers the common questions without leaving
+the game, and the settings now point you to it.
+
+- **Help tab.** A collapsible FAQ covering Getting Started, Tracking
+  Modes, Conditions, Visuals, Profiles, the Activity Tracker, and
+  Troubleshooting. Click a section to expand it; your open and closed
+  choices are remembered.
+- **[?] deep-link icons.** Small [?] icons next to the main section
+  headers (Groups, Bars, Conditions, Bar Visuals, Class Starters, and the
+  Activity Tracker) jump straight to the matching answer, expanding its
+  section and scrolling to it.
+- **Clearer empty states.** Lists that used to render blank now say what
+  to do: an empty group list, an empty bar list, the Activity Tracker
+  before it has data, and a search that matches nothing.
+
 ### v1.10.6
 
 Housekeeping release: contributor docs and repository hygiene, aligning

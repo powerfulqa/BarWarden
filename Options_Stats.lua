@@ -135,6 +135,7 @@ local function CreateStatsTab(parent)
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -80)
     title:SetText("Activity Tracker")
+    ns:CreateHelpIcon(frame, title, "LEFT", "RIGHT", 8, 0, "activity-overview")
 
     local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
@@ -497,11 +498,30 @@ local function CreateStatsTab(parent)
         end
     end
 
+    -- Empty-state line: shown when the list renders no rows. Distinguishes
+    -- "nothing tracked yet" from "your search/filter hid everything".
+    local emptyText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    emptyText:SetPoint("TOPLEFT", scrollFrame, "TOPLEFT", 6, -8)
+    emptyText:SetJustifyH("LEFT")
+    emptyText:Hide()
+
     function frame:RefreshList()
         UpdateHeaderArrows()
         filteredKeys = GetFilteredKeys(selectedFilter, searchText, sortColumn, sortDirection)
         local offset = FauxScrollFrame_GetOffset(scrollFrame)
         FauxScrollFrame_Update(scrollFrame, #filteredKeys, MAX_STAT_ROWS, STAT_ROW_HEIGHT)
+
+        if #filteredKeys == 0 then
+            local allKeys = ns.GetAllActivityKeys and ns:GetAllActivityKeys() or {}
+            if #allKeys == 0 then
+                emptyText:SetText("Activate bars and play to see tracking data here.")
+            else
+                emptyText:SetText("No effects match your search.")
+            end
+            emptyText:Show()
+        else
+            emptyText:Hide()
+        end
 
         -- Session duration
         local sessionDuration = time() - (ns.sessionStartTime or time())

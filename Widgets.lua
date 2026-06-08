@@ -238,6 +238,42 @@ function ns:CreateButton(parent, label, width, onClick)
     return btn
 end
 
+-- Small clickable [?] anchored next to a section header. Clicking deep-links
+-- into the Help tab via ns:OpenHelpEntry(entryId), which switches to the Help
+-- tab, expands the owning section, and scrolls to + flashes the entry.
+-- Mirrors EbonClearance's MakeHelpIcon. anchorWidget/anchorPoint/relPoint
+-- position it; pass an entryId that exists in Options_Help's HELP_ENTRIES.
+function ns:CreateHelpIcon(parent, anchorWidget, anchorPoint, relPoint, xOff, yOff, entryId)
+    local name = NextName("HELP")
+    local btn = CreateFrame("Button", name, parent)
+    btn:SetSize(22, 16)
+    if anchorWidget then
+        btn:SetPoint(anchorPoint or "LEFT", anchorWidget, relPoint or "RIGHT",
+                     xOff or 4, yOff or 0)
+    end
+
+    local txt = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    txt:SetAllPoints()
+    txt:SetText("|cff4db8ff[?]|r")
+    btn.text = txt
+
+    btn:SetScript("OnEnter", function(self)
+        txt:SetText("|cff7fd0ff[?]|r")
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Open help", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    btn:SetScript("OnLeave", function()
+        txt:SetText("|cff4db8ff[?]|r")
+        GameTooltip:Hide()
+    end)
+    btn:SetScript("OnClick", function()
+        if ns.OpenHelpEntry then ns:OpenHelpEntry(entryId) end
+    end)
+
+    return btn
+end
+
 function ns:CreateColorSwatch(parent, label, initialColor, onChange)
     local name = NextName("CS")
     local frame = CreateFrame("Frame", name, parent)

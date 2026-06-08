@@ -17,7 +17,7 @@ function ns:RegisterOptionsTab(index, builderFn)
     ns.tabBuilders[index] = builderFn
 end
 
-local TAB_NAMES = {"General", "Bars / Groups", "Visuals", "Profiles", "Statistics"}
+local TAB_NAMES = {"General", "Bars / Groups", "Visuals", "Profiles", "Statistics", "Help"}
 
 local function ShowTab(index)
     for i, frame in pairs(ns.optionsTabs) do
@@ -29,6 +29,15 @@ local function ShowTab(index)
             end
         end
     end
+end
+
+-- Programmatically switch to a tab (e.g. the Help deep-link from a [?] icon).
+-- Mirrors the tab-button OnClick path: highlight the tab and show its content.
+function ns:SelectOptionsTab(index)
+    if ns.optionsPanel then
+        PanelTemplates_SetTab(ns.optionsPanel, index)
+    end
+    ShowTab(index)
 end
 
 function ns:CreateOptionsPanel()

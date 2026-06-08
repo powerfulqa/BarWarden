@@ -108,6 +108,7 @@ Options_Bars.lua       Bars / Groups tab (group-and-bar editor)
 Options_Visuals.lua    Visuals tab
 Options_Profiles.lua   Profiles tab
 Options_Stats.lua      Activity Tracker stats tab
+Options_Help.lua       Help / FAQ tab + [?] deep-link target (ns:OpenHelpEntry)
 Core.lua               Lifecycle, ADDON_LOADED, slash commands, provenance
 BugReport.lua          Diagnostic report frame
 ```
@@ -637,6 +638,7 @@ Current trap sites:
 | [Utils.lua](../Utils.lua) | `ns.GCD_THRESHOLD = 1.5` (looks like an arbitrary magic number) | The GCD floor. Lowering it spams bars on every global cooldown. |
 | [Core.lua](../Core.lua) | `InterfaceOptionsFrame_OpenToCategory("BarWarden")` called twice (looks like a copy-paste bug) | 3.3.5a quirk: the first call only scrolls, the second opens. Do not dedupe. |
 | [Options.lua](../Options.lua) | same double call in `ns:OpenOptions` | Same 3.3.5a quirk. Do not dedupe. |
+| [Options_Help.lua](../Options_Help.lua) | same double call in `ns:OpenHelpEntry` | Same 3.3.5a quirk. Do not dedupe. |
 | [Trackers.lua](../Trackers.lua) `CheckItem` | bare `GetItemCooldown(...)` (looks like it should be `C_Container.GetItemCooldown`) | `GetItemCooldown` is the correct bare global on 3.3.5a. Do not "modernise". |
 | [Conditions.lua](../Conditions.lua) | `GetNumPartyMembers()` / `GetNumRaidMembers()` (looks like it should be `GetNumGroupMembers`) | Those are the 3.3.5a group queries; `GetNumGroupMembers` is Cataclysm+, absent here. |
 

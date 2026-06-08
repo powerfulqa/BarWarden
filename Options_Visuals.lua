@@ -164,7 +164,7 @@ local function CreateVisualsTab(parent)
 
         -- -------------------- Section: Bar Visuals --------------------
         { type = "header", text = "Bar Visuals",
-          spacing = 24, offsetX = -4 },
+          spacing = 24, offsetX = -4, id = "barVisualsHeader" },
 
         { type = "dropdown", id = "colorModeDD", label = "Color Mode",
           db = "visual.colorMode", refresh = "RefreshAllBars",
@@ -303,6 +303,11 @@ local function CreateVisualsTab(parent)
 
     frame.Refresh = ns:BuildSettings(content, SCHEMA, widgets,
                                      { firstX = 16, firstY = -10 })
+
+    if widgets.barVisualsHeader then
+        ns:CreateHelpIcon(content, widgets.barVisualsHeader, "LEFT", "RIGHT", 6, 0,
+            "visuals-overview")
+    end
 
     -- Re-skin section headers to GameFontNormalLarge (the default builder
     -- uses GameFontNormal). Iterate content's FontString regions and match
