@@ -29,6 +29,9 @@ the game, and the settings now point you to it.
 - **Clearer empty states.** Lists that used to render blank now say what
   to do: an empty group list, an empty bar list, the Activity Tracker
   before it has data, and a search that matches nothing.
+- **Runnable slash commands on the General tab.** The General tab now
+  lists every slash command with a Run button next to it, so you can fire
+  a command from the panel without typing it.
 
 ### v1.10.6
 

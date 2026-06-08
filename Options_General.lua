@@ -6,11 +6,14 @@
 local addonName, ns = ...
 
 -- ============================================================================
--- Options_General.lua - Tab 1: General settings (declarative schema).
+-- Options_General.lua - Tab 1: General settings (declarative schema) plus a
+-- runnable slash-command list.
 --
--- Widget construction is delegated to ns:BuildSettings (Options_Builder.lua).
--- Each entry in SCHEMA below describes one row of the panel; the builder
--- handles widget creation, anchoring, and the auto-Refresh pass.
+-- The toggles are built by ns:BuildSettings (Options_Builder.lua). Below the
+-- "Slash Commands" header, each command is listed with a Run button that
+-- invokes the same handler /bw routes through, so the panel button and the
+-- typed command are identical. Mirrors EbonClearance's MainPanel command list.
+-- The tab content lives in a scroll frame so the command list never clips.
 -- ============================================================================
 
 local SCHEMA = {
@@ -66,32 +69,101 @@ local SCHEMA = {
         end,
     },
 
-    -- Slash Commands section (24px gap above for visual break).
-    { type = "header", text = "Slash Commands", spacing = 24 },
-    {
-        type    = "note",
-        text    = "|cffffd200/bw|r or |cffffd200/barwarden|r - Open configuration panel\n"
-               .. "|cffffd200/bw lock|r - Toggle frame lock\n"
-               .. "|cffffd200/bw reset|r - Reset frame positions",
-        spacing = 6,
-    },
-
-    -- Version footer (subdued; resolved lazily so ns.version is read at build time).
-    {
-        type    = "note",
-        style   = "disabled",
-        text    = function() return "BarWarden v" .. (ns.version or "?")
-                                 .. " | WoW 3.3.5a (Interface 30300)" end,
-        spacing = 16,
-    },
+    -- Slash Commands section header. The runnable list is rendered below it
+    -- (see CreateGeneralTab); id exposes it as the anchor for that list.
+    { type = "header", text = "Slash Commands", spacing = 24, id = "slashHeader" },
 }
+
+-- Runnable slash commands. `run` is the subcommand passed to the /bw handler;
+-- a row without `run` is informational (no button). Keep in sync with
+-- SLASH_COMMANDS in Core.lua and the slash table in README.md.
+local SLASH_ROWS = {
+    { label = "|cffffd200/bw|r  Open the settings panel |cff888888(you are here)|r" },
+    { run = "enable",    label = "|cffffd200/bw enable|r  Turn the addon on" },
+    { run = "disable",   label = "|cffffd200/bw disable|r  Turn the addon off" },
+    { run = "lock",      label = "|cffffd200/bw lock|r  Toggle frame lock (drag groups when unlocked)" },
+    { run = "reset",     label = "|cffffd200/bw reset|r  Rebuild all frames and reset positions" },
+    { run = "test",      label = "|cffffd200/bw test|r  Toggle test mode (fake 30s timers)" },
+    { run = "scan",      label = "|cffffd200/bw scan|r  Test spell lookups and print the results" },
+    { run = "trackers",  label = "|cffffd200/bw trackers|r  Show live tracker state in chat" },
+    { run = "stats",     label = "|cffffd200/bw stats|r  Print activity stats to chat" },
+    { run = "debug",     label = "|cffffd200/bw debug|r  Print addon state to chat" },
+    { run = "bugreport", label = "|cffffd200/bw bugreport|r  Open a copyable diagnostic report" },
+    { run = "help",      label = "|cffffd200/bw help|r  List every command in chat" },
+}
+
+local LABEL_COL_X  = 54   -- Run-button column width (44) + gap; labels start here
+local ROW_RIGHT_PAD = 24
 
 local function CreateGeneralTab(parent)
     local frame = CreateFrame("Frame", "BarWardenGeneralTab", parent)
     frame:SetAllPoints(parent)
     frame:Hide()
 
-    frame.Refresh = ns:BuildSettings(frame, SCHEMA)
+    -- Scroll frame so the slash-command list never clips at the bottom of
+    -- the panel (matches the Visuals / Help / Stats tabs).
+    local scrollFrame = CreateFrame("ScrollFrame", "BarWardenGeneralScrollFrame",
+                                    frame, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT",     frame, "TOPLEFT",      4, -78)
+    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28,   4)
+
+    local content = CreateFrame("Frame", nil, scrollFrame)
+    content:SetWidth(544)
+    content:SetHeight(1)
+    scrollFrame:SetScrollChild(content)
+
+    local widgetRefs = {}
+    frame.Refresh = ns:BuildSettings(content, SCHEMA, widgetRefs,
+                                     { firstX = 16, firstY = -10 })
+
+    -- Render the runnable command rows below the Slash Commands header. Each
+    -- label is its own FontString; the Run button sits in a fixed left column
+    -- so all labels align and a wrapped label never pushes its button down.
+    local prev = widgetRefs.slashHeader
+    local lastRow = prev
+    for i, row in ipairs(SLASH_ROWS) do
+        local xOff = (i == 1) and LABEL_COL_X or 0
+
+        local fs = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        fs:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", xOff, -8)
+        fs:SetJustifyH("LEFT")
+        if fs.SetWordWrap then fs:SetWordWrap(true) end
+        fs:SetWidth(544 - LABEL_COL_X - ROW_RIGHT_PAD)
+        fs:SetText(row.label)
+
+        if row.run then
+            local runCmd = row.run
+            local btn = ns:CreateButton(content, "Run", 44, function()
+                local handler = SlashCmdList and SlashCmdList["BARWARDEN"]
+                if handler then handler(runCmd) end
+                if PlaySound then PlaySound("igMainMenuOptionCheckBoxOn") end
+            end)
+            btn:SetSize(44, 20)
+            btn:SetPoint("LEFT", fs, "LEFT", -LABEL_COL_X, 0)
+        end
+
+        prev = fs
+        lastRow = fs
+    end
+
+    -- Version footer below the list (back at the left margin).
+    local footer = content:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    footer:SetPoint("TOPLEFT", lastRow, "BOTTOMLEFT", -LABEL_COL_X, -16)
+    footer:SetText("BarWarden v" .. (ns.version or "?")
+                .. " | WoW 3.3.5a (Interface 30300)")
+
+    -- On show: adapt content width to the viewport and trim its height to the
+    -- footer so the scrollbar engages only when there is overflow.
+    frame:SetScript("OnShow", function()
+        local w = scrollFrame:GetWidth()
+        if w and w > 100 then content:SetWidth(w) end
+        local footBottom = footer:GetBottom()
+        local contentTop = content:GetTop()
+        if footBottom and contentTop and contentTop > footBottom then
+            content:SetHeight(contentTop - footBottom + 20)  -- 20 px margin
+        end
+        if frame.Refresh then frame:Refresh() end
+    end)
 
     return frame
 end

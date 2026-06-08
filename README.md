@@ -231,6 +231,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Turn the addon on or off
 - Lock or unlock all group frames
 - Show or hide the minimap button
+- A full list of slash commands, each with a Run button to fire it straight from the panel
 
 ### Bars / Groups
 
