@@ -85,5 +85,27 @@ doc in the same patch:
 - This file - if you add or remove a `.lua` file (update the count) or
   introduce a new top-level convention.
 
+## Release process
+
+Releases are driven by
+[.github/workflows/release.yml](.github/workflows/release.yml), triggered
+by pushing a `v*` tag (or `workflow_dispatch` for recovery). The workflow
+runs the test suite as a gate, then:
+
+1. Stamps the tag version into `BarWarden.toc` (the `## Version:` field
+   without the `v`, and the `[vX.Y.Z]` Title badge with it). No manual
+   version edit is needed; `ns.version` reads the TOC at runtime via
+   `GetAddOnMetadata`.
+2. Packages the addon (plus `LICENSE` and `README.md`) into `BarWarden.zip`.
+3. Commits the stamped TOC back to `main` as `Update version to vX.Y.Z
+   [skip ci]`. **After a release, `git pull` before your next commit** or
+   local `main` is one behind.
+4. Uses the matching `### vX.Y.Z` stanza from `CHANGELOG.md` as the
+   release body (a stub if absent), with the compare link appended below.
+
+**Add the `### vX.Y.Z` CHANGELOG stanza before you tag** - the workflow
+reads it for the release notes. Use a minor (`vX.Y.0`) for features or
+schema additions, a patch (`vX.Y.Z`) for fixes only.
+
 For everything else, [docs/ADDON_GUIDE.md](docs/ADDON_GUIDE.md) is
 authoritative.

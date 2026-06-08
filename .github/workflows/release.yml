@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v1.11.0). Must already exist on origin.'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -23,32 +29,76 @@ jobs:
   release:
     needs: test
     runs-on: ubuntu-latest
+    env:
+      # On a `push: tags` trigger, github.ref_name is the tag (e.g. v1.11.0).
+      # On workflow_dispatch, github.ref_name is the default branch, so the
+      # dispatch input wins. This lets a maintainer recover a missed trigger
+      # by re-firing the release manually.
+      RELEASE_REF: ${{ inputs.tag || github.ref_name }}
     steps:
+      # Check out main (not the tag) so the version bump can be committed
+      # back. The normal flow tags main's HEAD, so main == the tagged commit;
+      # the test job above gated that same code.
       - name: Checkout
         uses: actions/checkout@v5
-
-      - name: Get version from tag
-        id: version
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        with:
+          ref: main
 
       - name: Stamp version into TOC
         run: |
-          sed -i "s/^## Version: .*/## Version: ${{ steps.version.outputs.VERSION }}/" BarWarden.toc
+          TAG="${RELEASE_REF}"        # e.g. v1.11.0 (with leading v)
+          VERSION="${TAG#v}"          # e.g. 1.11.0 (## Version: carries no v)
+          echo "Releasing $TAG"
+          # ## Version: field (no v, matches the existing convention).
+          sed -i "s/^## Version: .*/## Version: $VERSION/" BarWarden.toc
+          # Title badge [vX.Y.Z] (with v) so the in-game AddOns list matches.
+          sed -i "s/\[v[0-9]*\.[0-9]*\.[0-9]*\]/[$TAG]/g" BarWarden.toc
 
       - name: Package addon into zip
         run: |
           mkdir -p build/BarWarden
-          # Copy only addon files, exclude git/github/dev files
+          # Copy only addon files, exclude git/github/dev files. LICENSE has
+          # no extension so the *.md exclude does not drop it (attribution
+          # preservation requires it to ship).
           rsync -av --exclude='.git' --exclude='.github' --exclude='.gitignore' --exclude='.claude*' --exclude='docs' --exclude='build' --exclude='logs' --exclude='NeedToKnow' --exclude='RoguePowerBars' --exclude='3.3.5.a' --exclude='tests' --exclude='*.md' . build/BarWarden/
           # Include README inside the zip for reference
           cp README.md build/BarWarden/
           cd build
           zip -r ../BarWarden.zip BarWarden/
 
+      - name: Commit version bump back to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add BarWarden.toc
+          git commit -m "Update version to ${RELEASE_REF} [skip ci]" || echo "No changes to commit"
+          git push origin main
+
+      - name: Extract changelog section for this release
+        # Pull the `### vX.Y.Z` stanza from CHANGELOG.md into release-body.md.
+        # CHANGELOG headers carry the leading v (### v1.11.0), so match the tag
+        # verbatim. Falls back to a stub if the tag has no stanza;
+        # generate_release_notes still appends the compare-link footer below.
+        run: |
+          TAG="${RELEASE_REF}"
+          awk -v target="### $TAG" '
+            $0 == target { found = 1; print; next }
+            found && /^### v/ { found = 0 }
+            found { print }
+          ' CHANGELOG.md > release-body.md
+          if [ ! -s release-body.md ]; then
+            printf "### %s\n\nPatch release. See the previous minor version for the feature description.\n" "$TAG" > release-body.md
+          fi
+          echo "--- release-body.md (first 20 lines) ---"
+          head -20 release-body.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          # Explicit tag_name so workflow_dispatch targets the right tag (on
+          # dispatch, github.ref is the branch, not the tag).
+          tag_name: ${{ env.RELEASE_REF }}
           files: BarWarden.zip
+          body_path: release-body.md
+          # Appends the "Full Changelog" compare link below the curated body.
           generate_release_notes: true
