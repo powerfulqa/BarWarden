@@ -17,6 +17,9 @@ ns.DEFAULTS = {
     global = {
         enabled = true,
         locked = true,
+        -- Notify when a newer BarWarden version is seen on a peer (Comms.lua).
+        -- Additive key, backfilled by MergeDefaults on existing saves.
+        versionAlerts = true,
         -- Help-tab section collapse state: sectionKey -> true when collapsed.
         -- Seeded so Getting Started is open and the rest start collapsed.
         -- Additive key, backfilled by MergeDefaults on existing saves (no

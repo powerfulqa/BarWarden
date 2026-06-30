@@ -16,5 +16,24 @@ jobs:
         # semantic drift from 5.4 (which most dev boxes have) surfaces here.
         run: sudo apt-get update && sudo apt-get install -y lua5.1
 
+      - name: Syntax check (luac -p)
+        # Hard gate: parse every shipped file plus the test harness. The *.lua
+        # glob skips the bundled Libs/ and tests/ lives in its own dir, added
+        # explicitly. A parse error fails the build.
+        run: |
+          for f in *.lua tests/*.lua; do
+            echo "luac -p $f"
+            luac5.1 -p "$f" || exit 1
+          done
+
       - name: Run test suite
         run: lua5.1 tests/run.lua
+
+      - name: Luacheck (non-blocking)
+        # Informational only for now, matching EbonClearance's deferred gate.
+        # Surfaces lint findings without failing the build; tighten later.
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y luarocks
+          sudo luarocks install luacheck
+          luacheck *.lua

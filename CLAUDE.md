@@ -24,7 +24,7 @@ cleanup.
   30300**: timer bars for spell cooldowns, buffs, debuffs, procs, item
   cooldowns, weapon enchants, totems, and class resources, grouped into
   movable on-screen containers and configured through a tabbed Interface
-  Options panel. It ships as 27 `.lua` files plus the bundled `Libs/`.
+  Options panel. It ships as 28 `.lua` files plus the bundled `Libs/`.
   [BarWarden.toc](BarWarden.toc) lists every file in load order; add a
   new file after everything it depends on.
 - **The bundled libraries are intentional.** LibStub,
@@ -44,7 +44,7 @@ cleanup.
   help must lead with what happens, drop the mechanism, and avoid code
   jargon. Internal docstrings and comments may stay technical.
 - **Verify before commit:** `luac -p` on changed files, `lua tests/run.lua`
-  (117 logic tests; frame code is out of scope and rides the in-game
+  (123 logic tests; frame code is out of scope and rides the in-game
   smoke test), then `/reload` in game with `/console scriptErrors 1`.
 
 ## Conventions at a glance
@@ -80,6 +80,10 @@ doc in the same patch:
 - [CHANGELOG.md](CHANGELOG.md) - a `### vX.Y.Z` stanza per release.
 - [docs/ADDON_GUIDE.md](docs/ADDON_GUIDE.md) - architecture, patterns,
   naming, 3.3.5a gotchas, the EC-TRAP trap index.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - the one-screen code map;
+  update the file-role tables when a `.lua` file is added or changes role.
+- [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md) - deferred work and standing
+  decisions; add an item rather than re-litigating a settled question.
 - [NOTICE.md](NOTICE.md) - adopting or diverging from a convention shared
   with the sibling addon EbonClearance.
 - This file - if you add or remove a `.lua` file (update the count) or
@@ -106,6 +110,15 @@ runs the test suite as a gate, then:
 **Add the `### vX.Y.Z` CHANGELOG stanza before you tag** - the workflow
 reads it for the release notes. Use a minor (`vX.Y.0`) for features or
 schema additions, a patch (`vX.Y.Z`) for fixes only.
+
+### Discord patch note
+
+After each tag, the user expects a copy-paste Discord post in the same
+tone as the CHANGELOG stanza but compressed (Discord's 2000-char limit).
+Lead with the headline change in **bold**, then a short feature list,
+then a `**Full Changelog**:` link to the release. No emojis (matches the
+addon's plain-text house style). Patch releases get tighter posts than
+minor releases.
 
 For everything else, [docs/ADDON_GUIDE.md](docs/ADDON_GUIDE.md) is
 authoritative.

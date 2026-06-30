@@ -98,6 +98,22 @@ ns.GCD_THRESHOLD = 1.5    -- ignore GCD triggers in cooldown/item trackers
 ns.MAX_AURA_INDEX = 40    -- WoW 3.3.5a maximum buff/debuff index
 
 -- ----------------------------------------------------------------------------
+-- Shared colour palette (design tokens)
+--
+-- Use these instead of inline |cff... hex so BarWarden and EbonClearance read
+-- as one product family. Documented in docs/ADDON_GUIDE.md "Colour palette".
+-- ----------------------------------------------------------------------------
+ns.COLORS = {
+    title    = "|cff4db8ff",  -- addon title (blue)
+    good     = "|cffb6ffb6",  -- success / good (green)
+    bad      = "|cffff4444",  -- error / bad (red)
+    warning  = "|cffffb84d",  -- warning / note (orange)
+    emphasis = "|cffffff00",  -- emphasis (yellow)
+    prefix   = "|cff7fbfff",  -- chat prefix (cyan)
+    muted    = "|cff888888",  -- muted / caption (grey)
+}
+
+-- ----------------------------------------------------------------------------
 -- Config accessors
 -- ----------------------------------------------------------------------------
 

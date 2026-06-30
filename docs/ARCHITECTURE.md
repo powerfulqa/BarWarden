@@ -1,0 +1,113 @@
+# Architecture (code map)
+
+A bird's-eye map of where things live, for a contributor or AI agent landing in
+the repo. This is a map, not a manual: it tells you which file to open, not how
+every function works. For the deep reference (3.3.5a constraints, the scan loop,
+gotchas, refactoring traps) read [ADDON_GUIDE.md](ADDON_GUIDE.md). For deferred
+work and standing decisions, read [CODE_REVIEW.md](CODE_REVIEW.md).
+
+BarWarden is a WoW 3.3.5a (WotLK, Lua 5.1) bar tracker: timer bars for spell
+cooldowns, buffs, debuffs, procs, item cooldowns, weapon enchants, totems, and
+class resources, grouped into movable containers and configured through a tabbed
+Interface Options panel. It bundles LibStub / LibSharedMedia-3.0 /
+LibDataBroker-1.1 / LibDBIcon-1.0 (kept on purpose; see ADDON_GUIDE).
+
+## How the files fit together
+
+The `.toc` ([BarWarden.toc](../BarWarden.toc)) is the load-order source of truth;
+the list below groups files by role, not load order. Every file starts with
+`local addonName, ns = ...` and shares state through that `ns` table. The only
+true globals are `BarWardenDB`, `BarWardenAccountDB`, the slash-command handles,
+and the `BARWARDEN_*` / `__BarWarden_*` provenance globals.
+
+### Engine (no UI)
+
+| File | Owns |
+|------|------|
+| [Utils.lua](../Utils.lua) | Shared helpers: `CopyTable` / `MergeDefaults` / `GetVisual`, the callback bus, `ns:After` (one-shot delay), `ns.COLORS` (the palette tokens), and the GCD threshold. Loads early. |
+| [SharedMedia.lua](../SharedMedia.lua) | Optional LibSharedMedia integration (degrades gracefully when absent). |
+| [DB.lua](../DB.lua) | `ns.DEFAULTS` (schema source of truth), `MigrateDB` + `CURRENT_SCHEMA`. |
+| [AuraGroups.lua](../AuraGroups.lua) | Named aura equivalency groups (`@Stunned`, `@Bleeding`, ...). |
+| [Conditions.lua](../Conditions.lua) | Visibility-condition registry + evaluator. |
+| [Bar.lua](../Bar.lua) / [BarPool.lua](../BarPool.lua) | Bar frame construction + the object pool. Never `CreateFrame("StatusBar")` outside these. |
+| [BarEngine.lua](../BarEngine.lua) | The scan loop, bar state machine, OnUpdate depletion, resource bars. |
+| [Trackers.lua](../Trackers.lua) | Per-`trackMode` checkers (aura / cooldown / item / resource). |
+| [FrameManager.lua](../FrameManager.lua) / [DragReorder.lua](../DragReorder.lua) | Group frames + layout; drag-to-reorder. |
+| [ActivityTracker.lua](../ActivityTracker.lua) | Passive usage tracking + per-spell stats store. |
+| [ClassPresets.lua](../ClassPresets.lua) | Per-class / per-spec starter profiles + the loaders. |
+
+### Event hub & comms
+
+| File | Owns |
+|------|------|
+| [Events.lua](../Events.lua) | The central event dispatcher: `GAMEPLAY_EVENTS` maps events to `ns:OnX` methods. Adding an event = a `ns:OnSomething` method + one row here, never a new frame. |
+| [Comms.lua](../Comms.lua) | `ns.Comms` addon-to-addon transport + the version-update nudge. 3.3.5a-safe (no `RegisterAddonMessagePrefix`, no `GROUP_ROSTER_UPDATE`). |
+
+### Interface Options (tabbed panel)
+
+One file per tab. Each registers via `ns:RegisterOptionsTab(index, builder)`;
+[Options.lua](../Options.lua) owns the shell, `TAB_NAMES`, and tab switching
+(`ns:SelectOptionsTab`). [Options_Builder.lua](../Options_Builder.lua) is the
+declarative settings-schema walker (`ns:BuildSettings`).
+
+[General](../Options_General.lua) ·
+[Bars / Groups](../Options_Bars.lua) ·
+[Visuals](../Options_Visuals.lua) ·
+[Profiles](../Options_Profiles.lua) ·
+[Activity Tracker](../Options_Stats.lua) ·
+[Help](../Options_Help.lua)
+
+### Other UI & utility
+
+| File | Owns |
+|------|------|
+| [Widgets.lua](../Widgets.lua) | Widget factories (`CreateCheckbox` / `CreateSlider` / `CreateDropdown` / `CreateEditBox` / `CreateButton`), `ns:DBSet`/`DBGet`, and `ns:CreateHelpIcon` (the `[?]` deep-link). |
+| [MinimapButton.lua](../MinimapButton.lua) | LibDataBroker launcher + LibDBIcon-managed minimap button. |
+| [Dialogs.lua](../Dialogs.lua) | `StaticPopup` definitions (keyed `BARWARDEN_*`). |
+| [BugReport.lua](../BugReport.lua) | Diagnostic snapshot builder + display frame (`/bw bugreport`). |
+| [Core.lua](../Core.lua) | Lifecycle (`OnInitialize`/`OnEnable`/`OnDisable`), the `/bw` slash router, `ns:Print`, and the provenance globals + watermark. |
+
+## Boundaries (the things that must stay true)
+
+Invariants an agent should not "simplify" across. Many are pinned in code with
+`EC-TRAP:` markers; run `grep -rn "EC-TRAP:"` before touching anything that looks
+like dead code or a bug.
+
+- **One scan loop / OnUpdate.** It lives in `Core.lua` and drives `BarEngine`. Features do not create their own per-frame loops.
+- **Cross-file state goes through `ns`.** New globals are not added (locked by `tests/test_hygiene.lua`).
+- **SavedVariables change only via `MigrateDB` + `CURRENT_SCHEMA`** (additive; only fill nil keys, never overwrite user data).
+- **Chat output only through `ns:Print`.** Never `DEFAULT_CHAT_FRAME:AddMessage` directly outside the debug dump.
+- **Bars come from `BarPool`,** never a raw `CreateFrame("StatusBar")`.
+- **Colours come from `ns.COLORS`** (the shared palette), not new inline hex.
+- **No em dashes (U+2014) anywhere** (locked by `tests/test_hygiene.lua`). British English.
+
+## Where do I make change X?
+
+| I want to... | Open |
+|--------------|------|
+| Change when a bar is shown / hidden | `Conditions.lua` (`ns:RegisterCondition`) |
+| Add a tracking mode | `Trackers.lua` (`ns.TRACKERS`; resource modes also `ns.RESOURCE_TRACK_MODES`) |
+| Change bar look / colour | `Bar.lua` / the Visuals tab / `ns.COLORS` |
+| Add a settings checkbox | the relevant `Options_*.lua` + a default in `ns.DEFAULTS` (`DB.lua`) |
+| Add a whole new options tab | new `Options_*.lua` + `ns:RegisterOptionsTab` + a `TAB_NAMES` entry in `Options.lua` |
+| React to a new game event | a `ns:OnSomething` method + a row in `GAMEPLAY_EVENTS` (`Events.lua`), not a new frame |
+| Add a `/bw` subcommand | `SLASH_COMMANDS` in `Core.lua` (+ a README row + the runnable list in `Options_General.lua`) |
+| Add an aura `@group` token | `AuraGroups.lua` |
+| Add / edit a class starter preset | `ClassPresets.lua` |
+| Add a Help FAQ entry or a `[?]` icon | `Options_Help.lua` (`HELP_ENTRIES`) + `ns:CreateHelpIcon` |
+| Send an addon-to-addon message | `ns.Comms` in `Comms.lua` |
+
+## Verifying a change
+
+From the repo root:
+
+```
+lua tests/run.lua          # all logic suites (frame code rides the in-game smoke test)
+luac -p *.lua              # syntax-check shipped files (luac5.1 in CI)
+luacheck *.lua             # lint (non-blocking; config in .luacheckrc)
+stylua --check *.lua       # formatting (config in stylua.toml; do not format Libs/)
+```
+
+CI ([.github/workflows/tests.yml](../.github/workflows/tests.yml)) runs the syntax
+check + test suite on every push (luacheck non-blocking); the release workflow
+re-runs them at the tag gate. See [CLAUDE.md](../CLAUDE.md) for the release process.

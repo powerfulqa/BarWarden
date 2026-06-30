@@ -20,6 +20,7 @@ DB.lua
 AuraGroups.lua
 Conditions.lua
 Events.lua
+Comms.lua
 ActivityTracker.lua
 Bar.lua
 BarPool.lua

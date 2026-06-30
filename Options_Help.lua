@@ -430,7 +430,13 @@ local function CreateHelpTab(parent)
                 UIFrameFlash(e.flash, 0.25, 0.45, 1.4, false, 0, 0.35)
             end
 
-            e._measure = function()
+            -- Apply the current text width, then size the entry to the wrapped
+            -- height at that width. Called from Relayout with the live width so
+            -- the answer reflows when the panel viewport changes size.
+            e._apply = function(tw)
+                e:SetWidth(tw)
+                q:SetWidth(tw)
+                a:SetWidth(tw)
                 local qh = q:GetStringHeight() or 12
                 local ah = a:GetStringHeight() or 12
                 e:SetHeight(qh + 3 + ah)
@@ -446,10 +452,19 @@ local function CreateHelpTab(parent)
     -- the ones below it). Collapsed sections hide their content entries.
     function frame.Relayout()
         local collapsed = GetCollapsed()
+        -- Reflow to the live scroll-viewport width so wrapped answer text is
+        -- never clipped when the Interface Options panel is a different size
+        -- than the build-time guess. Falls back to 544 before the frame is
+        -- first shown (GetWidth is 0 until then).
+        local w = scrollFrame:GetWidth()
+        if not w or w < 100 then w = 544 end
+        content:SetWidth(w)
+        local textW = w - 16 - 8   -- entries anchor at x=16; keep an 8px right margin
         local y = -8
         for _, item in ipairs(items) do
             if item.kind == "section" then
                 item.widget.UpdateArrow(collapsed[item.section])
+                item.widget:SetWidth(w - 8)
                 item.widget:ClearAllPoints()
                 item.widget:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
                 item.widget:Show()
@@ -458,7 +473,7 @@ local function CreateHelpTab(parent)
                 if collapsed[item.section] then
                     item.widget:Hide()
                 else
-                    item.widget._measure()
+                    item.widget._apply(textW)
                     item.widget:ClearAllPoints()
                     item.widget:SetPoint("TOPLEFT", content, "TOPLEFT", 16, y)
                     item.widget:Show()
@@ -469,9 +484,12 @@ local function CreateHelpTab(parent)
         content:SetHeight(math.max(1, -y + 20))
     end
 
-    -- Lay out on first show and whenever shown (collapse state may have
-    -- changed via a deep-link while the tab was hidden).
+    -- Lay out on first show and whenever shown (collapse state may have changed
+    -- via a deep-link while the tab was hidden), and reflow whenever the scroll
+    -- viewport resizes (UI scale change or a differently-sized options panel)
+    -- so the wrapped text tracks the real width instead of a fixed guess.
     frame:SetScript("OnShow", function() frame.Relayout() end)
+    scrollFrame:SetScript("OnSizeChanged", function() frame.Relayout() end)
     frame.Relayout()
 
     ns._helpTab = frame

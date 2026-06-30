@@ -1,0 +1,268 @@
+-- Comms.lua - Addon-to-addon comms and the version-update nudge.
+-- Author:  Serv
+-- Source:  https://github.com/powerfulqa/BarWarden
+-- License: see LICENSE; attribution preservation is required.
+
+local addonName, ns = ...
+
+-- Mirrors EbonClearance's NS.Comms so the two addons behave identically:
+-- broadcast a version request on a group/guild channel, peers reply by
+-- whisper, and nudge once per session when a newer version is seen.
+--
+-- 3.3.5a constraints baked in:
+--   * No RegisterAddonMessagePrefix (4.0+): filter CHAT_MSG_ADDON by prefix.
+--   * SendAddonMessage channels: PARTY / RAID / GUILD / BATTLEGROUND / WHISPER.
+--   * Group events are PARTY_MEMBERS_CHANGED / RAID_ROSTER_UPDATE (the event hub
+--     in Events.lua uses those, not the 4.0 GROUP_ROSTER_UPDATE).
+
+local Comms = {}
+ns.Comms = Comms
+
+local VER_MAJ_FACTOR = 1000000
+local VER_MIN_FACTOR = 1000
+local VER_COMPONENT_MAX = 1000
+
+-- Encode "v?MAJOR.MINOR.PATCH" as MAJOR*1e6 + MINOR*1e3 + PATCH so peers compare
+-- numerically. A plain string compare breaks at two digits ("1.10.0" < "1.9.0"
+-- lexically); numeric encoding fixes that. Each component must be < 1000;
+-- anything malformed returns nil and is ignored upstream.
+function Comms.parseVersion(str)
+    if type(str) ~= "string" then return nil end
+    local s = str:gsub("^[vV]", "")
+    local maj, min, pat = s:match("^(%d+)%.(%d+)%.(%d+)")
+    maj, min, pat = tonumber(maj), tonumber(min), tonumber(pat)
+    if not (maj and min and pat) then return nil end
+    if maj >= VER_COMPONENT_MAX or min >= VER_COMPONENT_MAX or pat >= VER_COMPONENT_MAX then
+        return nil
+    end
+    return maj * VER_MAJ_FACTOR + min * VER_MIN_FACTOR + pat
+end
+
+-- ---- transport ----------------------------------------------------------
+local PREFIX = "BWDN1" -- short, distinctive; trailing 1 = protocol version
+local SEP = "\t"       -- field separator; never appears in versions or links
+
+local handlers = {}
+local lastSendAt = {}
+local SEND_THROTTLE_S = 30
+
+function Comms.RegisterHandler(msgType, fn)
+    handlers[msgType] = fn
+end
+
+function Comms.Send(msgType, payload, channel, target)
+    local now = GetTime()
+    -- Throttle per (message type, destination) so unrelated types to the same
+    -- peer never share a bucket.
+    local key = (channel == "WHISPER")
+        and (msgType .. ":WHISPER:" .. tostring(target))
+        or (msgType .. ":" .. channel)
+    if lastSendAt[key] and (now - lastSendAt[key]) < SEND_THROTTLE_S then
+        return
+    end
+    lastSendAt[key] = now
+    SendAddonMessage(PREFIX, msgType .. SEP .. tostring(payload), channel, target)
+end
+
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("CHAT_MSG_ADDON")
+frame:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
+    if prefix ~= PREFIX then
+        return -- cheap early-out: unrelated addon traffic costs one compare
+    end
+    local msgType, payload = message:match("^(.-)" .. SEP .. "(.*)$")
+    if not msgType then
+        return
+    end
+    local fn = handlers[msgType]
+    if fn then
+        fn(payload, sender, channel)
+    end
+end)
+
+-- ---- version-check consumer ---------------------------------------------
+local RELEASE_URL = "https://github.com/powerfulqa/BarWarden/releases/latest"
+-- Green clickable link in the nudge. The "bwupdate" hyperlink type is custom;
+-- the SetItemRef hook below catches the click and shows a copyable popup (the
+-- 3.3.5a client cannot open a browser).
+local RELEASE_LINK = "|cff33ff33|Hbwupdate:latest|h[Click here]|h|r"
+local NUDGE_DELAY_S = 3
+local versionNudgeShown = false -- once per session
+
+local function myVersionStr()
+    return ns.version
+end
+
+local function playerName()
+    return UnitName("player")
+end
+
+local function alertsEnabled()
+    return ns.db and ns.db.global and ns.db.global.versionAlerts
+end
+
+local function showVersionNudge(peerVerStr)
+    if versionNudgeShown then
+        return
+    end
+    versionNudgeShown = true
+    ns:Print(string.format("%sUpdate available: %s|r (you have %s). %s",
+        ns.COLORS.emphasis, peerVerStr, tostring(myVersionStr()), RELEASE_LINK))
+end
+
+-- Copy-URL popup shown when the player clicks the green release link. WoW
+-- 3.3.5a cannot launch a browser, so present the URL pre-selected for Ctrl+C.
+StaticPopupDialogs["BARWARDEN_UPDATE_URL"] = {
+    text = "Copy this link, then open it in your browser:",
+    button1 = CLOSE,
+    hasEditBox = true,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+    OnShow = function(self)
+        local eb = self.editBox or _G[(self:GetName() or "") .. "EditBox"]
+        if eb then
+            local w = self:GetWidth() or 0
+            if w < 120 then w = 320 end
+            eb:SetWidth(w - 40)
+            eb:SetText(RELEASE_URL)
+            eb:HighlightText() -- whole URL selected for Ctrl+C
+            eb:SetCursorPosition(0)
+            eb:SetFocus()
+        end
+    end,
+    EditBoxOnEnterPressed = function(self) self:GetParent():Hide() end,
+    EditBoxOnEscapePressed = function(self) self:GetParent():Hide() end,
+}
+
+-- EC-TRAP: SetItemRef is REPLACED (not hooksecurefunc'd) on purpose - the stock
+-- 3.3.5a handler passes unknown link types to SetHyperlink, which errors on our
+-- custom "bwupdate" link. Returning early avoids that path; every other link is
+-- forwarded to the original untouched. Do NOT swap this to a hook.
+local origSetItemRef = SetItemRef
+function SetItemRef(link, text, button, chatFrame)
+    if type(link) == "string" and link:sub(1, 9) == "bwupdate:" then
+        StaticPopup_Show("BARWARDEN_UPDATE_URL")
+        return
+    end
+    if origSetItemRef then
+        return origSetItemRef(link, text, button, chatFrame)
+    end
+end
+
+-- Decide whether a peer's advertised version should trigger a nudge.
+local function considerPeerVersion(verStr, sender)
+    if not alertsEnabled() then
+        return
+    end
+    if sender and sender == playerName() then
+        return -- ignore our own broadcast echoed back
+    end
+    local peerInt = Comms.parseVersion(verStr)
+    local myInt = Comms.parseVersion(myVersionStr() or "")
+    if not peerInt or not myInt then
+        return
+    end
+    -- Sanity cap: ignore an absurd version (e.g. a troll whispering v99.99.99).
+    local myMaj = math.floor(myInt / VER_MAJ_FACTOR)
+    local peerMaj = math.floor(peerInt / VER_MAJ_FACTOR)
+    if peerMaj > myMaj + 1 then
+        return
+    end
+    if peerInt > myInt and ns.After then
+        ns:After(NUDGE_DELAY_S, function()
+            showVersionNudge(verStr)
+        end)
+    end
+end
+
+-- A VERQ carries the sender's version (learn it directly) AND asks us to reply:
+-- whisper our version straight back to the requester.
+Comms.RegisterHandler("VERQ", function(payload, sender, channel)
+    considerPeerVersion(payload, sender)
+    if alertsEnabled() and sender and sender ~= playerName() then
+        local v = myVersionStr()
+        if v then
+            Comms.Send("VERR", v, "WHISPER", sender)
+        end
+    end
+end)
+
+-- A VERR is a direct reply carrying the replier's version.
+Comms.RegisterHandler("VERR", function(payload, sender, channel)
+    considerPeerVersion(payload, sender)
+end)
+
+-- ---- self-test diagnostic (/bw commtest) --------------------------------
+-- Lets a solo player verify the wire (a guild addon message echoes back to the
+-- sender on stock 3.3.5a) and the logic (a higher peer version produces one
+-- nudge, and the opt-out toggle suppresses it) without a second client.
+local commtestToken = nil
+local commtestEchoed = false
+
+Comms.RegisterHandler("PING", function(payload, sender, channel)
+    if commtestToken and payload == commtestToken then
+        commtestEchoed = true
+        ns:Print(string.format("Comms relay OK: message delivered (echo from %s).", tostring(sender)))
+    end
+    if sender and sender ~= playerName() then
+        Comms.Send("PONG", payload, "WHISPER", sender)
+    end
+end)
+
+Comms.RegisterHandler("PONG", function(payload, sender, channel)
+    if commtestToken and payload == commtestToken then
+        commtestEchoed = true
+        ns:Print(string.format("Comms relay OK: reply received from %s.", tostring(sender)))
+    end
+end)
+
+function Comms.RunSelfTest()
+    local myVer = myVersionStr() or "unknown"
+    ns:Print(string.format("Comms self-test. Your version: %s (parsed %s).",
+        myVer, tostring(Comms.parseVersion(myVer))))
+
+    if GetGuildInfo("player") then
+        commtestToken = tostring(GetTime())
+        commtestEchoed = false
+        SendAddonMessage(PREFIX, "PING" .. SEP .. commtestToken, "GUILD")
+        ns:Print("Sent a guild ping; waiting for it to echo back...")
+        ns:After(3, function()
+            if not commtestEchoed then
+                ns:Print("Comms relay inconclusive: no echo in 3s. This core may "
+                    .. "not echo your own guild messages, or addon messages are "
+                    .. "filtered. Confirm with a second player.")
+            end
+        end)
+    else
+        ns:Print("Not in a guild, skipping the wire echo test. Join any guild to test message delivery.")
+    end
+
+    versionNudgeShown = false -- reset so the test is repeatable
+    local myInt = Comms.parseVersion(myVer)
+    if myInt then
+        local maj = math.floor(myInt / VER_MAJ_FACTOR)
+        local min = math.floor((myInt % VER_MAJ_FACTOR) / VER_MIN_FACTOR)
+        local fakeVer = string.format("v%d.%d.%d", maj, min + 1, 0)
+        local on = alertsEnabled()
+        ns:Print(string.format("Simulating a peer on %s. Alerts are %s; %s.",
+            fakeVer, on and "ON" or "OFF",
+            on and "an Update available line should appear in ~3s"
+                or "no nudge expected (toggle is off)"))
+        considerPeerVersion(fakeVer, "CommTest")
+    end
+end
+
+-- Send-trigger entry point. Called from the event hub (Events.lua) with
+-- "GUILD" / "PARTY" / "RAID". Gated + throttled internally.
+function Comms.FireVersionProbe(channel)
+    if not alertsEnabled() then
+        return
+    end
+    local v = myVersionStr()
+    if not v then
+        return
+    end
+    Comms.Send("VERQ", v, channel)
+end

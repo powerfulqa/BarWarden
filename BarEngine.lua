@@ -958,6 +958,16 @@ end
 function ns:OnGroupChanged()
     -- Re-evaluate conditions for group/raid-gated bars
     ns:ScanAllBars()
+    -- Version-probe the group so peers running BarWarden can tell us about a
+    -- newer release. Channel matches the current group type; gated + throttled
+    -- inside Comms.
+    if ns.Comms then
+        if GetNumRaidMembers() > 0 then
+            ns.Comms.FireVersionProbe("RAID")
+        elseif GetNumPartyMembers() > 0 then
+            ns.Comms.FireVersionProbe("PARTY")
+        end
+    end
 end
 
 function ns:OnUnitHealth(unit)

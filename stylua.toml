@@ -1,0 +1,14 @@
+# StyLua formatter config for BarWarden.
+# Run:    stylua *.lua
+# Check:  stylua --check *.lua
+# Matches EbonClearance's config and BarWarden's existing 4-space indentation
+# so adopting the formatter produces no re-indent churn. Do NOT run stylua over
+# the bundled Libs/ (third-party, formatted upstream).
+
+column_width = 120
+line_endings = "Unix"
+indent_type = "Spaces"
+indent_width = 4
+quote_style = "AutoPreferDouble"
+call_parentheses = "Always"
+collapse_simple_statement = "Never"

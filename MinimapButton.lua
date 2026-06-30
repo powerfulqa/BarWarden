@@ -46,12 +46,22 @@ end
 
 local function OnTooltipShow(tt)
     if not tt or not tt.AddLine then return end
+    local C = ns.COLORS
     local enabled = ns.db and ns.db.global and ns.db.global.enabled
-    if enabled then
-        tt:AddLine("BarWarden", 1, 1, 1)
-    else
-        tt:AddLine("BarWarden (Disabled)", 1, 0.4, 0.4)
-    end
+
+    tt:AddLine("BarWarden")
+    tt:AddLine(C.muted .. "v" .. (ns.version or "?") .. "|r")
+    tt:AddLine("Status: " .. (enabled and (C.good .. "Enabled|r")
+                                       or (C.bad .. "Disabled|r")))
+
+    -- Live counts so the tooltip is a quick at-a-glance status, like EC's.
+    local barCount = #(ns.allBars or {})
+    local groupCount = 0
+    for _ in pairs(ns.groupFrames or {}) do groupCount = groupCount + 1 end
+    tt:AddLine(string.format("Tracking %s%d|r bars in %s%d|r groups",
+        C.emphasis, barCount, C.emphasis, groupCount))
+
+    tt:AddLine(" ")
     tt:AddLine("Left-click to open options", 0.8, 0.8, 0.8)
     tt:AddLine("Right-click to enable/disable", 0.8, 0.8, 0.8)
     tt:AddLine("Drag to reposition", 0.8, 0.8, 0.8)

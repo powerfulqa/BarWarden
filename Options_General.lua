@@ -23,8 +23,7 @@ local SCHEMA = {
     {
         type    = "toggle",
         label   = "Enable BarWarden",
-        tooltip = "Globally enable or disable BarWarden. When disabled, "
-               .. "all frames are hidden and events are unregistered.",
+        tooltip = "Turns BarWarden on or off. When off, all bars are hidden.",
         get     = function() return ns.db and ns.db.global.enabled end,
         set     = function(_, checked)
             ns:SetEnabled(checked)
@@ -69,6 +68,18 @@ local SCHEMA = {
         end,
     },
 
+    -- Version-update nudge toggle (Comms.lua).
+    {
+        type    = "toggle",
+        label   = "Notify me about updates",
+        tooltip = "Tells you in chat when a newer BarWarden version is seen on "
+               .. "someone in your group or guild.",
+        get     = function() return ns.db and ns.db.global and ns.db.global.versionAlerts end,
+        set     = function(_, checked)
+            if ns.db and ns.db.global then ns.db.global.versionAlerts = checked end
+        end,
+    },
+
     -- Slash Commands section header. The runnable list is rendered below it
     -- (see CreateGeneralTab); id exposes it as the anchor for that list.
     { type = "header", text = "Slash Commands", spacing = 24, id = "slashHeader" },
@@ -78,18 +89,18 @@ local SCHEMA = {
 -- a row without `run` is informational (no button). Keep in sync with
 -- SLASH_COMMANDS in Core.lua and the slash table in README.md.
 local SLASH_ROWS = {
-    { label = "|cffffd200/bw|r  Open the settings panel |cff888888(you are here)|r" },
-    { run = "enable",    label = "|cffffd200/bw enable|r  Turn the addon on" },
-    { run = "disable",   label = "|cffffd200/bw disable|r  Turn the addon off" },
-    { run = "lock",      label = "|cffffd200/bw lock|r  Toggle frame lock (drag groups when unlocked)" },
-    { run = "reset",     label = "|cffffd200/bw reset|r  Rebuild all frames and reset positions" },
-    { run = "test",      label = "|cffffd200/bw test|r  Toggle test mode (fake 30s timers)" },
-    { run = "scan",      label = "|cffffd200/bw scan|r  Test spell lookups and print the results" },
-    { run = "trackers",  label = "|cffffd200/bw trackers|r  Show live tracker state in chat" },
-    { run = "stats",     label = "|cffffd200/bw stats|r  Print activity stats to chat" },
-    { run = "debug",     label = "|cffffd200/bw debug|r  Print addon state to chat" },
-    { run = "bugreport", label = "|cffffd200/bw bugreport|r  Open a copyable diagnostic report" },
-    { run = "help",      label = "|cffffd200/bw help|r  List every command in chat" },
+    { label = "|cffffff00/bw|r  Open the settings panel |cff888888(you are here)|r" },
+    { run = "enable",    label = "|cffffff00/bw enable|r  Turn the addon on" },
+    { run = "disable",   label = "|cffffff00/bw disable|r  Turn the addon off" },
+    { run = "lock",      label = "|cffffff00/bw lock|r  Toggle frame lock (drag groups when unlocked)" },
+    { run = "reset",     label = "|cffffff00/bw reset|r  Rebuild all frames and reset positions" },
+    { run = "test",      label = "|cffffff00/bw test|r  Toggle test mode (fake 30s timers)" },
+    { run = "scan",      label = "|cffffff00/bw scan|r  Test spell lookups and print the results" },
+    { run = "trackers",  label = "|cffffff00/bw trackers|r  Show live tracker state in chat" },
+    { run = "stats",     label = "|cffffff00/bw stats|r  Print activity stats to chat" },
+    { run = "debug",     label = "|cffffff00/bw debug|r  Print addon state to chat" },
+    { run = "bugreport", label = "|cffffff00/bw bugreport|r  Open a copyable diagnostic report" },
+    { run = "help",      label = "|cffffff00/bw help|r  List every command in chat" },
 }
 
 local LABEL_COL_X  = 54   -- Run-button column width (44) + gap; labels start here

@@ -59,7 +59,7 @@ coreFrame:SetScript("OnUpdate", function(self, elapsed)
 end)
 
 function ns:Print(msg)
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden:|r " .. tostring(msg))
+    DEFAULT_CHAT_FRAME:AddMessage(ns.COLORS.prefix .. "BarWarden:|r " .. tostring(msg))
 end
 
 -- Re-apply visual config to every bar and relayout every group.
@@ -154,6 +154,11 @@ function ns:OnEnable()
     ns:StartActivityTracking()
     for _, frame in pairs(ns.groupFrames or {}) do
         if frame and frame.Show then frame:Show() end
+    end
+    -- Version-probe the guild shortly after enabling (delayed so the guild
+    -- roster has loaded). Gated + throttled inside Comms.
+    if ns.Comms and ns.After then
+        ns:After(5, function() ns.Comms.FireVersionProbe("GUILD") end)
     end
 end
 
@@ -280,7 +285,7 @@ SLASH_COMMANDS.help = function()
 end
 
 SLASH_COMMANDS.debug = function()
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Debug:|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff7fbfffBarWarden Debug:|r")
     DEFAULT_CHAT_FRAME:AddMessage("  DB loaded: " .. tostring(ns.db ~= nil))
     DEFAULT_CHAT_FRAME:AddMessage("  Enabled: " .. tostring(ns.db and ns.db.global.enabled))
     DEFAULT_CHAT_FRAME:AddMessage("  Locked: " .. tostring(ns.db and ns.db.global.locked))
@@ -300,7 +305,7 @@ SLASH_COMMANDS.debug = function()
 end
 
 SLASH_COMMANDS.scan = function()
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Scan:|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff7fbfffBarWarden Scan:|r")
     local bars = ns.allBars or {}
     if #bars == 0 then
         DEFAULT_CHAT_FRAME:AddMessage("  No bars in cache. Try /reload then /bw scan.")
@@ -346,7 +351,7 @@ SLASH_COMMANDS.scan = function()
 end
 
 SLASH_COMMANDS.trackers = function()
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Trackers:|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff7fbfffBarWarden Trackers:|r")
     local bars = ns.allBars or {}
     if #bars == 0 then
         DEFAULT_CHAT_FRAME:AddMessage("  No bars in cache. Try /reload then /bw trackers.")
@@ -376,8 +381,16 @@ SLASH_COMMANDS.bugreport = function()
     end
 end
 
+SLASH_COMMANDS.commtest = function()
+    if ns.Comms and ns.Comms.RunSelfTest then
+        ns.Comms.RunSelfTest()
+    else
+        ns:Print("Comms module not loaded.")
+    end
+end
+
 SLASH_COMMANDS.stats = function()
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffBarWarden Activity:|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff7fbfffBarWarden Activity:|r")
     local sessionDuration = time() - (ns.sessionStartTime or time())
     DEFAULT_CHAT_FRAME:AddMessage(string.format("  Session duration: %dm %ds",
         math.floor(sessionDuration / 60), sessionDuration % 60))

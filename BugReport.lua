@@ -36,6 +36,8 @@ local function GenerateReport()
 
     add("=== BarWarden Bug Report ===")
     add(string.format("Version: %s", ns.version or "unknown"))
+    add(string.format("Source:  %s  (by %s)", ns.url or "?", ns.author or "?"))
+    add(string.format("Watermark: %s", _G["__BarWarden_watermark"] or "?"))
 
     local version, buildNum, _, tocVersion = GetBuildInfo()
     add(string.format("Client: %s  Build: %s  TOC: %s", version or "?", buildNum or "?", tostring(tocVersion or "?")))
@@ -188,7 +190,10 @@ local function CreateReportFrame()
     f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart", function(self) self:StartMoving() end)
     f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
-    f:SetFrameStrata("DIALOG")
+    -- TOOLTIP strata + toplevel so the report floats above the Interface
+    -- Options window instead of being buried behind it (matches EC's report).
+    f:SetFrameStrata("TOOLTIP")
+    f:SetToplevel(true)
     f:SetClampedToScreen(true)
 
     -- Close on Escape

@@ -90,6 +90,7 @@ DB.lua                 SavedVariables schema, ns.DEFAULTS, migrations
 AuraGroups.lua         Named aura equivalency groups (@Stunned, @Bleeding, ...)
 Conditions.lua         Visibility condition registry + evaluator
 Events.lua             Central event dispatcher + factory wrappers
+Comms.lua              ns.Comms transport + version-update nudge (3.3.5a-safe)
 ActivityTracker.lua    Passive usage tracking + per-spell stats store
 Bar.lua                Bar frame construction + visual config
 BarPool.lua            Object pool for bar recycling
@@ -443,6 +444,24 @@ Bar.lua / BarPool.lua.
   technical; the rule is about the surface the player reads.
 - StaticPopups live in [Dialogs.lua](../Dialogs.lua), keyed
   `BARWARDEN_*`.
+
+### Colour palette
+
+Use `ns.COLORS` ([Utils.lua](../Utils.lua)) - do not invent new shades. This is
+the same palette EbonClearance uses, so the two addons read as one family.
+
+| Token            | Code         | Meaning         |
+|------------------|--------------|-----------------|
+| `ns.COLORS.title`    | `\|cff4db8ff` | Addon title     |
+| `ns.COLORS.good`     | `\|cffb6ffb6` | Success / good  |
+| `ns.COLORS.bad`      | `\|cffff4444` | Error / bad     |
+| `ns.COLORS.warning`  | `\|cffffb84d` | Warning / note  |
+| `ns.COLORS.emphasis` | `\|cffffff00` | Emphasis yellow |
+| `ns.COLORS.prefix`   | `\|cff7fbfff` | Chat prefix     |
+| `ns.COLORS.muted`    | `\|cff888888` | Muted / caption |
+
+The olive byline colour (`|cff888866`) is a one-off for the options-panel
+attribution line and is not a general token.
 
 ---
 

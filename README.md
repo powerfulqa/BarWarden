@@ -48,6 +48,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Bug report command** generates a copyable diagnostic snapshot for easy troubleshooting
 - **Minimap button right-click** to quickly enable or disable the addon
 - **Live-reactive settings** - changes in the options panel apply to the bars on the spot, no disable/re-enable needed
+- **Update reminder** tells you in chat when someone in your group or guild is running a newer BarWarden, with a copyable download link (toggle in the General tab)
 - **Inline help tooltips** on most per-bar and visual settings - hover any slider, dropdown, or text field for a plain-English explanation
 - **Spell tooltip on icon hover** optionally shows the full spell or item tooltip when you mouse over a bar's icon (toggle in Visuals tab)
 - **In-game Help tab** with a collapsible FAQ covering tracking modes, conditions, profiles, and troubleshooting, plus `[?]` icons next to the main settings that jump straight to the matching answer
@@ -125,6 +126,7 @@ Groups are locked in place by default so you don't accidentally move them during
 | `/bw stats` | Shows per-bar activation counts and uptime |
 | `/bw bugreport` | Opens a copyable diagnostic report window |
 | `/bw help` | Lists all available commands |
+| `/bw commtest` | Self-tests the version-update messaging (diagnostic) |
 
 You can also use `/barwarden` instead of `/bw` if you prefer.
 
@@ -231,6 +233,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Turn the addon on or off
 - Lock or unlock all group frames
 - Show or hide the minimap button
+- Get notified when a newer version is available
 - A full list of slash commands, each with a Run button to fire it straight from the panel
 
 ### Bars / Groups

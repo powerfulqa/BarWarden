@@ -254,17 +254,17 @@ function ns:CreateHelpIcon(parent, anchorWidget, anchorPoint, relPoint, xOff, yO
 
     local txt = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     txt:SetAllPoints()
-    txt:SetText("|cff4db8ff[?]|r")
+    txt:SetText(ns.COLORS.emphasis .. "[?]|r")
     btn.text = txt
 
     btn:SetScript("OnEnter", function(self)
-        txt:SetText("|cff7fd0ff[?]|r")
+        txt:SetText("|cffffffaa[?]|r")
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText("Open help", 1, 1, 1, 1, true)
         GameTooltip:Show()
     end)
     btn:SetScript("OnLeave", function()
-        txt:SetText("|cff4db8ff[?]|r")
+        txt:SetText(ns.COLORS.emphasis .. "[?]|r")
         GameTooltip:Hide()
     end)
     btn:SetScript("OnClick", function()

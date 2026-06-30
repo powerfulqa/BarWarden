@@ -13,6 +13,31 @@ exhaustive notes.
 
 ---
 
+### v1.12.0
+
+Closer alignment with the sibling addon EbonClearance, plus a new update
+reminder so you know when you are behind.
+
+- **Update reminder.** BarWarden now tells you in chat when someone in
+  your group or guild is running a newer version, with a copyable
+  download link. There is an off switch on the General tab ("Notify me
+  about updates"), and `/bw commtest` self-checks the messaging.
+- **Shared look.** The panel now uses the same colour palette as
+  EbonClearance - the `[?]` help icons and slash-command emphasis are the
+  family yellow - so the two addons read as one product family.
+- **Richer minimap tooltip.** Hovering the minimap button shows the
+  version, on/off status, and how many bars and groups you have.
+- **Bug report polish.** The `/bw bugreport` window floats above the
+  options panel instead of behind it, and includes the source link.
+- **Help tab reflow fix.** Help answers now wrap to the live panel width
+  instead of being clipped when the Interface Options window is sized
+  differently from the addon's options panel.
+- **Under the hood.** Lint/format configs (`.luacheckrc`, `stylua.toml`),
+  a syntax-check CI gate, a hygiene test, and contributor docs
+  (`ARCHITECTURE.md`, `CODE_REVIEW.md`). No gameplay impact.
+- **Schema:** one additive account-wide-style field
+  `global.versionAlerts` (default on), downgrade-safe.
+
 ### v1.11.0
 
 In-game help. A new Help tab answers the common questions without leaving

@@ -94,6 +94,7 @@ function M.test_defaults_globalExact()
     assertx.assertDeepEqual(ns.DEFAULTS.global, {
         enabled = true,
         locked  = true,
+        versionAlerts = true,
         -- Help-tab section collapse seed (added with the Help tab). Getting
         -- Started ships open, so it has no key here; the rest start collapsed.
         helpCollapsed = {
