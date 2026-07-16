@@ -117,14 +117,18 @@ local function CreateVisualsTab(parent)
 
     -- Title + description: matches the layout of Bars, Profiles, and Stats tabs.
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -80)
+    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -16)
     title:SetText("Visuals")
 
     local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-    desc:SetPoint("RIGHT", frame, "RIGHT", 16, 0)
     desc:SetJustifyH("LEFT")
-    desc:SetText("These settings apply to all bars. Per-bar overrides are on the Bars tab.")
+    if desc.SetWordWrap then desc:SetWordWrap(true) end
+    -- Reactive width so the text wraps to the live panel width (a two-point
+    -- TOPLEFT+RIGHT anchor does not wrap reliably on 3.3.5a).
+    if ns.ApplyWidth then ns:ApplyWidth(desc, 32) end
+    desc:SetText("The default look for all bars. Groups and individual bars can "
+              .. "override the texture and colour on their own tabs.")
 
     -- Scroll frame so content doesn't clip at the bottom of the panel.
     local scrollFrame = CreateFrame("ScrollFrame", "BarWardenVisualsScrollFrame",
@@ -136,6 +140,12 @@ local function CreateVisualsTab(parent)
     content:SetWidth(544)
     content:SetHeight(1200)
     scrollFrame:SetScrollChild(content)
+    -- Reflow the scroll child to the viewport on live resize (not just OnShow),
+    -- capped at the shared settings width so controls do not stretch absurdly
+    -- wide on a large window (parity with Bar Control / Groups).
+    scrollFrame:SetScript("OnSizeChanged", function(_, w)
+        if w and w > 0 then content:SetWidth(math.min(w, ns.SETTINGS_MAX_WIDTH or 300)) end
+    end)
 
     -- Widget refs populated by BuildSettings. Schema onChange closures close
     -- over this table so they can show/hide coupled widgets by id.
@@ -153,11 +163,12 @@ local function CreateVisualsTab(parent)
         { type = "header", text = "Bar Dimensions", spacing = 16 },
         { type = "slider", label = "Bar Height",
           db = "visual.barHeight", refresh = "RefreshAllBars",
-          min = 4, max = 60, step = 1, width = 180,
+          min = 4, max = 60, step = 1, width = 180, stretch = true,
+          tooltip = "How tall each timer bar is, in pixels.",
           spacing = 16, offsetX = 4 },
         { type = "slider", label = "Bar Spacing",
           db = "visual.barSpacing", refresh = "RefreshAllBars",
-          min = 0, max = 30, step = 1, width = 180,
+          min = 0, max = 30, step = 1, width = 180, stretch = true,
           spacing = 16,
           tooltip = "Vertical pixels of padding between stacked bars "
                  .. "within a group. 0 = bars touch each other." },
@@ -169,6 +180,9 @@ local function CreateVisualsTab(parent)
         { type = "dropdown", id = "colorModeDD", label = "Color Mode",
           db = "visual.colorMode", refresh = "RefreshAllBars",
           items = colorModeItems, width = 160,
+          tooltip = "How bars are coloured by default: your class colour, a "
+                 .. "colour per track mode, or one custom colour. Groups and "
+                 .. "individual bars can override this.",
           spacing = 24, offsetX = -16,
           onChange = function(value)
               if widgets.colorSwatch then
@@ -181,10 +195,9 @@ local function CreateVisualsTab(parent)
           db = "visual.defaultColor", refresh = "RefreshAllBars",
           spacing = 12, offsetX = 20 },
 
-        { type = "toggle", label = "Allow Per-Bar Color Override",
-          tooltip = "When enabled, individual bars can override the global color setting.",
-          db = "visual.perBarColorOverride",
-          spacing = 12, offsetX = -4 },
+        -- Per-bar and per-group colour overrides are always available (in the
+        -- bar editor and on the Groups tab). The old global "allow override"
+        -- gate did nothing and was removed in v2.
 
         { type = "dropdown", id = "textureDD", label = "Bar Texture",
           db = "visual.texture", refresh = "RefreshAllBars",
@@ -235,7 +248,8 @@ local function CreateVisualsTab(parent)
 
         { type = "slider", label = "Font Size",
           db = "visual.fontSize", refresh = "RefreshAllBars",
-          min = 6, max = 24, step = 1, width = 180,
+          min = 6, max = 24, step = 1, width = 180, stretch = true,
+          tooltip = "Text size for the name and timer shown on each bar.",
           spacing = 16, offsetX = 16 },
 
         { type = "dropdown", label = "Text Format",
@@ -254,7 +268,7 @@ local function CreateVisualsTab(parent)
 
         { type = "slider", label = "Icon Size",
           db = "visual.iconSize", refresh = "RefreshAllBars",
-          min = 0, max = 60, step = 1, width = 180,
+          min = 0, max = 60, step = 1, width = 180, stretch = true,
           spacing = 16, offsetX = 4,
           tooltip = "Size (in pixels) of the spell icon shown on each bar. "
                  .. "Set to 0 to hide icons globally. Individual bars can "
@@ -278,7 +292,7 @@ local function CreateVisualsTab(parent)
           db = "visual.showCooldownSpiral", refresh = "RefreshAllBars",
           spacing = 12 },
 
-        { type = "toggle", label = "Icon Tooltip",
+        { type = "toggle", id = "iconTooltip", label = "Icon Tooltip",
           tooltip = "Show the spell or item tooltip when hovering the bar's "
                  .. "icon. Useful for identifying what a bar tracks without "
                  .. "opening the settings panel. Only the icon is hover-sensitive; "
@@ -292,12 +306,15 @@ local function CreateVisualsTab(parent)
 
         { type = "slider", label = "Active Opacity",
           db = "visual.activeAlpha", refresh = "RefreshAllBars",
-          min = 0, max = 1, step = 0.05, width = 180,
+          min = 0, max = 1, step = 0.05, width = 180, stretch = true,
+          tooltip = "Opacity of a bar while its timer is running.",
           spacing = 16, offsetX = 4 },
 
         { type = "slider", id = "inactiveAlpha", label = "Inactive Opacity",
           db = "visual.inactiveAlpha", refresh = "RefreshAllBars",
-          min = 0, max = 1, step = 0.05, width = 180,
+          min = 0, max = 1, step = 0.05, width = 180, stretch = true,
+          tooltip = "Opacity of a bar when nothing is active, for bars set to "
+                 .. "stay visible.",
           spacing = 16 },
     }
 
@@ -309,9 +326,9 @@ local function CreateVisualsTab(parent)
             "visuals-overview")
     end
 
-    -- Re-skin section headers to GameFontNormalLarge (the default builder
-    -- uses GameFontNormal). Iterate content's FontString regions and match
-    -- by text, since headers don't have schema ids and the text is unique.
+    -- Re-skin section headers to GameFontNormalLarge (the default builder uses
+    -- GameFontNormal). Headers have no schema ids, so match by their (unique)
+    -- text.
     local knownHeaders = {
         ["Bar Dimensions"] = true, ["Bar Visuals"] = true,
         ["Text Options"]   = true, ["Icon"]        = true,
@@ -328,24 +345,24 @@ local function CreateVisualsTab(parent)
     if widgets.customTexBox then widgets.customTexBox:Hide() end
     if widgets.fallbackWarning then widgets.fallbackWarning:Hide() end
 
-    -- Preserve the v1.4.0 OnShow behaviour: adapt width to scroll viewport,
-    -- trim content height to the last widget's bottom, then refresh. The
-    -- builder's Refresh closure already brackets itself with
-    -- ns.suppressCallbacks, so we don't need the outer bracket here.
+    -- Trim the scroll child to the last widget so there is no empty scroll
+    -- area below it. This MUST run after the widgets are laid out, or GetBottom
+    -- is not yet valid and the child stays at its tall initial height (the
+    -- "dead space at the bottom" bug). We run it on show and again next frame.
+    local function trimHeight()
+        local last = widgets.inactiveAlpha
+        local lastBottom = last and last:GetBottom()
+        local contentTop = content:GetTop()
+        if lastBottom and contentTop and contentTop > lastBottom then
+            content:SetHeight(contentTop - lastBottom + 20)  -- 20 px margin
+        end
+    end
     frame:SetScript("OnShow", function()
         local w = scrollFrame:GetWidth()
-        if w and w > 100 then
-            content:SetWidth(w)
-        end
-        local last = widgets.inactiveAlpha
-        if last then
-            local lastBottom = last:GetBottom()
-            local contentTop = content:GetTop()
-            if lastBottom and contentTop and contentTop > lastBottom then
-                content:SetHeight(contentTop - lastBottom + 20)  -- 20 px margin
-            end
-        end
+        if w and w > 100 then content:SetWidth(math.min(w, ns.SETTINGS_MAX_WIDTH or 300)) end
         if frame.Refresh then frame:Refresh() end
+        trimHeight()
+        if ns.After then ns:After(0, trimHeight) end
     end)
 
     return frame

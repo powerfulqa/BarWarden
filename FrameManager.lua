@@ -496,6 +496,9 @@ function ns:DuplicateFrame(frameIndex)
     local idx = #BarWardenDB.frames
     local frame = ns:CreateGroupFrame(copy, idx)
     ns:BuildBarsForFrame(idx)
+    -- Refresh the flat scan cache or the duplicated group's bars would never be
+    -- scanned/activated until the next full RebuildAllFrames.
+    if ns.RebuildAllBarsCache then ns:RebuildAllBarsCache() end
     ns:UpdateGroupLayout(frame)
     return idx
 end

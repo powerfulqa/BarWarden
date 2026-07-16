@@ -19,8 +19,11 @@ local TRACK_MODES = {
 local TARGET_UNITS = { "player", "target", "focus", "pet", "mouseover" }
 local GROUP_LIST_HEIGHT = 16
 local BAR_LIST_HEIGHT = 16
-local MAX_GROUP_ROWS = 5
-local MAX_BAR_ROWS = 5
+-- Lists show up to this many rows (the box grows with the item count, minimum
+-- one line) before they start scrolling. Six keeps the settings/editor below
+-- visible even at the smallest window size; Groups and Bars use the same cap.
+local MAX_GROUP_ROWS = 6
+local MAX_BAR_ROWS = 6
 
 -- Helper: create a new default bar table
 local function NewBar(name)
@@ -102,12 +105,29 @@ local function CreateBarsTab(parent)
     frame:SetAllPoints(parent)
     frame:Hide()
 
+    -- Drag-to-reorder: work out which row index the cursor is over in a
+    -- FauxScrollFrame list, accounting for the scroll offset and UI scale.
+    local function ComputeDropIndex(scrollFrame, rowHeight, total)
+        local _, cy = GetCursorPosition()
+        local scale = scrollFrame:GetEffectiveScale()
+        local top = scrollFrame:GetTop()
+        if not cy or not scale or scale == 0 or not top then return nil end
+        local offset = FauxScrollFrame_GetOffset(scrollFrame) or 0
+        local idx = offset + math.floor((top - cy / scale) / rowHeight) + 1
+        if idx < 1 then idx = 1 end
+        if idx > total then idx = total end
+        return idx
+    end
+
     -- ========================================================================
     -- LEFT PANEL: Group List
     -- ========================================================================
     local leftPanel = CreateFrame("Frame", nil, frame)
-    leftPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -80)
-    leftPanel:SetSize(180, 360)
+    -- v2: start near the top (no tab bar to clear) and fill the panel height, so
+    -- the group list + settings use the full column instead of a 360px box.
+    -- Groups tab content: fills the page below the title, above the tab bar.
+    leftPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -44)
+    leftPanel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -16, 40)
 
     local groupHeader = leftPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     groupHeader:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", 0, 0)
@@ -115,18 +135,27 @@ local function CreateBarsTab(parent)
     ns:CreateHelpIcon(leftPanel, groupHeader, "LEFT", "RIGHT", 6, 0, "create-group")
 
     -- Group scroll frame
+    -- List spans the full page width; its height is set dynamically in
+    -- UpdateGroupList (grows with the group count, up to MAX_GROUP_ROWS rows,
+    -- then scrolls). The buttons + settings below follow its bottom edge.
     local groupScrollFrame = CreateFrame("ScrollFrame", "BarWardenGroupScroll", leftPanel, "FauxScrollFrameTemplate")
     groupScrollFrame:SetPoint("TOPLEFT", groupHeader, "BOTTOMLEFT", 0, -6)
-    groupScrollFrame:SetSize(170, MAX_GROUP_ROWS * GROUP_LIST_HEIGHT)
+    -- Fixed width = the shared settings width, so the list + its selection
+    -- highlight are contained at the same limit as the settings below, instead
+    -- of the highlight stretching across the whole window.
+    groupScrollFrame:SetWidth(ns.SETTINGS_MAX_WIDTH or 300)
+    groupScrollFrame:SetHeight(MAX_GROUP_ROWS * GROUP_LIST_HEIGHT)
 
     local groupRows = {}
     for i = 1, MAX_GROUP_ROWS do
         local row = CreateFrame("Button", "BarWardenGroupRow" .. i, leftPanel)
-        row:SetSize(170, GROUP_LIST_HEIGHT)
+        row:SetHeight(GROUP_LIST_HEIGHT)
         if i == 1 then
-            row:SetPoint("TOPLEFT", groupScrollFrame, "TOPLEFT", 0, 0)
+            row:SetPoint("TOPLEFT",  groupScrollFrame, "TOPLEFT",   0, 0)
+            row:SetPoint("TOPRIGHT", groupScrollFrame, "TOPRIGHT", -22, 0)
         else
-            row:SetPoint("TOPLEFT", groupRows[i - 1], "BOTTOMLEFT", 0, 0)
+            row:SetPoint("TOPLEFT",  groupRows[i - 1], "BOTTOMLEFT",  0, 0)
+            row:SetPoint("TOPRIGHT", groupRows[i - 1], "BOTTOMRIGHT", 0, 0)
         end
 
         local highlight = row:CreateTexture(nil, "HIGHLIGHT")
@@ -140,9 +169,9 @@ local function CreateBarsTab(parent)
         row.selected = selected
 
         local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        text:SetPoint("LEFT", row, "LEFT", 4, 0)
+        text:SetPoint("LEFT",  row, "LEFT",   4, 0)
+        text:SetPoint("RIGHT", row, "RIGHT", -4, 0)
         text:SetJustifyH("LEFT")
-        text:SetWidth(160)
         row.text = text
 
         row:SetScript("OnClick", function(self)
@@ -151,11 +180,29 @@ local function CreateBarsTab(parent)
             frame:Refresh()
         end)
 
+        -- Drag-to-reorder groups (a plain click still selects).
+        row:RegisterForDrag("LeftButton")
+        row:SetScript("OnDragStart", function(self) frame._dragGroup = self.index end)
+        row:SetScript("OnDragStop", function()
+            local from = frame._dragGroup
+            frame._dragGroup = nil
+            local frames = BarWardenDB and BarWardenDB.frames
+            if not from or not frames or #frames < 2 then return end
+            local to = ComputeDropIndex(groupScrollFrame, GROUP_LIST_HEIGHT, #frames)
+            if to and to ~= from then
+                table.insert(frames, to, table.remove(frames, from))
+                selectedGroupIndex = to
+                selectedBarIndex = nil
+                frame:Refresh()
+                ns:RebuildAllFrames()
+            end
+        end)
+
         groupRows[i] = row
     end
 
     -- Group buttons
-    local addGroupBtn = ns:CreateButton(leftPanel, "Add", 54, function()
+    local addGroupBtn = ns:CreateButton(leftPanel, "Add", 74, function()
         local frames = BarWardenDB.frames
         if #frames >= (ns.MAX_FRAMES or 20) then
             ns:Print("Maximum of " .. (ns.MAX_FRAMES or 20) .. " groups reached.")
@@ -170,7 +217,7 @@ local function CreateBarsTab(parent)
     end)
     addGroupBtn:SetPoint("TOPLEFT", groupScrollFrame, "BOTTOMLEFT", 0, -4)
 
-    local deleteGroupBtn = ns:CreateButton(leftPanel, "Delete", 54, function()
+    local deleteGroupBtn = ns:CreateButton(leftPanel, "Delete", 74, function()
         if not selectedGroupIndex then ns:Print("Select a group first."); return end
         local frames = BarWardenDB.frames
         local g = frames[selectedGroupIndex]
@@ -192,7 +239,7 @@ local function CreateBarsTab(parent)
     end)
     deleteGroupBtn:SetPoint("LEFT", addGroupBtn, "RIGHT", 2, 0)
 
-    local dupeGroupBtn = ns:CreateButton(leftPanel, "Dupe", 54, function()
+    local dupeGroupBtn = ns:CreateButton(leftPanel, "Dupe", 74, function()
         if not selectedGroupIndex then ns:Print("Select a group first."); return end
         local frames = BarWardenDB.frames
         local g = frames[selectedGroupIndex]
@@ -209,16 +256,43 @@ local function CreateBarsTab(parent)
     end)
     dupeGroupBtn:SetPoint("LEFT", deleteGroupBtn, "RIGHT", 2, 0)
 
-    -- Scrollable group settings area (below the group list and buttons)
+    -- Group settings sit BELOW the list + buttons and span the full page width
+    -- (stacked layout, uniform with the Bars tab). This keeps the settings
+    -- visible even at the smallest window size. The scroll fills the remaining
+    -- height and reflows on resize.
+    local groupSettingsHeader = leftPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    groupSettingsHeader:SetPoint("TOPLEFT", addGroupBtn, "BOTTOMLEFT", 0, -10)
+    groupSettingsHeader:SetText("Group Settings")
+
     local groupSettingsScroll = CreateFrame("ScrollFrame", "BarWardenGroupSettingsScroll", leftPanel, "UIPanelScrollFrameTemplate")
-    groupSettingsScroll:SetPoint("TOPLEFT", addGroupBtn, "BOTTOMLEFT", 0, -8)
-    groupSettingsScroll:SetPoint("BOTTOMLEFT", leftPanel, "BOTTOMLEFT", 0, 19)
-    groupSettingsScroll:SetWidth(170)
+    groupSettingsScroll:SetPoint("TOPLEFT", groupSettingsHeader, "BOTTOMLEFT", 0, -6)
+    groupSettingsScroll:SetPoint("BOTTOMRIGHT", leftPanel, "BOTTOMRIGHT", -24, 0)
 
     local groupSettingsContent = CreateFrame("Frame", nil, groupSettingsScroll)
-    groupSettingsContent:SetWidth(180)
-    groupSettingsContent:SetHeight(500)
+    groupSettingsContent:SetWidth(320)
+    -- Generous fallback height so all group settings (down to the Group
+    -- Conditions toggles) are reachable; fitGroupHeight() trims it once shown.
+    groupSettingsContent:SetHeight(700)
     groupSettingsScroll:SetScrollChild(groupSettingsContent)
+
+    -- Populated by BuildSettings (ids below); used to fill the group dropdowns
+    -- to the panel width on resize, matching the Bars editor.
+    local groupSettingsWidgets = {}
+
+    -- Reflow the settings content to the live viewport width on resize, and
+    -- fill the dropdowns (their box width is a template property, not an anchor).
+    groupSettingsScroll:SetScript("OnSizeChanged", function(_, w)
+        if w and w > 100 then
+            -- Cap at the shared settings width (parity with the Bars editor).
+            local cw = math.min(w, ns.SETTINGS_MAX_WIDTH or 300)
+            groupSettingsContent:SetWidth(cw)
+            local ddW = math.max(120, cw - 60)
+            for _, id in ipairs({ "grpSortDD", "grpGrowthDD", "grpTextureDD" }) do
+                local dd = groupSettingsWidgets[id]
+                if dd then UIDropDownMenu_SetWidth(dd, ddW) end
+            end
+        end
+    end)
 
     -- Group-settings schema: declarative via BuildSettings.
     -- All entries use get/set escape hatches because the target is the
@@ -239,8 +313,34 @@ local function CreateBarsTab(parent)
         { text = "Up",             value = "UP" },
     }
 
+    -- Per-group bar-texture choices: "Inherit" (use the addon-wide texture from
+    -- the Visuals page) plus the shared media list. "Custom" is dropped here;
+    -- a custom texture path stays a global-only setting.
+    local groupTextureItems = { { text = "Inherit (default)", value = "" } }
+    do
+        local list = ns.LSMDropdownItems and ns:LSMDropdownItems("statusbar")
+        if list then
+            for _, item in ipairs(list) do
+                if item.value ~= "Custom" then
+                    groupTextureItems[#groupTextureItems + 1] = item
+                end
+            end
+        else
+            for _, n in ipairs({ "Flat", "Smooth", "Gloss", "Aluminum", "Armory" }) do
+                groupTextureItems[#groupTextureItems + 1] = { text = n, value = n }
+            end
+        end
+    end
+
+    -- Forward-declared so schema `set` closures below can re-run the group
+    -- settings Refresh (e.g. to re-check the Custom Bar Colour toggle after the
+    -- colour swatch writes g.barColor). Assigned by BuildSettings just below.
+    local refreshGroupSettings
+
     local GROUP_SETTINGS_SCHEMA = {
-        { type = "editbox", label = "Group Name", width = 155,
+        { type = "editbox", label = "Group Name", width = 155, stretch = true,
+          tooltip = "A label for this group, shown on the frame when 'Show "
+                 .. "Group Name' is ticked.",
           get = function() local g = getGroup(); return g and g.name or "" end,
           set = function(_, text)
               local g = getGroup(); if not g then return end
@@ -262,7 +362,8 @@ local function CreateBarsTab(parent)
               end
           end,
           offsetX = -6, spacing = 4 },
-        { type = "slider", label = "Width", min = 50, max = 400, step = 5, width = 150,
+        { type = "slider", label = "Width", min = 50, max = 400, step = 5, width = 150, stretch = true,
+          tooltip = "How wide the bars in this group are, in pixels.",
           get = function() local g = getGroup(); return g and g.width or 200 end,
           set = function(_, value)
               local g = getGroup(); if not g then return end
@@ -271,7 +372,8 @@ local function CreateBarsTab(parent)
               if gf then ns:UpdateGroupLayout(gf) end
           end,
           offsetX = 10, spacing = 12 },
-        { type = "slider", label = "Scale", min = 0.5, max = 2.0, step = 0.1, width = 150,
+        { type = "slider", label = "Scale", min = 0.5, max = 2.0, step = 0.1, width = 150, stretch = true,
+          tooltip = "Overall size of this group. 1.00 is normal size.",
           get = function() local g = getGroup(); return g and g.scale or 1.0 end,
           set = function(_, value)
               if not selectedGroupIndex then return end
@@ -279,7 +381,7 @@ local function CreateBarsTab(parent)
               local g = getGroup(); if g then g.scale = value end
           end,
           spacing = 16 },
-        { type = "slider", label = "Columns", min = 1, max = 4, step = 1, width = 150,
+        { type = "slider", label = "Columns", min = 1, max = 4, step = 1, width = 150, stretch = true,
           tooltip = "Number of columns the bars in this group are arranged into. "
                .. "1 = vertical stack (default); 2-4 splits the bars across that "
                .. "many columns side by side. Useful when tracking many bars in a "
@@ -289,19 +391,23 @@ local function CreateBarsTab(parent)
               if selectedGroupIndex then ns:SetGroupColumns(selectedGroupIndex, value) end
           end,
           spacing = 16 },
-        { type = "slider", label = "Background Opacity", min = 0, max = 1, step = 0.05, width = 150,
+        { type = "slider", label = "Background Opacity", min = 0, max = 1, step = 0.05, width = 150, stretch = true,
+          tooltip = "Opacity of this group's background panel. 0 hides it.",
           get = function() local g = getGroup(); return g and (g.bgAlpha ~= nil and g.bgAlpha or 0.6) end,
           set = function(_, value)
               if selectedGroupIndex then ns:SetGroupBgAlpha(selectedGroupIndex, value) end
           end,
           spacing = 16 },
-        { type = "slider", label = "Border Opacity", min = 0, max = 1, step = 0.05, width = 150,
+        { type = "slider", label = "Border Opacity", min = 0, max = 1, step = 0.05, width = 150, stretch = true,
+          tooltip = "Opacity of this group's border. 0 hides it.",
           get = function() local g = getGroup(); return g and (g.borderAlpha ~= nil and g.borderAlpha or 0.8) end,
           set = function(_, value)
               if selectedGroupIndex then ns:SetGroupBorderAlpha(selectedGroupIndex, value) end
           end,
           spacing = 16 },
-        { type = "dropdown", label = "Sort Mode", items = sortModeItems, width = 130,
+        { type = "dropdown", id = "grpSortDD", label = "Sort Mode", items = sortModeItems, width = 130,
+          tooltip = "Order the bars in this group: Manual (drag to reorder), by "
+                 .. "remaining time, or alphabetically.",
           get = function() local g = getGroup(); return g and g.sortMode or "manual" end,
           set = function(_, value)
               local g = getGroup(); if not g then return end
@@ -310,7 +416,7 @@ local function CreateBarsTab(parent)
               if gf then ns:UpdateGroupLayout(gf) end
           end,
           offsetX = -16, spacing = 28 },
-        { type = "dropdown", label = "Growth Direction", items = growDirectionItems, width = 130,
+        { type = "dropdown", id = "grpGrowthDD", label = "Growth Direction", items = growDirectionItems, width = 130,
           tooltip = "Direction bars stack within this group. Down (default) "
                .. "grows bars downward from the title. Up grows bars upward, "
                .. "useful when you want the group anchored at the bottom of "
@@ -324,10 +430,51 @@ local function CreateBarsTab(parent)
           end,
           spacing = 16 },
 
+        -- Group-level bar visuals. These override the addon-wide look from the
+        -- Visuals page for just this group's bars; left on Inherit / off, they
+        -- use the global default.
+        { type = "header", text = "Bar Overrides", spacing = 16, offsetX = 10 },
+        { type = "dropdown", id = "grpTextureDD", label = "Bar Texture", items = groupTextureItems, width = 150,
+          tooltip = "Texture for this group's bars. Inherit uses the addon-wide "
+               .. "texture set on the Visuals page.",
+          get = function() local g = getGroup(); return g and g.barTexture or "" end,
+          set = function(_, value)
+              local g = getGroup(); if not g then return end
+              g.barTexture = (value ~= "" and value) or nil
+              if ns.RefreshAllBars then ns:RefreshAllBars() else ns:RebuildAllFrames() end
+          end,
+          offsetX = -16, spacing = 28 },
+        { type = "toggle", label = "Custom Bar Colour",
+          tooltip = "Give this group's bars their own colour instead of the "
+               .. "addon-wide default. Turn off to go back to the default.",
+          get = function() local g = getGroup(); return g and g.barColor ~= nil end,
+          set = function(_, checked)
+              local g = getGroup(); if not g then return end
+              if checked then
+                  g.barColor = g.barColor or { r = 0.2, g = 0.6, b = 1.0 }
+              else
+                  g.barColor = nil
+              end
+              ns:RefreshBarSettings()
+              if ns.RefreshAllBars then ns:RefreshAllBars() else ns:RebuildAllFrames() end
+          end,
+          offsetX = 10, spacing = 8 },
+        { type = "color", label = "Bar Colour",
+          get = function() local g = getGroup(); return (g and g.barColor) or { r = 0.2, g = 0.6, b = 1.0 } end,
+          set = function(_, color)
+              local g = getGroup(); if not g then return end
+              g.barColor = { r = color.r, g = color.g, b = color.b }
+              -- Picking a colour implies "custom colour on" - re-run Refresh so
+              -- the Custom Bar Colour toggle reflects that immediately.
+              if refreshGroupSettings then refreshGroupSettings() end
+              if ns.RefreshAllBars then ns:RefreshAllBars() else ns:RebuildAllFrames() end
+          end,
+          offsetX = 10, spacing = 8 },
+
         -- Group-level visibility conditions. These hide the ENTIRE group
         -- (frame + all bars) when the condition fails, saving the user from
         -- ticking the same checkbox on every bar individually.
-        { type = "header", text = "Group Conditions", spacing = 16, offsetX = 10 },
+        { type = "header", text = "Group Conditions", spacing = 16, offsetX = 10, id = "grpCondHeader" },
         { type = "toggle", label = "Combat Only",
           tooltip = "Hide this entire group when out of combat.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.combatOnly end,
@@ -364,7 +511,7 @@ local function CreateBarsTab(parent)
           set = function(_, v) local g = getGroup(); if not g then return end
               if not g.groupConditions then g.groupConditions = {} end; g.groupConditions.hideInVehicle = v; ns:RefreshBarSettings() end,
           spacing = 2 },
-        { type = "toggle", label = "Only In Instance",
+        { type = "toggle", id = "groupLastWidget", label = "Only In Instance",
           tooltip = "Only show this entire group inside a dungeon, raid, arena, or battleground.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.onlyInInstance end,
           set = function(_, v) local g = getGroup(); if not g then return end
@@ -372,36 +519,50 @@ local function CreateBarsTab(parent)
           spacing = 2 },
     }
 
-    local refreshGroupSettings = ns:BuildSettings(groupSettingsContent, GROUP_SETTINGS_SCHEMA, nil,
+    refreshGroupSettings = ns:BuildSettings(groupSettingsContent, GROUP_SETTINGS_SCHEMA, groupSettingsWidgets,
         { firstX = 0, firstY = 0 })
+
+    -- Deep-link the Group Conditions section to its Help answer.
+    if groupSettingsWidgets.grpCondHeader and ns.CreateHelpIcon then
+        ns:CreateHelpIcon(groupSettingsContent, groupSettingsWidgets.grpCondHeader,
+            "LEFT", "RIGHT", 6, 0, "group-conditions")
+    end
 
     -- ========================================================================
     -- RIGHT PANEL: Bar List + Bar Editor
     -- ========================================================================
+    -- Bars tab content: same full-page region as the Groups tab (they occupy
+    -- the same space and are shown one at a time by the bottom tabs).
     local rightPanel = CreateFrame("Frame", nil, frame)
-    rightPanel:SetPoint("TOPLEFT", leftPanel, "TOPRIGHT", 16, 0)
-    rightPanel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -16, 8)
+    rightPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -44)
+    rightPanel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -16, 40)
 
     local barHeader = rightPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     barHeader:SetPoint("TOPLEFT", rightPanel, "TOPLEFT", 0, 0)
     barHeader:SetText("Bars")
     ns:CreateHelpIcon(rightPanel, barHeader, "LEFT", "RIGHT", 6, 0, "add-bar")
 
-    -- Bar scroll frame
-    -- Row layout: Name (70) + Mode (50) + Target (40) + padding = 180 px.
-    -- Aligned with the button row and editor widgets below.
+    -- Bar list spans the full page width; its height is set dynamically in
+    -- UpdateBarList (grows with the bar count, up to MAX_BAR_ROWS rows, then
+    -- scrolls). The buttons + editor below follow its bottom edge.
     local barScrollFrame = CreateFrame("ScrollFrame", "BarWardenBarScroll", rightPanel, "FauxScrollFrameTemplate")
     barScrollFrame:SetPoint("TOPLEFT", barHeader, "BOTTOMLEFT", 0, -6)
-    barScrollFrame:SetSize(180, MAX_BAR_ROWS * BAR_LIST_HEIGHT)
+    -- Fixed width = the shared settings width (the button-row / Paste-button
+    -- edge), so the list + its selection highlight stop at the same limit as
+    -- everything else instead of stretching across the whole window.
+    barScrollFrame:SetWidth(ns.SETTINGS_MAX_WIDTH or 300)
+    barScrollFrame:SetHeight(MAX_BAR_ROWS * BAR_LIST_HEIGHT)
 
     local barRows = {}
     for i = 1, MAX_BAR_ROWS do
         local row = CreateFrame("Button", "BarWardenBarRow" .. i, rightPanel)
-        row:SetSize(180, BAR_LIST_HEIGHT)
+        row:SetHeight(BAR_LIST_HEIGHT)
         if i == 1 then
-            row:SetPoint("TOPLEFT", barScrollFrame, "TOPLEFT", 0, 0)
+            row:SetPoint("TOPLEFT",  barScrollFrame, "TOPLEFT",   0, 0)
+            row:SetPoint("TOPRIGHT", barScrollFrame, "TOPRIGHT", -22, 0)
         else
-            row:SetPoint("TOPLEFT", barRows[i - 1], "BOTTOMLEFT", 0, 0)
+            row:SetPoint("TOPLEFT",  barRows[i - 1], "BOTTOMLEFT",  0, 0)
+            row:SetPoint("TOPRIGHT", barRows[i - 1], "BOTTOMRIGHT", 0, 0)
         end
 
         local highlight = row:CreateTexture(nil, "HIGHLIGHT")
@@ -414,22 +575,24 @@ local function CreateBarsTab(parent)
         selected:Hide()
         row.selected = selected
 
+        -- Columns sized to fit within the capped list width (name + mode +
+        -- target all land before the list's right edge, no clipping).
         local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         nameText:SetPoint("LEFT", row, "LEFT", 4, 0)
         nameText:SetJustifyH("LEFT")
-        nameText:SetWidth(70)
+        nameText:SetWidth(120)
         row.nameText = nameText
 
         local modeText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        modeText:SetPoint("LEFT", nameText, "RIGHT", 4, 0)
+        modeText:SetPoint("LEFT", nameText, "RIGHT", 6, 0)
         modeText:SetJustifyH("LEFT")
-        modeText:SetWidth(50)
+        modeText:SetWidth(70)
         row.modeText = modeText
 
         local targetText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        targetText:SetPoint("LEFT", modeText, "RIGHT", 4, 0)
+        targetText:SetPoint("LEFT", modeText, "RIGHT", 6, 0)
         targetText:SetJustifyH("LEFT")
-        targetText:SetWidth(40)
+        targetText:SetWidth(56)
         row.targetText = targetText
 
         row:SetScript("OnClick", function(self)
@@ -437,12 +600,30 @@ local function CreateBarsTab(parent)
             frame:Refresh()
         end)
 
+        -- Drag-to-reorder bars within the selected group (click still selects).
+        row:RegisterForDrag("LeftButton")
+        row:SetScript("OnDragStart", function(self) frame._dragBar = self.index end)
+        row:SetScript("OnDragStop", function()
+            local from = frame._dragBar
+            frame._dragBar = nil
+            local g = selectedGroupIndex and BarWardenDB and BarWardenDB.frames[selectedGroupIndex]
+            local bars = g and g.bars
+            if not from or not bars or #bars < 2 then return end
+            local to = ComputeDropIndex(barScrollFrame, BAR_LIST_HEIGHT, #bars)
+            if to and to ~= from then
+                table.insert(bars, to, table.remove(bars, from))
+                selectedBarIndex = to
+                frame:Refresh()
+                ns:RebuildAllFrames()
+            end
+        end)
+
         barRows[i] = row
     end
 
     -- Bar list buttons: compact single row.
     -- +/- for add/delete, arrows for reorder, Dupe/Paste for copy-paste.
-    local addBarBtn = ns:CreateButton(rightPanel, "+", 24, function()
+    local addBarBtn = ns:CreateButton(rightPanel, "+", 42, function()
         if not selectedGroupIndex then ns:Print("Select a group first."); return end
         local g = BarWardenDB.frames[selectedGroupIndex]
         if not g then return end
@@ -459,7 +640,7 @@ local function CreateBarsTab(parent)
     end)
     addBarBtn:SetPoint("TOPLEFT", barScrollFrame, "BOTTOMLEFT", 0, -4)
 
-    local deleteBarBtn = ns:CreateButton(rightPanel, "-", 24, function()
+    local deleteBarBtn = ns:CreateButton(rightPanel, "-", 42, function()
         if not selectedGroupIndex or not selectedBarIndex then ns:Print("Select a bar first."); return end
         local g = BarWardenDB.frames[selectedGroupIndex]
         if not g then return end
@@ -481,7 +662,7 @@ local function CreateBarsTab(parent)
     end)
     deleteBarBtn:SetPoint("LEFT", addBarBtn, "RIGHT", 1, 0)
 
-    local moveUpBtn = ns:CreateButton(rightPanel, "Up", 26, function()
+    local moveUpBtn = ns:CreateButton(rightPanel, "Up", 44, function()
         if not selectedGroupIndex or not selectedBarIndex then ns:Print("Select a bar first."); return end
         local bars = BarWardenDB.frames[selectedGroupIndex].bars
         if selectedBarIndex <= 1 then return end
@@ -492,7 +673,7 @@ local function CreateBarsTab(parent)
     end)
     moveUpBtn:SetPoint("LEFT", deleteBarBtn, "RIGHT", 1, 0)
 
-    local moveDownBtn = ns:CreateButton(rightPanel, "Dn", 26, function()
+    local moveDownBtn = ns:CreateButton(rightPanel, "Dn", 44, function()
         if not selectedGroupIndex or not selectedBarIndex then ns:Print("Select a bar first."); return end
         local bars = BarWardenDB.frames[selectedGroupIndex].bars
         if selectedBarIndex >= #bars then return end
@@ -503,7 +684,7 @@ local function CreateBarsTab(parent)
     end)
     moveDownBtn:SetPoint("LEFT", moveUpBtn, "RIGHT", 1, 0)
 
-    local copyBarBtn = ns:CreateButton(rightPanel, "Dupe", 36, function()
+    local copyBarBtn = ns:CreateButton(rightPanel, "Dupe", 60, function()
         if not selectedGroupIndex or not selectedBarIndex then ns:Print("Select a bar first."); return end
         local bar = frame:GetSelectedBar()
         if not bar then return end
@@ -512,7 +693,7 @@ local function CreateBarsTab(parent)
     end)
     copyBarBtn:SetPoint("LEFT", moveDownBtn, "RIGHT", 1, 0)
 
-    local pasteBarBtn = ns:CreateButton(rightPanel, "Paste", 40, function()
+    local pasteBarBtn = ns:CreateButton(rightPanel, "Paste", 60, function()
         if not selectedGroupIndex then ns:Print("Select a group first."); return end
         if not ns.copiedBar then ns:Print("Nothing to paste. Copy a bar first."); return end
         local g = BarWardenDB.frames[selectedGroupIndex]
@@ -535,8 +716,16 @@ local function CreateBarsTab(parent)
     -- ========================================================================
     -- BAR EDITOR SUB-PANEL (scroll frame so content doesn't clip)
     -- ========================================================================
+    -- The editor sits BELOW the bar list + buttons and spans the full page
+    -- width (stacked layout, uniform with the Groups tab). This keeps the
+    -- editor visible even at the smallest window size. It fills the remaining
+    -- height and reflows on resize.
+    local editorHeader = rightPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    editorHeader:SetPoint("TOPLEFT", addBarBtn, "BOTTOMLEFT", 0, -10)
+    editorHeader:SetText("Bar Settings")
+
     local editorPanel = CreateFrame("Frame", nil, rightPanel)
-    editorPanel:SetPoint("TOPLEFT", addBarBtn, "BOTTOMLEFT", 0, -8)
+    editorPanel:SetPoint("TOPLEFT", editorHeader, "BOTTOMLEFT", 0, -6)
     editorPanel:SetPoint("BOTTOMRIGHT", rightPanel, "BOTTOMRIGHT", 0, 0)
 
     local editorScroll = CreateFrame("ScrollFrame", "BarWardenBarEditorScrollFrame", editorPanel, "UIPanelScrollFrameTemplate")
@@ -545,8 +734,10 @@ local function CreateBarsTab(parent)
 
     local ec = CreateFrame("Frame", nil, editorScroll)  -- ec = editor content (scroll child)
     ec:SetWidth(340)   -- initial width; OnShow resizes to match the scroll viewport
-    ec:SetHeight(660)  -- tall enough for the single-column layout, including
-                       -- the per-bar Bar Scale slider added in 2026-04-15 polish.
+    -- Generous fallback height so the full single-column editor is always
+    -- reachable; fitEditorHeight() trims it to the real content once the editor
+    -- is first shown (a fixed 660 used to clip the lower half off the scroll).
+    ec:SetHeight(1100)
     editorScroll:SetScrollChild(ec)
 
     -- Bar name (first field, flush top to match group editor layout)
@@ -557,8 +748,14 @@ local function CreateBarsTab(parent)
             frame:Refresh()  -- updates the bar-list row on the left
             ns:RefreshBarSettings()
         end
-    end)
+    end,
+    "A label for this bar, shown in the list and (if Show Bar Name is on) on "
+ .. "the bar itself.")
     barNameEdit:SetPoint("TOPLEFT", ec, "TOPLEFT", 4, 0)
+    -- Stretch the name box to the editor width so it uses the space (reactive:
+    -- ec reflows to the viewport, and the RIGHT anchor follows). Right margin
+    -- matches the schema stretch pad so every field lines up on the right.
+    barNameEdit:SetPoint("RIGHT", ec, "RIGHT", -6, 0)
 
     -- Bar enabled checkbox
     local barEnabledCB = ns:CreateCheckbox(ec, "Enabled", "Enable or disable this bar", function(self, checked)
@@ -607,6 +804,7 @@ local function CreateBarsTab(parent)
  .. "comma-separated names for one bar to match any of them "
  .. "(e.g. 'Rupture, Garrote'). Press Enter to apply.")
     spellEdit:SetPoint("TOPLEFT", barEnabledCB, "BOTTOMLEFT", 6, -18)
+    spellEdit:SetPoint("RIGHT", ec, "RIGHT", -6, 0)  -- stretch to editor width
 
     -- Single-column layout: Track Mode and Target stack vertically below
     -- Spell. The -16 x offset on the dropdowns compensates for WoW's
@@ -621,8 +819,10 @@ local function CreateBarsTab(parent)
             frame:Refresh()
             ns:RefreshBarSettings()
         end
-    end)
-    UIDropDownMenu_SetWidth(trackModeDD, 120)
+    end,
+    "What this bar watches: a spell cooldown, buff, debuff, proc, item "
+ .. "cooldown, weapon enchant, totem, or a class resource.")
+    UIDropDownMenu_SetWidth(trackModeDD, 180)
     trackModeDD:SetPoint("TOPLEFT", spellEdit, "BOTTOMLEFT", -16, -18)
 
     -- Target dropdown
@@ -634,8 +834,10 @@ local function CreateBarsTab(parent)
             frame:Refresh()
             ns:RefreshBarSettings()
         end
-    end)
-    UIDropDownMenu_SetWidth(targetDD, 120)
+    end,
+    "Whose buff or debuff this bar watches (you, your target, focus, pet, or "
+ .. "mouseover). Ignored for cooldowns and items.")
+    UIDropDownMenu_SetWidth(targetDD, 180)
     targetDD:SetPoint("TOPLEFT", trackModeDD, "BOTTOMLEFT", 0, -18)
 
     -- Only Mine checkbox: +16 x offset reverses the dropdown's -16 so
@@ -707,7 +909,7 @@ local function CreateBarsTab(parent)
     -- Factory: display-slider schema entry
     local function dispSlider(label, field, mn, mx, st, default, tip, extra)
         local e = { type = "slider", label = label, tooltip = tip,
-            min = mn, max = mx, step = st, width = 140,
+            min = mn, max = mx, step = st, width = 140, stretch = true,
             get = function() return getDisp()[field] or default end,
             set = function(_, v)
                 local bar = getBar(); if not bar then return end
@@ -765,7 +967,7 @@ local function CreateBarsTab(parent)
         condCheck("Hide When Inactive",  "hideWhenInactive",  "Hide bar completely when not tracking anything."),
         condCheck("Show Empty Bar",      "showEmpty",         "Show bar at inactive alpha even when not active."),
 
-        { type = "editbox", label = "Health Below %", width = 60,
+        { type = "editbox", label = "Health Below %", width = 60, stretch = true,
           tooltip = "Only show this bar when your own HP is below this percentage. "
                  .. "Useful for execute-range spells (Kill Shot, Hammer of Wrath, "
                  .. "Execute) and panic buttons (Healthstone). Enter a number 1-100 "
@@ -783,7 +985,7 @@ local function CreateBarsTab(parent)
           end,
           spacing = 18, offsetX = 6 },
 
-        { type = "editbox", label = "Require Buff", width = 130,
+        { type = "editbox", label = "Require Buff", width = 130, stretch = true,
           tooltip = "Only show this bar while you have the named buff active. "
                  .. "Accepts a buff name or spell ID. Useful for state-gated abilities "
                  .. "(stealth-only cooldowns, bear-form abilities, proc reactions). "
@@ -807,7 +1009,7 @@ local function CreateBarsTab(parent)
          .. "Set to 0 for the bar to disappear instantly on expiry."),
 
         { type = "slider", label = "Bar Scale",
-          min = 0.5, max = 2.0, step = 0.1, width = 140,
+          min = 0.5, max = 2.0, step = 0.1, width = 140, stretch = true,
           tooltip = "Scale this bar individually. 1.0 is the group default. Values above "
                  .. "1.0 may visually overlap neighbouring bars in multi-column groups; "
                  .. "increase Bar Spacing in the Visuals tab or use a single-column group "
@@ -827,7 +1029,7 @@ local function CreateBarsTab(parent)
             "Display the spell icon on this bar."),
 
         { type = "slider", label = "Bar Darkness",
-          min = 0, max = 100, step = 1, width = 140,
+          min = 0, max = 100, step = 1, width = 140, stretch = true,
           tooltip = "How dark the bar's empty/unfilled background is. 0 = fully "
                  .. "transparent (invisible background), 100 = solid black background. "
                  .. "Lower values make the filled portion stand out more; higher "
@@ -899,14 +1101,16 @@ local function CreateBarsTab(parent)
 
         dispCheck("Crop Icon", "iconCrop",
             "Trim icon border pixels to prevent stretching.",
-            { spacing = 20, offsetX = -4 }),
+            { spacing = 20, offsetX = -4, id = "editorLastWidget" }),
     }
 
     -- Container frame for the schema-managed region, anchored below the
     -- imperative identity widgets (barEnabled through onlyMine).
     local editorSettingsFrame = CreateFrame("Frame", nil, ec)
     editorSettingsFrame:SetPoint("TOPLEFT", onlyMineCB, "BOTTOMLEFT", 0, -12)
-    editorSettingsFrame:SetWidth(340)
+    -- RIGHT-anchor to ec so the frame's right edge tracks the editor width; the
+    -- schema's stretch widgets pin their RIGHT to this frame.
+    editorSettingsFrame:SetPoint("RIGHT", ec, "RIGHT", 0, 0)
     editorSettingsFrame:SetHeight(800)
 
     local refreshEditorSettings = ns:BuildSettings(
@@ -916,6 +1120,52 @@ local function CreateBarsTab(parent)
     if editorWidgets.conditionsHeader then
         ns:CreateHelpIcon(editorSettingsFrame, editorWidgets.conditionsHeader,
             "LEFT", "RIGHT", 6, 0, "conditions-overview")
+    end
+
+    -- Reflow the editor content (and its schema-managed child) to the live
+    -- viewport width, so the editor uses whatever width the right column has.
+    local function reflowEditor(w)
+        w = w or editorScroll:GetWidth()
+        if w and w > 100 then
+            -- Cap at the shared settings width so controls do not stretch
+            -- absurdly wide on a large window (editorSettingsFrame tracks ec
+            -- via its RIGHT anchor; the stretch widgets follow).
+            local cw = math.min(w, ns.SETTINGS_MAX_WIDTH or 300)
+            ec:SetWidth(cw)
+            -- Dropdowns fill the same width (their box width is a template
+            -- property, set here rather than via a RIGHT anchor).
+            local ddW = math.max(120, cw - 60)
+            if trackModeDD then UIDropDownMenu_SetWidth(trackModeDD, ddW) end
+            if targetDD then UIDropDownMenu_SetWidth(targetDD, ddW) end
+        end
+    end
+    editorScroll:SetScript("OnSizeChanged", function(_, w) reflowEditor(w) end)
+
+    -- Trim the scroll children to their real content once laid out, so the
+    -- scroll range covers every control (and no more). Runs once each - the
+    -- widget set is fixed - and only when the panel is visible (GetBottom is nil
+    -- while hidden). The generous fallback heights keep content reachable until
+    -- then.
+    local editorHeightDone, groupHeightDone
+    local function fitEditorHeight()
+        if editorHeightDone then return end
+        local last = editorWidgets.editorLastWidget
+        local top = ec:GetTop()
+        local bottom = last and last:GetBottom()
+        if top and bottom and top > bottom then
+            ec:SetHeight(top - bottom + 24)
+            editorHeightDone = true
+        end
+    end
+    local function fitGroupHeight()
+        if groupHeightDone then return end
+        local last = groupSettingsWidgets.groupLastWidget
+        local top = groupSettingsContent:GetTop()
+        local bottom = last and last:GetBottom()
+        if top and bottom and top > bottom then
+            groupSettingsContent:SetHeight(top - bottom + 24)
+            groupHeightDone = true
+        end
     end
 
     -- ========================================================================
@@ -950,6 +1200,12 @@ local function CreateBarsTab(parent)
         local offset = FauxScrollFrame_GetOffset(groupScrollFrame)
         local total = #frames
 
+        -- Grow the list box to the item count (min one line, max MAX_GROUP_ROWS
+        -- rows), so the buttons + settings below sit right under the list and
+        -- stay visible at the smallest window; overflow scrolls.
+        local shown = math.max(1, math.min(total, MAX_GROUP_ROWS))
+        groupScrollFrame:SetHeight(shown * GROUP_LIST_HEIGHT)
+
         FauxScrollFrame_Update(groupScrollFrame, total, MAX_GROUP_ROWS, GROUP_LIST_HEIGHT)
         if total == 0 then groupEmptyText:Show() else groupEmptyText:Hide() end
 
@@ -980,12 +1236,17 @@ local function CreateBarsTab(parent)
         local offset = FauxScrollFrame_GetOffset(barScrollFrame)
         local total = #bars
 
+        -- Grow the list box to the bar count (min one line, max MAX_BAR_ROWS
+        -- rows); overflow scrolls. Uniform with the Groups tab.
+        local shown = math.max(1, math.min(total, MAX_BAR_ROWS))
+        barScrollFrame:SetHeight(shown * BAR_LIST_HEIGHT)
+
         FauxScrollFrame_Update(barScrollFrame, total, MAX_BAR_ROWS, BAR_LIST_HEIGHT)
         if total == 0 then
             if selectedGroupIndex then
                 barEmptyText:SetText("No bars in this group yet. Click Add to create one.")
             else
-                barEmptyText:SetText("Select a group on the left to see its bars.")
+                barEmptyText:SetText("Select a group on the Groups tab first.")
             end
             barEmptyText:Show()
         else
@@ -1017,9 +1278,12 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if not bar then
             editorPanel:Hide()
+            editorHeader:Hide()
             return
         end
         editorPanel:Show()
+        editorHeader:Show()
+        if ns.After then ns:After(0, fitEditorHeight) end  -- trim scroll once shown
 
         barEnabledCB:SetChecked(bar.enabled)
         barNameEdit:SetText(bar.name or "")
@@ -1052,6 +1316,16 @@ local function CreateBarsTab(parent)
     end
 
     local function UpdateGroupName()
+        -- Hide the settings column when no group is selected, so the right
+        -- side isn't a panel of blank controls.
+        if selectedGroupIndex then
+            groupSettingsHeader:Show()
+            groupSettingsScroll:Show()
+            if ns.After then ns:After(0, fitGroupHeight) end  -- trim scroll once shown
+        else
+            groupSettingsHeader:Hide()
+            groupSettingsScroll:Hide()
+        end
         refreshGroupSettings()
     end
 
@@ -1064,7 +1338,7 @@ local function CreateBarsTab(parent)
             selectedGroupIndex = #frames > 0 and 1 or nil
         end
         if selectedGroupIndex then
-            local bars = frames[selectedGroupIndex].bars
+            local bars = frames[selectedGroupIndex].bars or {}
             if selectedBarIndex and (selectedBarIndex < 1 or selectedBarIndex > #bars) then
                 selectedBarIndex = #bars > 0 and 1 or nil
             end
@@ -1092,11 +1366,54 @@ local function CreateBarsTab(parent)
     -- Resize the editor-content frame to match the scroll viewport so the
     -- per-bar editor uses whatever width the InterfaceOptionsFrame gives us.
     -- Mirrors the pattern in Options_Visuals.lua.
-    frame:SetScript("OnShow", function(self)
-        local w = editorScroll:GetWidth()
-        if w and w > 100 then
-            ec:SetWidth(w)
+    -- ========================================================================
+    -- Page title + bottom tabs. "Bar Control" is a two-tab editor (Groups /
+    -- Bars) rather than a flat panel, because managing groups and editing the
+    -- bars inside them is a two-part workflow that shares one page.
+    -- ========================================================================
+    local pageTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    pageTitle:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -16)
+    pageTitle:SetText("Bar Control")
+
+    local BC_TABS = { "Groups", "Bars" }
+    local bcTabs = {}
+    local function ShowBarControlTab(index)
+        PanelTemplates_SetTab(frame, index)
+        if index == 2 then
+            rightPanel:Show()
+            leftPanel:Hide()
+        else
+            leftPanel:Show()
+            rightPanel:Hide()
         end
+    end
+    for i, label in ipairs(BC_TABS) do
+        -- Named "<frameName>Tab<i>" so PanelTemplates_UpdateTabs finds them
+        -- (and the v2-test rename stays correct since it derives from GetName).
+        local tab = CreateFrame("Button", frame:GetName() .. "Tab" .. i, frame,
+                                "CharacterFrameTabButtonTemplate")
+        tab:SetText(label)
+        tab:SetID(i)
+        -- Larger tabs: scale the whole tab up (taller + bigger text) and pad it
+        -- out well beyond its text width.
+        tab:SetScale(1.3)
+        if PanelTemplates_TabResize then PanelTemplates_TabResize(tab, 60) end
+        tab:SetScript("OnClick", function(self)
+            ShowBarControlTab(self:GetID())
+            PlaySound("igCharacterInfoTab")
+        end)
+        if i == 1 then
+            tab:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 8, 4)
+        else
+            tab:SetPoint("LEFT", bcTabs[i - 1], "RIGHT", -14, 0)
+        end
+        bcTabs[i] = tab
+    end
+    PanelTemplates_SetNumTabs(frame, #BC_TABS)
+    ShowBarControlTab(1)
+
+    frame:SetScript("OnShow", function(self)
+        reflowEditor()
         if self.Refresh then self:Refresh() end
     end)
 

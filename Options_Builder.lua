@@ -125,6 +125,13 @@ BUILDERS.note = function(parent, entry)
                                               or "GameFontHighlightSmall"
     local fs = parent:CreateFontString(nil, "ARTWORK", font)
     fs:SetJustifyH("LEFT")
+    if fs.SetWordWrap then fs:SetWordWrap(true) end
+    -- Reactive width: notes are the wrapping text that used to clip at other
+    -- panel widths. ns:ApplyWidth sets the width from the live panel width and
+    -- registers it so it re-wraps on Interface-Options resize (PanelInfra).
+    if ns.ApplyWidth then
+        ns:ApplyWidth(fs, 44)
+    end
     local text = entry.text
     if type(text) == "function" then text = text() end
     fs:SetText(text or "")
@@ -159,7 +166,7 @@ BUILDERS.dropdown = function(parent, entry)
     -- BuildSetCallback's (self, value) to match.
     local cb = BuildSetCallback(entry)
     local wrapped = function(dd, value, index) cb(dd, value, index) end
-    local dd = ns:CreateDropdown(parent, entry.label or "", entry.items, wrapped)
+    local dd = ns:CreateDropdown(parent, entry.label or "", entry.items, wrapped, entry.tooltip)
     if entry.width then UIDropDownMenu_SetWidth(dd, entry.width) end
     return dd
 end
@@ -328,6 +335,14 @@ function ns:BuildSettings(parent, schema, widgetRefs, opts)
             widget:SetPoint("TOPLEFT", parent, "TOPLEFT", firstX + offsetX, firstY)
         else
             widget:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", offsetX, -gap)
+        end
+
+        -- Full-width entries (editboxes, sliders) also pin their RIGHT edge to
+        -- the parent, so they stretch to the panel width instead of a fixed
+        -- `width`. Dropdowns cannot stretch this way (their box width is a
+        -- template property), so they are left alone.
+        if entry.stretch then
+            widget:SetPoint("RIGHT", parent, "RIGHT", -(entry.stretchPad or 6), 0)
         end
 
         rendered[#rendered + 1] = { widget = widget, entry = entry }

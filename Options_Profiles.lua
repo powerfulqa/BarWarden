@@ -54,19 +54,27 @@ local function CreateProfilesTab(parent)
 
     -- Title
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -80)
+    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -16)
     title:SetText("Profiles")
 
     local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+    desc:SetJustifyH("LEFT")
+    if desc.SetWordWrap then desc:SetWordWrap(true) end
+    if ns.ApplyWidth then ns:ApplyWidth(desc, 32) end
     desc:SetText("Save and Load bar layouts. Profiles are account-wide.")
 
     -- ========================================================================
     -- Profile List (FauxScrollFrame)
     -- ========================================================================
+    -- Fixed width matching the button grid below (4 columns x 80 px + gaps, out
+    -- to the Rename/Import buttons). The list box does NOT scale with the window
+    -- - it stays the same width as the buttons beneath it.
+    local PROFILE_LIST_WIDTH = 332
     local listFrame = CreateFrame("Frame", "BarWardenProfileList", frame)
     listFrame:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -12)
-    listFrame:SetSize(375, MAX_PROFILE_ROWS * PROFILE_ROW_HEIGHT + 4)
+    listFrame:SetWidth(PROFILE_LIST_WIDTH)
+    listFrame:SetHeight(MAX_PROFILE_ROWS * PROFILE_ROW_HEIGHT + 4)
 
     local listBg = listFrame:CreateTexture(nil, "BACKGROUND")
     listBg:SetAllPoints()
@@ -78,12 +86,16 @@ local function CreateProfilesTab(parent)
 
     local rows = {}
     for i = 1, MAX_PROFILE_ROWS do
+        -- Rows stretch to the list width (TOPLEFT + TOPRIGHT), so the row grows
+        -- with the window instead of being pinned at a fixed 374 px.
         local row = CreateFrame("Button", "BarWardenProfileRow" .. i, listFrame)
-        row:SetSize(374, PROFILE_ROW_HEIGHT)
+        row:SetHeight(PROFILE_ROW_HEIGHT)
         if i == 1 then
-            row:SetPoint("TOPLEFT", listFrame, "TOPLEFT", 2, -2)
+            row:SetPoint("TOPLEFT",  listFrame, "TOPLEFT",   2, -2)
+            row:SetPoint("TOPRIGHT", listFrame, "TOPRIGHT", -22, -2)
         else
-            row:SetPoint("TOPLEFT", rows[i - 1], "BOTTOMLEFT", 0, 0)
+            row:SetPoint("TOPLEFT",  rows[i - 1], "BOTTOMLEFT",  0, 0)
+            row:SetPoint("TOPRIGHT", rows[i - 1], "BOTTOMRIGHT", 0, 0)
         end
 
         local highlight = row:CreateTexture(nil, "HIGHLIGHT")
@@ -96,22 +108,28 @@ local function CreateProfilesTab(parent)
         selected:Hide()
         row.selectedTex = selected
 
+        -- Name auto-sizes to its text (no fixed width) so the description gets
+        -- whatever room is left before the date, avoiding the old clipping.
         local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        nameText:SetPoint("LEFT", row, "LEFT", 4, 0)
-        nameText:SetWidth(180)
+        nameText:SetPoint("LEFT", row, "LEFT", 6, 0)
         nameText:SetJustifyH("LEFT")
         row.nameText = nameText
 
-        local descText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        descText:SetPoint("LEFT", nameText, "RIGHT", 8, 0)
-        descText:SetWidth(100)
-        descText:SetJustifyH("LEFT")
-        row.descText = descText
-
+        -- Time is right-anchored with a fixed width; the description fills the
+        -- gap between the name and the time (bounded on both sides) so the two
+        -- can never overlap, whatever the window width.
         local timeText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         timeText:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+        timeText:SetWidth(110)
         timeText:SetJustifyH("RIGHT")
         row.timeText = timeText
+
+        local descText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        descText:SetPoint("LEFT",  nameText, "RIGHT",  8, 0)
+        descText:SetPoint("RIGHT", timeText, "LEFT",  -8, 0)
+        descText:SetJustifyH("LEFT")
+        descText:SetWordWrap(false)
+        row.descText = descText
 
         row:SetScript("OnClick", function(self)
             selectedProfileName = self.profileName
@@ -255,11 +273,21 @@ local function CreateProfilesTab(parent)
         if not RequireSelectedProfile() then return end
         local profile = ns.profiles[selectedProfileName]
         if profile.data then
+            -- Back up first: loading a profile replaces the current layout.
+            if ns.BackupFrames then ns:BackupFrames("load profile") end
             if profile.data.frames then
                 ns.db.frames = ns:CopyTable(profile.data.frames)
+                -- Profiles can predate the current schema; migrate on load so a
+                -- legacy-saved profile arrives canonicalised (never happened in
+                -- v1 - the "loaded profile doesn't track" gap).
+                if ns.MigrateFrames then ns:MigrateFrames(ns.db.frames) end
             end
             if profile.data.visual then
                 ns.db.visual = ns:CopyTable(profile.data.visual)
+                -- Backfill keys added since the profile was saved (e.g. crop
+                -- icons, cooldown spiral) so they don't read as nil/off and get
+                -- re-persisted incomplete on the next Save. Mirrors ImportFromV1.
+                if ns.MergeDefaults then ns:MergeDefaults(ns.db.visual, ns.DEFAULTS.visual) end
             end
             ns.db.activeProfile = selectedProfileName
             ns:FireCallback("OnProfileChanged", selectedProfileName)
@@ -320,6 +348,11 @@ local function CreateProfilesTab(parent)
                     ns:Print("Invalid import string: missing frames/visual data.")
                     return
                 end
+                -- Canonicalise imported frames now (they may predate the current
+                -- schema), so the stored profile is clean and tracks on load.
+                if type(data.frames) == "table" and ns.MigrateFrames then
+                    ns:MigrateFrames(data.frames)
+                end
                 -- Create a new profile from the imported data
                 local newName = "Imported"
                 local i = 2
@@ -346,11 +379,21 @@ local function CreateProfilesTab(parent)
     local resetBtn = ns:CreateButton(frame, "Reset to Defaults", 164, function()
         StaticPopup_Show("BARWARDEN_CONFIRM_RESET", nil, nil, {
             onAccept = function()
+                -- Snapshot the current layout first so `/bw restore` can undo a
+                -- reset (matches Load / Import / starter, which all back up).
+                if ns.BackupFrames then ns:BackupFrames("reset") end
                 ns.db.frames = ns:CopyTable(ns.DEFAULTS.frames)
                 ns.db.visual = ns:CopyTable(ns.DEFAULTS.visual)
-                wipe(ns.profiles)
+                -- Deliberately DO NOT wipe ns.profiles: this resets the live
+                -- layout to defaults, it is not a "delete my saved profiles"
+                -- action, and profiles are not in the backup ring so wiping them
+                -- would be irrecoverable.
                 ns.db.activeProfile = nil
                 selectedProfileName = nil
+                -- GetVisual caches a reference to the old visual table; the line
+                -- above replaced the pointer, so drop the cache or bars keep the
+                -- pre-reset look until /reload.
+                if ns.InvalidateVisualCache then ns:InvalidateVisualCache() end
                 ns:FireCallback("OnProfileChanged", nil)
                 frame:RefreshList()
             end,

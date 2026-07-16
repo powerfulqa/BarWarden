@@ -38,9 +38,9 @@ local function OnClick(_, button)
         local enabled = ns.db and ns.db.global and ns.db.global.enabled
         ns:SetEnabled(not enabled)
     else
-        -- 3.3.5a double-call quirk: first call only scrolls the category list.
-        InterfaceOptionsFrame_OpenToCategory("BarWarden")
-        InterfaceOptionsFrame_OpenToCategory("BarWarden")
+        -- Route through the shared opener (centralised category name + the
+        -- 3.3.5a double-call quirk live in Options.lua).
+        if ns.OpenOptions then ns:OpenOptions() end
     end
 end
 

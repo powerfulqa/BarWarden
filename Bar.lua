@@ -124,11 +124,27 @@ local function ResolveTexture(name)
     return name
 end
 
+-- Resolve the group config for a bar (nil-safe). Used for group-level visual
+-- overrides that fall back to the global default when unset.
+local function GetBarGroup(bar)
+    local idx = bar.frameIndex
+    if not idx then return nil end
+    return ns.db and ns.db.frames and ns.db.frames[idx]
+end
+
 local function GetBarColor(bar, config)
-    -- Per-bar override wins over any global mode.
+    -- Per-bar override wins over any group or global mode.
     local display = bar.barData and bar.barData.display
     if display and display.colorOverride then
         local c = display.colorOverride
+        return c.r or 1, c.g or 1, c.b or 1
+    end
+
+    -- Group-level colour override sits between per-bar and global: a group can
+    -- give all its bars a colour without touching every bar or the whole addon.
+    local group = GetBarGroup(bar)
+    if group and group.barColor then
+        local c = group.barColor
         return c.r or 1, c.g or 1, c.b or 1
     end
 
@@ -408,8 +424,12 @@ function ns:ApplyVisualConfig(bar, config)
         fontSize = 0
     end
 
-    -- Texture and colour
-    local textureName = display.textureOverride or visual.texture or "Flat"
+    -- Texture and colour. Resolution order: per-bar override, then group
+    -- override, then the addon-wide default. Any unset level is skipped.
+    local group = GetBarGroup(bar)
+    local textureName = display.textureOverride
+        or (group and group.barTexture)
+        or visual.texture or "Flat"
     if textureName == "Custom" and visual.customTexture and visual.customTexture ~= "" then
         textureName = visual.customTexture
     end

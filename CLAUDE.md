@@ -24,7 +24,7 @@ cleanup.
   30300**: timer bars for spell cooldowns, buffs, debuffs, procs, item
   cooldowns, weapon enchants, totems, and class resources, grouped into
   movable on-screen containers and configured through a tabbed Interface
-  Options panel. It ships as 28 `.lua` files plus the bundled `Libs/`.
+  Options panel. It ships as 30 `.lua` files plus the bundled `Libs/`.
   [BarWarden.toc](BarWarden.toc) lists every file in load order; add a
   new file after everything it depends on.
 - **The bundled libraries are intentional.** LibStub,

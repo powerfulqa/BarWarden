@@ -56,6 +56,22 @@ local function ThrottledHandler(event, interval, handler)
     end
 end
 
+-- Per-unit rate-limit: throttles each unit independently (key = event:unit), so
+-- a UNIT_AURA burst on player then target in the same window doesn't drop the
+-- second unit's scan (a plain per-event throttle would - it caught only the
+-- first, leaving the other to the slower poll loop).
+local function ThrottledUnitHandler(event, interval, handler)
+    return function(evt, unit)
+        if not unit then return end
+        local key = event .. ":" .. unit
+        local now = GetTime()
+        local last = throttleTimers[key] or 0
+        if now - last < interval then return end
+        throttleTimers[key] = now
+        handler(evt, unit)
+    end
+end
+
 -- ----------------------------------------------------------------------------
 -- Handler factories
 --
@@ -113,12 +129,12 @@ end
 local GAMEPLAY_EVENTS = {
     { "SPELL_UPDATE_COOLDOWN",     Dispatch("OnSpellCooldownUpdate") },
     { "ACTIONBAR_UPDATE_COOLDOWN", Dispatch("OnSpellCooldownUpdate") },
-    { "UNIT_AURA",                 ThrottledHandler("UNIT_AURA", UNIT_AURA_THROTTLE, DispatchUnit("OnUnitAura")) },
+    { "UNIT_AURA",                 ThrottledUnitHandler("UNIT_AURA", UNIT_AURA_THROTTLE, DispatchUnit("OnUnitAura")) },
     { "PLAYER_TARGET_CHANGED",     DispatchFixed("OnTargetChanged", "target") },
     { "PLAYER_FOCUS_CHANGED",      DispatchFixed("OnFocusChanged",  "focus") },
     { "PLAYER_REGEN_ENABLED",      OnCombatStateChanged },
     { "PLAYER_REGEN_DISABLED",     OnCombatStateChanged },
-    { "UNIT_HEALTH",               ThrottledHandler("UNIT_HEALTH", UNIT_HEALTH_THROTTLE, DispatchUnit("OnUnitHealth")) },
+    { "UNIT_HEALTH",               ThrottledUnitHandler("UNIT_HEALTH", UNIT_HEALTH_THROTTLE, DispatchUnit("OnUnitHealth")) },
     { "PARTY_MEMBERS_CHANGED",     Dispatch("OnGroupChanged") },
     { "RAID_ROSTER_UPDATE",        Dispatch("OnGroupChanged") },
     { "BAG_UPDATE_COOLDOWN",       Dispatch("OnBagCooldownUpdate") },

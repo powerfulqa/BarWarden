@@ -83,12 +83,40 @@ local function GenerateReport()
     add("--- Groups & Bars ---")
     if ns.db and ns.db.frames then
         for gi, frameData in ipairs(ns.db.frames) do
-            add(string.format("Group %d: \"%s\" (cols=%d, scale=%.1f, enabled=%s)",
+            add(string.format("Group %d: \"%s\" (w=%d, cols=%d, scale=%.1f, sort=%s, grow=%s, enabled=%s)",
                 gi,
                 frameData.name or "unnamed",
+                frameData.width or 0,
                 frameData.columns or 1,
                 frameData.scale or 1.0,
+                tostring(frameData.sortMode or "manual"),
+                tostring(frameData.growDirection or "DOWN"),
                 tostring(frameData.enabled ~= false)))
+
+            -- Group-level visual overrides (v2): only present when set.
+            local gover = {}
+            if frameData.barTexture then
+                gover[#gover + 1] = "texture=" .. tostring(frameData.barTexture)
+            end
+            if frameData.barColor then
+                gover[#gover + 1] = string.format("colour=%.2f,%.2f,%.2f",
+                    frameData.barColor.r or 0, frameData.barColor.g or 0, frameData.barColor.b or 0)
+            end
+            if #gover > 0 then add("    overrides: " .. table.concat(gover, ", ")) end
+
+            -- Group-level conditions (v2).
+            local gc = frameData.groupConditions
+            if gc then
+                local gcp = {}
+                if gc.combatOnly       then gcp[#gcp + 1] = "combatOnly" end
+                if gc.outOfCombatOnly  then gcp[#gcp + 1] = "outOfCombatOnly" end
+                if gc.hideWhileMounted then gcp[#gcp + 1] = "hideMounted" end
+                if gc.hideWhileResting then gcp[#gcp + 1] = "hideResting" end
+                if gc.hideInVehicle    then gcp[#gcp + 1] = "hideInVehicle" end
+                if gc.onlyInInstance   then gcp[#gcp + 1] = "onlyInInstance" end
+                if #gcp > 0 then add("    groupConditions: " .. table.concat(gcp, ", ")) end
+            end
+
             for bi, bar in ipairs(frameData.bars or {}) do
                 local spellStr = tostring(bar.spellName or bar.spellId or bar.itemId or "none")
                 local mode = bar.trackMode or "?"
@@ -116,6 +144,10 @@ local function GenerateReport()
                     local condParts = {}
                     if cond.combatOnly then condParts[#condParts + 1] = "combatOnly" end
                     if cond.outOfCombatOnly then condParts[#condParts + 1] = "outOfCombatOnly" end
+                    if cond.hideWhileMounted then condParts[#condParts + 1] = "hideMounted" end
+                    if cond.hideWhileResting then condParts[#condParts + 1] = "hideResting" end
+                    if cond.hideInVehicle then condParts[#condParts + 1] = "hideInVehicle" end
+                    if cond.onlyInInstance then condParts[#condParts + 1] = "onlyInInstance" end
                     if cond.hideWhenInactive then condParts[#condParts + 1] = "hideWhenInactive" end
                     if cond.showEmpty then condParts[#condParts + 1] = "showEmpty" end
                     if cond.inGroup then condParts[#condParts + 1] = "inGroup" end
@@ -127,13 +159,25 @@ local function GenerateReport()
                     end
                 end
 
-                -- Per-bar display overrides
+                -- Per-bar display overrides (only fields that differ from the
+                -- defaults are set, so this lists exactly what the user changed).
                 local disp = bar.display
                 if disp then
                     local dispParts = {}
                     if disp.lingerTime and disp.lingerTime > 0 then dispParts[#dispParts + 1] = "linger=" .. tostring(disp.lingerTime) end
+                    if disp.scaleOverride then dispParts[#dispParts + 1] = "scale=" .. tostring(disp.scaleOverride) end
+                    if disp.showName ~= nil then dispParts[#dispParts + 1] = "showName=" .. tostring(disp.showName) end
+                    if disp.showIcon ~= nil then dispParts[#dispParts + 1] = "showIcon=" .. tostring(disp.showIcon) end
+                    if disp.iconCrop ~= nil then dispParts[#dispParts + 1] = "iconCrop=" .. tostring(disp.iconCrop) end
+                    if disp.barAlpha ~= nil then dispParts[#dispParts + 1] = string.format("barAlpha=%.2f", disp.barAlpha) end
+                    if disp.colorOverride then
+                        dispParts[#dispParts + 1] = string.format("colour=%.2f,%.2f,%.2f",
+                            disp.colorOverride.r or 0, disp.colorOverride.g or 0, disp.colorOverride.b or 0)
+                    end
+                    if disp.colorByTime then dispParts[#dispParts + 1] = "colorByTime" end
                     if disp.sparkleAlert then dispParts[#dispParts + 1] = "sparkleAlert=" .. tostring(disp.sparkleThreshold or 5) end
-                    if disp.colorOverride then dispParts[#dispParts + 1] = "colorOverride" end
+                    if disp.glowOnReady then dispParts[#dispParts + 1] = "glow=" .. tostring(disp.glowDuration or 3) end
+                    if disp.pulseOnReady then dispParts[#dispParts + 1] = "pulseOnReady" end
                     if #dispParts > 0 then
                         add("    display: " .. table.concat(dispParts, ", "))
                     end

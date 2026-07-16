@@ -1118,12 +1118,16 @@ function ns:LoadClassStarter(classToken)
         return false
     end
 
+    -- LoadClassStarter REPLACES the layout; snapshot first so it's recoverable.
+    if ns.BackupFrames then ns:BackupFrames("load starter") end
+
     local newFrames = {}
     for i, groupPreset in ipairs(groups) do
         newFrames[i] = BuildGroupFromPreset(groupPreset, i, classToken)
     end
 
     ns.db.frames = newFrames
+    if ns.MigrateFrames then ns:MigrateFrames(ns.db.frames) end
     ns.db.activeProfile = nil
     ns:FireCallback("OnProfileChanged", nil)
 
@@ -1167,6 +1171,7 @@ function ns:AppendClassStarter(classToken)
         addedBars = addedBars + #ns.db.frames[targetIndex].bars
     end
 
+    if ns.MigrateFrames then ns:MigrateFrames(ns.db.frames) end
     ns.db.activeProfile = nil
     ns:FireCallback("OnProfileChanged", nil)
 

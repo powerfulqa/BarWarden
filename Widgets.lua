@@ -142,13 +142,19 @@ function ns:CreateSlider(parent, label, min, max, step, onChange, tooltip)
     return slider
 end
 
-function ns:CreateDropdown(parent, label, items, onSelect)
+function ns:CreateDropdown(parent, label, items, onSelect, tooltip)
     local name = NextName("DD")
     local dd = CreateFrame("Frame", name, parent, "UIDropDownMenuTemplate")
 
     local lbl = dd:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lbl:SetPoint("BOTTOMLEFT", dd, "TOPLEFT", 16, 3)
     lbl:SetText(label)
+
+    -- Hover tooltip attaches to the clickable button, so it fires reliably.
+    if tooltip and tooltip ~= "" then
+        local button = _G[name .. "Button"]
+        if button then AttachTooltip(button, tooltip) end
+    end
 
     UIDropDownMenu_SetWidth(dd, 150)
 
@@ -268,6 +274,9 @@ function ns:CreateHelpIcon(parent, anchorWidget, anchorPoint, relPoint, xOff, yO
         GameTooltip:Hide()
     end)
     btn:SetScript("OnClick", function()
+        -- Remember the section we came from (the one currently on screen) so the
+        -- Help tab can offer a Back button. [?] icons never live on Help itself.
+        ns.helpReturnTab = ns.currentOptionsTab
         if ns.OpenHelpEntry then ns:OpenHelpEntry(entryId) end
     end)
 
@@ -321,6 +330,9 @@ function ns:CreateColorSwatch(parent, label, initialColor, onChange)
         ColorPickerFrame.cancelFunc = CancelColor
         ColorPickerFrame:SetColorRGB(c.r, c.g, c.b)
         ColorPickerFrame:Show()
+        -- The picker opens at DIALOG strata and can land behind the Interface
+        -- Options window; lift it above (restored on hide).
+        if ns.RaiseFrameAboveOptions then ns:RaiseFrameAboveOptions(ColorPickerFrame) end
     end)
 
     frame.swatch = swatch

@@ -343,15 +343,45 @@ local function CreateHelpTab(parent)
     frame:Hide()
 
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -80)
+    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -16)
     title:SetText("Help")
 
     local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-    desc:SetPoint("RIGHT", frame, "RIGHT", 16, 0)
     desc:SetJustifyH("LEFT")
+    if desc.SetWordWrap then desc:SetWordWrap(true) end
+    -- Reactive width so it wraps to the live panel width (a two-point
+    -- TOPLEFT+RIGHT anchor does not wrap reliably on 3.3.5a).
+    if ns.ApplyWidth then ns:ApplyWidth(desc, 32) end
     desc:SetText("Click a section to expand it. The [?] icons around the "
               .. "settings jump straight to the matching answer here.")
+
+    -- "Back" button: shown only when the user arrived via a [?] deep-link, so
+    -- one click returns them to the section they came from.
+    local backBtn = ns:CreateButton(frame, "< Back", 90, function(self)
+        local target = ns.helpReturnTab
+        ns.helpReturnTab = nil
+        self:Hide()
+        if target and ns.SelectOptionsTab then ns:SelectOptionsTab(target) end
+    end)
+    backBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -16, -14)
+    backBtn:Hide()
+    frame.backBtn = backBtn
+
+    local function UpdateBackButton()
+        local target = ns.helpReturnTab
+        local label = target and ns.TAB_NAMES and ns.TAB_NAMES[target]
+        if label then
+            backBtn:SetText("< Back to " .. label)
+            local fs = backBtn:GetFontString()
+            local tw = (fs and fs:GetStringWidth()) or 100
+            backBtn:SetWidth(tw + 26)
+            backBtn:Show()
+        else
+            backBtn:Hide()
+        end
+    end
+    frame.UpdateBackButton = UpdateBackButton
 
     local scrollFrame = CreateFrame("ScrollFrame", "BarWardenHelpScrollFrame",
                                     frame, "UIPanelScrollFrameTemplate")
@@ -488,7 +518,10 @@ local function CreateHelpTab(parent)
     -- via a deep-link while the tab was hidden), and reflow whenever the scroll
     -- viewport resizes (UI scale change or a differently-sized options panel)
     -- so the wrapped text tracks the real width instead of a fixed guess.
-    frame:SetScript("OnShow", function() frame.Relayout() end)
+    frame:SetScript("OnShow", function()
+        frame.Relayout()
+        UpdateBackButton()
+    end)
     scrollFrame:SetScript("OnSizeChanged", function() frame.Relayout() end)
     frame.Relayout()
 
@@ -520,10 +553,8 @@ function ns:OpenHelpEntry(id)
         end
     end
 
-    -- EC-TRAP: the duplicated line is NOT a copy-paste bug. Do NOT dedupe it.
-    -- See CLAUDE.md (Interface options panel).
-    InterfaceOptionsFrame_OpenToCategory("BarWarden")
-    InterfaceOptionsFrame_OpenToCategory("BarWarden")
+    -- Open the Help section's own category (ns:SelectOptionsTab handles the
+    -- 3.3.5a double-call quirk internally).
     if ns.SelectOptionsTab then ns:SelectOptionsTab(HELP_TAB_INDEX) end
 
     local tab = ns._helpTab

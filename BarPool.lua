@@ -32,6 +32,7 @@ function ns:ReleaseBar(bar)
     bar.frameIndex = nil
     bar.barState = 0
     bar.isResourceBar = false   -- resource-bar flag must not leak across pool reuse
+    bar.isStaticBar = false     -- permanent-aura flag must not leak across pool reuse
     bar.expirationTime = nil
     bar.duration = nil
     bar.lingerRemaining = nil

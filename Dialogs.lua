@@ -163,6 +163,23 @@ StaticPopupDialogs["BARWARDEN_WELCOME_STARTER"] = {
     preferredIndex = 4,
 }
 
+-- First-login prompt for the parallel BarWarden V2 build: a v1 install was
+-- detected, offer to import its layout. %d is the bar count found in v1.
+StaticPopupDialogs["BARWARDEN_IMPORT_V1"] = {
+    text = "Found your existing BarWarden layout (%d bars).\n\nImport it into this version? Your other BarWarden is not changed, and your current layout here is backed up first.",
+    button1 = "Import it",
+    button2 = "No thanks",
+    OnAccept = function(self)
+        if self.data and self.data.onAccept then
+            self.data.onAccept()
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 4,
+}
+
 -- Confirm Load Class Starter (replaces current groups/bars with a preset).
 -- Used from the Profiles tab when the player already has bars configured.
 -- First %s is the class name, second %s is the preset summary.
@@ -197,3 +214,69 @@ StaticPopupDialogs["BARWARDEN_CONFIRM_STARTER_APPEND"] = {
     hideOnEscape = true,
     preferredIndex = 4,
 }
+
+-- A confirmation/entry popup shown from a settings panel can appear BEHIND the
+-- Interface Options window (press a button and the dialog is hidden under the
+-- menu). Every BarWarden popup, while shown, is lifted to sit above the options
+-- window: match its frame strata and raise the frame level well past it (so it
+-- wins even if BlizzMove or the client bumped the options window's strata). The
+-- shared popup frame's strata/level are restored on hide so other addons'
+-- popups are unaffected. The "^BARWARDEN" match covers the V2-test rename too.
+function ns:EnsurePopupsTopmost()
+    for key, dialog in pairs(StaticPopupDialogs) do
+        if type(key) == "string" and key:find("^BARWARDEN") and not dialog._bwTopmost then
+            dialog._bwTopmost = true
+            local prevShow, prevHide = dialog.OnShow, dialog.OnHide
+            dialog.OnShow = function(self, ...)
+                self._bwStrata = self:GetFrameStrata()
+                self._bwLevel = self:GetFrameLevel()
+                local io = InterfaceOptionsFrame
+                if io and io:IsShown() then
+                    self:SetFrameStrata(io:GetFrameStrata())
+                    self:SetFrameLevel(io:GetFrameLevel() + 50)
+                else
+                    self:SetFrameStrata("FULLSCREEN_DIALOG")
+                end
+                self:SetToplevel(true)
+                if prevShow then return prevShow(self, ...) end
+            end
+            dialog.OnHide = function(self, ...)
+                if self._bwStrata then self:SetFrameStrata(self._bwStrata); self._bwStrata = nil end
+                if self._bwLevel then self:SetFrameLevel(self._bwLevel); self._bwLevel = nil end
+                if prevHide then return prevHide(self, ...) end
+            end
+        end
+    end
+end
+
+-- Cover the dialogs defined here immediately; Core re-runs it after every file
+-- has loaded so late definitions (e.g. Comms) are caught too.
+ns:EnsurePopupsTopmost()
+
+-- Lift a shared Blizzard frame (e.g. ColorPickerFrame) above the Interface
+-- Options window while it is shown, restoring its original strata/level on hide.
+-- Same technique as the popups: match the options window's strata and sit well
+-- above it by level, so it wins even if BlizzMove bumped the options window. The
+-- OnHide restore is hooked once so the shared frame is unaffected elsewhere.
+function ns:RaiseFrameAboveOptions(frame)
+    if not frame then return end
+    if not frame._bwRaiseHooked then
+        frame._bwRaiseHooked = true
+        frame:HookScript("OnHide", function(self)
+            if self._bwOrigStrata then self:SetFrameStrata(self._bwOrigStrata); self._bwOrigStrata = nil end
+            if self._bwOrigLevel then self:SetFrameLevel(self._bwOrigLevel); self._bwOrigLevel = nil end
+        end)
+    end
+    if not frame._bwOrigStrata then
+        frame._bwOrigStrata = frame:GetFrameStrata()
+        frame._bwOrigLevel = frame:GetFrameLevel()
+    end
+    local io = InterfaceOptionsFrame
+    if io and io:IsShown() then
+        frame:SetFrameStrata(io:GetFrameStrata())
+        frame:SetFrameLevel(io:GetFrameLevel() + 50)
+    else
+        frame:SetFrameStrata("FULLSCREEN_DIALOG")
+    end
+    if frame.SetToplevel then frame:SetToplevel(true) end
+end

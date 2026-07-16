@@ -1,161 +1,189 @@
--- Options.lua - Options panel frame and tab registration.
+-- Options.lua - Interface Options shell: one category per panel.
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
 -- License: see LICENSE; attribution preservation is required.
+--
+-- v2 navigation: instead of one cramped window with hand-rolled tab buttons,
+-- BarWarden registers a parent "BarWarden" category plus one child category
+-- per section (Bar Control, Visuals, Profiles, Activity, Help), nested via
+-- Blizzard's `.parent` field. The General settings (and the runnable slash
+-- list) are folded onto the parent overview page rather than a category of
+-- their own. Each section gets a full panel with room to breathe, and the
+-- native Interface Options tree does the navigation.
+--
+-- Existing panel builders keep working unchanged: each still calls
+-- ns:RegisterOptionsTab(index, builderFn) and returns a content frame; here we
+-- give that builder its own child category instead of a tab. Per-panel reactive
+-- reflow comes from PanelInfra (the builders wrap their content on OnShow).
 
 local addonName, ns = ...
 
--- Tab content frames (populated by tab builder functions registered below).
-ns.optionsTabs = {}
+-- Single source of truth for the parent category label. The v2-test deploy
+-- script rewrites this one line to "BarWarden V2" so a parallel install shows
+-- as its own separate tree without touching the live addon.
+local PARENT_NAME = "BarWarden"
+ns.PARENT_NAME = PARENT_NAME
 
--- Tab builder registry. Each Options_*.lua file calls ns:RegisterOptionsTab(index, builderFn)
--- instead of wrapping ns.CreateOptionsPanel in a decorator chain. The builder
--- function receives the panel frame and returns the tab content frame.
-ns.tabBuilders = {}
+ns.optionsTabs = {}   -- index -> child category frame
+ns.tabBuilders = {}   -- index -> builder fn, set by ns:RegisterOptionsTab
+
+-- Section titles shown in the Interface Options tree, by registration index.
+-- Index 1 (General) is intentionally absent: those settings live on the parent
+-- overview page now, so no builder registers at index 1.
+local TAB_NAMES = {
+    [2] = "Bar Control",
+    [3] = "Visuals",
+    [4] = "Profiles",
+    [5] = "Activity",
+    [6] = "Help",
+}
+ns.TAB_NAMES = TAB_NAMES  -- exposed so the Help "Back" button can name the origin
 
 function ns:RegisterOptionsTab(index, builderFn)
     ns.tabBuilders[index] = builderFn
 end
 
-local TAB_NAMES = {"General", "Bars / Groups", "Visuals", "Profiles", "Statistics", "Help"}
-
-local function ShowTab(index)
-    for i, frame in pairs(ns.optionsTabs) do
-        if frame then
-            if i == index then
-                frame:Show()
-            else
-                frame:Hide()
-            end
-        end
-    end
-end
-
--- Programmatically switch to a tab (e.g. the Help deep-link from a [?] icon).
--- Mirrors the tab-button OnClick path: highlight the tab and show its content.
-function ns:SelectOptionsTab(index)
-    if ns.optionsPanel then
-        PanelTemplates_SetTab(ns.optionsPanel, index)
-    end
-    ShowTab(index)
-end
-
-function ns:CreateOptionsPanel()
+local function BuildParentPanel()
     local panel = CreateFrame("Frame", "BarWardenOptionsPanel", UIParent)
-    panel.name = "BarWarden"
+    panel.name = PARENT_NAME
     ns.optionsPanel = panel
 
-    -- Title (version inline so it's visible from any tab without digging
-    -- into the General-tab footer).
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("BarWarden v" .. (ns.version or "?"))
+    title:SetText(PARENT_NAME .. " v" .. (ns.version or "?"))
 
-    -- Author + source byline. Subdued olive so it sits below the title
-    -- without competing with it. Mirrors the byline style used by
-    -- EbonClearance. ns.author / ns.url are stamped in Core.lua and are the
-    -- single source of truth for provenance.
+    -- Author + source byline (subdued olive), matching EbonClearance so the
+    -- two addons read as one family. ns.author / ns.url are the single source
+    -- of truth, stamped in Core.lua.
     local byline = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     byline:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
     byline:SetText("|cff888866by " .. (ns.author or "?") .. "  \194\183  "
                 .. (ns.url or "?") .. "|r")
 
-    local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    subtitle:SetPoint("TOPLEFT", byline, "BOTTOMLEFT", 0, -4)
-    subtitle:SetText("Cooldown, buff, and debuff bar tracking")
+    local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    sub:SetPoint("TOPLEFT", byline, "BOTTOMLEFT", 0, -14)
+    sub:SetJustifyH("LEFT")
+    if sub.SetWordWrap then sub:SetWordWrap(true) end
+    -- Explicit reactive width: a two-point (TOPLEFT+RIGHT) anchor does NOT give
+    -- a FontString a reliable wrap width on 3.3.5a (it clips to one line).
+    if ns.ApplyWidth then ns:ApplyWidth(sub, 32) end
+    sub:SetText("Cooldown, buff, and debuff bar tracking. Set the addon-wide "
+             .. "options below, then pick a section on the left to build bars, "
+             .. "style them, or manage profiles.")
 
-    -- Create tab buttons
-    local tabs = {}
-    for i, tabName in ipairs(TAB_NAMES) do
-        local tab = CreateFrame("Button", panel:GetName() .. "Tab" .. i, panel, "CharacterFrameTabButtonTemplate")
-        tab:SetText(tabName)
-        tab:SetID(i)
-        tab:SetScript("OnClick", function(self)
-            PanelTemplates_SetTab(panel, self:GetID())
-            ShowTab(self:GetID())
-            PlaySound("igCharacterInfoTab")
-        end)
-        if i == 1 then
-            tab:SetPoint("TOPLEFT", panel, "BOTTOMLEFT", 5, 2)
-        else
-            tab:SetPoint("LEFT", tabs[i - 1], "RIGHT", -14, 0)
-        end
-        tabs[i] = tab
-    end
-    PanelTemplates_SetNumTabs(panel, #TAB_NAMES)
-    panel.tabs = tabs
-    PanelTemplates_SetTab(panel, 1)
+    -- General settings + the runnable slash list are folded onto this overview
+    -- page (no separate "General" category). A scroll frame below the intro
+    -- hosts them so the command list never clips, and reflows on resize.
+    local scroll = CreateFrame("ScrollFrame", "BarWardenOverviewScrollFrame",
+                               panel, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT",     sub,   "BOTTOMLEFT",   0, -14)
+    scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -28,  16)
 
-    -- Panel callbacks
-    panel.okay = function()
-        if ns.db then
-            ns:ApplySettings()
-        end
-    end
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetWidth(544)
+    content:SetHeight(1)
+    scroll:SetScrollChild(content)
 
-    panel.cancel = function()
-        if ns.db then
-            ns:RevertSettings()
-        end
-    end
+    local refresh
+    if ns.BuildGeneralInto then refresh = ns:BuildGeneralInto(content) end
 
-    panel.default = function()
-        if ns.db then
-            ns:ResetToDefaults()
+    -- Fit: match the scroll child to the viewport width, re-wrap the slash
+    -- labels, and trim the child height to the footer so the scrollbar engages
+    -- only on overflow.
+    local function fit()
+        local w = scroll:GetWidth()
+        if w and w > 100 then content:SetWidth(w) end
+        if content._reflowSlashRows then content._reflowSlashRows(content:GetWidth()) end
+        local footer = content._generalFooter
+        local footBottom = footer and footer:GetBottom()
+        local contentTop = content:GetTop()
+        if footBottom and contentTop and contentTop > footBottom then
+            content:SetHeight(contentTop - footBottom + 20)
         end
     end
+    scroll:SetScript("OnSizeChanged", function() fit() end)
 
-    panel.refresh = function()
-        if ns.db then
-            ns:RefreshOptions()
-        end
-    end
-
-    -- Build all registered tabs. Each builder returns a content frame that
-    -- is stored in ns.optionsTabs[index]. Tab 1 is shown by default.
-    for index, builder in pairs(ns.tabBuilders) do
-        local tab = builder(panel)
-        if tab then
-            ns.optionsTabs[index] = tab
-            if index == 1 then tab:Show() end
-        end
-    end
+    panel.content = content
+    panel.Refresh = refresh
+    panel:SetScript("OnShow", function()
+        fit()
+        if refresh then refresh() end
+    end)
 
     InterfaceOptions_AddCategory(panel)
     return panel
 end
 
--- Open options panel (call twice to work around Blizzard bug)
+-- Called once from ns:OnInitialize. Builds the parent category, then one child
+-- category per registered section builder (in index order).
+function ns:CreateOptionsPanel()
+    BuildParentPanel()
+
+    local indices = {}
+    for i in pairs(ns.tabBuilders) do indices[#indices + 1] = i end
+    table.sort(indices)
+
+    for _, index in ipairs(indices) do
+        local builder = ns.tabBuilders[index]
+        local child = CreateFrame("Frame", "BarWardenPanel" .. index, UIParent)
+        child.name = TAB_NAMES[index] or ("Section " .. index)
+        child.parent = PARENT_NAME
+        -- The builder creates a content frame parented to `child` (SetAllPoints)
+        -- and returns it; that becomes this category's body.
+        local content = builder(child)
+        if content then
+            child.content = content
+            if content.Show then content:Show() end
+            -- Record which section is on screen whenever it is shown, so a [?]
+            -- deep-link into Help can offer a "Back to <section>" button.
+            local idx = index
+            if content.HookScript then
+                content:HookScript("OnShow", function()
+                    ns.currentOptionsTab = idx
+                    -- Showing any non-Help section clears a stored deep-link
+                    -- origin, so the Back button never shows a stale target when
+                    -- Help is next opened directly from the tree.
+                    if TAB_NAMES[idx] ~= "Help" then ns.helpReturnTab = nil end
+                end)
+            end
+        end
+        ns.optionsTabs[index] = child
+        InterfaceOptions_AddCategory(child)
+    end
+end
+
+-- Open the addon's options. Double-call is the 3.3.5a quirk: the first call
+-- only scrolls the category list, the second opens it. Everything that opens
+-- the options routes here so the category name lives in one place.
 function ns:OpenOptions()
+    local target = ns.optionsPanel or PARENT_NAME
     -- EC-TRAP: the duplicated line is NOT a copy-paste bug. Do NOT dedupe it.
     -- See CLAUDE.md (Interface options panel).
-    InterfaceOptionsFrame_OpenToCategory("BarWarden")
-    InterfaceOptionsFrame_OpenToCategory("BarWarden")
+    InterfaceOptionsFrame_OpenToCategory(target)
+    InterfaceOptionsFrame_OpenToCategory(target)
 end
 
--- Placeholder callbacks for panel actions (overridden by specific tab modules)
-function ns:ApplySettings()
+-- Deep-link to a specific section (used by the Help [?] icons via index).
+function ns:SelectOptionsTab(index)
+    local child = ns.optionsTabs[index]
+    if not child then return end
+    InterfaceOptionsFrame_OpenToCategory(child)
+    InterfaceOptionsFrame_OpenToCategory(child)
 end
 
-function ns:RevertSettings()
-end
-
-function ns:ResetToDefaults()
-end
+-- Panel action hooks. Per-section refresh now happens on each panel's OnShow
+-- (see the builders / PanelInfra), so these stay light. Kept for callers that
+-- still invoke them (e.g. reset-to-defaults).
+function ns:ApplySettings() end
+function ns:RevertSettings() end
+function ns:ResetToDefaults() end
 
 function ns:RefreshOptions()
-    ShowTab(1)
-    if ns.optionsPanel then
-        PanelTemplates_SetTab(ns.optionsPanel, 1)
-    end
-    -- Suppress widget callbacks while restoring UI state so that
-    -- programmatic SetValue / SetChecked calls don't write back to DB
-    -- and overwrite per-group settings with global defaults.
     ns.suppressCallbacks = true
-    for _, tab in pairs(ns.optionsTabs) do
-        if tab and tab.Refresh then
-            tab:Refresh()
-        end
+    if ns.optionsPanel and ns.optionsPanel.Refresh then ns.optionsPanel.Refresh() end
+    for _, child in pairs(ns.optionsTabs) do
+        local content = child and child.content
+        if content and content.Refresh then content:Refresh() end
     end
     ns.suppressCallbacks = false
 end

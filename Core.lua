@@ -136,10 +136,17 @@ function ns:OnInitialize()
     ns:RebuildAllFrames()
     ns:RefreshAllBars()
     ns:InitMinimapButton()
+    -- All files have loaded by now: make sure every popup we trigger is lifted
+    -- above the options window (catches late definitions such as Comms's).
+    if ns.EnsurePopupsTopmost then ns:EnsurePopupsTopmost() end
 
     -- Profile load/reset fires "OnProfileChanged"; subscribe the standard
     -- post-change work so call sites can fire-and-forget.
     ns:RegisterCallback("OnProfileChanged", function()
+        -- A profile Load/Reset swaps BarWardenDB.visual to a new table; GetVisual
+        -- caches a reference to the old one, so drop the cache before rebuilding
+        -- or bars render with the previous profile's look until /reload.
+        if ns.InvalidateVisualCache then ns:InvalidateVisualCache() end
         ns:RebuildAllFrames()
         ns:ApplySettings()
     end)
@@ -195,11 +202,15 @@ local function CheckFirstLoginStarter()
     local className, classToken = UnitClass("player")
     if not classToken or not ns.ClassPresets[classToken] then return end
 
-    -- Only prompt if the layout looks like a fresh install (0 or 1 groups).
-    -- Checking the group name is brittle; checking the count catches both
-    -- "default sample bar" and "user deleted everything".
+    -- Never auto-prompt over an existing layout. Counting bars (not just
+    -- groups) means an upgrader with even one configured bar is left alone,
+    -- so the starter load can never wipe their bars (the v1 data-loss bug).
+    -- Mark them prompted so this never re-evaluates.
     local frames = ns.db.frames
-    if not frames or #frames > 1 then return end
+    if ns:HasExistingLayout(frames) then
+        ns.db.starterPrompted = true
+        return
+    end
 
     ns.db.starterPrompted = true
     local summary, _, _, label
@@ -208,22 +219,50 @@ local function CheckFirstLoginStarter()
     end
     summary = summary or ""
     label = label or className or classToken
-    -- Use the welcome dialog (friendly tone, no "replace" warning) since
-    -- the character has no bars to lose.
+    -- The layout is empty here, so append == load; use the non-destructive
+    -- append path anyway as belt-and-suspenders against any guard edge case.
     StaticPopup_Show("BARWARDEN_WELCOME_STARTER", label, summary, {
         onAccept = function()
-            if ns.LoadClassStarter then
+            if ns.AppendClassStarter then
+                ns:AppendClassStarter(classToken)
+            elseif ns.LoadClassStarter then
                 ns:LoadClassStarter(classToken)
             end
         end,
     })
 end
 
+-- Parallel BarWarden V2 build: if a separate v1 install is loaded and this
+-- build's own layout is still empty, offer to import the v1 layout once. In
+-- the normal single-addon release ns:GetV1Layout returns nil, so this no-ops.
+local function CheckV1Import()
+    if not ns.db or ns.db.v1ImportPrompted then return false end
+    if not ns.GetV1Layout or ns:HasExistingLayout(ns.db.frames) then return false end
+    local layout = ns:GetV1Layout()
+    if not layout then return false end
+    ns.db.v1ImportPrompted = true
+    local bars = 0
+    for _, f in ipairs(layout.frames) do bars = bars + #(f.bars or {}) end
+    StaticPopup_Show("BARWARDEN_IMPORT_V1", bars, nil, {
+        onAccept = function()
+            local n = ns:ImportFromV1()
+            if n then
+                if ns.RebuildAllFrames then ns:RebuildAllFrames() end
+                ns:Print(string.format("Imported %d bars from your other BarWarden.", n))
+            end
+        end,
+    })
+    return true
+end
+
 local function OnPlayerLogin()
     if ns.db and ns.db.global.enabled then
         ns:OnEnable()
     end
-    CheckFirstLoginStarter()
+    -- Offer a v1 import first (parallel build); otherwise the starter prompt.
+    if not CheckV1Import() then
+        CheckFirstLoginStarter()
+    end
 end
 
 local function OnPlayerLogout()
@@ -389,6 +428,25 @@ SLASH_COMMANDS.commtest = function()
     end
 end
 
+SLASH_COMMANDS.restore = function()
+    if ns.RestoreLastBackup and ns:RestoreLastBackup() then
+        if ns.RebuildAllFrames then ns:RebuildAllFrames() end
+        ns:Print("Restored your previous layout from the last backup.")
+    else
+        ns:Print("No layout backup found to restore.")
+    end
+end
+
+SLASH_COMMANDS.importv1 = function()
+    local n = ns.ImportFromV1 and ns:ImportFromV1()
+    if n then
+        if ns.RebuildAllFrames then ns:RebuildAllFrames() end
+        ns:Print(string.format("Imported %d bars from your other BarWarden.", n))
+    else
+        ns:Print("No separate BarWarden layout was found to import.")
+    end
+end
+
 SLASH_COMMANDS.stats = function()
     DEFAULT_CHAT_FRAME:AddMessage("|cff7fbfffBarWarden Activity:|r")
     local sessionDuration = time() - (ns.sessionStartTime or time())
@@ -455,12 +513,9 @@ local function SlashHandler(msg)
     if handler then
         handler()
     else
-        -- Open the config panel. The double-call is a 3.3.5a quirk:
-        -- the first call only scrolls to the category, the second opens it.
-        -- EC-TRAP: the duplicated line is NOT a copy-paste bug. Do NOT dedupe it.
-        -- See CLAUDE.md (Interface options panel).
-        InterfaceOptionsFrame_OpenToCategory("BarWarden")
-        InterfaceOptionsFrame_OpenToCategory("BarWarden")
+        -- Open the config panel via the shared opener (the category name lives
+        -- in one place in Options.lua; the double-call quirk is handled there).
+        if ns.OpenOptions then ns:OpenOptions() end
     end
 end
 

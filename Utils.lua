@@ -40,6 +40,22 @@ function ns:MergeDefaults(target, defaults)
     end
 end
 
+-- True if `frames` already holds a user layout worth protecting: any bar in
+-- any group, or more than one group. Gates the first-login starter prompt so
+-- it never auto-replaces an existing layout - the v1 "bars lost after
+-- upgrading" data-loss bug, where an upgrader with one tuned group was treated
+-- as a fresh install and had it overwritten.
+function ns:HasExistingLayout(frames)
+    if type(frames) ~= "table" then return false end
+    if #frames > 1 then return true end
+    for _, f in ipairs(frames) do
+        if type(f) == "table" and f.bars and #f.bars > 0 then
+            return true
+        end
+    end
+    return false
+end
+
 -- Format seconds as a readable uptime string: "12.3s", "5m 30s", "2h 15m".
 function ns.FormatUptime(seconds)
     if not seconds or seconds <= 0 then return "0s" end

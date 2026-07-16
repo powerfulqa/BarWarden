@@ -62,7 +62,6 @@ ns.DEFAULTS = {
         textFormat = "NAME_DURATION",
         durationStyle = "DECIMAL",
         colorMode = "CLASS",
-        perBarColorOverride = false,
         defaultColor = { r = 0.2, g = 0.6, b = 1.0 },
         trackModeColors = {
             Cooldown = { r = 0.4, g = 0.6, b = 1.0 },
@@ -112,6 +111,9 @@ local CURRENT_SCHEMA = 5
 local function MigrateDB()
     local savedVersion = BarWardenDB.schemaVersion or 0
     if savedVersion >= CURRENT_SCHEMA then return end
+
+    -- Snapshot the layout before we mutate it, so a bad upgrade is recoverable.
+    ns:BackupFrames("schema " .. savedVersion .. " to " .. CURRENT_SCHEMA)
 
     -- v0 → v1: rename legacy bar config fields to canonical names.
     --   spell (number) → spellId / itemId   spell (string) → spellName
@@ -225,6 +227,131 @@ local function MigrateDB()
     BarWardenDB.schemaVersion = CURRENT_SCHEMA
 end
 
+-- Canonicalise + backfill a frames array, in place. Idempotent, so it is safe
+-- to run on every load and on ANY frame source - the live DB, a loaded
+-- profile, an imported string, a starter preset - not just the schema-
+-- versioned live DB. This closes the v1 gap where profile-load / import
+-- bypassed migration and arrived with legacy fields (bars that never tracked).
+-- It only renames legacy fields and fills nil sub-tables; it NEVER clears an
+-- identity field (spellName / spellId / itemId / trackMode).
+function ns:MigrateFrames(frames)
+    if type(frames) ~= "table" then return frames end
+    for _, f in ipairs(frames) do
+        if type(f) == "table" then
+            if f.sortMode == nil then f.sortMode = "manual" end
+            f.bars = f.bars or {}
+            for _, bar in ipairs(f.bars) do
+                if type(bar) == "table" then
+                    -- Legacy field renames (idempotent: only act if present).
+                    local s = bar.spell
+                    if s ~= nil then
+                        if type(s) == "number" then
+                            if bar.trackMode == "Item" then
+                                bar.itemId = bar.itemId or s
+                            else
+                                bar.spellId = bar.spellId or s
+                            end
+                        elseif type(s) == "string" and s ~= "" then
+                            bar.spellName = bar.spellName or s
+                        end
+                        bar.spell = nil
+                    end
+                    if bar.spellInput ~= nil then
+                        bar.spellName = bar.spellName or bar.spellInput
+                        bar.spellInput = nil
+                    end
+                    if bar.target ~= nil then
+                        bar.unit = bar.unit or bar.target
+                        bar.target = nil
+                    end
+                    -- Per-bar default backfill: guarantee the sub-tables the
+                    -- engine reads exist, so adding a new per-bar field can
+                    -- never strand a bar saved before that field existed.
+                    -- Fills nils only; identity fields untouched.
+                    if bar.conditions == nil then bar.conditions = {} end
+                    if bar.display == nil then bar.display = {} end
+                end
+            end
+        end
+    end
+    return frames
+end
+
+-- Pre-migration safety net: snapshot the current frames into a small ring of
+-- timestamped backups before anything mutates them, so a bad upgrade or a
+-- destructive load is recoverable via ns:RestoreLastBackup(). Kept to the
+-- last few; skips empty layouts (nothing worth saving).
+local MAX_BACKUPS = 3
+function ns:BackupFrames(reason)
+    if not BarWardenDB or type(BarWardenDB.frames) ~= "table" then return end
+    if #BarWardenDB.frames == 0 then return end
+    BarWardenDB.backups = BarWardenDB.backups or {}
+    table.insert(BarWardenDB.backups, 1, {
+        t = (time and time()) or 0,
+        reason = reason or "migration",
+        frames = ns:CopyTable(BarWardenDB.frames),
+    })
+    while #BarWardenDB.backups > MAX_BACKUPS do
+        table.remove(BarWardenDB.backups)
+    end
+end
+
+-- Restore the most recent frames backup. Returns true if one was restored.
+function ns:RestoreLastBackup()
+    if not BarWardenDB or type(BarWardenDB.backups) ~= "table" then return false end
+    local b = BarWardenDB.backups[1]
+    if not b or type(b.frames) ~= "table" then return false end
+    BarWardenDB.frames = ns:CopyTable(b.frames)
+    return true
+end
+
+-- ----------------------------------------------------------------------------
+-- Import from a sibling "BarWarden v1" install
+--
+-- The parallel BarWarden V2 test build runs alongside the live v1 addon in the
+-- same client, so v2 can read v1's in-memory SavedVariables and offer a
+-- one-click layout import - no export/paste needed.
+--
+-- V1_DB_NAME is written split ("BarWarden" .. "DB") ON PURPOSE: the v2-test
+-- deploy script rewrites the contiguous token BarWardenDB -> BarWardenV2DB, but
+-- must NOT rewrite this, so it keeps pointing at v1's data. In the normal
+-- single-addon release, this name equals our own DB global, so GetV1Layout
+-- finds "the same table" and returns nil (nothing separate to import).
+-- ----------------------------------------------------------------------------
+local V1_DB_NAME = "BarWarden" .. "DB"
+
+-- Return v1's saved layout (a migrated copy of its frames + visual) if a
+-- SEPARATE v1 install is loaded, else nil (including the release case where
+-- v1's DB is our DB).
+function ns:GetV1Layout()
+    local v1 = _G[V1_DB_NAME]
+    if type(v1) ~= "table" then return nil end
+    if v1 == BarWardenDB then return nil end          -- same addon: nothing separate
+    if type(v1.frames) ~= "table" or #v1.frames == 0 then return nil end
+    local layout = { frames = ns:CopyTable(v1.frames) }
+    if type(v1.visual) == "table" then layout.visual = ns:CopyTable(v1.visual) end
+    ns:MigrateFrames(layout.frames)
+    return layout
+end
+
+-- Copy v1's layout into this addon's DB (backs up the current layout first).
+-- Returns the number of bars imported, or nil if there was nothing to import.
+function ns:ImportFromV1()
+    local layout = ns:GetV1Layout()
+    if not layout then return nil end
+    ns:BackupFrames("before import from v1")
+    BarWardenDB.frames = layout.frames
+    if layout.visual then
+        BarWardenDB.visual = layout.visual
+        ns:MergeDefaults(BarWardenDB.visual, ns.DEFAULTS.visual)
+    end
+    ns.db = BarWardenDB
+    local bars = 0
+    for _, f in ipairs(BarWardenDB.frames) do bars = bars + #(f.bars or {}) end
+    if ns.FireCallback then ns:FireCallback("OnProfileChanged", nil) end
+    return bars
+end
+
 function ns:InitDB()
     -- Wiping the visual-table cache here covers the cold-start case where
     -- ns:GetVisual() was called before BarWardenDB existed and cached the
@@ -272,6 +399,12 @@ function ns:InitDB()
         end
     end
     ns.db = BarWardenDB
+
+    -- Canonicalise + backfill the live frames every load (idempotent). This
+    -- guarantees old bars gain any newly-added per-bar sub-table, and is the
+    -- same entry point profile-load / import / starter route through, so no
+    -- frame source can arrive un-migrated.
+    ns:MigrateFrames(BarWardenDB.frames)
 
     -- Remove legacy stats table (replaced by ActivityTracker)
     BarWardenDB.stats = nil

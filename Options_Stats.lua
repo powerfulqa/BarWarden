@@ -133,12 +133,15 @@ local function CreateStatsTab(parent)
 
     -- Title
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -80)
+    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -16)
     title:SetText("Activity Tracker")
     ns:CreateHelpIcon(frame, title, "LEFT", "RIGHT", 8, 0, "activity-overview")
 
     local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+    desc:SetJustifyH("LEFT")
+    if desc.SetWordWrap then desc:SetWordWrap(true) end
+    if ns.ApplyWidth then ns:ApplyWidth(desc, 32) end
     desc:SetText("Passive monitoring of all spells, auras, and effects on your character.")
 
     -- Session duration label
@@ -164,29 +167,37 @@ local function CreateStatsTab(parent)
         frame:RefreshList()
     end)
 
-    -- Group labels row ("Session" and "All-Time" above their columns)
+    -- The Activity table (group labels, headers, list) is a FIXED width sized
+    -- to its columns + scrollbar, so it does NOT stretch across the window and
+    -- the scrollbar sits right after the last column instead of floating far to
+    -- the right. Columns are left-packed and fit within this width.
+    local STAT_TABLE_WIDTH = 364
     local groupLabelFrame = CreateFrame("Frame", nil, frame)
     groupLabelFrame:SetPoint("TOPLEFT", sessionLabel, "BOTTOMLEFT", 0, -8)
-    groupLabelFrame:SetSize(380, 14)
+    groupLabelFrame:SetWidth(STAT_TABLE_WIDTH)
+    groupLabelFrame:SetHeight(14)
 
+    -- Right-anchored to sit centred over the right-anchored numeric column
+    -- pairs below (offsets match the header column maths).
     local gSession = groupLabelFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    gSession:SetPoint("LEFT", groupLabelFrame, "LEFT", 140, 0)
+    gSession:SetPoint("RIGHT", groupLabelFrame, "RIGHT", -128, 0)
     gSession:SetText("--- Session ---")
-    gSession:SetWidth(100)
+    gSession:SetWidth(94)
     gSession:SetJustifyH("CENTER")
     gSession:SetTextColor(0.5, 0.8, 1.0)
 
     local gAllTime = groupLabelFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    gAllTime:SetPoint("LEFT", gSession, "RIGHT", 8, 0)
+    gAllTime:SetPoint("RIGHT", groupLabelFrame, "RIGHT", -26, 0)
     gAllTime:SetText("--- All-Time ---")
-    gAllTime:SetWidth(100)
+    gAllTime:SetWidth(94)
     gAllTime:SetJustifyH("CENTER")
     gAllTime:SetTextColor(1.0, 0.82, 0.0)
 
     -- Column headers
     local headerFrame = CreateFrame("Frame", nil, frame)
     headerFrame:SetPoint("TOPLEFT", groupLabelFrame, "BOTTOMLEFT", 0, -2)
-    headerFrame:SetSize(380, 14)
+    headerFrame:SetWidth(STAT_TABLE_WIDTH)
+    headerFrame:SetHeight(14)
 
     local hIcon = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hIcon:SetPoint("LEFT", headerFrame, "LEFT", 4, 0)
@@ -200,17 +211,27 @@ local function CreateStatsTab(parent)
     -- to match the column's data alignment; `defaultDir` is the direction
     -- used when this column first becomes active ("asc" for name, "desc" for
     -- numeric columns where high-first reads naturally).
-    local function MakeSortHeader(anchor, anchorPoint, offsetX, width, baseText, sortKey, justify, defaultDir)
+    local function MakeSortHeader(anchor, anchorPoint, offsetX, width, baseText, sortKey, justify, defaultDir, selfPoint, tip)
         local btn = CreateFrame("Button", nil, headerFrame)
         btn:SetSize(width, 14)
-        btn:SetPoint("LEFT", anchor, anchorPoint, offsetX, 0)
+        btn:SetPoint(selfPoint or "LEFT", anchor, anchorPoint, offsetX, 0)
         local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         fs:SetAllPoints(btn)
         fs:SetJustifyH(justify or "RIGHT")
         fs:SetText(baseText)
         btn.fs = fs
-        btn:SetScript("OnEnter", function(self) self.fs:SetTextColor(1, 1, 1) end)
-        btn:SetScript("OnLeave", function(self) self.fs:SetTextColor(1, 0.82, 0) end)
+        btn:SetScript("OnEnter", function(self)
+            self.fs:SetTextColor(1, 1, 1)
+            if tip then
+                GameTooltip:SetOwner(self, "ANCHOR_TOP")
+                GameTooltip:SetText(tip, 1, 1, 1, 1, true)
+                GameTooltip:Show()
+            end
+        end)
+        btn:SetScript("OnLeave", function(self)
+            self.fs:SetTextColor(1, 0.82, 0)
+            GameTooltip:Hide()
+        end)
         btn:SetScript("OnClick", function()
             if sortColumn == sortKey then
                 sortDirection = (sortDirection == "desc") and "asc" or "desc"
@@ -224,18 +245,30 @@ local function CreateStatsTab(parent)
         return btn
     end
 
-    local hName    = MakeSortHeader(hIcon,    "RIGHT", 2, 110, "Name",   "name",       "LEFT",  "asc")
-    local hSessAct = MakeSortHeader(hName,    "RIGHT", 4, 40,  "Procs",  "sessProcs",  "RIGHT", "desc")
-    local hSessUp  = MakeSortHeader(hSessAct, "RIGHT", 4, 50,  "Uptime", "sessUptime", "RIGHT", "desc")
-    local hAllAct  = MakeSortHeader(hSessUp,  "RIGHT", 8, 40,  "Procs",  "allProcs",   "RIGHT", "desc")
-    local hAllUp   = MakeSortHeader(hAllAct,  "RIGHT", 4, 50,  "Uptime", "allUptime",  "RIGHT", "desc")
+    -- Numeric columns are anchored from the RIGHT (fixed widths) so they stay
+    -- put; the Name column flexes between the icon and the numeric block, so
+    -- when the table narrows it is the name that truncates - the numbers always
+    -- stay readable. The -26 on the rightmost column matches the row's scrollbar
+    -- inset (-22) + padding so header and row columns line up.
+    local hAllUp   = MakeSortHeader(headerFrame, "RIGHT", -26, 50, "Uptime", "allUptime",  "RIGHT", "desc", "RIGHT",
+        "All-Time uptime: total time this effect has been active. Click to sort.")
+    local hAllAct  = MakeSortHeader(hAllUp,      "LEFT",   -4, 40, "Procs",  "allProcs",   "RIGHT", "desc", "RIGHT",
+        "All-Time procs: how many times this has fired in total. Click to sort.")
+    local hSessUp  = MakeSortHeader(hAllAct,     "LEFT",   -8, 50, "Uptime", "sessUptime", "RIGHT", "desc", "RIGHT",
+        "This session's uptime. Click to sort.")
+    local hSessAct = MakeSortHeader(hSessUp,     "LEFT",   -4, 40, "Procs",  "sessProcs",  "RIGHT", "desc", "RIGHT",
+        "This session's procs. Click to sort.")
+    local hName    = MakeSortHeader(hIcon,       "RIGHT",   2, 60, "Name",   "name",       "LEFT",  "asc", nil,
+        "Spell or effect name. Click to sort A-Z.")
+    hName:SetPoint("RIGHT", hSessAct, "LEFT", -4, 0)  -- flex to the numeric block
 
     -- ========================================================================
     -- Stat list (FauxScrollFrame)
     -- ========================================================================
     local listFrame = CreateFrame("Frame", "BarWardenStatList", frame)
     listFrame:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -4)
-    listFrame:SetSize(380, MAX_STAT_ROWS * STAT_ROW_HEIGHT + 4)
+    listFrame:SetWidth(STAT_TABLE_WIDTH)
+    listFrame:SetHeight(MAX_STAT_ROWS * STAT_ROW_HEIGHT + 4)
 
     local listBg = listFrame:CreateTexture(nil, "BACKGROUND")
     listBg:SetAllPoints()
@@ -247,12 +280,16 @@ local function CreateStatsTab(parent)
 
     local rows = {}
     for i = 1, MAX_STAT_ROWS do
+        -- Rows stretch to the list width so the hover/selection highlight spans
+        -- the full box; the columns inside keep their fixed left-aligned layout.
         local row = CreateFrame("Button", "BarWardenStatRow" .. i, listFrame)
-        row:SetSize(354, STAT_ROW_HEIGHT)
+        row:SetHeight(STAT_ROW_HEIGHT)
         if i == 1 then
-            row:SetPoint("TOPLEFT", listFrame, "TOPLEFT", 2, -2)
+            row:SetPoint("TOPLEFT",  listFrame, "TOPLEFT",   2, -2)
+            row:SetPoint("TOPRIGHT", listFrame, "TOPRIGHT", -22, -2)
         else
-            row:SetPoint("TOPLEFT", rows[i - 1], "BOTTOMLEFT", 0, 0)
+            row:SetPoint("TOPLEFT",  rows[i - 1], "BOTTOMLEFT",  0, 0)
+            row:SetPoint("TOPRIGHT", rows[i - 1], "BOTTOMRIGHT", 0, 0)
         end
 
         local highlight = row:CreateTexture(nil, "HIGHLIGHT")
@@ -299,35 +336,39 @@ local function CreateStatsTab(parent)
         end)
         row.iconHover = iconHover
 
-        local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        nameText:SetPoint("LEFT", iconTex, "RIGHT", 4, 0)
-        nameText:SetWidth(106)
-        nameText:SetJustifyH("LEFT")
-        row.nameText = nameText
-
-        local sessActText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        sessActText:SetPoint("LEFT", nameText, "RIGHT", 4, 0)
-        sessActText:SetWidth(40)
-        sessActText:SetJustifyH("RIGHT")
-        row.sessActText = sessActText
-
-        local sessUpText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        sessUpText:SetPoint("LEFT", sessActText, "RIGHT", 4, 0)
-        sessUpText:SetWidth(50)
-        sessUpText:SetJustifyH("RIGHT")
-        row.sessUpText = sessUpText
+        -- Numeric columns anchored from the RIGHT (fixed widths, aligned with
+        -- the headers). The name flexes between the icon and the numeric block;
+        -- when the table narrows it is the name that truncates, not the numbers.
+        local allUpText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        allUpText:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+        allUpText:SetWidth(50)
+        allUpText:SetJustifyH("RIGHT")
+        row.allUpText = allUpText
 
         local allActText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        allActText:SetPoint("LEFT", sessUpText, "RIGHT", 8, 0)
+        allActText:SetPoint("RIGHT", allUpText, "LEFT", -4, 0)
         allActText:SetWidth(40)
         allActText:SetJustifyH("RIGHT")
         row.allActText = allActText
 
-        local allUpText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        allUpText:SetPoint("LEFT", allActText, "RIGHT", 4, 0)
-        allUpText:SetWidth(50)
-        allUpText:SetJustifyH("RIGHT")
-        row.allUpText = allUpText
+        local sessUpText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        sessUpText:SetPoint("RIGHT", allActText, "LEFT", -8, 0)
+        sessUpText:SetWidth(50)
+        sessUpText:SetJustifyH("RIGHT")
+        row.sessUpText = sessUpText
+
+        local sessActText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        sessActText:SetPoint("RIGHT", sessUpText, "LEFT", -4, 0)
+        sessActText:SetWidth(40)
+        sessActText:SetJustifyH("RIGHT")
+        row.sessActText = sessActText
+
+        local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        nameText:SetPoint("LEFT", iconTex, "RIGHT", 4, 0)
+        nameText:SetPoint("RIGHT", sessActText, "LEFT", -4, 0)
+        nameText:SetJustifyH("LEFT")
+        if nameText.SetWordWrap then nameText:SetWordWrap(false) end
+        row.nameText = nameText
 
         row:SetScript("OnClick", function(self)
             selectedKey = self.activityKey
@@ -341,7 +382,7 @@ local function CreateStatsTab(parent)
     -- Create Bar controls (below the list)
     -- ========================================================================
     local groupDD  -- forward declaration; assigned after the button
-    local createBarBtn = ns:CreateButton(frame, "Create Bar", 90, function()
+    local createBarBtn = ns:CreateButton(frame, "Create Bar", 100, function()
         if not selectedKey then
             ns:Print("Select a spell from the list first.")
             return
@@ -460,10 +501,8 @@ local function CreateStatsTab(parent)
     end)
     resetSessionBtn:SetPoint("TOPLEFT", createBarBtn, "BOTTOMLEFT", 0, -8)
 
-    -- Search sits alongside the group dropdown (same row as Create Bar).
-    -- Filter dropdown stays on the reset row below.
-    searchEdit:SetPoint("LEFT", groupDD, "RIGHT", 3, 1)
-    filterDD:SetPoint("LEFT", resetSessionBtn, "RIGHT", 99, -3)
+    -- Search + filter anchoring is set below, after resetAllBtn exists (they
+    -- form a third row aligned to the two button columns above).
 
     local resetAllBtn = ns:CreateButton(frame, "Reset All", 100, function()
         StaticPopup_Show("BARWARDEN_CONFIRM_STATS_RESET", nil, nil, {
@@ -479,7 +518,23 @@ local function CreateStatsTab(parent)
             end,
         })
     end)
-    resetAllBtn:SetPoint("LEFT", resetSessionBtn, "RIGHT", 4, 0)
+    -- Reset All nudged right so its left edge lines up with the group dropdown
+    -- (row above) and the filter dropdown (row below). Dropdowns sit ~14 px
+    -- right of their frame (their left texture), hence the larger gap here than
+    -- a plain button-to-button spacing.
+    resetAllBtn:SetPoint("LEFT", resetSessionBtn, "RIGHT", 9, 0)
+
+    -- Column layout for the two rows below the reset row:
+    --   * Search sits directly under Create Bar / Reset Session and is anchored
+    --     to BOTH bottom corners of Reset Session, so it is exactly the same
+    --     width as the button; the +5 left offset cancels the edit box's left
+    --     border texture so the visible box lines up with the button edge.
+    --   * The filter is anchored DIRECTLY to the group dropdown (same widget
+    --     type, 0 x-offset) so their left edges match exactly. The y offsets
+    --     drop both onto the same row.
+    searchEdit:SetPoint("TOPLEFT",  resetSessionBtn, "BOTTOMLEFT",  5, -22)
+    searchEdit:SetPoint("TOPRIGHT", resetSessionBtn, "BOTTOMRIGHT", 0, -22)
+    filterDD:SetPoint("TOPLEFT",    groupDD,          "BOTTOMLEFT",  0, -45)
 
     -- ========================================================================
     -- Refresh
@@ -512,8 +567,11 @@ local function CreateStatsTab(parent)
         FauxScrollFrame_Update(scrollFrame, #filteredKeys, MAX_STAT_ROWS, STAT_ROW_HEIGHT)
 
         if #filteredKeys == 0 then
+            -- GetAllActivityKeys returns a SET (string keys), so `#` is always 0.
+            -- Test emptiness with next() to tell "nothing tracked yet" apart from
+            -- "your search/filter hid everything".
             local allKeys = ns.GetAllActivityKeys and ns:GetAllActivityKeys() or {}
-            if #allKeys == 0 then
+            if next(allKeys) == nil then
                 emptyText:SetText("Activate bars and play to see tracking data here.")
             else
                 emptyText:SetText("No effects match your search.")
@@ -573,11 +631,26 @@ local function CreateStatsTab(parent)
     end)
 
     -- Refresh when shown
+    -- Responsive table width: fit the panel so it never clips off the right at
+    -- the smallest window (the Name column truncates instead - still legible),
+    -- capped at the natural column width so it does not stretch on a big window.
+    local function reflowStatTable()
+        local avail = frame:GetWidth()
+        if not avail or avail < 50 then return end
+        local w = math.min(avail - 32, STAT_TABLE_WIDTH)
+        if w < 290 then w = 290 end
+        groupLabelFrame:SetWidth(w)
+        headerFrame:SetWidth(w)
+        listFrame:SetWidth(w)
+    end
+
     frame:SetScript("OnShow", function(self)
         selectedKey = nil
         self._refreshAccum = 0
+        reflowStatTable()
         self:RefreshList()
     end)
+    frame:SetScript("OnSizeChanged", function() reflowStatTable() end)
 
     -- Auto-refresh: WoW only runs OnUpdate on shown frames, so when another
     -- options tab is active this frame is hidden and the handler doesn't
@@ -589,6 +662,12 @@ local function CreateStatsTab(parent)
     frame:SetScript("OnUpdate", function(self, elapsed)
         self._refreshAccum = self._refreshAccum + elapsed
         if self._refreshAccum >= AUTO_REFRESH_INTERVAL then
+            -- Skip the auto-refresh while a dropdown menu is open: RefreshList
+            -- re-sets the dropdown text / re-initialises the group picker, which
+            -- snaps an open menu shut mid-click. Don't reset the timer, so the
+            -- refresh fires as soon as the menu closes. (The list is still fully
+            -- interactive; only the 2s live tick is paused during selection.)
+            if DropDownList1 and DropDownList1:IsShown() then return end
             self._refreshAccum = 0
             self:RefreshList()
         end

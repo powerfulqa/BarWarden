@@ -196,6 +196,49 @@ function M.test_debuff_onlyMine_acceptsPlayerCaster()
     assertx.assertTrue(active)
 end
 
+function M.test_debuff_onlyMine_acceptsPetCaster()
+    local ns = fresh()
+    mock.debuffs.target[1] = buff("Rupture", 1943, 12, 12, nil, 0, "pet")
+    local bd = { spellName = "Rupture", unit = "target", onlyMine = true }
+    local active = ns.TRACKERS["Debuff"](bd)
+    assertx.assertTrue(active, "onlyMine should accept auras cast by your pet")
+end
+
+function M.test_debuff_onlyMine_acceptsVehicleCaster()
+    local ns = fresh()
+    mock.debuffs.target[1] = buff("Rupture", 1943, 12, 12, nil, 0, "vehicle")
+    local bd = { spellName = "Rupture", unit = "target", onlyMine = true }
+    local active = ns.TRACKERS["Debuff"](bd)
+    assertx.assertTrue(active, "onlyMine should accept auras cast from your vehicle")
+end
+
+-- --------------------------------------------------------------------------
+-- Stack count is returned (feeds the "Name + Stacks" / "Stacks Only" formats)
+-- --------------------------------------------------------------------------
+
+function M.test_buff_returnsStackCount()
+    local ns = fresh()
+    mock.buffs.player[1] = buff("Sunder Armor", 7386, 20, 20, nil, 5, "player")
+    local _, _, _, _, _, stacks =
+        ns.TRACKERS["Buff"]({ spellName = "Sunder Armor", unit = "player" })
+    assertx.assertEqual(stacks, 5, "tracker should return the aura stack count")
+end
+
+-- --------------------------------------------------------------------------
+-- Permanent (no-duration) auras report active + the permanent flag
+-- --------------------------------------------------------------------------
+
+function M.test_buff_permanentAura_signalsPermanent()
+    local ns = fresh()
+    -- duration 0 / no expiration = a permanent aura (e.g. a paladin aura)
+    mock.buffs.player[1] = buff("Righteous Fury", 25780, 0, 0, nil, 0, "player")
+    local isActive, remaining, duration, _, _, _, permanent =
+        ns.TRACKERS["Buff"]({ spellName = "Righteous Fury", unit = "player" })
+    assertx.assertTrue(isActive, "a present permanent aura should report active")
+    assertx.assertEqual(remaining, 0, "permanent aura has no remaining time")
+    assertx.assertTrue(permanent, "permanent aura should set the permanent flag")
+end
+
 -- --------------------------------------------------------------------------
 -- CheckCooldown + SpellDurations override
 -- --------------------------------------------------------------------------

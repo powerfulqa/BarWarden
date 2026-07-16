@@ -113,12 +113,19 @@ local function AreAllBarsHidden(group)
 end
 
 -- Wrap a scan body: increment depth, run fn, decrement, flush on exit.
+-- pcall guards the body so an error inside a scan (e.g. odd private-server aura
+-- data) can never leave scanDepth stuck > 0 - which would make every later
+-- MarkGroupDirty defer forever and freeze all layout until /reload. The error is
+-- still surfaced through the default handler (visible with scriptErrors 1).
 local function RunScan(fn, ...)
     scanDepth = scanDepth + 1
-    fn(...)
+    local ok, err = pcall(fn, ...)
     scanDepth = scanDepth - 1
     if scanDepth == 0 then
         FlushDirtyLayouts()
+    end
+    if not ok and geterrorhandler then
+        geterrorhandler()(err)
     end
 end
 
@@ -396,6 +403,7 @@ function ns:ActivateBar(bar, expirationTime, duration)
     -- Clear resource-bar flag so a bar switching from resource mode back to
     -- a time-based mode reverts to the standard OnUpdate countdown path.
     bar.isResourceBar = false
+    bar.isStaticBar = false
 
     -- Set initial bar range
     bar:SetMinMaxValues(0, 1)
@@ -467,6 +475,7 @@ function ns:UpdateResourceBar(bar, current, max, icon, name, stacks)
     if not bar then return end
 
     bar.isResourceBar = true
+    bar.isStaticBar = false
     bar.barState = BAR_STATE.ACTIVE
     bar.stacks = stacks or current or 0
     bar.expirationTime = nil
@@ -541,6 +550,57 @@ function ns:UpdateResourceBar(bar, current, max, icon, name, stacks)
 end
 
 -- ----------------------------------------------------------------------------
+-- ActivateStaticBar: full, non-depleting bar for a permanent (no-duration)
+-- aura, used as a "present / absent" indicator. Like UpdateResourceBar it
+-- attaches no OnUpdate (nothing to count down); unlike it, the fill is always
+-- full and the timer text is blank (or the stack count).
+-- ----------------------------------------------------------------------------
+
+function ns:ActivateStaticBar(bar, icon, name, stacks)
+    if not bar then return end
+    ns:CancelBarGlow(bar)
+
+    bar.isResourceBar = false
+    bar.isStaticBar = true
+    bar.barState = BAR_STATE.ACTIVE
+    bar.stacks = stacks or 0
+    bar.expirationTime = nil   -- no countdown
+    bar.duration = nil
+    bar.textElapsed = nil
+    bar.lingerRemaining = 0
+
+    bar:SetMinMaxValues(0, 1)
+    bar:SetValue(1)                 -- full: the aura is present
+    bar:SetScript("OnUpdate", nil)  -- static: never depletes
+
+    if ns.ApplyVisualConfig then ns:ApplyVisualConfig(bar) end
+    local visual = ns:GetVisual()
+    bar:SetAlpha(visual.activeAlpha or 1.0)
+
+    if bar.iconTexture and icon then bar.iconTexture:SetTexture(icon) end
+    if bar.nameText then bar.nameText:SetText(ns.GetBarDisplayName(bar.barData)) end
+    if bar.timeText then
+        local textFormat = visual.textFormat or "NAME_DURATION"
+        if (textFormat == "NAME_STACKS" or textFormat == "STACKS") and (stacks or 0) > 0 then
+            bar.timeText:SetText(tostring(stacks))
+        else
+            bar.timeText:SetText("")  -- permanent aura: no time to show
+        end
+    end
+    if bar.sparkFrame then bar.sparkFrame:Hide() end
+    if bar.cooldownFrame then bar.cooldownFrame:Hide() end
+
+    bar:Show()
+    activeBars[bar] = true
+
+    local parent = bar:GetParent()
+    if parent then
+        if not parent:IsShown() then parent:Show() end
+        MarkGroupDirty(parent)
+    end
+end
+
+-- ----------------------------------------------------------------------------
 -- DeactivateBar: Stop tracking and handle cleanup
 -- ----------------------------------------------------------------------------
 
@@ -553,6 +613,7 @@ function ns:DeactivateBar(bar, skipGlow)
     bar.textElapsed = nil
     bar.lingerRemaining = nil
     bar.isResourceBar = false
+    bar.isStaticBar = false
 
     -- Stop OnUpdate (save CPU)
     bar:SetScript("OnUpdate", nil)
@@ -770,7 +831,7 @@ local function ScanBar(bar, unitFilter)
     EnsureBarVisible(bar)
 
     -- Dispatch to canonical tracker (Trackers.lua)
-    local isActive, remaining, duration, icon, name, stacks = ns:CheckTracker(bd)
+    local isActive, remaining, duration, icon, name, stacks, permanent = ns:CheckTracker(bd)
 
     -- Event-driven resource bars (Combo Points, Runic Power, Soul Shards).
     -- These use UpdateResourceBar instead of ActivateBar so Bar_OnUpdate's
@@ -785,6 +846,17 @@ local function ScanBar(bar, unitFilter)
         return
     end
 
+    -- Permanent aura present (no duration): show a static, full "present" bar.
+    -- Guard on the static flag so a re-scan doesn't re-lay-out every poll tick.
+    if isActive and permanent then
+        if bar.barState ~= BAR_STATE.ACTIVE or not bar.isStaticBar then
+            ns:ActivateStaticBar(bar, icon, name, stacks)
+        else
+            bar.stacks = stacks or 0
+        end
+        return
+    end
+
     -- Tracker reports active: activate or update the bar
     if isActive and remaining and remaining > 0 then
         local expirationTime = GetTime() + remaining
@@ -793,6 +865,10 @@ local function ScanBar(bar, unitFilter)
            or abs((bar.expirationTime or 0) - expirationTime) > 0.05 then
             ns:ActivateBar(bar, expirationTime, duration or remaining)
         end
+        -- Keep the live stack count current even when only the stacks changed
+        -- (a refresh that leaves the timer alone skips ActivateBar above). This
+        -- is what the "Name + Stacks" / "Stacks Only" text formats read.
+        bar.stacks = stacks or 0
         if bar.iconTexture and icon then bar.iconTexture:SetTexture(icon) end
         if bar.nameText then bar.nameText:SetText(ns.GetBarDisplayName(bd)) end
         return
@@ -910,7 +986,10 @@ end
 
 function ns:OnEnchantUpdate()
     ns:ScanEnchantActivity()
-    ScanBarsByMode({ Enchant = true }, nil)
+    -- The UI stores "Enchant MH" / "Enchant OH"; keep the bare "Enchant" alias
+    -- for any legacy bar. Without MH/OH here, enchant bars only refreshed on
+    -- the 0.25s full scan instead of event-driven.
+    ScanBarsByMode({ Enchant = true, ["Enchant MH"] = true, ["Enchant OH"] = true }, nil)
 end
 
 function ns:OnTotemUpdate()

@@ -136,7 +136,7 @@ function M.test_defaults_visualHasExactKeys()
         font = 1, fontSize = 1, textEnabled = 1, textPosition = 1,
         textFormat = 1, durationStyle = 1,
         -- Colour
-        colorMode = 1, perBarColorOverride = 1, defaultColor = 1, trackModeColors = 1,
+        colorMode = 1, defaultColor = 1, trackModeColors = 1,
         -- Alpha
         activeAlpha = 1, inactiveAlpha = 1,
         -- Bar features
@@ -171,7 +171,6 @@ function M.test_defaults_visualCriticalValues()
     assertx.assertEqual(v.iconPosition,   "LEFT")
     assertx.assertEqual(v.customTexture,  "")
     assertx.assertEqual(v.textEnabled,    true)
-    assertx.assertEqual(v.perBarColorOverride, false)
 end
 
 function M.test_defaults_defaultColorExact()

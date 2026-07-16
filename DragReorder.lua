@@ -73,23 +73,44 @@ end
 -- ----------------------------------------------------------------------------
 -- CalcDropIndex: Determine which bar slot the cursor is over
 -- ----------------------------------------------------------------------------
+-- Is this group laid out bottom-to-top by index? (growDirection == "UP")
+local function GroupGrowsUp(groupFrame)
+    local fd = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[groupFrame.frameIndex]
+    return fd and fd.growDirection == "UP" or false
+end
+
 local function CalcDropIndex(groupFrame)
-    local _, cursorY = GetCursorPosition()
+    local cx, cy = GetCursorPosition()
     local scale = groupFrame:GetEffectiveScale()
-    cursorY = cursorY / scale
+    cx, cy = cx / scale, cy / scale
 
     local bars = groupFrame.bars
     if not bars or #bars == 0 then return 1 end
 
+    -- Find the visible bar nearest the cursor in 2D (so multi-column layouts
+    -- pick the actual nearest bar, not just the first bar of a row), then decide
+    -- insert-before vs -after from which side the cursor is on. Growth direction
+    -- flips the vertical sense: DOWN lays bars[1] at the top (higher Y = earlier
+    -- index), UP lays bars[1] at the bottom (higher Y = later index).
+    local growUp = GroupGrowsUp(groupFrame)
+    local nearest, nearestDist, nearestY
     for i, bar in ipairs(bars) do
         if bar:IsShown() then
-            local _, barTop = bar:GetCenter()
-            if barTop and cursorY > barTop then
-                return i
+            local bx, by = bar:GetCenter()
+            if bx and by then
+                local dx, dy = cx - bx, cy - by
+                local d = dx * dx + dy * dy
+                if not nearestDist or d < nearestDist then
+                    nearestDist, nearest, nearestY = d, i, by
+                end
             end
         end
     end
-    return #bars + 1
+    if not nearest then return #bars + 1 end
+
+    local before = cy > nearestY   -- cursor above the nearest bar's centre
+    if growUp then before = not before end
+    return before and nearest or (nearest + 1)
 end
 
 -- ----------------------------------------------------------------------------
@@ -113,16 +134,25 @@ local function UpdateIndicatorPosition(groupFrame, dropIdx)
     ind:SetWidth(barWidth)
     ind:ClearAllPoints()
 
-    -- Position above the target bar, or below the last bar
-    local anchorBar
-    if dropIdx <= #bars then
-        anchorBar = bars[dropIdx]
-    end
+    -- The drop line sits at the boundary just "before" bars[dropIdx]. In a
+    -- DOWN group that boundary is the target bar's TOP edge; in an UP group the
+    -- earlier-index side is below, so it's the BOTTOM edge. Past the last index
+    -- the line sits on the far edge of the last bar.
+    local growUp = GroupGrowsUp(groupFrame)
+    local anchorBar = (dropIdx <= #bars) and bars[dropIdx] or nil
 
     if anchorBar and anchorBar:IsShown() then
-        ind:SetPoint("BOTTOMLEFT", anchorBar, "TOPLEFT", 0, 1)
+        if growUp then
+            ind:SetPoint("TOPLEFT", anchorBar, "BOTTOMLEFT", 0, -1)
+        else
+            ind:SetPoint("BOTTOMLEFT", anchorBar, "TOPLEFT", 0, 1)
+        end
     elseif #bars > 0 and bars[#bars]:IsShown() then
-        ind:SetPoint("TOPLEFT", bars[#bars], "BOTTOMLEFT", 0, -1)
+        if growUp then
+            ind:SetPoint("BOTTOMLEFT", bars[#bars], "TOPLEFT", 0, 1)
+        else
+            ind:SetPoint("TOPLEFT", bars[#bars], "BOTTOMLEFT", 0, -1)
+        end
     else
         ind:Hide()
         return

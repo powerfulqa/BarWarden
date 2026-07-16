@@ -13,6 +13,62 @@ exhaustive notes.
 
 ---
 
+### v2.0.0
+
+A ground-up rework of the settings menus, safer upgrades, and a round of
+tracking fixes. Your existing bars, groups, profiles, and settings carry
+straight over; nothing to re-import.
+
+Menus
+- **Roomier layout.** The cramped single window with tabs is gone. Each area
+  now has its own focused page under a "BarWarden" tree in Interface Options:
+  Bar Control, Visuals, Profiles, Activity, and Help. The old General options
+  (Enable, Lock, minimap, update alerts) and the runnable slash-command list
+  live on the main BarWarden page.
+- **Everything scales with the window.** Panels, lists, and text re-wrap and
+  reflow to the window width instead of clipping at a fixed size, and controls
+  share one sensible maximum width so they never stretch absurdly wide.
+
+Bar Control
+- **Groups and Bars in one page** with tabs at the bottom. The lists sit full
+  width and grow with your group/bar count; the settings and editor sit below.
+- **Drag a row to reorder** groups or bars (a click still selects; the Up/Dn
+  buttons still work).
+- **Per-group looks.** A group can now override the **bar texture** and give
+  its bars a **custom colour**, leaving everything else on the addon-wide
+  default from the Visuals page.
+
+Upgrades no longer lose bars
+- The first-login starter prompt can never overwrite an existing layout.
+- Every layout source (your live save, loaded profiles, imported strings,
+  starter presets) runs through one migration path that fills in new defaults
+  without ever touching what you configured.
+- A snapshot is taken before any migration or reset, so a bad change is
+  recoverable with `/bw restore`.
+- **Reset to Defaults** now backs up first and no longer deletes your saved
+  profiles (it resets the live layout only).
+
+Tracking fixes
+- **Stack counts** now show on buff/debuff bars using a "Stacks" text format
+  (Sunder Armor, Deadly Poison, Lightning Shield, and the like).
+- **Only Mine** now counts auras applied by your **pet or your vehicle** as
+  yours, not just direct casts.
+- **Permanent auras** (no duration, e.g. a paladin aura) now show as a full
+  "present" bar instead of not showing at all.
+- Short **item cooldowns** are no longer hidden.
+
+Polish
+- **Tooltips** on every slider, checkbox, text field, and dropdown that needed
+  one; hover the Activity column headers to see what each counts.
+- The **Help** page has a "Back" button that returns you to the section you
+  came from after a `[?]` jump.
+- Confirmation popups and the **colour picker always open on top** of the menu.
+
+Under the hood
+- Additive per-character `backups` ring and UI-state keys; downgrade-safe.
+- Hardened the scan loop so an error can't freeze the layout; assorted
+  reliability fixes across events, layout, and the data layer.
+
 ### v1.12.0
 
 Closer alignment with the sibling addon EbonClearance, plus a new update

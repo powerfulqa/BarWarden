@@ -6,14 +6,15 @@
 local addonName, ns = ...
 
 -- ============================================================================
--- Options_General.lua - Tab 1: General settings (declarative schema) plus a
--- runnable slash-command list.
+-- Options_General.lua - General settings (declarative schema) plus a runnable
+-- slash-command list. In v2 these are NOT a separate category: they are folded
+-- onto the main "BarWarden" overview page. This file just exposes the content
+-- builder (ns:BuildGeneralInto); Options.lua owns the frame + scroll + fit.
 --
 -- The toggles are built by ns:BuildSettings (Options_Builder.lua). Below the
 -- "Slash Commands" header, each command is listed with a Run button that
 -- invokes the same handler /bw routes through, so the panel button and the
 -- typed command are identical. Mirrors EbonClearance's MainPanel command list.
--- The tab content lives in a scroll frame so the command list never clips.
 -- ============================================================================
 
 local SCHEMA = {
@@ -81,7 +82,7 @@ local SCHEMA = {
     },
 
     -- Slash Commands section header. The runnable list is rendered below it
-    -- (see CreateGeneralTab); id exposes it as the anchor for that list.
+    -- (see BuildGeneralInto); id exposes it as the anchor for that list.
     { type = "header", text = "Slash Commands", spacing = 24, id = "slashHeader" },
 }
 
@@ -106,30 +107,19 @@ local SLASH_ROWS = {
 local LABEL_COL_X  = 54   -- Run-button column width (44) + gap; labels start here
 local ROW_RIGHT_PAD = 24
 
-local function CreateGeneralTab(parent)
-    local frame = CreateFrame("Frame", "BarWardenGeneralTab", parent)
-    frame:SetAllPoints(parent)
-    frame:Hide()
-
-    -- Scroll frame so the slash-command list never clips at the bottom of
-    -- the panel (matches the Visuals / Help / Stats tabs).
-    local scrollFrame = CreateFrame("ScrollFrame", "BarWardenGeneralScrollFrame",
-                                    frame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT",     frame, "TOPLEFT",      4, -78)
-    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28,   4)
-
-    local content = CreateFrame("Frame", nil, scrollFrame)
-    content:SetWidth(544)
-    content:SetHeight(1)
-    scrollFrame:SetScrollChild(content)
-
+-- Build the General settings (toggles + runnable slash list) into `content`,
+-- a scroll child the caller (Options.lua's overview page) supplies. Returns the
+-- BuildSettings refresh fn. Stashes a reflow helper and the footer on `content`
+-- so the caller can re-wrap the labels and trim the scroll height on resize.
+function ns:BuildGeneralInto(content)
     local widgetRefs = {}
-    frame.Refresh = ns:BuildSettings(content, SCHEMA, widgetRefs,
+    local refresh = ns:BuildSettings(content, SCHEMA, widgetRefs,
                                      { firstX = 16, firstY = -10 })
 
     -- Render the runnable command rows below the Slash Commands header. Each
     -- label is its own FontString; the Run button sits in a fixed left column
     -- so all labels align and a wrapped label never pushes its button down.
+    local rows = {}
     local prev = widgetRefs.slashHeader
     local lastRow = prev
     for i, row in ipairs(SLASH_ROWS) do
@@ -139,8 +129,8 @@ local function CreateGeneralTab(parent)
         fs:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", xOff, -8)
         fs:SetJustifyH("LEFT")
         if fs.SetWordWrap then fs:SetWordWrap(true) end
-        fs:SetWidth(544 - LABEL_COL_X - ROW_RIGHT_PAD)
         fs:SetText(row.label)
+        rows[#rows + 1] = fs
 
         if row.run then
             local runCmd = row.run
@@ -163,20 +153,15 @@ local function CreateGeneralTab(parent)
     footer:SetText("BarWarden v" .. (ns.version or "?")
                 .. " | WoW 3.3.5a (Interface 30300)")
 
-    -- On show: adapt content width to the viewport and trim its height to the
-    -- footer so the scrollbar engages only when there is overflow.
-    frame:SetScript("OnShow", function()
-        local w = scrollFrame:GetWidth()
-        if w and w > 100 then content:SetWidth(w) end
-        local footBottom = footer:GetBottom()
-        local contentTop = content:GetTop()
-        if footBottom and contentTop and contentTop > footBottom then
-            content:SetHeight(contentTop - footBottom + 20)  -- 20 px margin
-        end
-        if frame.Refresh then frame:Refresh() end
-    end)
+    -- Reactive: re-wrap every slash label to the live content width. The caller
+    -- calls this from the scroll frame's OnSizeChanged so labels never clip.
+    content._reflowSlashRows = function(w)
+        local rowW = (w or content:GetWidth() or 544) - LABEL_COL_X - ROW_RIGHT_PAD
+        if rowW < 120 then rowW = 120 end
+        for _, fs in ipairs(rows) do fs:SetWidth(rowW) end
+    end
+    content._reflowSlashRows()
+    content._generalFooter = footer
 
-    return frame
+    return refresh
 end
-
-ns:RegisterOptionsTab(1, CreateGeneralTab)

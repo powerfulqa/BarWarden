@@ -116,6 +116,11 @@ end
 -- Returns the effective expiration time (never moves backward).
 local function smoothExpiry(key, expirationTime)
     local cached = stableExpiry[key]
+    -- Monotonic by design: keep the cached (longer) expiration against ANY
+    -- backward jump, so server drift never makes the bar stutter. The known
+    -- trade-off (B7 in docs/CODE_REVIEW.md) is that a genuine re-application
+    -- with a SHORTER duration is masked until it drains; fixing that cleanly
+    -- would need an absolute-time bar model, out of scope for the frozen engine.
     if cached and expirationTime < cached then
         return cached
     end
@@ -145,6 +150,12 @@ end
 -- filterMine:  if true, skip auras not cast by "player"
 -- ----------------------------------------------------------------------------
 
+-- Casters treated as "you" for the Only-Mine filter. Auras applied by your pet
+-- (hunter/warlock/DK pets) or while you drive a vehicle are yours in every way
+-- that matters for tracking, so accept those caster tokens too - they exist on
+-- 3.3.5a. (Matches how ClassTimer defines "mine".)
+local MINE_CASTERS = { player = true, pet = true, vehicle = true }
+
 local function ScanAuras(auraFunc, unit, barConfig, spell, filterMine)
     local numericId = tonumber(spell)
     local tokens = (not numericId) and getSpellTokens(spell) or nil
@@ -154,39 +165,49 @@ local function ScanAuras(auraFunc, unit, barConfig, spell, filterMine)
         if not name then break end
 
         local match = false
+        local matchedToken
         if numericId then
             match = (spellId == numericId)
         elseif tokens then
             for _, token in ipairs(tokens) do
                 if type(token) == "number" then
-                    if spellId == token then match = true; break end
+                    if spellId == token then match = true; matchedToken = token; break end
                 else
-                    if name == token then match = true; break end
+                    if name == token then match = true; matchedToken = token; break end
                 end
             end
         end
 
         if match then
-            if filterMine and caster ~= "player" then
-                -- Aura matches but wasn't cast by the player; keep scanning
+            if filterMine and not MINE_CASTERS[caster] then
+                -- Aura matches but wasn't cast by you/your pet/your vehicle; keep scanning
             else
                 local remaining = 0
                 local maxVal = 0
+                local permanent = false
                 if duration and duration > 0 and expirationTime then
-                    local key = unit .. ":" .. tostring(spellId or name)
+                    -- Key by the TRACKED token (or numeric id), so clearExpiry
+                    -- clears the same key it was stored under - by name, the old
+                    -- code stored under spellId but cleared by name and leaked.
+                    local key = unit .. ":" .. tostring(numericId or matchedToken)
                     local stableExp = smoothExpiry(key, expirationTime)
                     remaining = stableExp - GetTime()
                     if remaining < 0 then remaining = 0 end
                     maxVal = duration
+                else
+                    -- Present but no duration (a permanent buff/debuff). Signal
+                    -- the engine to show a static "present" bar rather than
+                    -- treating remaining==0 as inactive.
+                    permanent = true
                 end
-                return true, remaining, maxVal, icon, name, count or 0
+                return true, remaining, maxVal, icon, name, count or 0, permanent
             end
         end
     end
 
     -- No match; clear cached expiry entries
     clearExpiry(unit, numericId, tokens)
-    return false, 0, 0, nil, spell, 0
+    return false, 0, 0, nil, spell, 0, false
 end
 
 -- ----------------------------------------------------------------------------
@@ -308,7 +329,10 @@ local function CheckItem(barConfig)
         start, duration, enabled = GetItemCooldown(itemRef)
     end
 
-    if start and duration and duration > GCD_THRESHOLD and enabled == 1 then
+    -- Items do not share the spell global cooldown, so any active cooldown is
+    -- real: gate on duration > 0 (0 = not on cooldown), not the spell GCD, so
+    -- short on-use item cooldowns are not hidden. (enabled == 1 = usable item.)
+    if start and duration and duration > 0 and enabled == 1 then
         local now = GetTime()
         local remaining = (start + duration) - now
         if remaining > 0 then
