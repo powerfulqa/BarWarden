@@ -12,6 +12,7 @@ local TEST_FILES = {
     "test_db_migrations",
     "test_conditions",
     "test_trackers_logic",
+    "test_activity_tracker",
     "test_aura_groups",
     "test_class_presets",
     "test_settings_schema",

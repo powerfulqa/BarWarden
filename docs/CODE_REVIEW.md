@@ -22,13 +22,12 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
 3. **`ns.COLORS` adoption is incremental.** New and changed code references the
    palette tokens, but older files still carry some inline `|cff...` hex. Migrate
    opportunistically when editing a file; not worth a dedicated sweep. Low priority.
-4. **Dead v2 scaffolding.** `ListWidget.lua` (`ns:CreateListWidget`) is never
-   called - the Bars/Groups lists use a direct FauxScrollFrame instead - and the
-   PanelInfra helpers `InitPanel` / `WrapPanelInScrollFrame` / `FitScrollContent` /
-   `RegisterScrollFit` have no call sites (so the `scrollFits` refit passes in
-   `RefreshLayouts` are permanent no-ops). Harmless but loaded every session.
-   Candidate for removal (would drop `ListWidget.lua` from the TOC + the file
-   count). Deferred to avoid TOC churn right before v2.0.0.
+4. **Dead PanelInfra scaffolding.** `ListWidget.lua` was removed in v2.0.1 (never
+   called; the Bars/Groups lists use a direct FauxScrollFrame). The PanelInfra
+   helpers `InitPanel` / `WrapPanelInScrollFrame` / `FitScrollContent` /
+   `RegisterScrollFit` still have no real call sites (so the `scrollFits` refit
+   passes in `RefreshLayouts` are permanent no-ops); left in place because they
+   are entangled with live layout code and not worth the churn. Low priority.
 5. **In-game drag-reorder in multi-column groups is approximate.** `CalcDropIndex`
    now handles growth direction and picks the nearest bar in 2D, but the linear
    bar order maps ambiguously onto a 2D grid, so a drop between columns snaps to
@@ -74,6 +73,17 @@ F. **`smoothExpiry` masks a shortened refresh (B7).** The aura expiry smoothing
    approach), which is out of scope for the frozen engine. Rare on 3.3.5a; won't-fix.
 
 ## Resolved (kept for the record)
+
+- **v2.0.1 Activity proc-count inflation.** `ActivityTracker.lua` detected new
+  activity by diffing live state against `prev*` snapshots that
+  `StartActivityTracking` wiped to empty on every login/reload/re-enable, so the
+  first scan counted every already-active buff/enchant/totem/player-debuff as a
+  fresh activation and bumped its all-time "Procs" total. Frequent `/reload`s
+  compounded it into wildly high counts. Fixed with per-scanner `primed*`
+  baseline guards: the first post-restart scan seeds the snapshot without
+  recording, and only genuine transitions count thereafter (uptime was never
+  affected). Covered by `tests/test_activity_tracker.lua`. Historical counts
+  stay inflated; `Reset All` on the Activity tab gives a clean baseline.
 
 - Em dashes removed repo-wide; no-em-dash rule established and locked by
   `tests/test_hygiene.lua`.

@@ -87,6 +87,12 @@ function ns:InitMinimapButton()
         OnTooltipShow = OnTooltipShow,
     })
 
+    -- NewDataObject returns nil when the name is already claimed in the one
+    -- shared LDB registry (e.g. a second BarWarden-family install loaded
+    -- alongside this one). There is nothing to manage in that case; skip
+    -- rather than hand LibDBIcon a nil object, which errors inside Register.
+    if not dataObject then return end
+
     -- Ensure the db sub-table exists even if the migration path didn't run
     -- (e.g. a dev wipe of BarWardenDB between test reloads).
     ns.db.minimap = ns.db.minimap or { hide = false, minimapPos = 220 }

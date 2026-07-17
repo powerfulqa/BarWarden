@@ -28,6 +28,18 @@ local prevEnchantMH = false
 local prevEnchantOH = false
 local prevTotems = {}     -- [slot] = totemName
 
+-- First-scan baseline guards. On every /reload, login, or /bw enable the whole
+-- addon re-runs from scratch and StartActivityTracking wipes the snapshots, so
+-- the very first scan would otherwise diff everything currently active against
+-- an empty snapshot and count each already-running effect as a fresh
+-- activation. We seed the snapshot on that first pass and only count genuine
+-- transitions afterwards. Per-scanner because the scans can first fire on
+-- different ticks (a debuff scan needs a target to exist first).
+local primedBuffs = false
+local primedDebuffs = false
+local primedEnchant = false
+local primedTotems = false
+
 -- Active cooldowns being tracked for uptime
 local activeCooldowns = {} -- [spellId] = expirationTime
 
@@ -160,20 +172,26 @@ function ns:ScanBuffActivity()
         end
     end
 
-    -- Detect new buffs (in current but not in previous)
-    for spellId, data in pairs(current) do
-        if not prevBuffs[spellId] then
-            local key = MakeKey("Buff", spellId)
-            RecordActivation(key, data.name, spellId, data.icon, "Buff")
+    -- First scan after a (re)start only seeds the snapshot; effects already
+    -- active are a baseline, not new activations.
+    if primedBuffs then
+        -- Detect new buffs (in current but not in previous)
+        for spellId, data in pairs(current) do
+            if not prevBuffs[spellId] then
+                local key = MakeKey("Buff", spellId)
+                RecordActivation(key, data.name, spellId, data.icon, "Buff")
+            end
         end
-    end
 
-    -- Detect lost buffs (in previous but not in current)
-    for spellId in pairs(prevBuffs) do
-        if not current[spellId] then
-            local key = MakeKey("Buff", spellId)
-            RecordDeactivation(key)
+        -- Detect lost buffs (in previous but not in current)
+        for spellId in pairs(prevBuffs) do
+            if not current[spellId] then
+                local key = MakeKey("Buff", spellId)
+                RecordDeactivation(key)
+            end
         end
+    else
+        primedBuffs = true
     end
 
     prevBuffs = current
@@ -197,18 +215,22 @@ function ns:ScanDebuffActivity()
         end
     end
 
-    for spellId, data in pairs(current) do
-        if not prevDebuffs[spellId] then
-            local key = MakeKey("Debuff", spellId)
-            RecordActivation(key, data.name, spellId, data.icon, "Debuff")
+    if primedDebuffs then
+        for spellId, data in pairs(current) do
+            if not prevDebuffs[spellId] then
+                local key = MakeKey("Debuff", spellId)
+                RecordActivation(key, data.name, spellId, data.icon, "Debuff")
+            end
         end
-    end
 
-    for spellId in pairs(prevDebuffs) do
-        if not current[spellId] then
-            local key = MakeKey("Debuff", spellId)
-            RecordDeactivation(key)
+        for spellId in pairs(prevDebuffs) do
+            if not current[spellId] then
+                local key = MakeKey("Debuff", spellId)
+                RecordDeactivation(key)
+            end
         end
+    else
+        primedDebuffs = true
     end
 
     prevDebuffs = current
@@ -221,22 +243,29 @@ end
 function ns:ScanEnchantActivity()
     local hasMain, mainExpires, _, hasOff, offExpires = GetWeaponEnchantInfo()
 
-    -- Mainhand
-    if hasMain and not prevEnchantMH then
-        local icon = GetInventoryItemTexture("player", 16)
-        RecordActivation("Enchant:MH", "Mainhand Enchant", nil, icon, "Enchant")
-    elseif not hasMain and prevEnchantMH then
-        RecordDeactivation("Enchant:MH")
-    end
-    prevEnchantMH = hasMain and true or false
+    -- First scan seeds the baseline: an enchant already on the weapon at
+    -- login/reload is not a fresh application.
+    if primedEnchant then
+        -- Mainhand
+        if hasMain and not prevEnchantMH then
+            local icon = GetInventoryItemTexture("player", 16)
+            RecordActivation("Enchant:MH", "Mainhand Enchant", nil, icon, "Enchant")
+        elseif not hasMain and prevEnchantMH then
+            RecordDeactivation("Enchant:MH")
+        end
 
-    -- Offhand
-    if hasOff and not prevEnchantOH then
-        local icon = GetInventoryItemTexture("player", 17)
-        RecordActivation("Enchant:OH", "Offhand Enchant", nil, icon, "Enchant")
-    elseif not hasOff and prevEnchantOH then
-        RecordDeactivation("Enchant:OH")
+        -- Offhand
+        if hasOff and not prevEnchantOH then
+            local icon = GetInventoryItemTexture("player", 17)
+            RecordActivation("Enchant:OH", "Offhand Enchant", nil, icon, "Enchant")
+        elseif not hasOff and prevEnchantOH then
+            RecordDeactivation("Enchant:OH")
+        end
+    else
+        primedEnchant = true
     end
+
+    prevEnchantMH = hasMain and true or false
     prevEnchantOH = hasOff and true or false
 end
 
@@ -250,7 +279,9 @@ function ns:ScanTotemActivity()
         local wasActive = prevTotems[slot]
 
         if haveTotem and name and name ~= "" then
-            if not wasActive or wasActive ~= name then
+            -- First scan seeds the baseline: a totem already standing at
+            -- login/reload is not a fresh drop.
+            if primedTotems and (not wasActive or wasActive ~= name) then
                 -- New totem or different totem in this slot
                 if wasActive then
                     RecordDeactivation(MakeKey("Totem", wasActive))
@@ -259,12 +290,13 @@ function ns:ScanTotemActivity()
             end
             prevTotems[slot] = name
         else
-            if wasActive then
+            if primedTotems and wasActive then
                 RecordDeactivation(MakeKey("Totem", wasActive))
             end
             prevTotems[slot] = nil
         end
     end
+    primedTotems = true
 end
 
 -- ----------------------------------------------------------------------------
@@ -326,7 +358,10 @@ end
 -- ----------------------------------------------------------------------------
 
 function ns:StartActivityTracking()
-    -- Clear snapshots so the first scan doesn't generate false diffs
+    -- Clear snapshots and re-arm the baseline guards. The next scan of each
+    -- kind seeds its snapshot from live state without recording, so effects
+    -- already running at login/reload/re-enable are not miscounted as fresh
+    -- activations (see the primed* guards above).
     wipe(prevBuffs)
     wipe(prevDebuffs)
     prevEnchantMH = false
@@ -334,6 +369,10 @@ function ns:StartActivityTracking()
     wipe(prevTotems)
     wipe(activeCooldowns)
     wipe(activeTimers)
+    primedBuffs = false
+    primedDebuffs = false
+    primedEnchant = false
+    primedTotems = false
 end
 
 function ns:StopActivityTracking()

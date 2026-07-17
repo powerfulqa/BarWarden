@@ -63,7 +63,6 @@ declarative settings-schema walker (`ns:BuildSettings`).
 |------|------|
 | [PanelInfra.lua](../PanelInfra.lua) | Reactive-layout layer: `ns.GetPanelWidth`, the width registry + `ns:ApplyWidth`, `ns.SETTINGS_MAX_WIDTH` (the shared control-width cap), and the `InterfaceOptionsFramePanelContainer` OnSizeChanged reflow. Loads before the panels. |
 | [Widgets.lua](../Widgets.lua) | Widget factories (`CreateCheckbox` / `CreateSlider` / `CreateDropdown` (tooltip-aware) / `CreateEditBox` / `CreateButton` / `CreateColorSwatch`), `ns:DBSet`/`DBGet`, and `ns:CreateHelpIcon` (the `[?]` deep-link). |
-| [ListWidget.lua](../ListWidget.lua) | Pooled reactive list widget (`ns:CreateListWidget`). Currently unused scaffolding (see [CODE_REVIEW.md](CODE_REVIEW.md)); the Bars/Groups lists use a direct FauxScrollFrame. |
 | [MinimapButton.lua](../MinimapButton.lua) | LibDataBroker launcher + LibDBIcon-managed minimap button. |
 | [Dialogs.lua](../Dialogs.lua) | `StaticPopup` definitions (keyed `BARWARDEN_*`) + `ns:EnsurePopupsTopmost` / `ns:RaiseFrameAboveOptions` (keep popups + the colour picker above the options window). |
 | [BugReport.lua](../BugReport.lua) | Diagnostic snapshot builder + display frame (`/bw bugreport`). |

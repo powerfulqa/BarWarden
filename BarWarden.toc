@@ -31,7 +31,6 @@ DragReorder.lua
 MinimapButton.lua
 PanelInfra.lua
 Widgets.lua
-ListWidget.lua
 Dialogs.lua
 ClassPresets.lua
 Options.lua

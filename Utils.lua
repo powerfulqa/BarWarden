@@ -67,9 +67,16 @@ function ns.FormatUptime(seconds)
         local s = math.floor(seconds % 60)
         return string.format("%dm %ds", m, s)
     end
-    local h = math.floor(seconds / 3600)
-    local m = math.floor((seconds - h * 3600) / 60)
-    return string.format("%dh %dm", h, m)
+    if seconds < 86400 then
+        local h = math.floor(seconds / 3600)
+        local m = math.floor((seconds - h * 3600) / 60)
+        return string.format("%dh %dm", h, m)
+    end
+    -- Days + hours for long cumulative all-time uptimes, so the value stays
+    -- compact (e.g. "4d 20h" instead of "116h 46m", which wrapped the column).
+    local d = math.floor(seconds / 86400)
+    local h = math.floor((seconds - d * 86400) / 3600)
+    return string.format("%dd %dh", d, h)
 end
 
 -- ----------------------------------------------------------------------------

@@ -80,6 +80,9 @@ function M.test_formatUptime_boundaries()
     assertx.assertEqual(ns.FormatUptime(12.5),  "12.5s")
     assertx.assertEqual(ns.FormatUptime(65),    "1m 5s")
     assertx.assertEqual(ns.FormatUptime(3700),  "1h 1m")
+    assertx.assertEqual(ns.FormatUptime(86400), "1d 0h")   -- exactly 24h
+    assertx.assertEqual(ns.FormatUptime(90000), "1d 1h")
+    assertx.assertEqual(ns.FormatUptime(820380), "9d 11h") -- ~227h all-time
 end
 
 -- --------------------------------------------------------------------------

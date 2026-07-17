@@ -642,6 +642,21 @@ local function CreateStatsTab(parent)
         groupLabelFrame:SetWidth(w)
         headerFrame:SetWidth(w)
         listFrame:SetWidth(w)
+
+        -- Align the right-hand column of controls below the list (the two
+        -- dropdowns and Reset All) to the table's right edge, so the whole
+        -- panel reads as one block instead of stopping short. The left column
+        -- (Create Bar / Reset Session / Search) stays a fixed 100 wide; these
+        -- three fill the rest. Row left is the list's left, so the target
+        -- right edge is `w`. Reset All is a plain button (no chrome): left
+        -- ~109 px in, so width w-109 lands its right edge on `w`. A
+        -- UIDropDownMenu frame sits ~96 px in and SetWidth adds ~25 px of
+        -- template chrome, with the arrow button at the frame's right edge, so
+        -- width w-121 puts the frame right - and the arrow - on `w` rather than
+        -- clipping ~11 px past it.
+        UIDropDownMenu_SetWidth(groupDD,  math.max(110, w - 124))
+        UIDropDownMenu_SetWidth(filterDD, math.max(110, w - 124))
+        resetAllBtn:SetWidth(math.max(90, w - 109))
     end
 
     frame:SetScript("OnShow", function(self)

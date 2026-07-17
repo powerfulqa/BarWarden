@@ -13,6 +13,30 @@ exhaustive notes.
 
 ---
 
+### v2.0.1
+
+A fixes-and-polish patch: more accurate Activity counts, tidier menus, and a
+minimap crash guard.
+
+Fixes
+- **Activity "Procs" counts no longer creep up on reload.** Effects that were
+  already active when you logged in or reloaded used to be counted again as if
+  freshly triggered, inflating the all-time totals. They now count only when
+  they genuinely fire. Existing totals are left as they are; use Reset All on
+  the Activity tab for a clean baseline.
+- **The minimap button no longer errors** when a second copy of BarWarden is
+  present; it steps aside cleanly instead of failing to load.
+
+Polish
+- **Long uptimes now show days** (e.g. "4d 20h" instead of "116h 46m"), so the
+  Activity column stays readable and fits at the smallest window.
+- **Tidier menus.** The Activity controls, the Groups Add / Delete / Dupe
+  buttons, and the Visuals controls now line up cleanly with the lists and
+  panels around them.
+
+Under the hood
+- Removed an unused file; added tests around the Activity counting fix.
+
 ### v2.0.0
 
 A ground-up rework of the settings menus, safer upgrades, and a round of

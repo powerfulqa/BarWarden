@@ -201,8 +201,17 @@ local function CreateBarsTab(parent)
         groupRows[i] = row
     end
 
+    -- Group buttons: Add / Delete / Dupe split the list width into equal thirds
+    -- so the row fills the panel even at its narrowest. Two gaps between three
+    -- buttons; the last button absorbs the rounding remainder so the row's right
+    -- edge lands exactly on the list's right edge.
+    local GROUP_BTN_GAP  = 4
+    local GROUP_ROW_W    = ns.SETTINGS_MAX_WIDTH or 300
+    local groupBtnW      = math.floor((GROUP_ROW_W - 2 * GROUP_BTN_GAP) / 3)
+    local groupBtnWLast  = GROUP_ROW_W - 2 * groupBtnW - 2 * GROUP_BTN_GAP
+
     -- Group buttons
-    local addGroupBtn = ns:CreateButton(leftPanel, "Add", 74, function()
+    local addGroupBtn = ns:CreateButton(leftPanel, "Add", groupBtnW, function()
         local frames = BarWardenDB.frames
         if #frames >= (ns.MAX_FRAMES or 20) then
             ns:Print("Maximum of " .. (ns.MAX_FRAMES or 20) .. " groups reached.")
@@ -217,7 +226,7 @@ local function CreateBarsTab(parent)
     end)
     addGroupBtn:SetPoint("TOPLEFT", groupScrollFrame, "BOTTOMLEFT", 0, -4)
 
-    local deleteGroupBtn = ns:CreateButton(leftPanel, "Delete", 74, function()
+    local deleteGroupBtn = ns:CreateButton(leftPanel, "Delete", groupBtnW, function()
         if not selectedGroupIndex then ns:Print("Select a group first."); return end
         local frames = BarWardenDB.frames
         local g = frames[selectedGroupIndex]
@@ -237,9 +246,9 @@ local function CreateBarsTab(parent)
             }
         end
     end)
-    deleteGroupBtn:SetPoint("LEFT", addGroupBtn, "RIGHT", 2, 0)
+    deleteGroupBtn:SetPoint("LEFT", addGroupBtn, "RIGHT", GROUP_BTN_GAP, 0)
 
-    local dupeGroupBtn = ns:CreateButton(leftPanel, "Dupe", 74, function()
+    local dupeGroupBtn = ns:CreateButton(leftPanel, "Dupe", groupBtnWLast, function()
         if not selectedGroupIndex then ns:Print("Select a group first."); return end
         local frames = BarWardenDB.frames
         local g = frames[selectedGroupIndex]
@@ -254,7 +263,7 @@ local function CreateBarsTab(parent)
         frame:Refresh()
         ns:RebuildAllFrames()
     end)
-    dupeGroupBtn:SetPoint("LEFT", deleteGroupBtn, "RIGHT", 2, 0)
+    dupeGroupBtn:SetPoint("LEFT", deleteGroupBtn, "RIGHT", GROUP_BTN_GAP, 0)
 
     -- Group settings sit BELOW the list + buttons and span the full page width
     -- (stacked layout, uniform with the Bars tab). This keeps the settings

@@ -163,12 +163,12 @@ local function CreateVisualsTab(parent)
         { type = "header", text = "Bar Dimensions", spacing = 16 },
         { type = "slider", label = "Bar Height",
           db = "visual.barHeight", refresh = "RefreshAllBars",
-          min = 4, max = 60, step = 1, width = 180, stretch = true,
+          min = 4, max = 60, step = 1, width = 200,
           tooltip = "How tall each timer bar is, in pixels.",
           spacing = 16, offsetX = 4 },
         { type = "slider", label = "Bar Spacing",
           db = "visual.barSpacing", refresh = "RefreshAllBars",
-          min = 0, max = 30, step = 1, width = 180, stretch = true,
+          min = 0, max = 30, step = 1, width = 200,
           spacing = 16,
           tooltip = "Vertical pixels of padding between stacked bars "
                  .. "within a group. 0 = bars touch each other." },
@@ -179,7 +179,7 @@ local function CreateVisualsTab(parent)
 
         { type = "dropdown", id = "colorModeDD", label = "Color Mode",
           db = "visual.colorMode", refresh = "RefreshAllBars",
-          items = colorModeItems, width = 160,
+          items = colorModeItems, width = 191,
           tooltip = "How bars are coloured by default: your class colour, a "
                  .. "colour per track mode, or one custom colour. Groups and "
                  .. "individual bars can override this.",
@@ -201,7 +201,7 @@ local function CreateVisualsTab(parent)
 
         { type = "dropdown", id = "textureDD", label = "Bar Texture",
           db = "visual.texture", refresh = "RefreshAllBars",
-          items = textureItems, width = 160,
+          items = textureItems, width = 191,
           spacing = 16, offsetX = -16,
           onChange = function(value)
               local show = (value == "Custom")
@@ -220,7 +220,7 @@ local function CreateVisualsTab(parent)
         -- the main chain by re-anchoring to textureDD.
         { type = "editbox", id = "customTexBox", label = "Custom Texture Filename",
           db = "visual.customTexture", refresh = "RefreshAllBars",
-          width = 150,
+          width = 190,
           anchorTo = "textureDD", spacing = 8, offsetX = 20,
           tooltip = "Path to a Blizzard-format bar texture file (TGA or "
                  .. "BLP). Use forward slashes or double backslashes, e.g. "
@@ -238,28 +238,28 @@ local function CreateVisualsTab(parent)
 
         { type = "dropdown", label = "Text Position",
           db = "visual.textPosition", refresh = "RefreshAllBars",
-          items = textPosItems, width = 160,
+          items = textPosItems, width = 191,
           spacing = 24, offsetX = -16 },
 
         { type = "dropdown", label = "Font",
           db = "visual.font", refresh = "RefreshAllBars",
-          items = fontItems, width = 160,
+          items = fontItems, width = 191,
           spacing = 16 },
 
         { type = "slider", label = "Font Size",
           db = "visual.fontSize", refresh = "RefreshAllBars",
-          min = 6, max = 24, step = 1, width = 180, stretch = true,
+          min = 6, max = 24, step = 1, width = 200,
           tooltip = "Text size for the name and timer shown on each bar.",
           spacing = 16, offsetX = 16 },
 
         { type = "dropdown", label = "Text Format",
           db = "visual.textFormat", refresh = "RefreshAllBars",
-          items = textFormatItems, width = 160,
+          items = textFormatItems, width = 191,
           spacing = 24, offsetX = -16 },
 
         { type = "dropdown", label = "Duration Style",
           db = "visual.durationStyle", refresh = "RefreshAllBars",
-          items = durationStyleItems, width = 160,
+          items = durationStyleItems, width = 191,
           spacing = 16 },
 
         -- -------------------- Section: Icon --------------------
@@ -268,7 +268,7 @@ local function CreateVisualsTab(parent)
 
         { type = "slider", label = "Icon Size",
           db = "visual.iconSize", refresh = "RefreshAllBars",
-          min = 0, max = 60, step = 1, width = 180, stretch = true,
+          min = 0, max = 60, step = 1, width = 200,
           spacing = 16, offsetX = 4,
           tooltip = "Size (in pixels) of the spell icon shown on each bar. "
                  .. "Set to 0 to hide icons globally. Individual bars can "
@@ -276,7 +276,7 @@ local function CreateVisualsTab(parent)
 
         { type = "dropdown", label = "Icon Position",
           db = "visual.iconPosition", refresh = "RefreshAllBars",
-          items = iconPosItems, width = 160,
+          items = iconPosItems, width = 191,
           spacing = 24, offsetX = -16 },
 
         { type = "toggle", label = "Crop Icons",
@@ -306,13 +306,13 @@ local function CreateVisualsTab(parent)
 
         { type = "slider", label = "Active Opacity",
           db = "visual.activeAlpha", refresh = "RefreshAllBars",
-          min = 0, max = 1, step = 0.05, width = 180, stretch = true,
+          min = 0, max = 1, step = 0.05, width = 200,
           tooltip = "Opacity of a bar while its timer is running.",
           spacing = 16, offsetX = 4 },
 
         { type = "slider", id = "inactiveAlpha", label = "Inactive Opacity",
           db = "visual.inactiveAlpha", refresh = "RefreshAllBars",
-          min = 0, max = 1, step = 0.05, width = 180, stretch = true,
+          min = 0, max = 1, step = 0.05, width = 200,
           tooltip = "Opacity of a bar when nothing is active, for bars set to "
                  .. "stay visible.",
           spacing = 16 },
