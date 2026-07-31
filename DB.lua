@@ -61,6 +61,7 @@ ns.DEFAULTS = {
         textPosition = "INSIDE_LEFT",
         textFormat = "NAME_DURATION",
         durationStyle = "DECIMAL",
+        showStacks = true,
         colorMode = "CLASS",
         defaultColor = { r = 0.2, g = 0.6, b = 1.0 },
         trackModeColors = {

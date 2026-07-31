@@ -134,7 +134,7 @@ function M.test_defaults_visualHasExactKeys()
         showIcon = 1, iconPosition = 1, iconCrop = 1,
         -- Font + text
         font = 1, fontSize = 1, textEnabled = 1, textPosition = 1,
-        textFormat = 1, durationStyle = 1,
+        textFormat = 1, durationStyle = 1, showStacks = 1,
         -- Colour
         colorMode = 1, defaultColor = 1, trackModeColors = 1,
         -- Alpha
@@ -160,6 +160,7 @@ function M.test_defaults_visualCriticalValues()
     assertx.assertEqual(v.textFormat,    "NAME_DURATION")
     assertx.assertEqual(v.textPosition,  "INSIDE_LEFT")
     assertx.assertEqual(v.durationStyle, "DECIMAL")
+    assertx.assertEqual(v.showStacks,    true)
     assertx.assertEqual(v.colorMode,     "CLASS")
     assertx.assertEqual(v.activeAlpha,   1.0)
     assertx.assertEqual(v.inactiveAlpha, 0.3)

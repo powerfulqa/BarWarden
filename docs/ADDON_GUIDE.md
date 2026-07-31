@@ -209,6 +209,34 @@ Defined in [Utils.lua](../Utils.lua). **Never** write the old long form
 (`BarWardenDB and BarWardenDB.visual or ns.DEFAULTS.visual`); it was
 deduplicated across 14 sites and we keep it that way.
 
+### Group overrides (resolve, never read the global directly)
+
+Some visual/behaviour settings can be overridden per group, so a setting that
+takes a group override MUST be read through its resolver, never straight off
+`ns:GetVisual()`:
+
+| Setting | Resolver | Precedence |
+|---------|----------|------------|
+| Text format | `ns:GetBarTextFormat(bar)` ([BarEngine.lua](../BarEngine.lua)) | group (`group.textFormat`) then global |
+| Hide when inactive | `ns:ResolveHideWhenInactive(bar)` ([Conditions.lua](../Conditions.lua)) | bar OR group (see below) |
+| Bar texture / colour | resolved inside [Bar.lua](../Bar.lua) `ApplyVisualConfig` | bar then group then global |
+
+A group reaches its data from a live bar via
+`bar.frameIndex -> BarWardenDB.frames[bar.frameIndex]`.
+
+`ResolveHideWhenInactive` is deliberately an **OR**, not "the bar always wins":
+every bar the editor creates is written with an explicit
+`conditions.hideWhenInactive = false`, so a strict per-bar-wins rule would make
+the group switch a no-op on every existing bar. The group switch turns hiding on
+for the whole group; a bar set on its own still hides when the group switch is
+off. Do not "simplify" this into a nil-check inherit.
+
+Adding a new group override means: the widget in
+[Options_Bars.lua](../Options_Bars.lua) `GROUP_SETTINGS_SCHEMA` (with an
+"Inherit (default)" entry that stores nil), a resolver, and updating **every**
+read site - `ResolveHideWhenInactive` replaced five separate
+`cond.hideWhenInactive` reads across BarEngine/Core/FrameManager.
+
 ### Declarative options schema (`ns:BuildSettings`)
 
 [Options_Builder.lua](../Options_Builder.lua) walks a schema table and

@@ -262,6 +262,12 @@ local function CreateVisualsTab(parent)
           items = durationStyleItems, width = 191,
           spacing = 16 },
 
+        { type = "toggle", label = "Show Stack Count",
+          tooltip = "Show the number on a bar's icon when it tracks something "
+                 .. "with two or more stacks, whatever the text format is.",
+          db = "visual.showStacks", refresh = "RefreshAllBars",
+          spacing = 16, offsetX = 16 },
+
         -- -------------------- Section: Icon --------------------
         { type = "header", text = "Icon",
           spacing = 24, offsetX = 16 },

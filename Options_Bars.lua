@@ -341,6 +341,19 @@ local function CreateBarsTab(parent)
         end
     end
 
+    -- Text-format override list: Inherit plus the same formats the Visuals page
+    -- offers, so one group can show stacks (or names only) without changing
+    -- every other bar in the addon.
+    local groupTextFormatItems = {
+        { text = "Inherit (default)", value = ""              },
+        { text = "Name + Duration",   value = "NAME_DURATION" },
+        { text = "Name Only",         value = "NAME_ONLY"     },
+        { text = "Duration Only",     value = "DURATION"      },
+        { text = "Name + Stacks",     value = "NAME_STACKS"   },
+        { text = "Stacks Only",       value = "STACKS"        },
+        { text = "None",              value = "NONE"          },
+    }
+
     -- Forward-declared so schema `set` closures below can re-run the group
     -- settings Refresh (e.g. to re-check the Custom Bar Colour toggle after the
     -- colour swatch writes g.barColor). Assigned by BuildSettings just below.
@@ -453,6 +466,17 @@ local function CreateBarsTab(parent)
               if ns.RefreshAllBars then ns:RefreshAllBars() else ns:RebuildAllFrames() end
           end,
           offsetX = -16, spacing = 28 },
+        { type = "dropdown", id = "grpTextFormatDD", label = "Text Format",
+          items = groupTextFormatItems, width = 150,
+          tooltip = "What this group's bars show as text. Inherit uses the "
+               .. "addon-wide format set on the Visuals page.",
+          get = function() local g = getGroup(); return g and g.textFormat or "" end,
+          set = function(_, value)
+              local g = getGroup(); if not g then return end
+              g.textFormat = (value ~= "" and value) or nil
+              if ns.RefreshAllBars then ns:RefreshAllBars() else ns:RebuildAllFrames() end
+          end,
+          offsetX = 0, spacing = 28 },
         { type = "toggle", label = "Custom Bar Colour",
           tooltip = "Give this group's bars their own colour instead of the "
                .. "addon-wide default. Turn off to go back to the default.",
@@ -484,6 +508,19 @@ local function CreateBarsTab(parent)
         -- (frame + all bars) when the condition fails, saving the user from
         -- ticking the same checkbox on every bar individually.
         { type = "header", text = "Group Conditions", spacing = 16, offsetX = 10, id = "grpCondHeader" },
+        { type = "toggle", label = "Hide When Inactive",
+          tooltip = "Hide every bar in this group while it has nothing to show, "
+               .. "instead of ticking the same box on each bar. Bars set to hide "
+               .. "on their own still do.",
+          get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.hideWhenInactive end,
+          set = function(_, v) local g = getGroup(); if not g then return end
+              if not g.groupConditions then g.groupConditions = {} end
+              g.groupConditions.hideWhenInactive = v
+              -- Changes bar visibility, not just layout, so refresh the live
+              -- bars rather than only the settings widgets.
+              if ns.RefreshAllBars then ns:RefreshAllBars() else ns:RebuildAllFrames() end
+              ns:RefreshBarSettings() end,
+          spacing = 4 },
         { type = "toggle", label = "Combat Only",
           tooltip = "Hide this entire group when out of combat.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.combatOnly end,

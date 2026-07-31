@@ -56,6 +56,19 @@ function ns:HasExistingLayout(frames)
     return false
 end
 
+-- Should the icon-corner stack badge be shown?
+--
+-- Only counts that mean something to the player: 2 or more. Suppressed on
+-- resource bars (combo points and runes already read as current/max in the bar
+-- text) and when the resolved text format is already showing the stack number,
+-- so it never appears twice. Pure, so it is unit-testable.
+function ns:ShouldShowStackBadge(stacks, textFormat, showStacks, isResourceBar)
+    if showStacks == false then return false end
+    if isResourceBar then return false end
+    if textFormat == "NAME_STACKS" or textFormat == "STACKS" then return false end
+    return (stacks or 0) >= 2
+end
+
 -- Build a group frame's anchor from its current screen edges.
 --
 -- Offsets are always expressed against UIParent's BOTTOMLEFT, which is the

@@ -82,8 +82,7 @@ function ns:RefreshAllBars()
                     bar:SetAlpha(visual.activeAlpha or 1.0)
                     bar:Show()
                 else
-                    local cond = bar.barData and bar.barData.conditions
-                    if cond and cond.hideWhenInactive and not ns:IsBarGlowing(bar) then
+                    if ns:ResolveHideWhenInactive(bar) and not ns:IsBarGlowing(bar) then
                         bar:Hide()
                     else
                         bar:Show()

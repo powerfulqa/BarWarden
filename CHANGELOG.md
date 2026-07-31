@@ -13,6 +13,24 @@ exhaustive notes.
 
 ---
 
+### v2.1.0
+
+Stack counts you can actually see, and two settings that no longer force an
+all-or-nothing choice.
+
+- **Stack counts show on the bar's icon.** Anything stacking two or more times
+  (Sunder Armor, Deadly Poison, Lightning Shield, a stacking proc) now shows the
+  number in the corner of its icon, whatever text format you use. There is a
+  "Show Stack Count" switch on the Visuals page if you would rather not have it.
+- **Text format per group.** Groups now have their own Text Format under Bar
+  Overrides, so one group can show stacks or names only without changing every
+  other bar you have. Leave it on Inherit to follow the Visuals page as before.
+- **Hide When Inactive per group.** A new switch in Group Conditions hides every
+  bar in that group while it has nothing to show, instead of ticking the same
+  box on every bar. Bars set to hide on their own still do.
+- **Fixed:** a permanent aura (one with no duration) showed the stack count it
+  had when it first appeared and never updated it.
+
 ### v2.0.2
 
 A single fix: groups no longer wander off on their own.

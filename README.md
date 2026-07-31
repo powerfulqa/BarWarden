@@ -291,7 +291,11 @@ Global settings that apply to all bars.
 
 **Bar Visuals:** Colour Mode (Class, Track Mode, Custom), Default Colour swatch, Per-Bar Colour Override, Bar Texture (13 built-in textures + LibSharedMedia textures + custom path)
 
-**Text Options:** Text Position (Left, Right), Font (15 built-in + LibSharedMedia fonts), Font Size, Text Format (Name+Duration, Name Only, Duration Only, Name+Stacks, Stacks Only, None), Duration Style (seconds.ms, seconds, min:sec, short text, auto)
+**Text Options:** Text Position (Left, Right), Font (15 built-in + LibSharedMedia fonts), Font Size, Text Format (Name+Duration, Name Only, Duration Only, Name+Stacks, Stacks Only, None), Duration Style (seconds.ms, seconds, min:sec, short text, auto), Show Stack Count (the number on a bar's icon when something stacks two or more times, whatever the text format)
+
+Groups can override the **Text Format** and the bar texture and colour for their
+own bars (Bar Control > Groups > Bar Overrides), and can hide every bar in the
+group while it has nothing to show (Group Conditions > Hide When Inactive).
 
 **Icon:** Icon Size, Icon Position (Left, Right), Crop Icons, Cooldown Spiral overlay
 

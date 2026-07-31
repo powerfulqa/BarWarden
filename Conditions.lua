@@ -47,6 +47,27 @@ function ns:ShouldHideWhenInactive(conditions)
     return not not conditions.hideWhenInactive
 end
 
+-- Resolve "hide when inactive" for a live bar: the group's switch turns it on
+-- for every bar in that group, and a bar that sets it for itself still hides
+-- when the group's switch is off.
+--
+-- Deliberately an OR rather than "the bar always wins": every bar created
+-- through the editor is written with an explicit hideWhenInactive = false, so a
+-- strict per-bar-wins rule would make the group switch do nothing at all. This
+-- way the group control does what it says - turn it on for the whole group -
+-- while per-bar settings keep working on their own.
+function ns:ResolveHideWhenInactive(bar)
+    local barCond = bar and bar.barData and bar.barData.conditions
+    if barCond and barCond.hideWhenInactive then return true end
+
+    local groupData = bar and bar.frameIndex and BarWardenDB and BarWardenDB.frames
+                      and BarWardenDB.frames[bar.frameIndex]
+    local groupCond = groupData and groupData.groupConditions
+    if groupCond and groupCond.hideWhenInactive then return true end
+
+    return false
+end
+
 function ns:ShouldShowEmpty(conditions)
     if not conditions then return true end
     return conditions.showEmpty ~= false

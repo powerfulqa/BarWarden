@@ -220,6 +220,58 @@ function M.test_shouldHideWhenInactive()
     assertx.assertTrue(ns:ShouldHideWhenInactive({ hideWhenInactive = true }))
 end
 
+-- --------------------------------------------------------------------------
+-- ResolveHideWhenInactive: the group-level switch. Bars carry an explicit
+-- false by default, so the group turning it on must still win (an OR), or the
+-- group control would never do anything.
+-- --------------------------------------------------------------------------
+
+local function barIn(groupIndex, barConditions)
+    return { frameIndex = groupIndex, barData = { conditions = barConditions } }
+end
+
+function M.test_resolveHideWhenInactive_barOwnSettingHides()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { groupConditions = {} } } }
+    assertx.assertTrue(ns:ResolveHideWhenInactive(barIn(1, { hideWhenInactive = true })))
+    _G.BarWardenDB = nil
+end
+
+function M.test_resolveHideWhenInactive_groupSwitchHidesPlainBars()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { groupConditions = { hideWhenInactive = true } } } }
+    -- The default a new bar is written with.
+    assertx.assertTrue(ns:ResolveHideWhenInactive(barIn(1, { hideWhenInactive = false })))
+    assertx.assertTrue(ns:ResolveHideWhenInactive(barIn(1, {})))
+    _G.BarWardenDB = nil
+end
+
+function M.test_resolveHideWhenInactive_offWhenNeitherSet()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { groupConditions = {} } } }
+    assertx.assertFalse(ns:ResolveHideWhenInactive(barIn(1, { hideWhenInactive = false })))
+    assertx.assertFalse(ns:ResolveHideWhenInactive(barIn(1, {})))
+    _G.BarWardenDB = nil
+end
+
+-- Only the bar's OWN group applies.
+function M.test_resolveHideWhenInactive_isPerGroup()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = {
+        { groupConditions = { hideWhenInactive = true } },
+        { groupConditions = {} },
+    } }
+    assertx.assertTrue(ns:ResolveHideWhenInactive(barIn(1, {})))
+    assertx.assertFalse(ns:ResolveHideWhenInactive(barIn(2, {})))
+    _G.BarWardenDB = nil
+end
+
+function M.test_resolveHideWhenInactive_safeWithoutData()
+    local ns = fresh()
+    assertx.assertFalse(ns:ResolveHideWhenInactive(nil))
+    assertx.assertFalse(ns:ResolveHideWhenInactive({}))
+end
+
 function M.test_shouldShowEmpty_defaultsTrue()
     local ns = fresh()
     assertx.assertTrue(ns:ShouldShowEmpty(nil))

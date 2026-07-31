@@ -255,6 +255,17 @@ function ns:CreateBarFrame(parent)
     bar.timeText:SetJustifyH("RIGHT")
     bar.timeText:SetPoint("RIGHT", bar, "RIGHT", -4, 0)
 
+    -- Stack badge: the aura's stack count, in the icon's corner like the
+    -- default UI. Parented to the icon frame because a child frame draws above
+    -- its parent's OVERLAY layer, so a bar-parented badge would sit behind the
+    -- icon. ns:RenderBarStacks reparents it to the bar when the icon is hidden.
+    -- The font is fixed (not the configured bar font) so the number stays
+    -- legible at any font size.
+    local stackParent = bar.icon or bar
+    bar.stackText = stackParent:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+    bar.stackText:SetJustifyH("RIGHT")
+    bar.stackText:Hide()
+
     bar:SetMinMaxValues(0, 1)
     bar:SetValue(0)
     bar:SetStatusBarTexture(TEXTURES["Flat"])
@@ -339,7 +350,10 @@ local function ApplyTextConfig(bar, display, visual, layout)
     if style == "ComboPoint" then showText = false end
 
     local textPosition = visual.textPosition or "INSIDE_LEFT"
-    local textFormat   = visual.textFormat   or "NAME_DURATION"
+    -- Resolved, not raw: the bar's group may override the global text format,
+    -- and the name/time fontstring visibility has to match what will be drawn.
+    local textFormat   = (ns.GetBarTextFormat and ns:GetBarTextFormat(bar))
+                         or visual.textFormat or "NAME_DURATION"
     local font         = visual.font         or "Fonts\\FRIZQT__.TTF"
     -- Resolve LSM font name to path if available
     if ns.LSM then
@@ -476,5 +490,9 @@ function ns:ApplyVisualConfig(bar, config)
     if bar.cooldownFrame and visual.showCooldownSpiral == false then
         bar.cooldownFrame:Hide()
     end
+
+    -- Stack badge last: it re-anchors against the icon, so it must run after
+    -- ApplyIconConfig has settled the icon's visibility and size.
+    if ns.RenderBarStacks then ns:RenderBarStacks(bar) end
 end
 

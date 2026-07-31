@@ -149,8 +149,7 @@ glowTimerFrame:SetScript("OnUpdate", function(self, elapsed)
         if age >= glowDur then
             -- Restore normal state: re-apply visuals and re-hide if needed
             ns:ApplyVisualConfig(bar)
-            local cond = barData and barData.conditions
-            if cond and cond.hideWhenInactive and bar.barState == BAR_STATE.INACTIVE then
+            if ns:ResolveHideWhenInactive(bar) and bar.barState == BAR_STATE.INACTIVE then
                 bar:Hide()
                 local parent = bar:GetParent()
                 if parent and parent:IsShown() then
@@ -281,11 +280,70 @@ local function FormatDuration(remaining, style)
     return string.format("%.1f", remaining)
 end
 
+-- Resolve the text format for a bar: the bar's group may override the global
+-- Visuals setting, so one group can show stacks without changing every other
+-- bar. Precedence is group then global (a per-bar override would slot in ahead
+-- of the group if one is ever added).
+function ns:GetBarTextFormat(bar)
+    local visual = ns:GetVisual()
+    local groupData = bar and bar.frameIndex and BarWardenDB and BarWardenDB.frames
+                      and BarWardenDB.frames[bar.frameIndex]
+    local groupFormat = groupData and groupData.textFormat
+    if groupFormat and groupFormat ~= "" then return groupFormat end
+    return visual.textFormat or "NAME_DURATION"
+end
+
+-- Show or hide the icon-corner stack badge. The single place that decides,
+-- so every activation path stays consistent. Reparents between the icon and
+-- the bar so the badge survives icons being turned off.
+function ns:RenderBarStacks(bar)
+    local fs = bar and bar.stackText
+    if not fs then return end
+
+    local visual = ns:GetVisual()
+    local show = ns:ShouldShowStackBadge(bar.stacks, ns:GetBarTextFormat(bar),
+                                         visual.showStacks, bar.isResourceBar)
+    if not show then
+        fs:Hide()
+        return
+    end
+
+    -- Anchor to the icon when it is visible, otherwise fall back to the bar's
+    -- own corner (a child of a hidden icon frame would be hidden too).
+    local iconShown = bar.icon and bar.icon:IsShown()
+    local target = iconShown and bar.icon or bar
+    if fs:GetParent() ~= target then fs:SetParent(target) end
+    fs:ClearAllPoints()
+    if iconShown then
+        fs:SetPoint("BOTTOMRIGHT", bar.icon, "BOTTOMRIGHT", -1, 1)
+    else
+        fs:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", -2, 2)
+    end
+
+    fs:SetText(tostring(bar.stacks))
+    fs:Show()
+end
+
+-- Static (permanent aura) bars never deplete, so they carry no OnUpdate and
+-- their text is not refreshed on a timer. This must therefore be called both
+-- at activation and whenever the stack count changes on an already-active
+-- bar, or a stack-format bar would freeze on the count it had when it started.
+function ns:UpdateStaticBarText(bar)
+    if not bar or not bar.timeText then return end
+    local textFormat = ns:GetBarTextFormat(bar)
+    local stacks = bar.stacks or 0
+    if (textFormat == "NAME_STACKS" or textFormat == "STACKS") and stacks > 0 then
+        bar.timeText:SetText(tostring(stacks))
+    else
+        bar.timeText:SetText("")  -- permanent aura: no time to show
+    end
+end
+
 -- UpdateBarText: throttled text formatting, called from Bar_OnUpdate.
 local function UpdateBarText(bar, remaining, visual)
     if not bar.timeText or not bar.timeText:IsShown() then return end
 
-    local textFormat = visual.textFormat or "NAME_DURATION"
+    local textFormat = ns:GetBarTextFormat(bar)
 
     if textFormat == "NAME_STACKS" or textFormat == "STACKS" then
         local stacks = bar.stacks or 0
@@ -579,14 +637,7 @@ function ns:ActivateStaticBar(bar, icon, name, stacks)
 
     if bar.iconTexture and icon then bar.iconTexture:SetTexture(icon) end
     if bar.nameText then bar.nameText:SetText(ns.GetBarDisplayName(bar.barData)) end
-    if bar.timeText then
-        local textFormat = visual.textFormat or "NAME_DURATION"
-        if (textFormat == "NAME_STACKS" or textFormat == "STACKS") and (stacks or 0) > 0 then
-            bar.timeText:SetText(tostring(stacks))
-        else
-            bar.timeText:SetText("")  -- permanent aura: no time to show
-        end
-    end
+    ns:UpdateStaticBarText(bar)
     if bar.sparkFrame then bar.sparkFrame:Hide() end
     if bar.cooldownFrame then bar.cooldownFrame:Hide() end
 
@@ -614,6 +665,8 @@ function ns:DeactivateBar(bar, skipGlow)
     bar.lingerRemaining = nil
     bar.isResourceBar = false
     bar.isStaticBar = false
+    bar.stacks = 0
+    if bar.stackText then bar.stackText:Hide() end
 
     -- Stop OnUpdate (save CPU)
     bar:SetScript("OnUpdate", nil)
@@ -669,8 +722,7 @@ function ns:DeactivateBar(bar, skipGlow)
     -- expiry and hides + relayouts at that point. Hiding now would cause
     -- the layout to reposition other bars, then the glow timer's per-frame
     -- Show() would force this bar visible at a stale position, overlapping.
-    local cond = bar.barData and bar.barData.conditions
-    if cond and cond.hideWhenInactive and not activeGlows[bar] then
+    if ns:ResolveHideWhenInactive(bar) and not activeGlows[bar] then
         bar:Hide()
     else
         local visual = ns:GetVisual()
@@ -774,8 +826,7 @@ local function EnsureBarVisible(bar)
     -- re-show the parent.
     local parent = bar:GetParent()
     if bar:IsShown() and (not parent or parent:IsShown()) then return end
-    local cond = bar.barData and bar.barData.conditions
-    if cond and cond.hideWhenInactive then return end
+    if ns:ResolveHideWhenInactive(bar) then return end
     local visual = ns:GetVisual()
     bar:SetAlpha(visual.inactiveAlpha or 0.3)
     bar:Show()
@@ -852,8 +903,12 @@ local function ScanBar(bar, unitFilter)
         if bar.barState ~= BAR_STATE.ACTIVE or not bar.isStaticBar then
             ns:ActivateStaticBar(bar, icon, name, stacks)
         else
+            -- Already static: refresh the count in place. Static bars have no
+            -- OnUpdate, so nothing else would redraw a changed stack count.
             bar.stacks = stacks or 0
+            ns:UpdateStaticBarText(bar)
         end
+        ns:RenderBarStacks(bar)
         return
     end
 
@@ -869,6 +924,7 @@ local function ScanBar(bar, unitFilter)
         -- (a refresh that leaves the timer alone skips ActivateBar above). This
         -- is what the "Name + Stacks" / "Stacks Only" text formats read.
         bar.stacks = stacks or 0
+        ns:RenderBarStacks(bar)
         if bar.iconTexture and icon then bar.iconTexture:SetTexture(icon) end
         if bar.nameText then bar.nameText:SetText(ns.GetBarDisplayName(bd)) end
         return

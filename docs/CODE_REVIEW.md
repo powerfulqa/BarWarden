@@ -74,6 +74,22 @@ F. **`smoothExpiry` masks a shortened refresh (B7).** The aura expiry smoothing
 
 ## Resolved (kept for the record)
 
+- **v2.1.0 stack visibility + group overrides.** Stack counts were read and
+  stored correctly (`bar.stacks` in every activation branch) but only ever
+  rendered into `bar.timeText` under the global `NAME_STACKS`/`STACKS` formats,
+  so the default `NAME_DURATION` showed nothing - a permanent 9-stack buff drew
+  a solid bar with no number. Added `bar.stackText`, an icon-corner badge
+  parented to `bar.icon` (a child frame draws above the bar's own OVERLAY, so a
+  bar-parented fontstring would hide behind the icon) and reparented to the bar
+  when the icon is off, rendered from the single `ns:RenderBarStacks` with the
+  pure `ns:ShouldShowStackBadge` predicate. Also fixed: static (permanent-aura)
+  bars have no OnUpdate, so their text was written once at activation and a
+  later stack change never redrew - now `ns:UpdateStaticBarText` is called from
+  the already-active path too. Text format and hide-when-inactive gained group
+  overrides via `ns:GetBarTextFormat` / `ns:ResolveHideWhenInactive` (see the
+  ADDON_GUIDE "Group overrides" table for the precedence rules and why the
+  hide-when-inactive resolver is an OR).
+
 - **v2.0.2 group position drift.** `UpdateGroupLayout` re-anchored the group on
   every relayout using `GetLeft() * GetEffectiveScale() / uiScale`. `SetPoint`
   offsets are already in the frame's own scaled space, so this double-applied
