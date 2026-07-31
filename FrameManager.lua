@@ -49,26 +49,34 @@ local GROUP_BACKDROP = {
 -- ----------------------------------------------------------------------------
 -- SaveFramePosition: Persist frame position to BarWardenDB
 -- ----------------------------------------------------------------------------
+-- Re-anchor `group` to the fixed edge for its growth direction, keeping it
+-- exactly where it currently sits, and return the anchor table (nil if the
+-- frame has no geometry yet). ns:NormalizeGroupAnchor documents why the edges
+-- are used verbatim with no scale conversion.
+local function RepinGroup(group, growUp)
+    local left, top, bottom = group:GetLeft(), group:GetTop(), group:GetBottom()
+    if not left then return nil end
+
+    local pos = ns:NormalizeGroupAnchor(growUp, left, top, bottom)
+    group:ClearAllPoints()
+    group:SetPoint(pos.point, UIParent, pos.relativePoint, pos.x, pos.y)
+    return pos
+end
+
 local function SaveFramePosition(frame)
     if not frame.frameIndex then return end
     local db = BarWardenDB and BarWardenDB.frames
     if not db or not db[frame.frameIndex] then return end
 
-    -- Always save as TOPLEFT so the top edge stays fixed when the frame
-    -- height changes (bars appearing/disappearing with Hide When Inactive).
-    -- Without this, CENTER or BOTTOM anchored frames grow upward.
-    local scale = frame:GetEffectiveScale()
-    local uiScale = UIParent:GetEffectiveScale()
-    local left = frame:GetLeft() * scale / uiScale
-    local top = frame:GetTop() * scale / uiScale
-    local uiTop = UIParent:GetTop()
-
-    db[frame.frameIndex].position = {
-        point = "TOPLEFT",
-        relativePoint = "TOPLEFT",
-        x = left,
-        y = top - uiTop,
-    }
+    -- Save against the edge the frame grows from, so a height change (bars
+    -- appearing/disappearing with Hide When Inactive) never moves it: DOWN
+    -- pins the top, UP pins the bottom. Saving everything as TOPLEFT used to
+    -- pin a grow-up group by the wrong edge.
+    local growUp = (db[frame.frameIndex].growDirection == "UP")
+    local pos = RepinGroup(frame, growUp)
+    if pos then
+        db[frame.frameIndex].position = pos
+    end
 end
 
 -- ----------------------------------------------------------------------------
@@ -247,37 +255,23 @@ function ns:UpdateGroupLayout(group)
     local totalHeight = titleOffset + (rowCount * (barHeight + spacing)) + 4
     local totalWidth = columns * barWidth + (columns - 1) * spacing + 8
 
-    -- Re-anchor to a fixed edge so the frame grows in the correct direction.
-    -- DOWN: pin TOPLEFT so bars grow downward.
-    -- UP: pin BOTTOMLEFT so bars grow upward.
+    -- Re-anchor ONLY when the pinned corner has to change (a new group still on
+    -- its CENTER anchor, or the growth direction was flipped). DOWN pins
+    -- TOPLEFT so bars grow downward; UP pins BOTTOMLEFT so bars grow upward.
+    --
+    -- A pure size change needs no re-anchor at all: the frame is already held
+    -- by a corner, so the SetHeight/SetWidth below grows it away from that
+    -- fixed corner. Re-deriving and re-saving the position on every relayout is
+    -- what made scaled groups drift toward the corner, because relayout runs on
+    -- every bar activate/deactivate.
     local pinPoint = growUp and "BOTTOMLEFT" or "TOPLEFT"
-    local anchorFn = growUp and group.GetBottom or group.GetTop
-
-    if anchorFn(group) then
-        local scale = group:GetEffectiveScale()
-        local uiScale = UIParent:GetEffectiveScale()
-        local left = group:GetLeft() * scale / uiScale
-        if growUp then
-            local bottom = group:GetBottom() * scale / uiScale
-            group:ClearAllPoints()
-            group:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
-            if group.frameIndex then
-                local db = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[group.frameIndex]
-                if db then
-                    db.position = { point = "BOTTOMLEFT", relativePoint = "BOTTOMLEFT", x = left, y = bottom }
-                end
-            end
-        else
-            local top = group:GetTop() * scale / uiScale
-            local uiTop = UIParent:GetTop()
-            group:ClearAllPoints()
-            group:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, top - uiTop)
-            if group.frameIndex then
-                local db = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[group.frameIndex]
-                if db then
-                    db.position = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = left, y = top - uiTop }
-                end
-            end
+    if group:GetPoint(1) ~= pinPoint then
+        -- Read the edges BEFORE resizing so the corner we keep is the one the
+        -- user currently sees.
+        local pos = RepinGroup(group, growUp)
+        if pos and group.frameIndex then
+            local db = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[group.frameIndex]
+            if db then db.position = pos end
         end
     end
 

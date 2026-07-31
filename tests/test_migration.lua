@@ -115,4 +115,65 @@ function M.test_getV1Layout_nilWhenSameAddon()
     _G.BarWardenDB = nil
 end
 
+-- --------------------------------------------------------------------------
+-- NormalizeGroupAnchor: the group-position drift fix. Screen edges must pass
+-- through verbatim - any scale factor here is the drift bug returning.
+-- --------------------------------------------------------------------------
+
+function M.test_normalizeAnchor_growDown_pinsTopVerbatim()
+    local ns = freshUtils()
+    local p = ns:NormalizeGroupAnchor(false, 100, 550, 400)
+    assertx.assertEqual(p.point, "TOPLEFT")
+    assertx.assertEqual(p.relativePoint, "BOTTOMLEFT")
+    assertx.assertEqual(p.x, 100)
+    assertx.assertEqual(p.y, 550)
+end
+
+function M.test_normalizeAnchor_growUp_pinsBottomVerbatim()
+    local ns = freshUtils()
+    local p = ns:NormalizeGroupAnchor(true, 100, 550, 400)
+    assertx.assertEqual(p.point, "BOTTOMLEFT")
+    assertx.assertEqual(p.relativePoint, "BOTTOMLEFT")
+    assertx.assertEqual(p.x, 100)
+    assertx.assertEqual(p.y, 400)
+end
+
+-- Re-normalising an already-normalised anchor must be a no-op. The drift bug
+-- was exactly this being non-idempotent (each pass multiplied by the scale).
+function M.test_normalizeAnchor_isIdempotent()
+    local ns = freshUtils()
+    local first  = ns:NormalizeGroupAnchor(true, 100, 550, 400)
+    local second = ns:NormalizeGroupAnchor(true, first.x, 550, first.y)
+    assertx.assertEqual(second.x, first.x)
+    assertx.assertEqual(second.y, first.y)
+end
+
+-- --------------------------------------------------------------------------
+-- Per-group backfill: fills nils only, never touches a saved position.
+-- --------------------------------------------------------------------------
+
+function M.test_migrateFrames_backfillsGroupDefaults()
+    local ns = freshDB()
+    local frames = { { bars = {} } }
+    ns:MigrateFrames(frames)
+    assertx.assertEqual(frames[1].growDirection, "DOWN")
+    assertx.assertEqual(frames[1].columns, 1)
+    assertx.assertEqual(type(frames[1].position), "table")
+end
+
+function M.test_migrateFrames_keepsExistingGroupPosition()
+    local ns = freshDB()
+    local frames = { {
+        bars = {},
+        growDirection = "UP",
+        columns = 2,
+        position = { point = "BOTTOMLEFT", relativePoint = "BOTTOMLEFT", x = 42, y = 99 },
+    } }
+    ns:MigrateFrames(frames)
+    assertx.assertEqual(frames[1].growDirection, "UP")
+    assertx.assertEqual(frames[1].columns, 2)
+    assertx.assertEqual(frames[1].position.x, 42)
+    assertx.assertEqual(frames[1].position.y, 99)
+end
+
 return M

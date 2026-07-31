@@ -13,6 +13,19 @@ exhaustive notes.
 
 ---
 
+### v2.0.2
+
+A single fix: groups no longer wander off on their own.
+
+- **Groups stay where you put them.** A group with a scale other than 100%
+  crept towards the bottom-left corner a little further every time one of its
+  bars updated (entering combat, a buff coming and going, changing a visual
+  setting), and the drifted spot was saved, so it kept its new home after a
+  reload. Groups now hold their position at any scale and in either growth
+  direction, and dragging one saves exactly where you dropped it.
+- **One-off:** positions that already drifted cannot be recovered, so drag each
+  affected group back where you want it once after updating. It will stay there.
+
 ### v2.0.1
 
 A fixes-and-polish patch: more accurate Activity counts, tidier menus, and a

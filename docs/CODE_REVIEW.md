@@ -74,6 +74,23 @@ F. **`smoothExpiry` masks a shortened refresh (B7).** The aura expiry smoothing
 
 ## Resolved (kept for the record)
 
+- **v2.0.2 group position drift.** `UpdateGroupLayout` re-anchored the group on
+  every relayout using `GetLeft() * GetEffectiveScale() / uiScale`. `SetPoint`
+  offsets are already in the frame's own scaled space, so this double-applied
+  scale: each relayout multiplied the offset from the pinned corner by
+  `group:GetScale()` and wrote it back to `groupData.position`, so a scaled
+  group crept towards the corner on every bar activate/deactivate and the error
+  persisted across reloads (scale 1.0 groups were unaffected). `SaveFramePosition`
+  carried the same bad conversion and additionally forced `TOPLEFT`, pinning
+  grow-up groups by the wrong edge. Fixed by anchoring against UIParent
+  BOTTOMLEFT (screen origin, 0 in every frame's unit space) so edges pass
+  through verbatim (`ns:NormalizeGroupAnchor`, Utils.lua), and by re-anchoring
+  ONLY when the pinned corner must change - a pure size change needs none.
+  `MigrateFrames` now backfills `growDirection`/`columns`/`position`. Covered by
+  `tests/test_migration.lua`; frame geometry is not stubbed, so anchoring itself
+  rides the in-game test. Already-drifted positions are unrecoverable (users
+  re-drag once).
+
 - **v2.0.1 Activity proc-count inflation.** `ActivityTracker.lua` detected new
   activity by diffing live state against `prev*` snapshots that
   `StartActivityTracking` wiped to empty on every login/reload/re-enable, so the

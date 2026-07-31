@@ -56,6 +56,27 @@ function ns:HasExistingLayout(frames)
     return false
 end
 
+-- Build a group frame's anchor from its current screen edges.
+--
+-- Offsets are always expressed against UIParent's BOTTOMLEFT, which is the
+-- screen origin and therefore 0 in every frame's own unit space. That lets
+-- GetLeft/GetTop/GetBottom pass through verbatim: SetPoint offsets are already
+-- interpreted in the frame's own scaled space, so any GetEffectiveScale
+-- conversion here would double-apply the frame's scale. Doing exactly that was
+-- the group-position drift bug - a scaled group's offset was multiplied by its
+-- scale on every relayout and written back to the DB, so it crept toward the
+-- corner and the error persisted across reloads.
+--
+-- Grow DOWN pins the top edge (bars grow downward); grow UP pins the bottom
+-- edge (bars grow upward). Pure arithmetic, so it is unit-testable without
+-- frame stubs.
+function ns:NormalizeGroupAnchor(growUp, left, top, bottom)
+    if growUp then
+        return { point = "BOTTOMLEFT", relativePoint = "BOTTOMLEFT", x = left, y = bottom }
+    end
+    return { point = "TOPLEFT", relativePoint = "BOTTOMLEFT", x = left, y = top }
+end
+
 -- Format seconds as a readable uptime string: "12.3s", "5m 30s", "2h 15m".
 function ns.FormatUptime(seconds)
     if not seconds or seconds <= 0 then return "0s" end

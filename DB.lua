@@ -239,6 +239,15 @@ function ns:MigrateFrames(frames)
     for _, f in ipairs(frames) do
         if type(f) == "table" then
             if f.sortMode == nil then f.sortMode = "manual" end
+            -- Per-group default backfill. The layout code reads these on every
+            -- relayout, so a group saved before a field existed (or imported
+            -- from a legacy profile) must still resolve to a coherent anchor.
+            -- Fills nils only; an existing position is never overwritten.
+            if f.growDirection == nil then f.growDirection = "DOWN" end
+            if f.columns == nil or f.columns < 1 then f.columns = 1 end
+            if type(f.position) ~= "table" or f.position.point == nil then
+                f.position = { point = "TOPLEFT", relativePoint = "BOTTOMLEFT", x = 100, y = 400 }
+            end
             f.bars = f.bars or {}
             for _, bar in ipairs(f.bars) do
                 if type(bar) == "table" then
