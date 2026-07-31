@@ -134,9 +134,10 @@ function ns:CreateGroupFrame(groupData, frameIndex)
     frame:SetWidth(barWidth + 8)  -- padding for border
     frame:SetHeight(30)  -- minimum height, updated by layout
 
-    -- Position: load saved anchor. SaveFramePosition converts to TOPLEFT on
-    -- next drag so future loads will use TOPLEFT, but we must respect the
-    -- saved anchor for existing positions to display correctly.
+    -- Position: apply the saved anchor as-is. Anchors are normalised on drag
+    -- and on a growth-direction change (ns:NormalizeGroupAnchor pins TOPLEFT for
+    -- downward growth, BOTTOMLEFT for upward), but this must honour whatever
+    -- shape is saved so older layouts still land where the user left them.
     local pos = groupData.position
     if pos and pos.point then
         frame:SetPoint(pos.point, UIParent, pos.relativePoint or pos.point, pos.x or 0, pos.y or 0)
@@ -255,6 +256,20 @@ function ns:UpdateGroupLayout(group)
     local totalHeight = titleOffset + (rowCount * (barHeight + spacing)) + 4
     local totalWidth = columns * barWidth + (columns - 1) * spacing + 8
 
+    -- A group with no bars is drawn solid rather than at the configured
+    -- backdrop alpha, so a newly added one is obvious at the centre of the
+    -- screen and can be dragged into place. It reverts to the user's own alpha
+    -- as soon as it holds a bar.
+    local isEmpty = (frameData and frameData.bars and #frameData.bars == 0)
+    if group.SetBackdropColor then
+        if isEmpty then
+            group:SetBackdropColor(0, 0, 0, 0.85)
+        else
+            local bgAlpha = (frameData and frameData.bgAlpha) or 0.6
+            group:SetBackdropColor(0, 0, 0, bgAlpha)
+        end
+    end
+
     -- Re-anchor ONLY when the pinned corner has to change (a new group still on
     -- its CENTER anchor, or the growth direction was flipped). DOWN pins
     -- TOPLEFT so bars grow downward; UP pins BOTTOMLEFT so bars grow upward.
@@ -297,11 +312,35 @@ end
 function ns:SetFrameScale(frameIndex, scale)
     scale = math.max(MIN_SCALE, math.min(MAX_SCALE, scale))
     local frame = ns.groupFrames[frameIndex]
+    local frameData = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex]
+
     if frame then
+        -- A frame's anchor offsets are measured in its OWN scaled space, so its
+        -- screen position is offset * scale. Changing the scale alone therefore
+        -- moves the group (2x scale sends x=500 to screen-x 1000). Convert the
+        -- offsets into the new space so the group stays where the user put it:
+        --   offset_new = offset_old * scale_old / scale_new
+        -- (UIParent's own scale cancels, and offsets are relative to its
+        -- BOTTOMLEFT, the screen origin, which is 0 in every space.)
+        -- This is a one-off conversion on an explicit scale change, NOT the
+        -- per-relayout re-derivation that caused the v2.0.2 drift.
+        local oldScale = frame:GetScale() or 1
+        local left, top, bottom = frame:GetLeft(), frame:GetTop(), frame:GetBottom()
+
         frame:SetScale(scale)
+
+        if left and oldScale > 0 and scale > 0 then
+            local k = oldScale / scale
+            local growUp = (frameData and frameData.growDirection == "UP")
+            local pos = ns:NormalizeGroupAnchor(growUp, left * k, top * k, bottom * k)
+            frame:ClearAllPoints()
+            frame:SetPoint(pos.point, UIParent, pos.relativePoint, pos.x, pos.y)
+            if frameData then frameData.position = pos end
+        end
     end
-    if BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex] then
-        BarWardenDB.frames[frameIndex].scale = scale
+
+    if frameData then
+        frameData.scale = scale
     end
 end
 
@@ -427,33 +466,12 @@ local function DestroyGroupFrame(frameIndex)
     ns.groupFrames[frameIndex] = nil
 end
 
--- ----------------------------------------------------------------------------
--- CreateFrameFromDB: Create a new frame entry in BarWardenDB and build it
--- ----------------------------------------------------------------------------
-function ns:CreateFrame(name)
-    if not BarWardenDB or not BarWardenDB.frames then return nil end
-    if #BarWardenDB.frames >= MAX_FRAMES then return nil end
-
-    local newFrame = {
-        name = name or ("Group " .. (#BarWardenDB.frames + 1)),
-        enabled = true,
-        locked = true,
-        visible = true,
-        position = { point = "CENTER", relativePoint = "CENTER", x = 0, y = 0 },
-        width = BarWardenDB.visual.barWidth or 200,
-        columns = 1,
-        bgAlpha = 0.6,
-        borderAlpha = 0.8,
-        scale = 1.0,
-        bars = {},
-    }
-
-    table.insert(BarWardenDB.frames, newFrame)
-    local idx = #BarWardenDB.frames
-    local frame = ns:CreateGroupFrame(newFrame, idx)
-    ns:UpdateGroupLayout(frame)
-    return idx
-end
+-- `ns:CreateFrame` used to live here: a third group-creation template that
+-- nothing called and that had drifted out of step with the two that are used
+-- (it was missing sortMode / growDirection / groupConditions). The Bars tab
+-- builds new groups via NewGroup in Options_Bars.lua; presets use
+-- BuildGroupFromPreset in ClassPresets.lua. Removed in v2.1.1 rather than left
+-- to mislead - note the name also shadowed the WoW global of the same name.
 
 -- ----------------------------------------------------------------------------
 -- DeleteFrame: Remove a frame from BarWardenDB and destroy it
@@ -544,12 +562,12 @@ function ns:BuildBarsForFrame(frameIndex)
                 bar.iconTexture:SetTexture(icon)
             end
         end
-        if barData.enabled == false then
+        if not ns:IsBarEnabled(bar) then
             bar:Hide()
         elseif ns:ResolveHideWhenInactive(bar) then
             bar:Hide()
         else
-            local visual = BarWardenDB and BarWardenDB.visual or (ns.DEFAULTS and ns.DEFAULTS.visual) or {}
+            local visual = ns:GetVisual()
             bar:SetAlpha(visual.inactiveAlpha or 0.3)
         end
         table.insert(frame.bars, bar)

@@ -171,12 +171,10 @@ function ns:SelectOptionsTab(index)
     InterfaceOptionsFrame_OpenToCategory(child)
 end
 
--- Panel action hooks. Per-section refresh now happens on each panel's OnShow
--- (see the builders / PanelInfra), so these stay light. Kept for callers that
--- still invoke them (e.g. reset-to-defaults).
-function ns:ApplySettings() end
-function ns:RevertSettings() end
-function ns:ResetToDefaults() end
+-- Panel action hooks used to live here as no-op stubs. They are gone: the real
+-- ns:ApplySettings is in Core.lua (this file loads first, so the stub was
+-- shadowing it only by luck of TOC order), Reset to Defaults is a self-contained
+-- button in Options_Profiles.lua, and nothing ever called RevertSettings.
 
 function ns:RefreshOptions()
     ns.suppressCallbacks = true

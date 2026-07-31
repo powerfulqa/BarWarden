@@ -13,6 +13,66 @@ exhaustive notes.
 
 ---
 
+### v2.1.1
+
+A full read-through of the addon, and the fixes that came out of it. Two of
+these could lose your layout, so this one is worth taking.
+
+Your layout is safer
+- **Restoring no longer throws away what you had.** `/bw restore` swapped your
+  current layout for the last backup and kept no copy of it, so restoring by
+  mistake was permanent. It now backs up first, which also means running it
+  twice takes you back.
+- **Delete asks about one group and deletes that one.** If you clicked a
+  different row while the confirmation was open, the click won and the wrong
+  group or bar was deleted. Deleting also takes a backup now, so `/bw restore`
+  brings it back.
+
+Fixes
+- **The Bar Control page no longer comes apart.** Deleting a group could leave
+  the list, buttons and settings stranded in the corner of the screen, away from
+  the settings window, until you added another group or reloaded. It happened
+  whenever a list dropped from 7 items to 6.
+- **The Enabled tickbox works.** Unticking it hid the bar until the next refresh
+  or login, then the bar came back and kept its place in the group.
+- **Settings boxes show the group or bar you actually picked.** Selecting a
+  second group or bar left the previous one's tickboxes on screen, so the panel
+  could describe settings that were not set.
+- **A permanent buff with Linger no longer freezes a bar** at "0.0" until you
+  reload.
+- **Only Mine now works on buff bars** as it always has on debuffs.
+- **`/bw enable` brings your bars back** after logging in disabled, instead of
+  showing nothing until a reload.
+- **`/bw reset` really does reset positions** - it said so but did nothing.
+- **Bars stop swallowing mouse clicks** after you unlock and re-lock frames.
+- **Changing a group's Scale no longer moves it** across the screen.
+- Per-group Text Format now applies to combo point, rune, soul shard and runic
+  power bars too, and its dropdown is the right width.
+- Priest starters tracked Weakened Soul as a buff, so the bar never fired.
+  Healer starters watched heal-over-time effects on the healer instead of the
+  target, so a Resto druid's Lifebloom bar never lit up. Adding a class starter
+  can no longer push you past the group limit.
+- Help text still described the old menus (a "General tab", a "Statistics tab",
+  a left/right layout that no longer exists).
+- `/bw restore`, `/bw importv1` and `/bw commtest` were real commands that
+  appeared in no list. They do now.
+
+Changes
+- **A group's Hide When Inactive now controls the whole group.** Ticking it
+  hides every bar in the group; unticking it keeps them all visible even where
+  individual bars are set to hide. Leave it alone and each bar decides for
+  itself, as before. Previously it could only add hiding, so a group whose bars
+  each had the box ticked could never be revealed from the group setting.
+- **A new group is visible straight away**, in the middle of the screen with a
+  solid background, so you can see it and drag it where you want before adding
+  any bars. It goes back to your normal background once it holds a bar.
+- **"Show Empty Bar" has been removed.** Nothing ever read it, so it had never
+  done anything and only muddied its neighbour, Hide When Inactive.
+
+Under the hood
+- Removed dead code and several places where the same idea was written two
+  different ways; tidied a hot combat path. No behaviour change from those.
+
 ### v2.1.0
 
 Stack counts you can actually see, and two settings that no longer force an

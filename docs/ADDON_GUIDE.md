@@ -218,18 +218,23 @@ takes a group override MUST be read through its resolver, never straight off
 | Setting | Resolver | Precedence |
 |---------|----------|------------|
 | Text format | `ns:GetBarTextFormat(bar)` ([BarEngine.lua](../BarEngine.lua)) | group (`group.textFormat`) then global |
-| Hide when inactive | `ns:ResolveHideWhenInactive(bar)` ([Conditions.lua](../Conditions.lua)) | bar OR group (see below) |
+| Hide when inactive | `ns:ResolveHideWhenInactive(bar)` ([Conditions.lua](../Conditions.lua)) | group when set, else bar (see below) |
 | Bar texture / colour | resolved inside [Bar.lua](../Bar.lua) `ApplyVisualConfig` | bar then group then global |
 
 A group reaches its data from a live bar via
 `bar.frameIndex -> BarWardenDB.frames[bar.frameIndex]`.
 
-`ResolveHideWhenInactive` is deliberately an **OR**, not "the bar always wins":
-every bar the editor creates is written with an explicit
-`conditions.hideWhenInactive = false`, so a strict per-bar-wins rule would make
-the group switch a no-op on every existing bar. The group switch turns hiding on
-for the whole group; a bar set on its own still hides when the group switch is
-off. Do not "simplify" this into a nil-check inherit.
+`ResolveHideWhenInactive` gives the **group the final say once its switch has
+been touched**, in both directions: `groupConditions.hideWhenInactive == true`
+hides every bar in the group, `== false` keeps every bar visible even where the
+bars set the flag themselves, and `nil` (never touched) leaves each bar to
+decide. Note the check is `~= nil`, not truthiness - `false` is a real state
+here, not "unset".
+
+It was briefly an OR of bar-and-group (v2.1.0). That was wrong: an OR can only
+ever *add* hiding, so a group whose bars all set the flag individually could
+never be revealed from the group control, which is the entire reason the control
+exists. Do not "simplify" it back.
 
 Adding a new group override means: the widget in
 [Options_Bars.lua](../Options_Bars.lua) `GROUP_SETTINGS_SCHEMA` (with an
@@ -584,8 +589,18 @@ in [Options_Bars.lua](../Options_Bars.lua).
 | `hideWhileResting` | bool | Hide while in an inn or capital city (`IsResting()`). |
 | `hideInVehicle` | bool | Hide while in a vehicle (`UnitInVehicle("player")`). |
 | `onlyInInstance` | bool | Show only inside a dungeon, raid, arena, or battleground (`IsInInstance()`). |
-| `hideWhenInactive` | bool | Fully hide (not just dim) when the tracker is inactive. |
-| `showEmpty` | bool | When true (default), show the bar at inactive alpha if the tracker is inactive but the bar is otherwise valid. |
+| `hideWhenInactive` | bool | Fully hide (not just dim) when the tracker is inactive. Read via `ns:ResolveHideWhenInactive(bar)`, never directly - a group can switch it on for all its bars. |
+
+`showEmpty` was retired in v2.1.1: nothing ever read it, so its checkbox had
+never done anything and was indistinguishable from `hideWhenInactive`. Existing
+saved values are left in place and ignored. Do not re-add a condition key
+without a runtime reader.
+
+**Anything that can show or hide a bar must go through the resolvers in
+[Conditions.lua](../Conditions.lua)** - `ns:IsBarEnabled(bar)` and
+`ns:ResolveHideWhenInactive(bar)`. Four call sites once decided "is this bar
+enabled" independently and disagreed, so an unticked bar was hidden at build
+time and shown again by the next refresh.
 
 ---
 

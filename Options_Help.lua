@@ -60,7 +60,8 @@ local HELP_ENTRIES = {
     {
         id = "add-bar",
         q = "How do I add a bar?",
-        a = "Select a group on the left, then click Add on the right. Pick a "
+        a = "On Bar Control, pick a group on the Groups tab, switch to the Bars "
+          .. "tab, and click +. Choose a "
           .. "Track Mode (Cooldown, Buff, Debuff, and so on), choose a target, "
           .. "and type the spell name or spell ID. The bar starts tracking the "
           .. "next time that spell or effect is active.",
@@ -159,10 +160,10 @@ local HELP_ENTRIES = {
     {
         id = "group-conditions",
         q = "Can I hide a whole group at once?",
-        a = "Yes. Group Conditions (on the left of the Bars / Groups tab) hide "
-          .. "an entire group together: Combat Only, Out of Combat Only, Hide "
-          .. "Mounted, Hide Resting, Hide In Vehicle, Only In Instance. That "
-          .. "saves ticking every bar individually.",
+        a = "Yes. Group Conditions (on the Groups tab of Bar Control) apply to "
+          .. "an entire group together: Hide When Inactive, Combat Only, Out of "
+          .. "Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In "
+          .. "Instance. That saves ticking every bar individually.",
     },
     {
         id = "condition-health-buff-class",
@@ -195,10 +196,11 @@ local HELP_ENTRIES = {
     {
         id = "colour-mode",
         q = "How do I colour my bars?",
-        a = "Colour Mode (Visuals tab) sets the default: by class, by tracking "
-          .. "mode, or a custom colour you pick. Turn on Per-Bar Colour "
-          .. "Override to give an individual bar its own colour. Colour by Time "
-          .. "transitions a bar green to yellow to red as it counts down.",
+        a = "Colour Mode (Visuals page) sets the default: by class, by tracking "
+          .. "mode, or a custom colour you pick. A group can override it under "
+          .. "Bar Overrides, and a single bar can be given its own colour in the "
+          .. "bar editor. Colour by Time transitions a bar green to yellow to "
+          .. "red as it counts down.",
     },
     {
         id = "textures-fonts",
@@ -232,7 +234,7 @@ local HELP_ENTRIES = {
         a = "Pre-curated bar loadouts for all 10 classes, drawn from the "
           .. "cooldowns, procs, and resources that matter for each. Load Class "
           .. "Starter replaces your current groups with the preset for your "
-          .. "class and spec; Append Class Starter adds them alongside what you "
+          .. "class and spec; Add Class Starter adds them alongside what you "
           .. "already have. A preview lists what will be added before you "
           .. "commit.",
     },
@@ -253,7 +255,7 @@ local HELP_ENTRIES = {
         a = "It passively watches everything on your character: every cooldown "
           .. "you use, buff you gain, debuff you apply, weapon enchant, and "
           .. "totem, with no setup needed. Use it to discover what is worth "
-          .. "tracking. Open it on the Help-adjacent Statistics tab or with "
+          .. "tracking. Open it on the Activity page or with "
           .. "/bw stats.",
     },
     {
@@ -298,7 +300,7 @@ local HELP_ENTRIES = {
     {
         id = "trouble-minimap-missing",
         q = "The minimap button is missing.",
-        a = "Open /bw, go to the General tab, and tick Show Minimap Icon.",
+        a = "Open /bw and tick Show Minimap Icon on the main BarWarden page.",
     },
     {
         id = "trouble-lua-errors",
@@ -539,15 +541,19 @@ ns:RegisterOptionsTab(HELP_TAB_INDEX, CreateHelpTab)
 function ns:OpenHelpEntry(id)
     -- Expand the section that owns this entry before the tab lays out.
     if id and ns.db and ns.db.global then
-        local owner
+        -- Track the section headings we pass, and only keep the last one if we
+        -- actually reach the entry. Without the `found` flag an unknown id ran
+        -- off the end and expanded whichever section happened to be last.
+        local owner, found
         for _, entry in ipairs(HELP_ENTRIES) do
             if entry.section then
                 owner = entry.section
             elseif entry.id == id then
+                found = true
                 break
             end
         end
-        if owner then
+        if owner and found then
             ns.db.global.helpCollapsed = ns.db.global.helpCollapsed or {}
             ns.db.global.helpCollapsed[owner] = false
         end

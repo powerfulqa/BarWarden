@@ -126,6 +126,8 @@ Groups are locked in place by default so you don't accidentally move them during
 | `/bw stats` | Shows per-bar activation counts and uptime |
 | `/bw bugreport` | Opens a copyable diagnostic report window |
 | `/bw help` | Lists all available commands |
+| `/bw restore` | Puts back your previous layout from the last backup |
+| `/bw importv1` | Imports bars from a separate BarWarden install |
 | `/bw commtest` | Self-tests the version-update messaging (diagnostic) |
 
 You can also use `/barwarden` instead of `/bw` if you prefer.
@@ -251,7 +253,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Add, Delete, reorder (Up/Dn), and copy/paste (Dupe/Paste) bars
 - Configure bar name, spell name or ID, track mode, and target unit
 - Toggle "Only Mine" filtering for debuffs
-- Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide While Mounted, Hide While Resting, Hide In Vehicle, Only In Instance, Hide When Inactive, Show Empty, Health Below %, Require Buff, Require Class
+- Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide While Mounted, Hide While Resting, Hide In Vehicle, Only In Instance, Hide When Inactive, Health Below %, Require Buff, Require Class
 - Per-bar display options: Linger Time, Show Bar Name, Show Icon, Bar Darkness, Sparkle Alert with threshold, Colour Override, Colour by Time with high/med thresholds, Glow on Ready with duration, Pulse on Ready, Crop Icon, Scale Override
 
 #### Useful Per-Bar Options Explained

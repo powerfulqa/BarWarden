@@ -28,7 +28,7 @@ and the `BARWARDEN_*` / `__BarWarden_*` provenance globals.
 | [SharedMedia.lua](../SharedMedia.lua) | Optional LibSharedMedia integration (degrades gracefully when absent). |
 | [DB.lua](../DB.lua) | `ns.DEFAULTS` (schema source of truth), `MigrateDB` + `CURRENT_SCHEMA`. |
 | [AuraGroups.lua](../AuraGroups.lua) | Named aura equivalency groups (`@Stunned`, `@Bleeding`, ...). |
-| [Conditions.lua](../Conditions.lua) | Visibility-condition registry + evaluator, plus the standalone `ShouldHideWhenInactive` / `ResolveHideWhenInactive` (bar OR group) and `ShouldShowEmpty` queries. |
+| [Conditions.lua](../Conditions.lua) | Visibility-condition registry + evaluator, plus the standalone resolvers every draw path must use: `ResolveHideWhenInactive` (group when set, else bar) and `IsBarEnabled`. |
 | [Bar.lua](../Bar.lua) / [BarPool.lua](../BarPool.lua) | Bar frame construction (`nameText` / `timeText` / `stackText`) + the object pool. Never `CreateFrame("StatusBar")` outside these. |
 | [BarEngine.lua](../BarEngine.lua) | The scan loop, bar state machine, OnUpdate depletion, resource bars. |
 | [Trackers.lua](../Trackers.lua) | Per-`trackMode` checkers (aura / cooldown / item / resource). |

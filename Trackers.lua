@@ -18,6 +18,11 @@ local ceil = math.ceil
 local GCD_THRESHOLD = ns.GCD_THRESHOLD
 local MAX_AURA_INDEX = ns.MAX_AURA_INDEX
 
+-- Discard slot for multi-return calls. Without a file-scope local, every
+-- `a, _, b = GetSpellInfo(...)` in here wrote to the GLOBAL `_` - on a 4 Hz
+-- path, and the addon otherwise adds no globals at all.
+local _
+
 -- ns.SpellDurations: optional per-spell cooldown-duration override.
 -- Keys are numeric spell IDs; values are seconds. When present, CheckCooldown
 -- prefers the override over GetSpellCooldown's reported duration. Empty by
@@ -276,7 +281,11 @@ local function CheckBuff(barConfig)
     if not spell then
         return false, 0, 0, nil, nil, 0
     end
-    return ScanAuras(UnitBuff, unit, barConfig, spell, false)
+    -- Honour Only Mine. Defaults to false for buffs (unlike debuffs): most
+    -- tracked buffs are your own anyway, and filtering by default would hide
+    -- raid buffs people watch. Passing a hardcoded false made the checkbox a
+    -- silent no-op on Buff and Proc bars.
+    return ScanAuras(UnitBuff, unit, barConfig, spell, barConfig.onlyMine == true)
 end
 
 -- ----------------------------------------------------------------------------

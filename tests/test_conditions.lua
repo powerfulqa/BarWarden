@@ -213,43 +213,42 @@ end
 -- Standalone helpers (not part of the registry)
 -- --------------------------------------------------------------------------
 
-function M.test_shouldHideWhenInactive()
-    local ns = fresh()
-    assertx.assertFalse(ns:ShouldHideWhenInactive(nil))
-    assertx.assertFalse(ns:ShouldHideWhenInactive({}))
-    assertx.assertTrue(ns:ShouldHideWhenInactive({ hideWhenInactive = true }))
-end
-
 -- --------------------------------------------------------------------------
--- ResolveHideWhenInactive: the group-level switch. Bars carry an explicit
--- false by default, so the group turning it on must still win (an OR), or the
--- group control would never do anything.
+-- ResolveHideWhenInactive: the group switch wins once it has been touched, in
+-- BOTH directions. An untouched group leaves the decision to each bar. It is
+-- deliberately not an OR - that could only add hiding, so a group whose bars
+-- all set the flag themselves could never be revealed from the group control.
 -- --------------------------------------------------------------------------
 
 local function barIn(groupIndex, barConditions)
     return { frameIndex = groupIndex, barData = { conditions = barConditions } }
 end
 
-function M.test_resolveHideWhenInactive_barOwnSettingHides()
+-- Untouched group (the common case): each bar decides for itself.
+function M.test_resolveHideWhenInactive_untouchedGroupDefersToBar()
     local ns = fresh()
     _G.BarWardenDB = { frames = { { groupConditions = {} } } }
     assertx.assertTrue(ns:ResolveHideWhenInactive(barIn(1, { hideWhenInactive = true })))
+    assertx.assertFalse(ns:ResolveHideWhenInactive(barIn(1, { hideWhenInactive = false })))
+    assertx.assertFalse(ns:ResolveHideWhenInactive(barIn(1, {})))
     _G.BarWardenDB = nil
 end
 
-function M.test_resolveHideWhenInactive_groupSwitchHidesPlainBars()
+-- Group ticked: hides every bar, including ones written with an explicit false.
+function M.test_resolveHideWhenInactive_groupOnHidesAll()
     local ns = fresh()
     _G.BarWardenDB = { frames = { { groupConditions = { hideWhenInactive = true } } } }
-    -- The default a new bar is written with.
     assertx.assertTrue(ns:ResolveHideWhenInactive(barIn(1, { hideWhenInactive = false })))
     assertx.assertTrue(ns:ResolveHideWhenInactive(barIn(1, {})))
     _G.BarWardenDB = nil
 end
 
-function M.test_resolveHideWhenInactive_offWhenNeitherSet()
+-- Group unticked: reveals every bar, overriding bars that hide on their own.
+-- This is the case an OR could never express.
+function M.test_resolveHideWhenInactive_groupOffRevealsAll()
     local ns = fresh()
-    _G.BarWardenDB = { frames = { { groupConditions = {} } } }
-    assertx.assertFalse(ns:ResolveHideWhenInactive(barIn(1, { hideWhenInactive = false })))
+    _G.BarWardenDB = { frames = { { groupConditions = { hideWhenInactive = false } } } }
+    assertx.assertFalse(ns:ResolveHideWhenInactive(barIn(1, { hideWhenInactive = true })))
     assertx.assertFalse(ns:ResolveHideWhenInactive(barIn(1, {})))
     _G.BarWardenDB = nil
 end
@@ -272,11 +271,28 @@ function M.test_resolveHideWhenInactive_safeWithoutData()
     assertx.assertFalse(ns:ResolveHideWhenInactive({}))
 end
 
-function M.test_shouldShowEmpty_defaultsTrue()
+-- --------------------------------------------------------------------------
+-- IsBarEnabled: a bar switched off in the editor must never be drawn. Four
+-- sites used to decide this independently and disagreed.
+-- --------------------------------------------------------------------------
+
+function M.test_isBarEnabled_defaultsEnabled()
     local ns = fresh()
-    assertx.assertTrue(ns:ShouldShowEmpty(nil))
-    assertx.assertTrue(ns:ShouldShowEmpty({}))
-    assertx.assertFalse(ns:ShouldShowEmpty({ showEmpty = false }))
+    assertx.assertTrue(ns:IsBarEnabled({ barData = {} }))
+    assertx.assertTrue(ns:IsBarEnabled({ barData = { enabled = true } }))
+end
+
+function M.test_isBarEnabled_falseDisables()
+    local ns = fresh()
+    assertx.assertFalse(ns:IsBarEnabled({ barData = { enabled = false } }))
+end
+
+-- Only an explicit false disables; a missing bar or barData is treated as
+-- enabled so a half-built bar is never silently hidden.
+function M.test_isBarEnabled_safeWithoutData()
+    local ns = fresh()
+    assertx.assertTrue(ns:IsBarEnabled(nil))
+    assertx.assertTrue(ns:IsBarEnabled({}))
 end
 
 return M

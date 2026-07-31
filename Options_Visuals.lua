@@ -68,12 +68,19 @@ local BUILTIN_FONT_ITEMS = {
 -- Use LibSharedMedia dropdown items when available, falling back to the
 -- hardcoded lists. LSM items include textures/fonts from ALL addons on
 -- the client, giving users a unified selection.
-local textureItems = ns:LSMDropdownItems("statusbar") or BUILTIN_TEXTURE_ITEMS
+-- Guard the call itself, not just its result: SharedMedia.lua returns early
+-- when LibSharedMedia is absent, so ns:LSMDropdownItems does not exist at all
+-- in that case. Calling it unguarded errored at file scope and took the whole
+-- Visuals panel down with it, which is exactly what this fallback exists to
+-- prevent.
+local textureItems = (ns.LSMDropdownItems and ns:LSMDropdownItems("statusbar"))
+                     or BUILTIN_TEXTURE_ITEMS
 -- Append "Custom" to the LSM texture list so users can still enter a raw path
 if ns.LSM and textureItems ~= BUILTIN_TEXTURE_ITEMS then
     textureItems[#textureItems + 1] = { text = "Custom", value = "Custom" }
 end
-local fontItems = ns:LSMDropdownItems("font") or BUILTIN_FONT_ITEMS
+local fontItems = (ns.LSMDropdownItems and ns:LSMDropdownItems("font"))
+                  or BUILTIN_FONT_ITEMS
 
 local textFormatItems = {
     { text = "Name + Duration", value = "NAME_DURATION" },

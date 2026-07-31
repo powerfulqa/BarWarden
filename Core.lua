@@ -40,7 +40,9 @@ local coreFrame = CreateFrame("Frame", "BarWardenCoreFrame", UIParent)
 
 -- Periodic scan: reliable fallback for cooldowns already active on login/reload
 -- or when game events are missed (e.g. returning from AFK, zoning).
--- Idles (self:Hide()) when no bars are configured to save CPU.
+-- Runs for the whole session; the body bails cheaply when there is nothing to
+-- scan. (An earlier comment claimed it hid itself when no bars were configured
+-- - it never did, so the coreFrame:Show() calls elsewhere are belt-and-braces.)
 local SCAN_INTERVAL = 0.25
 local scanTimer = 0
 coreFrame:SetScript("OnUpdate", function(self, elapsed)
@@ -78,7 +80,11 @@ function ns:RefreshAllBars()
                     ns:ApplyVisualConfig(bar)
                 end
                 local visual = ns:GetVisual()
-                if bar.barState == ns.BAR_STATE.ACTIVE then
+                if not ns:IsBarEnabled(bar) then
+                    -- Switched off in the editor: never draw it, and do not let
+                    -- it hold a layout slot.
+                    bar:Hide()
+                elseif bar.barState == ns.BAR_STATE.ACTIVE then
                     bar:SetAlpha(visual.activeAlpha or 1.0)
                     bar:Show()
                 else
@@ -292,6 +298,11 @@ function ns:SetEnabled(enabled)
     end
 
     if enabled then
+        -- RebuildAllFrames bails while disabled, so logging in disabled leaves
+        -- no group frames at all. Rebuild here rather than in each caller: the
+        -- slash command used to skip it and re-enabling showed nothing until a
+        -- /reload.
+        ns:RebuildAllFrames()
         ns:OnEnable()
     else
         ns:OnDisable()
@@ -315,6 +326,9 @@ SLASH_COMMANDS.help = function()
         "  /bw stats       Show bar activation and uptime statistics",
         "  /bw bugreport   Open copyable diagnostic report",
         "  /bw test        Toggle test mode (fake 30s timers)",
+        "  /bw restore     Put back your previous layout",
+        "  /bw importv1    Import bars from a separate BarWarden install",
+        "  /bw commtest    Check version messaging with other players",
         "  /bw help        Show this message",
     }
     for _, line in ipairs(lines) do
@@ -494,6 +508,21 @@ SLASH_COMMANDS.lock = function()
 end
 
 SLASH_COMMANDS.reset = function()
+    -- Actually move the groups. Rebuilding alone re-applied each saved
+    -- position verbatim, so the documented recovery action for a group dragged
+    -- off-screen did nothing. Cascade them back to a visible spot; a backup is
+    -- taken first so the old positions are recoverable with /bw restore.
+    local frames = BarWardenDB and BarWardenDB.frames
+    if frames and #frames > 0 then
+        ns:BackupFrames("reset positions")
+        for i, f in ipairs(frames) do
+            local step = (i - 1) * 20
+            f.position = {
+                point = "TOPLEFT", relativePoint = "BOTTOMLEFT",
+                x = 100 + step, y = 400 - step,
+            }
+        end
+    end
     ns:RebuildAllFrames()
     ns:Print("Frame positions reset.")
 end

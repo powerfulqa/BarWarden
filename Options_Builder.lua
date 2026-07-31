@@ -360,7 +360,12 @@ function ns:BuildSettings(parent, schema, widgetRefs, opts)
             local applier = APPLIERS[r.entry.type]
             if applier then
                 local value = ResolveValue(r.entry)
-                if value ~= nil then
+                -- Toggles must be applied even when the value is nil: an unset
+                -- flag means "off". Skipping them left the widget showing the
+                -- PREVIOUS selection's state, so picking a second group or bar
+                -- displayed the first one's settings. Other widget types keep
+                -- their last value rather than being blanked.
+                if value ~= nil or r.entry.type == "toggle" then
                     applier(r.widget, value, r.entry)
                 end
                 if r.entry.onChange then

@@ -190,7 +190,6 @@ local function CreateProfilesTab(parent)
     -- ========================================================================
     -- Buttons
     -- ========================================================================
-    local btnAnchor = listFrame
 
     local createBtn = ns:CreateButton(frame, "Create", 80, function()
         StaticPopup_Show("BARWARDEN_RENAME", nil, nil, {

@@ -42,18 +42,25 @@ end
 -- Polymorphic helpers: pass a number to use a specific spell ID, or a string
 -- to use the spell name (rank-agnostic, preferred for buffs/debuffs/procs so
 -- levelling characters' lower-rank spells still match).
-local function buff(spell, displayName)
+-- `unit` defaults to the player. Pass "target" for anything you cast ON someone
+-- else and want to watch there, such as a healer's heal-over-time effects.
+local function buff(spell, displayName, unit)
+    unit = unit or "player"
     if type(spell) == "number" then
-        return { trackMode = "Buff", spellId = spell, name = displayName or "", unit = "player" }
+        return { trackMode = "Buff", spellId = spell, name = displayName or "", unit = unit }
     end
-    return { trackMode = "Buff", spellName = spell, name = displayName or spell, unit = "player" }
+    return { trackMode = "Buff", spellName = spell, name = displayName or spell, unit = unit }
 end
 
-local function debuff(spell, displayName)
+-- `unit` defaults to the target. `onlyMine` defaults to true (your own debuffs);
+-- pass false for a debuff someone else applies to you, such as Weakened Soul.
+local function debuff(spell, displayName, unit, onlyMine)
+    unit = unit or "target"
+    if onlyMine == nil then onlyMine = true end
     if type(spell) == "number" then
-        return { trackMode = "Debuff", spellId = spell, name = displayName or "", unit = "target", onlyMine = true }
+        return { trackMode = "Debuff", spellId = spell, name = displayName or "", unit = unit, onlyMine = onlyMine }
     end
-    return { trackMode = "Debuff", spellName = spell, name = displayName or spell, unit = "target", onlyMine = true }
+    return { trackMode = "Debuff", spellName = spell, name = displayName or spell, unit = unit, onlyMine = onlyMine }
 end
 
 local function proc(spell, displayName)
@@ -269,8 +276,11 @@ ns.ClassPresets = {
                 { name = "Resto Procs", position = { point = "CENTER", relativePoint = "CENTER", x = -240, y = -120 }, columns = 1, bars = {
                     proc("Clearcasting", "Omen of Clarity"), proc("Nature's Grace"),
                 }},
-                { name = "HoTs", position = { point = "CENTER", relativePoint = "CENTER", x = 240, y = 120 }, columns = 1, bars = {
-                    buff("Lifebloom"), buff("Rejuvenation"), buff("Regrowth"), buff("Wild Growth"),
+                -- Tracked on the target: a Resto druid's HoTs live on whoever
+                -- they are healing, not on themselves.
+                { name = "HoTs on Target", position = { point = "CENTER", relativePoint = "CENTER", x = 240, y = 120 }, columns = 1, bars = {
+                    buff("Lifebloom", nil, "target"), buff("Rejuvenation", nil, "target"),
+                    buff("Regrowth", nil, "target"), buff("Wild Growth", nil, "target"),
                 }},
             }},
         },
@@ -479,7 +489,7 @@ ns.ClassPresets = {
                 }},
                 { name = "Holy Procs", position = { point = "CENTER", relativePoint = "CENTER", x = -240, y = -120 }, columns = 1, bars = {
                     proc("Infusion of Light"), proc("Light's Grace"), proc("Sacred Shield"),
-                    buff("Beacon of Light"),
+                    buff("Beacon of Light", nil, "target"),
                 }},
             }},
             [2] = { name = "Protection", groups = {
@@ -551,7 +561,7 @@ ns.ClassPresets = {
                 bars = {
                     buff("Renew"),
                     buff("Power Word: Shield"),
-                    buff("Weakened Soul"),
+                    debuff("Weakened Soul", nil, "player", false),
                 },
             },
         },
@@ -562,7 +572,7 @@ ns.ClassPresets = {
                     cd(6346, "Fear Ward"), cd(586, "Fade"),
                 }},
                 { name = "Disc Procs", position = { point = "CENTER", relativePoint = "CENTER", x = -240, y = -120 }, columns = 1, bars = {
-                    proc("Borrowed Time"), buff("Power Word: Shield"), buff("Weakened Soul"),
+                    proc("Borrowed Time"), buff("Power Word: Shield"), debuff("Weakened Soul", nil, "player", false),
                     buff("Prayer of Mending"),
                 }},
             }},
@@ -573,7 +583,7 @@ ns.ClassPresets = {
                 }},
                 { name = "Holy Procs", position = { point = "CENTER", relativePoint = "CENTER", x = -240, y = -120 }, columns = 1, bars = {
                     proc("Surge of Light"), proc("Serendipity"), proc("Holy Concentration"),
-                    buff("Renew"), buff("Prayer of Mending"),
+                    buff("Renew", nil, "target"), buff("Prayer of Mending", nil, "target"),
                 }},
             }},
             [3] = { name = "Shadow", groups = {
@@ -756,7 +766,7 @@ ns.ClassPresets = {
                 }},
                 { name = "Resto Procs", position = { point = "CENTER", relativePoint = "CENTER", x = -240, y = -120 }, columns = 1, bars = {
                     proc("Tidal Waves"), proc("Clearcasting", "Elemental Focus"),
-                    buff("Riptide"), buff("Earth Shield"),
+                    buff("Riptide", nil, "target"), buff("Earth Shield", nil, "target"),
                 }},
                 { name = "Totems", position = { point = "CENTER", relativePoint = "CENTER", x = 240, y = 120 }, columns = 1, bars = {
                     { trackMode = "Totem", spellId = 1, name = "Fire Totem" },
@@ -1163,12 +1173,27 @@ function ns:AppendClassStarter(classToken)
         ns.db.frames = {}
     end
 
+    -- Respect the same group cap that Add Group enforces. Appending past it
+    -- left a layout the rest of the addon assumes is impossible, after which
+    -- Add Group refused forever with no explanation.
+    local maxFrames = ns.MAX_FRAMES or 20
     local startIndex = #ns.db.frames
+    local room = maxFrames - startIndex
+    if room <= 0 then
+        if ns.Print then
+            ns:Print(string.format("Maximum of %d groups reached; nothing added.", maxFrames))
+        end
+        return false
+    end
+
+    local addedGroups = 0
     local addedBars = 0
     for i, groupPreset in ipairs(groups) do
+        if i > room then break end
         local targetIndex = startIndex + i
         ns.db.frames[targetIndex] = BuildGroupFromPreset(groupPreset, targetIndex, classToken)
         addedBars = addedBars + #ns.db.frames[targetIndex].bars
+        addedGroups = addedGroups + 1
     end
 
     if ns.MigrateFrames then ns:MigrateFrames(ns.db.frames) end
@@ -1177,7 +1202,11 @@ function ns:AppendClassStarter(classToken)
 
     if ns.Print then
         ns:Print(string.format("Appended %s starter profile (%d groups, %d bars added).",
-            label or classToken, #groups, addedBars))
+            label or classToken, addedGroups, addedBars))
+        if addedGroups < #groups then
+            ns:Print(string.format("Stopped at the %d group maximum; %d group(s) not added.",
+                maxFrames, #groups - addedGroups))
+        end
     end
     return true
 end

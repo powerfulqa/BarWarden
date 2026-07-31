@@ -25,6 +25,33 @@ local BAR_LIST_HEIGHT = 16
 local MAX_GROUP_ROWS = 6
 local MAX_BAR_ROWS = 6
 
+-- Blizzard's FauxScrollFrame_Update HIDES the whole scroll frame when the list
+-- fits without scrolling. Both lists have the rest of their column anchored to
+-- that frame (the buttons, then the settings block below them), and anchoring
+-- to a frame that gets hidden out from under you strands the dependants - they
+-- fall back towards the panel origin and the page visibly comes apart until
+-- something re-shows the frame.
+--
+-- Deleting the 7th group is the exact trigger: 7 > 6 keeps it shown, dropping
+-- back to 6 hides it. Adding a group put it right again, which is what made the
+-- bug look like it was about deleting.
+--
+-- So keep the scroll frame itself shown always and hide only its scrollbar,
+-- which is what the auto-hide elsewhere in the addon does too.
+--
+-- EC-TRAP: the Show() below looks redundant right after FauxScrollFrame_Update
+-- and is not. Removing it re-breaks the Bar Control page whenever a list drops
+-- from 7 items to 6. Never anchor anything to a frame Blizzard's own helpers
+-- show and hide.
+local function KeepListFrameShown(scrollFrame, scrollBarName, needsScrollBar)
+    if not scrollFrame then return end
+    scrollFrame:Show()
+    local sb = _G[scrollBarName]
+    if sb then
+        if needsScrollBar then sb:Show() else sb:Hide() end
+    end
+end
+
 -- Helper: create a new default bar table
 local function NewBar(name)
     return {
@@ -231,12 +258,26 @@ local function CreateBarsTab(parent)
         local frames = BarWardenDB.frames
         local g = frames[selectedGroupIndex]
         if not g then return end
+        -- Capture the target group itself, not the live selection: the popup is
+        -- not modal, so the user can click another row while it is open. Acting
+        -- on the selection at accept time deleted whichever group they clicked
+        -- last rather than the one the popup names.
+        local targetGroup = g
         local popup = StaticPopup_Show("BARWARDEN_CONFIRM_DELETE", g.name or "this group")
         if popup then
             popup.data = {
                 onAccept = function()
-                    table.remove(frames, selectedGroupIndex)
-                    if selectedGroupIndex > #frames then
+                    local idx
+                    for i, f in ipairs(frames) do
+                        if f == targetGroup then idx = i; break end
+                    end
+                    if not idx then
+                        ns:Print("That group no longer exists.")
+                        return
+                    end
+                    ns:BackupFrames("delete group")
+                    table.remove(frames, idx)
+                    if selectedGroupIndex and selectedGroupIndex > #frames then
                         selectedGroupIndex = #frames > 0 and #frames or nil
                     end
                     selectedBarIndex = nil
@@ -296,7 +337,7 @@ local function CreateBarsTab(parent)
             local cw = math.min(w, ns.SETTINGS_MAX_WIDTH or 300)
             groupSettingsContent:SetWidth(cw)
             local ddW = math.max(120, cw - 60)
-            for _, id in ipairs({ "grpSortDD", "grpGrowthDD", "grpTextureDD" }) do
+            for _, id in ipairs({ "grpSortDD", "grpGrowthDD", "grpTextureDD", "grpTextFormatDD" }) do
                 local dd = groupSettingsWidgets[id]
                 if dd then UIDropDownMenu_SetWidth(dd, ddW) end
             end
@@ -463,7 +504,7 @@ local function CreateBarsTab(parent)
           set = function(_, value)
               local g = getGroup(); if not g then return end
               g.barTexture = (value ~= "" and value) or nil
-              if ns.RefreshAllBars then ns:RefreshAllBars() else ns:RebuildAllFrames() end
+              ns:RefreshAllBars()
           end,
           offsetX = -16, spacing = 28 },
         { type = "dropdown", id = "grpTextFormatDD", label = "Text Format",
@@ -474,7 +515,7 @@ local function CreateBarsTab(parent)
           set = function(_, value)
               local g = getGroup(); if not g then return end
               g.textFormat = (value ~= "" and value) or nil
-              if ns.RefreshAllBars then ns:RefreshAllBars() else ns:RebuildAllFrames() end
+              ns:RefreshAllBars()
           end,
           offsetX = 0, spacing = 28 },
         { type = "toggle", label = "Custom Bar Colour",
@@ -489,10 +530,19 @@ local function CreateBarsTab(parent)
                   g.barColor = nil
               end
               ns:RefreshBarSettings()
-              if ns.RefreshAllBars then ns:RefreshAllBars() else ns:RebuildAllFrames() end
+              ns:RefreshAllBars()
+          end,
+          -- Show the swatch only while the override is on, matching how the
+          -- Visuals page couples Colour Mode to its own swatch. It used to sit
+          -- there permanently, and clicking it silently switched the override on.
+          onChange = function(value)
+              local sw = groupSettingsWidgets.grpColorSwatch
+              if sw then
+                  if value then sw:Show() else sw:Hide() end
+              end
           end,
           offsetX = 10, spacing = 8 },
-        { type = "color", label = "Bar Colour",
+        { type = "color", id = "grpColorSwatch", label = "Bar Colour",
           get = function() local g = getGroup(); return (g and g.barColor) or { r = 0.2, g = 0.6, b = 1.0 } end,
           set = function(_, color)
               local g = getGroup(); if not g then return end
@@ -500,7 +550,7 @@ local function CreateBarsTab(parent)
               -- Picking a colour implies "custom colour on" - re-run Refresh so
               -- the Custom Bar Colour toggle reflects that immediately.
               if refreshGroupSettings then refreshGroupSettings() end
-              if ns.RefreshAllBars then ns:RefreshAllBars() else ns:RebuildAllFrames() end
+              ns:RefreshAllBars()
           end,
           offsetX = 10, spacing = 8 },
 
@@ -509,16 +559,16 @@ local function CreateBarsTab(parent)
         -- ticking the same checkbox on every bar individually.
         { type = "header", text = "Group Conditions", spacing = 16, offsetX = 10, id = "grpCondHeader" },
         { type = "toggle", label = "Hide When Inactive",
-          tooltip = "Hide every bar in this group while it has nothing to show, "
-               .. "instead of ticking the same box on each bar. Bars set to hide "
-               .. "on their own still do.",
+          tooltip = "Controls the whole group once you use it: ticked hides "
+               .. "every bar while it has nothing to show, unticked keeps them "
+               .. "all visible even if individual bars are set to hide. Leave it "
+               .. "alone to let each bar decide.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.hideWhenInactive end,
           set = function(_, v) local g = getGroup(); if not g then return end
               if not g.groupConditions then g.groupConditions = {} end
               g.groupConditions.hideWhenInactive = v
-              -- Changes bar visibility, not just layout, so refresh the live
-              -- bars rather than only the settings widgets.
-              if ns.RefreshAllBars then ns:RefreshAllBars() else ns:RebuildAllFrames() end
+              -- RefreshBarSettings already refreshes the live bars, matching
+              -- the other group-condition toggles.
               ns:RefreshBarSettings() end,
           spacing = 4 },
         { type = "toggle", label = "Combat Only",
@@ -692,12 +742,25 @@ local function CreateBarsTab(parent)
         if not g then return end
         local bar = g.bars[selectedBarIndex]
         if not bar then return end
+        -- Capture the bar itself; the popup is not modal, so re-reading the
+        -- selection at accept time could remove a different bar (or the wrong
+        -- index of a different group) than the one the popup names.
+        local targetBar = bar
         local popup = StaticPopup_Show("BARWARDEN_CONFIRM_DELETE", bar.name or "this bar")
         if popup then
             popup.data = {
                 onAccept = function()
-                    table.remove(g.bars, selectedBarIndex)
-                    if selectedBarIndex > #g.bars then
+                    local idx
+                    for i, b in ipairs(g.bars) do
+                        if b == targetBar then idx = i; break end
+                    end
+                    if not idx then
+                        ns:Print("That bar no longer exists.")
+                        return
+                    end
+                    ns:BackupFrames("delete bar")
+                    table.remove(g.bars, idx)
+                    if selectedBarIndex and selectedBarIndex > #g.bars then
                         selectedBarIndex = #g.bars > 0 and #g.bars or nil
                     end
                     frame:Refresh()
@@ -1011,7 +1074,6 @@ local function CreateBarsTab(parent)
         condCheck("Hide In Vehicle",     "hideInVehicle",     "Hide this bar while in a vehicle (siege engines, drakes, etc.)."),
         condCheck("Only In Instance",    "onlyInInstance",    "Only show this bar inside a dungeon, raid, arena, or battleground."),
         condCheck("Hide When Inactive",  "hideWhenInactive",  "Hide bar completely when not tracking anything."),
-        condCheck("Show Empty Bar",      "showEmpty",         "Show bar at inactive alpha even when not active."),
 
         { type = "editbox", label = "Health Below %", width = 60, stretch = true,
           tooltip = "Only show this bar when your own HP is below this percentage. "
@@ -1253,6 +1315,8 @@ local function CreateBarsTab(parent)
         groupScrollFrame:SetHeight(shown * GROUP_LIST_HEIGHT)
 
         FauxScrollFrame_Update(groupScrollFrame, total, MAX_GROUP_ROWS, GROUP_LIST_HEIGHT)
+        KeepListFrameShown(groupScrollFrame, "BarWardenGroupScrollScrollBar",
+                           total > MAX_GROUP_ROWS)
         if total == 0 then groupEmptyText:Show() else groupEmptyText:Hide() end
 
         for i = 1, MAX_GROUP_ROWS do
@@ -1288,9 +1352,11 @@ local function CreateBarsTab(parent)
         barScrollFrame:SetHeight(shown * BAR_LIST_HEIGHT)
 
         FauxScrollFrame_Update(barScrollFrame, total, MAX_BAR_ROWS, BAR_LIST_HEIGHT)
+        KeepListFrameShown(barScrollFrame, "BarWardenBarScrollScrollBar",
+                           total > MAX_BAR_ROWS)
         if total == 0 then
             if selectedGroupIndex then
-                barEmptyText:SetText("No bars in this group yet. Click Add to create one.")
+                barEmptyText:SetText("No bars in this group yet. Click + to add one.")
             else
                 barEmptyText:SetText("Select a group on the Groups tab first.")
             end
@@ -1398,7 +1464,6 @@ local function CreateBarsTab(parent)
         UpdateBarEditor()
     end
 
-    frame.Refresh = frame.Refresh
 
     -- FauxScrollFrame update hooks
     groupScrollFrame:SetScript("OnVerticalScroll", function(self, offset)

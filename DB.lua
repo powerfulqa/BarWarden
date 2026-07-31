@@ -311,6 +311,11 @@ function ns:RestoreLastBackup()
     if not BarWardenDB or type(BarWardenDB.backups) ~= "table" then return false end
     local b = BarWardenDB.backups[1]
     if not b or type(b.frames) ~= "table" then return false end
+    -- Snapshot what we are about to replace. Restoring is destructive like
+    -- every other path that swaps `frames` wholesale, so it has to be undoable
+    -- too: without this, restoring by mistake threw away the current layout
+    -- with nothing left to go back to.
+    ns:BackupFrames("before restore")
     BarWardenDB.frames = ns:CopyTable(b.frames)
     return true
 end

@@ -652,7 +652,7 @@ local function CreateStatsTab(parent)
         -- ~109 px in, so width w-109 lands its right edge on `w`. A
         -- UIDropDownMenu frame sits ~96 px in and SetWidth adds ~25 px of
         -- template chrome, with the arrow button at the frame's right edge, so
-        -- width w-121 puts the frame right - and the arrow - on `w` rather than
+        -- width w-124 puts the frame right - and the arrow - on `w` rather than
         -- clipping ~11 px past it.
         UIDropDownMenu_SetWidth(groupDD,  math.max(110, w - 124))
         UIDropDownMenu_SetWidth(filterDD, math.max(110, w - 124))

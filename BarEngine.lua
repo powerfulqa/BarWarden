@@ -106,6 +106,12 @@ end
 -- frame itself should hide (no visible backdrop/title with nothing in it).
 local function AreAllBarsHidden(group)
     if not group or not group.bars then return false end
+    -- A group with no bars yet stays on screen (see UpdateGroupLayout, which
+    -- gives it a solid backdrop): a new group is created at the centre of the
+    -- screen, and hiding it meant the user could not tell it had been added,
+    -- let alone drag it somewhere useful. It starts behaving normally as soon
+    -- as it has a bar.
+    if #group.bars == 0 then return false end
     for _, b in ipairs(group.bars) do
         if b:IsShown() then return false end
     end
@@ -570,7 +576,7 @@ function ns:UpdateResourceBar(bar, current, max, icon, name, stacks)
     -- on CD, blank when ready (stacks carries ceil(cdRemaining)). Respects
     -- textFormat NONE / NAME_ONLY to suppress.
     if bar.timeText then
-        local textFormat = visual.textFormat or "NAME_DURATION"
+        local textFormat = ns:GetBarTextFormat(bar)
         local trackMode  = bar.barData and bar.barData.trackMode
         if textFormat == "NONE" or textFormat == "NAME_ONLY" then
             bar.timeText:SetText("")
@@ -722,7 +728,9 @@ function ns:DeactivateBar(bar, skipGlow)
     -- expiry and hides + relayouts at that point. Hiding now would cause
     -- the layout to reposition other bars, then the glow timer's per-frame
     -- Show() would force this bar visible at a stale position, overlapping.
-    if ns:ResolveHideWhenInactive(bar) and not activeGlows[bar] then
+    if not ns:IsBarEnabled(bar) then
+        bar:Hide()
+    elseif ns:ResolveHideWhenInactive(bar) and not activeGlows[bar] then
         bar:Hide()
     else
         local visual = ns:GetVisual()
@@ -768,7 +776,7 @@ function ns:ActivateTestMode()
     local bars = ns:GetAllBars()
     local fakeExpiry = GetTime() + 30
     for _, bar in ipairs(bars) do
-        if bar.barData and bar.barData.enabled ~= false then
+        if bar.barData and ns:IsBarEnabled(bar) then
             ns:ActivateBar(bar, fakeExpiry, 30)
             bar.isTestBar = true
         end
@@ -802,10 +810,14 @@ end
 
 -- Hide a bar that fails conditions without disrupting active tracking state
 local function HideBarForConditions(bar)
-    if bar.barState == BAR_STATE.ACTIVE then
+    -- LINGERING counts as running too: OnUpdate does not tick on a hidden
+    -- frame, so a lingering bar hidden by a condition kept its handler and its
+    -- activeBars entry forever and never finished its linger.
+    if bar.barState == BAR_STATE.ACTIVE or bar.barState == BAR_STATE.LINGERING then
         bar:SetScript("OnUpdate", nil)
         activeBars[bar] = nil
         bar.barState = BAR_STATE.INACTIVE
+        bar.lingerRemaining = nil
         bar:SetValue(0)
     end
     bar:Hide()
@@ -849,7 +861,7 @@ local function ScanBar(bar, unitFilter)
     if ns.testMode and bar.isTestBar then return end
 
     local bd = bar.barData
-    if not bd or bd.enabled == false then return end
+    if not bd or not ns:IsBarEnabled(bar) then return end
 
     -- Unit filter: skip Buff/Debuff/Proc bars not matching the event's unit
     if unitFilter then
@@ -934,7 +946,10 @@ local function ScanBar(bar, unitFilter)
     if bar.barState ~= BAR_STATE.ACTIVE then return end
 
     local lingerTime = (bd.display and bd.display.lingerTime) or 0
-    if lingerTime > 0 then
+    -- A static (permanent-aura) bar carries no OnUpdate because it never
+    -- depletes, and OnUpdate is the only thing that ends a linger. Letting one
+    -- linger would strand it at 0 fill reading "0.0" until /reload.
+    if lingerTime > 0 and not bar.isStaticBar then
         bar.barState = BAR_STATE.LINGERING
         bar.lingerRemaining = lingerTime
         bar:SetValue(0)
@@ -999,7 +1014,16 @@ end
 -- Shared scan helper: iterate all bars, scanning only those whose trackMode
 -- is in the provided set. Avoids duplicating the get-bars / RunScan / filter
 -- boilerplate across every event handler.
-local AURA_MODES = { Buff = true, Debuff = true, Proc = true }
+-- Mode sets are hoisted, not built per event: SPELL_UPDATE_COOLDOWN in
+-- particular fires constantly in combat, and allocating a throwaway table for
+-- every one of these handlers was needless garbage on a hot path.
+local AURA_MODES     = { Buff = true, Debuff = true, Proc = true }
+local COOLDOWN_MODES = { Cooldown = true }
+local ITEM_MODES     = { Item = true }
+local ENCHANT_MODES  = { Enchant = true, ["Enchant MH"] = true, ["Enchant OH"] = true }
+local TOTEM_MODES    = { Totem = true }
+local COMBO_MODES    = { ["Combo Points"] = true }
+local RUNE_MODES     = { Runes = true }
 
 local function ScanBarsByMode(modes, unit)
     local bars = ns:GetAllBars()
@@ -1015,7 +1039,7 @@ local function ScanBarsByMode(modes, unit)
 end
 
 function ns:OnSpellCooldownUpdate()
-    ScanBarsByMode({ Cooldown = true }, nil)
+    ScanBarsByMode(COOLDOWN_MODES, nil)
 end
 
 function ns:OnUnitAura(unit)
@@ -1037,7 +1061,7 @@ function ns:OnFocusChanged()
 end
 
 function ns:OnBagCooldownUpdate()
-    ScanBarsByMode({ Item = true }, nil)
+    ScanBarsByMode(ITEM_MODES, nil)
 end
 
 function ns:OnEnchantUpdate()
@@ -1045,12 +1069,12 @@ function ns:OnEnchantUpdate()
     -- The UI stores "Enchant MH" / "Enchant OH"; keep the bare "Enchant" alias
     -- for any legacy bar. Without MH/OH here, enchant bars only refreshed on
     -- the 0.25s full scan instead of event-driven.
-    ScanBarsByMode({ Enchant = true, ["Enchant MH"] = true, ["Enchant OH"] = true }, nil)
+    ScanBarsByMode(ENCHANT_MODES, nil)
 end
 
 function ns:OnTotemUpdate()
     ns:ScanTotemActivity()
-    ScanBarsByMode({ Totem = true }, nil)
+    ScanBarsByMode(TOTEM_MODES, nil)
 end
 
 -- Resource events: re-scan only bars whose trackMode matches the event source.
@@ -1060,13 +1084,13 @@ end
 
 function ns:OnComboPointsChanged(unit)
     if unit and unit ~= "player" then return end
-    ScanBarsByMode({ ["Combo Points"] = true }, nil)
+    ScanBarsByMode(COMBO_MODES, nil)
 end
 
 -- Handles both RUNE_POWER_UPDATE (cooldown state changed) and
 -- RUNE_TYPE_UPDATE (death rune conversion swapped slot's type).
 function ns:OnRuneUpdate()
-    ScanBarsByMode({ Runes = true }, nil)
+    ScanBarsByMode(RUNE_MODES, nil)
 end
 
 function ns:OnPlayerEnteringWorld()

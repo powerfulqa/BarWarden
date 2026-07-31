@@ -119,7 +119,7 @@ StaticPopupDialogs["BARWARDEN_UPDATE_URL"] = {
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
-    preferredIndex = 3,
+    preferredIndex = 4,
     OnShow = function(self)
         local eb = self.editBox or _G[(self:GetName() or "") .. "EditBox"]
         if eb then

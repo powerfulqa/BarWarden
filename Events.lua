@@ -43,18 +43,20 @@ function ns:UnregisterAddonEvent(event)
     end
     eventHandlers[event] = nil
     throttleTimers[event] = nil
-end
-
--- Rate-limit a handler: at most one call per `interval` seconds.
-local function ThrottledHandler(event, interval, handler)
-    return function(evt, ...)
-        local now = GetTime()
-        local last = throttleTimers[event] or 0
-        if now - last < interval then return end
-        throttleTimers[event] = now
-        handler(evt, ...)
+    -- The per-unit throttler keys as "event:unit", so clearing the bare event
+    -- key alone left stale timestamps behind that could swallow the first scan
+    -- after a re-enable.
+    local prefix = event .. ":"
+    local plen = #prefix
+    for key in pairs(throttleTimers) do
+        if string.sub(key, 1, plen) == prefix then
+            throttleTimers[key] = nil
+        end
     end
 end
+
+-- (A plain per-event ThrottledHandler lived here until v2.1.1; every throttled
+-- event needs the per-unit variant below, so it had no call sites.)
 
 -- Per-unit rate-limit: throttles each unit independently (key = event:unit), so
 -- a UNIT_AURA burst on player then target in the same window doesn't drop the

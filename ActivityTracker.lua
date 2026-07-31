@@ -308,13 +308,11 @@ end
 function ns:OnCombatLogEvent(...)
     -- 3.3.5a CLEU args: timestamp, event, sourceGUID, sourceName, sourceFlags,
     --                    destGUID, destName, destFlags, spellId, spellName, spellSchool, ...
-    local _, subEvent, sourceGUID = select(1, ...)
-    if subEvent ~= "SPELL_CAST_SUCCESS" then return end
-
-    -- Only track the player's own casts
-    local playerGUID = UnitGUID("player")
-    if sourceGUID ~= playerGUID then return end
-
+    --
+    -- Only reached via DispatchCombatLogCast (Events.lua), which has already
+    -- filtered to SPELL_CAST_SUCCESS from the player and caches the player GUID.
+    -- Re-checking here meant a UnitGUID call on every combat-log event, and two
+    -- copies of one rule to keep in step.
     local spellId, spellName = select(9, ...)
     if not spellId or spellId == 0 then return end
 

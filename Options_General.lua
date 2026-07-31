@@ -101,6 +101,9 @@ local SLASH_ROWS = {
     { run = "stats",     label = "|cffffff00/bw stats|r  Print activity stats to chat" },
     { run = "debug",     label = "|cffffff00/bw debug|r  Print addon state to chat" },
     { run = "bugreport", label = "|cffffff00/bw bugreport|r  Open a copyable diagnostic report" },
+    { run = "restore",   label = "|cffffff00/bw restore|r  Put back your previous layout" },
+    { run = "importv1",  label = "|cffffff00/bw importv1|r  Import bars from a separate BarWarden install" },
+    { run = "commtest",  label = "|cffffff00/bw commtest|r  Check version messaging with other players" },
     { run = "help",      label = "|cffffff00/bw help|r  List every command in chat" },
 }
 

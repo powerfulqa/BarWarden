@@ -38,40 +38,45 @@ function ns:EvaluateConditions(bar, conditions)
     return true
 end
 
--- hideWhenInactive and showEmpty are queried by the bar engine during
--- active/inactive transitions rather than inside EvaluateConditions, so they
--- stay as standalone queries rather than going through the registry.
+-- hideWhenInactive is queried by the bar engine during active/inactive
+-- transitions rather than inside EvaluateConditions, so it stays a standalone
+-- query rather than going through the registry.
+--
+-- The old `showEmpty` companion was retired in v2.1.1: nothing ever read it, so
+-- its checkbox had never done anything and was indistinguishable from Hide When
+-- Inactive. Existing `conditions.showEmpty` data is left alone (harmless).
 
-function ns:ShouldHideWhenInactive(conditions)
-    if not conditions then return false end
-    return not not conditions.hideWhenInactive
+-- A bar the user switched off must never be drawn. Four places used to decide
+-- this independently and disagreed, so an unticked "Enabled" bar was hidden at
+-- build time and then shown again by the very next refresh. Everything that can
+-- show a bar asks here.
+function ns:IsBarEnabled(bar)
+    local bd = bar and bar.barData
+    return not (bd and bd.enabled == false)
 end
 
--- Resolve "hide when inactive" for a live bar: the group's switch turns it on
--- for every bar in that group, and a bar that sets it for itself still hides
--- when the group's switch is off.
+-- Resolve "hide when inactive" for a live bar.
 --
--- Deliberately an OR rather than "the bar always wins": every bar created
--- through the editor is written with an explicit hideWhenInactive = false, so a
--- strict per-bar-wins rule would make the group switch do nothing at all. This
--- way the group control does what it says - turn it on for the whole group -
--- while per-bar settings keep working on their own.
+-- The group switch is authoritative once it has been touched: ticked hides
+-- every bar in the group, unticked keeps every bar visible even if the bars
+-- have their own boxes ticked. A group that has never been touched leaves the
+-- decision to each bar.
+--
+-- It is deliberately NOT an OR of the two. An OR could only ever add hiding, so
+-- a group whose bars all set the flag themselves could never be revealed from
+-- the group control - which is the whole point of having one.
 function ns:ResolveHideWhenInactive(bar)
-    local barCond = bar and bar.barData and bar.barData.conditions
-    if barCond and barCond.hideWhenInactive then return true end
-
     local groupData = bar and bar.frameIndex and BarWardenDB and BarWardenDB.frames
                       and BarWardenDB.frames[bar.frameIndex]
     local groupCond = groupData and groupData.groupConditions
-    if groupCond and groupCond.hideWhenInactive then return true end
+    if groupCond and groupCond.hideWhenInactive ~= nil then
+        return not not groupCond.hideWhenInactive
+    end
 
-    return false
+    local barCond = bar and bar.barData and bar.barData.conditions
+    return not not (barCond and barCond.hideWhenInactive)
 end
 
-function ns:ShouldShowEmpty(conditions)
-    if not conditions then return true end
-    return conditions.showEmpty ~= false
-end
 
 -- ----------------------------------------------------------------------------
 -- Built-in conditions.

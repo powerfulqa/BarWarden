@@ -34,15 +34,64 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
    the nearest linear slot. The Options Bars-tab list drag (single column) is
    exact; this only affects the in-game ghost drag on 2-4 column groups. Low.
 6. **Empty-group edge display.** A group with all bars hidden by a condition (or a
-   glow ending) stays backdrop-visible until the next 0.25s scan (brief flash),
-   and a brand-new group with no bars is hidden until its first bar is added
-   (no frame to grab in-game). Both cosmetic; the group-hide check lives in
-   `ScanAllBars` only, not the event-driven scans. Low.
+   glow ending) stays backdrop-visible until the next 0.25s scan (brief flash).
+   Cosmetic; the group-hide check lives in `ScanAllBars` only, not the
+   event-driven scans. (The other half of this item - a brand-new group being
+   invisible until its first bar - was fixed in v2.1.1: a bar-less group now
+   renders solid at the screen centre.) Low.
 7. **Two profile export encodings.** `ns:ExportProfile`/`ImportProfile` (Utils,
    fingerprint-suffixed, test-covered) are NOT what the Profiles tab uses (its own
    inline `BarWarden:v1:` encoding, no fingerprint). Each round-trips with itself;
    a string from one will not import via the other. Unify or document before
    exposing `ns:ExportProfile` to a caller. Low / latent.
+8. **Preset positions are stored by reference.** `ClassPresets.lua`
+   `BuildGroupFromPreset` assigns `groupPreset.position` straight into
+   SavedVariables, aliasing the shipped preset constant (and sharing one table
+   between two groups if a starter is appended twice in a session). Benign only
+   because every writer replaces `position` wholesale; deep-copy it when
+   convenient. Low / latent.
+9. **Truncated import strings parse as valid.** `ns:Deserialize` returns a
+   partial table rather than failing, and the Profiles tab only checks
+   `type(data.frames) == "table"`, so half a pasted export imports cleanly with
+   groups silently missing. Lands in a new profile, so no live data is lost.
+   Relates to item 7. Low.
+10. **Enchant and totem uptime may never close.** `ScanEnchantActivity` runs only
+    on `UNIT_INVENTORY_CHANGED` and `ScanTotemActivity` only on
+    `PLAYER_TOTEM_UPDATE`; neither reliably fires when the effect merely expires,
+    so the Activity tab under-reports their uptime (proc counts are correct).
+    Needs an expiry poll like `CheckCooldownExpiry`. Low-med.
+11. **Drag-reorder is wrong under a sorted group.** `CalcDropIndex` maps screen
+    position onto `frameData.bars` order, which is not the on-screen order when
+    `sortMode` is `remaining`/`alpha`, so a drop lands in an unrelated slot (and
+    manual order has no visible effect there anyway). Consider suppressing the
+    ghost when sorting is not manual. Extends item 5. Low.
+12. **Per-bar `scaleOverride` shifts row offsets.** `UpdateGroupLayout` applies
+    `bar:SetScale` after `SetPoint`, so a scaled bar's row offset scales too -
+    the same coordinate-space class as the v2.0.2 group drift. The editor tooltip
+    warns about column overlap but not vertical drift. Low.
+13. **Three divergent "new bar" constructors.** `NewBar` (Options_Bars),
+    `Options_Stats`'s Create Bar, and `MakeFullBar` (ClassPresets) write
+    different subsets of `conditions`/`display`. This divergence is what made the
+    v2.1.1 stale-toggle bug bite hardest on starter-profile bars. Unify. Low.
+14. **The text-format option list is duplicated** in `Options_Visuals.lua` and
+    `Options_Bars.lua` (byte-identical today, the latter plus an "Inherit" row).
+    A seventh format added to Visuals will silently not appear as a group
+    override. Low.
+15. **`schemaVersion` is hand-synced twice** (`ns.DEFAULTS.schemaVersion` and
+    `CURRENT_SCHEMA` in DB.lua) with nothing enforcing agreement; and
+    `starterPrompted` / `v1ImportPrompted` / `backups` live in SavedVariables
+    without being declared in `ns.DEFAULTS`, even though `ns:DBSet` treats the
+    schema as authoritative. Low.
+16. **Options shell differs structurally from EbonClearance.** BarWarden creates
+    each category frame parented to `UIParent` and gives it a body via
+    `content:SetAllPoints(child)`; EC parents category frames to
+    `InterfaceOptionsFramePanelContainer` and applies **no** addon-owned
+    geometry to them at all, with bodies being either the category frame itself
+    or a ScrollFrame scroll child. EC's shape has no addon-owned anchor between
+    panel and body that Blizzard's options machinery can disturb. Adopting it
+    would remove a whole class of layout bug (see the v2.1.1 detach entry
+    below), but it touches all five panels, so it is a deliberate refactor
+    rather than a patch. Med effort, low risk, good payoff.
 
 ## Audit decisions (intentional - do not "fix")
 
@@ -73,6 +122,55 @@ F. **`smoothExpiry` masks a shortened refresh (B7).** The aura expiry smoothing
    approach), which is out of scope for the frozen engine. Rare on 3.3.5a; won't-fix.
 
 ## Resolved (kept for the record)
+
+- **v2.1.1 Bar Control page detaching (found in play, not by the audit).**
+  Blizzard's `FauxScrollFrame_Update` hides the **whole scroll frame**, not just
+  its scrollbar, when the list fits without scrolling. Both lists in
+  `Options_Bars.lua` anchor the rest of their column to that scroll frame
+  (`addGroupBtn` -> `groupSettingsHeader` -> the settings block), so the moment
+  it was hidden the dependants resolved against a stranded rect and rendered at
+  the panel origin - visually "the menu contents fell out of the window", with
+  **no Lua error**. Trigger was a list going from 7 items to 6
+  (`MAX_GROUP_ROWS`/`MAX_BAR_ROWS` are 6), which is why it looked like a delete
+  bug and why adding a group "fixed" it. Fixed with `KeepListFrameShown`: keep
+  the frame shown, hide only the scrollbar (carries an `EC-TRAP:` marker,
+  because the `Show()` looks redundant). The sibling addon EbonClearance is
+  immune structurally - its category frames are parented to
+  `InterfaceOptionsFramePanelContainer` with no addon-owned geometry, panel
+  bodies are either the category frame itself or a ScrollFrame's scroll child
+  (never `SetAllPoints` between panel and body), and its auto-hide hides the
+  scrollbar only. Worth copying that shape if the options shell is ever
+  reworked; see also backlog item 16.
+
+- **v2.1.1 whole-addon audit.** Three parallel subsystem passes (engine, data,
+  UI) plus a cross-cutting sweep, every finding re-verified against source.
+  Data safety: `/bw restore` overwrote `frames` with no backup (the only
+  destructive path that did not) and the ring was never popped, so a mistaken
+  restore was permanent; delete confirmations re-read the live selection at
+  accept time, so clicking another row behind the non-modal popup deleted the
+  wrong group or bar, with no backup taken. Broken settings: `RefreshAllBars`
+  had no `enabled` check and ran one line after `RebuildAllFrames` at login, so
+  the Enabled tickbox never stuck (four sites disagreed on its meaning - now one
+  `ns:IsBarEnabled`); `BuildSettings` skipped the applier on a nil `get()`, so
+  toggles showed the previous selection's state; `CheckBuff` passed a hardcoded
+  `false` for `filterMine`, making Only Mine a no-op on buffs. Engine: a static
+  bar with linger entered `LINGERING` with no OnUpdate to end it;
+  `HideBarForConditions` only tore down `ACTIVE` bars; `UpdateResourceBar`
+  bypassed `ns:GetBarTextFormat`. Frames: `SetFrameScale` did not re-anchor, so
+  changing scale moved the group (a side effect of the v2.0.2 anchor rework);
+  `DisableDragReorder` never restored `EnableMouse(false)`, so locked bars ate
+  clicks. Lifecycle: `SetEnabled(true)` did not rebuild, so `/bw enable` after a
+  disabled login showed nothing; `/bw reset` claimed to reset positions and did
+  not. Presets: Weakened Soul tracked as a buff (impossible), healer HoTs pinned
+  to `unit = "player"`, `AppendClassStarter` bypassed `MAX_FRAMES`. Also
+  retired the dead `showEmpty` option, deleted the duplicate `ns:ApplySettings`
+  stub (the real one in Core won only by TOC order) plus `ns:CreateFrame`,
+  `ThrottledHandler` and `ShouldHideWhenInactive`, guarded the unguarded
+  `LSMDropdownItems` file-scope call (it would have taken the whole Visuals
+  panel down with LSM absent, contradicting its own EC-TRAP contract), stopped a
+  global `_` write on a 4 Hz path, hoisted the per-event mode-set tables off the
+  `SPELL_UPDATE_COOLDOWN` path, cleared per-unit throttle keys on unregister,
+  and corrected six pre-v2 Help answers.
 
 - **v2.1.0 stack visibility + group overrides.** Stack counts were read and
   stored correctly (`bar.stacks` in every activation branch) but only ever

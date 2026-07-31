@@ -327,6 +327,10 @@ function ns:DisableDragReorder(groupFrame)
     for _, bar in ipairs(groupFrame.bars) do
         bar:SetScript("OnMouseDown", nil)
         bar:SetScript("OnMouseUp",   nil)
+        -- Hand the mouse back. Bars are created mouse-disabled so clicks pass
+        -- through to the world; leaving it enabled after a lock meant a locked
+        -- group silently ate every click landing on a bar.
+        bar:EnableMouse(false)
         bar.dragEnabled = false
     end
 
