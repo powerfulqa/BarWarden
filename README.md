@@ -29,7 +29,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Per-bar text and icon control** so each bar can show or hide its name and spell icon independently
 - **Per-bar scale override** for bars that need to stand out larger (or shrink smaller) than their group default
 - **Icon crop** trims border pixels to prevent stretching on non-square bars
-- **Per-group conditions** hide an entire group at once (combat only, mounted, resting, vehicle, instance only) instead of ticking every bar individually
+- **Per-group conditions** hide an entire group at once (hide when inactive, combat only, mounted, resting, vehicle, instance only) instead of ticking every bar individually
 - **Set conditions** on bars so they only show in combat, below a health threshold, in a group, for a specific class, and more
 - **Smart visibility** hides bars automatically while mounted, resting, in a vehicle, or only shows them inside dungeons and raids
 - **Auto-prompt on first login** offers to load your spec starter profile when you log in on a fresh character with no bars configured
@@ -247,7 +247,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Background Opacity, Border Opacity
 - Sort Mode (Manual, Remaining Time, Alphabetical)
 - Growth Direction (Down, Up)
-- Group Conditions (Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
+- Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**
 - Add, Delete, reorder (Up/Dn), and copy/paste (Dupe/Paste) bars
@@ -296,8 +296,10 @@ Global settings that apply to all bars.
 **Text Options:** Text Position (Left, Right), Font (15 built-in + LibSharedMedia fonts), Font Size, Text Format (Name+Duration, Name Only, Duration Only, Name+Stacks, Stacks Only, None), Duration Style (seconds.ms, seconds, min:sec, short text, auto), Show Stack Count (the number on a bar's icon when something stacks two or more times, whatever the text format)
 
 Groups can override the **Text Format** and the bar texture and colour for their
-own bars (Bar Control > Groups > Bar Overrides), and can hide every bar in the
-group while it has nothing to show (Group Conditions > Hide When Inactive).
+own bars (Bar Control > Groups > Bar Overrides). **Hide When Inactive** under
+Group Conditions controls the whole group once you use it: ticked hides every
+bar while it has nothing to show, unticked keeps them all visible even where
+individual bars are set to hide. Leave it alone and each bar decides for itself.
 
 **Icon:** Icon Size, Icon Position (Left, Right), Crop Icons, Cooldown Spiral overlay
 

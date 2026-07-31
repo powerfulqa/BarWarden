@@ -10,7 +10,18 @@ local addonName, ns = ...
 -- ============================================================================
 
 -- Read version once from the TOC so it is defined in a single place.
-ns.version = GetAddOnMetadata(addonName, "Version") or "unknown"
+-- Stamped by the release workflow alongside the TOC, and verified against the
+-- tag before packaging. The TOC stays the packaging source of truth, but
+-- GetAddOnMetadata reads the client's addon index, which WoW only rebuilds when
+-- the game is launched - so after dropping in a new build and /reload-ing, it
+-- reports the PREVIOUS version until a full restart. A Lua constant is re-read
+-- on every /reload, so what the addon reports is right straight away. The TOC
+-- lookup stays as the fallback for an unstamped working copy.
+local ADDON_VERSION = "2.1.1"
+
+ns.version = (ADDON_VERSION ~= "" and ADDON_VERSION)
+             or GetAddOnMetadata(addonName, "Version")
+             or "unknown"
 
 -- ============================================================================
 -- Provenance: stamp author + source URL into globals so /run introspection

@@ -377,8 +377,12 @@ To add an event:
    `DispatchFixed`).
 
 For high-frequency events, wrap with
-`ThrottledHandler(eventName, intervalSec, handler)`. Currently used for
-`UNIT_HEALTH` at 0.25s.
+`ThrottledUnitHandler(eventName, intervalSec, handler)`, which rate-limits
+**per unit** (key `event:unit`). Used for `UNIT_AURA` and `UNIT_HEALTH`. Per-unit
+matters: a plain per-event throttle caught only the first unit in a burst and
+left the other to the slower poll loop. (A per-event `ThrottledHandler` existed
+until v2.1.1 and was removed - it had no call sites, since every throttled event
+here needs the per-unit form.)
 
 ### Visibility conditions (extensible registry)
 

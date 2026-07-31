@@ -49,7 +49,7 @@ jobs:
         with:
           ref: main
 
-      - name: Stamp version into TOC
+      - name: Stamp version into TOC and Core.lua
         run: |
           TAG="${RELEASE_REF}"        # e.g. v1.11.0 (with leading v)
           VERSION="${TAG#v}"          # e.g. 1.11.0 (## Version: carries no v)
@@ -58,6 +58,25 @@ jobs:
           sed -i "s/^## Version: .*/## Version: $VERSION/" BarWarden.toc
           # Title badge [vX.Y.Z] (with v) so the in-game AddOns list matches.
           sed -i "s/\[v[0-9]*\.[0-9]*\.[0-9]*\]/[$TAG]/g" BarWarden.toc
+          # Lua constant. GetAddOnMetadata reads the client's addon index, which
+          # is only rebuilt when the game launches, so a TOC-only stamp reports
+          # the previous version after a /reload. Anchored to the declaration so
+          # it cannot rewrite an unrelated version-shaped string.
+          sed -i "s/^local ADDON_VERSION = \".*\"/local ADDON_VERSION = \"$VERSION\"/" Core.lua
+
+      - name: Verify the stamp matches the tag
+        run: |
+          TAG="${RELEASE_REF}"
+          VERSION="${TAG#v}"
+          toc_ver=$(grep -m1 '^## Version:' BarWarden.toc | sed 's/^## Version:[[:space:]]*//')
+          lua_ver=$(grep -m1 '^local ADDON_VERSION' Core.lua | sed 's/.*"\(.*\)".*/\1/')
+          badge=$(grep -m1 '^## Title:' BarWarden.toc | grep -o '\[v[0-9.]*\]')
+          echo "tag=$VERSION  toc=$toc_ver  lua=$lua_ver  badge=$badge"
+          fail=0
+          [ "$toc_ver" = "$VERSION" ] || { echo "::error::TOC ## Version: is '$toc_ver', expected '$VERSION'"; fail=1; }
+          [ "$lua_ver" = "$VERSION" ] || { echo "::error::Core.lua ADDON_VERSION is '$lua_ver', expected '$VERSION'"; fail=1; }
+          [ "$badge" = "[$TAG]" ] || { echo "::error::TOC Title badge is '$badge', expected '[$TAG]'"; fail=1; }
+          exit $fail
 
       - name: Package addon into zip
         run: |
@@ -75,7 +94,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add BarWarden.toc
+          git add BarWarden.toc Core.lua
           git commit -m "Update version to ${RELEASE_REF} [skip ci]" || echo "No changes to commit"
           git push origin main
 
