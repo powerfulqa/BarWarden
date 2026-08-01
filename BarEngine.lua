@@ -112,6 +112,17 @@ local function AreAllBarsHidden(group)
     -- let alone drag it somewhere useful. It starts behaving normally as soon
     -- as it has a bar.
     if #group.bars == 0 then return false end
+
+    -- An auto-tracking group holds slots rather than configured bars, so with
+    -- nothing on the unit every slot is hidden and the rule below would hide
+    -- the group the moment its feed is chosen, with no way to find it again.
+    -- While frames are unlocked the user is arranging their layout and needs
+    -- to see it, for the same reason a brand-new empty group stays visible.
+    if group.isAutoGroup and BarWardenDB and BarWardenDB.global
+       and not BarWardenDB.global.locked then
+        return false
+    end
+
     for _, b in ipairs(group.bars) do
         if b:IsShown() then return false end
     end

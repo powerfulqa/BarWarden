@@ -582,7 +582,17 @@ local function CreateBarsTab(parent)
         -- Group-level visibility conditions. These hide the ENTIRE group
         -- (frame + all bars) when the condition fails, saving the user from
         -- ticking the same checkbox on every bar individually.
-        { type = "header", text = "Group Conditions", spacing = 16, offsetX = 10, id = "grpCondHeader" },
+        --
+        -- NOTE on offsetX below: BuildSettings anchors each widget to the
+        -- PREVIOUS widget, so offsetX is a relative nudge that accumulates
+        -- down the schema, not an absolute indent. The values from here to
+        -- the end of the schema were picked to bring Group Conditions and
+        -- Auto Track back in line with the Bar Overrides block above (headers
+        -- at the same x as "Bar Overrides", toggles at the same x as "Custom
+        -- Bar Colour", dropdowns/sliders at the same x as their counterparts
+        -- higher up). Do not "tidy" these back to a uniform value without
+        -- re-deriving the running total from the top of the schema.
+        { type = "header", text = "Group Conditions", spacing = 16, offsetX = -4, id = "grpCondHeader" },
         { type = "toggle", label = "Hide When Inactive",
           tooltip = "Controls the whole group once you use it: ticked hides "
                .. "every bar while it has nothing to show, unticked keeps them "
@@ -595,7 +605,7 @@ local function CreateBarsTab(parent)
               -- RefreshBarSettings already refreshes the live bars, matching
               -- the other group-condition toggles.
               ns:RefreshBarSettings() end,
-          spacing = 4 },
+          offsetX = -6, spacing = 4 },
         { type = "toggle", label = "Combat Only",
           tooltip = "Hide this entire group when out of combat.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.combatOnly end,
@@ -642,7 +652,7 @@ local function CreateBarsTab(parent)
         -- Auto tracking. Last on the page on purpose: BuildSettings lays widgets
         -- out once, so a block whose sub-settings hide has to sit at the end or
         -- hiding them punches a hole through the middle of the panel.
-        { type = "header", text = "Auto Track", spacing = 16, offsetX = 10, id = "grpAutoHeader" },
+        { type = "header", text = "Auto Track", spacing = 16, offsetX = 6, id = "grpAutoHeader" },
         { type = "dropdown", id = "grpAutoTrackDD", label = "Track", items = autoTrackItems, width = 150,
           tooltip = "Fill this group by itself with every buff or debuff on you "
                .. "or your target, instead of adding bars one spell at a time. "
@@ -684,7 +694,7 @@ local function CreateBarsTab(parent)
               local gf = ns.groupFrames[selectedGroupIndex]
               if gf then ns:UpdateGroupLayout(gf) end
           end,
-          offsetX = 10, spacing = 16 },
+          offsetX = 22, spacing = 16 },
         { type = "slider", id = "grpAutoMaxDuration", label = "Skip Longer Than", min = 0, max = 1800, step = 30,
           width = 150, stretch = true,
           tooltip = "Leave out anything that lasts longer than this, so food, "
@@ -703,7 +713,7 @@ local function CreateBarsTab(parent)
               local g = getGroup(); if not g then return end
               g.autoOnlyMine = v and true or false
           end,
-          offsetX = 10, spacing = 8 },
+          offsetX = -12, spacing = 8 },
         { type = "toggle", id = "grpAutoSkipTracked", label = "Skip Spells I Already Track",
           tooltip = "Leave out anything a bar in another group already shows, "
                .. "so this group only holds what you have not set up yourself.",

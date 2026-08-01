@@ -88,10 +88,15 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     is what the player means by "I already track that"; ids and groups would need
     `ns:GetTrackedAuraNames` to resolve names through `GetSpellInfo`, which is
     not safe to call for arbitrary ids on a 4 Hz path without caching.
-17. **Auto groups are invisible while empty**, so they are positioned by
-    unlocking frames rather than by using test mode (there are no real auras for
-    test mode to show). If this proves awkward in play, filling the slots with
-    dummy bars while unlocked is the natural follow-up.
+17. **Auto groups with nothing to show still hide while frames are locked.**
+    An auto group holds slots rather than configured bars, so with nothing on
+    the unit every slot is hidden and `AreAllBarsHidden` (BarEngine.lua) hides
+    the whole group, same as it does for any other group with nothing visible;
+    that is intended, since locked is the normal playing state. Unlocking
+    frames reveals it (a carve-out in `AreAllBarsHidden`), so it can still be
+    positioned; there is no test mode for it, since there are no real auras for
+    test mode to show. If positioning proves awkward in play, filling the
+    slots with dummy bars while unlocked is the natural follow-up.
 18. **Switching an auto group straight from a target feed to a player feed
     leaves Only Mine ticked.** `autoOnlyMine` is only seeded the first time
     Auto Track is set (while it is still nil); the seeding guard cannot tell a

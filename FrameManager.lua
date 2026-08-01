@@ -279,7 +279,15 @@ function ns:UpdateGroupLayout(group)
     -- backdrop alpha, so a newly added one is obvious at the centre of the
     -- screen and can be dragged into place. It reverts to the user's own alpha
     -- as soon as it holds a bar.
+    --
+    -- frameData.bars only holds bars added by hand (auto-track keeps them
+    -- around for when the group is switched back off), so it stays empty for
+    -- a pure auto group even while its slots are full. An auto group with
+    -- nothing currently on the unit needs its own check on visibleCount, or
+    -- it would sit at the user's own (possibly near-invisible) background
+    -- alpha instead of being obvious while unlocked for positioning.
     local isEmpty = (frameData and frameData.bars and #frameData.bars == 0)
+        or (group.isAutoGroup and visibleCount == 0)
     if group.SetBackdropColor then
         if isEmpty then
             group:SetBackdropColor(0, 0, 0, 0.85)
