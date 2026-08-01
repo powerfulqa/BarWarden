@@ -860,6 +860,11 @@ local function ScanBar(bar, unitFilter)
     -- Don't overwrite test mode bars with real scan data
     if ns.testMode and bar.isTestBar then return end
 
+    -- Auto-tracking slots are driven by ScanAutoGroup, which writes their
+    -- barData wholesale. Letting the per-bar scanner near them would have the
+    -- two paths fighting over the same frame.
+    if bar.isAutoBar then return end
+
     local bd = bar.barData
     if not bd or not ns:IsBarEnabled(bar) then return end
 
@@ -960,17 +965,109 @@ local function ScanBar(bar, unitFilter)
 end
 
 -- ----------------------------------------------------------------------------
+-- ScanAutoGroup: fill one auto-tracking group's slots from the live aura list.
+--
+-- unitFilter: when set (an event-driven scan), feeds for other units are left
+-- alone, matching how ScanBar filters ordinary aura bars.
+-- ----------------------------------------------------------------------------
+
+-- Which names each auto group should skip, keyed by frame index. Rebuilt
+-- lazily and thrown away whenever the bar cache is rebuilt, because that is
+-- the one thing every bar edit already goes through. Recomputing it per scan
+-- would walk the whole DB four times a second for nothing.
+local trackedNamesCache = {}
+
+function ns:ScanAutoGroup(frameIndex, unitFilter)
+    local group = ns.groupFrames and ns.groupFrames[frameIndex]
+    if not group or not group.isAutoGroup or not group.bars then return end
+
+    local groupData = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex]
+    local feed = groupData and groupData.autoTrack
+    local def  = feed and ns.AUTO_TRACK_FEEDS[feed]
+    if not def then return end
+    if unitFilter and def.unit ~= unitFilter then return end
+
+    -- Group conditions gate the whole feed, exactly as they gate an ordinary
+    -- group's bars inside ScanBar.
+    if groupData.groupConditions
+       and not ns:EvaluateConditions(nil, groupData.groupConditions) then
+        for _, bar in ipairs(group.bars) do
+            HideBarForConditions(bar)
+        end
+        return
+    end
+
+    local skipNames
+    if groupData.autoSkipTracked then
+        skipNames = trackedNamesCache[frameIndex]
+        if not skipNames then
+            skipNames = ns:GetTrackedAuraNames(frameIndex)
+            trackedNamesCache[frameIndex] = skipNames
+        end
+    end
+
+    local auras = ns:CollectAutoAuras(feed, {
+        maxBars     = #group.bars,
+        maxDuration = groupData.autoMaxDuration or 0,
+        onlyMine    = groupData.autoOnlyMine,
+        skipNames   = skipNames,
+    })
+
+    for i, bar in ipairs(group.bars) do
+        local a  = auras[i]
+        local bd = bar.barData
+        if a then
+            -- A slot changing spell has to re-activate even when the timer
+            -- happens to line up, or the bar would keep the old fill.
+            local changed = (bd.name ~= a.name)
+            bd.enabled = true
+            bd.name    = a.name
+            bd.spellId = a.spellId
+            bd.unit    = def.unit
+            -- 0.05s tolerance suppresses redundant ActivateBar calls from
+            -- server jitter, matching ScanBar.
+            if changed or bar.barState ~= BAR_STATE.ACTIVE
+               or abs((bar.expirationTime or 0) - a.expirationTime) > 0.05 then
+                ns:ActivateBar(bar, a.expirationTime, a.duration)
+            end
+            bar.stacks = a.count
+            ns:RenderBarStacks(bar)
+            if bar.iconTexture and a.icon then bar.iconTexture:SetTexture(a.icon) end
+            if bar.nameText then bar.nameText:SetText(a.name) end
+        elseif bd.enabled then
+            -- Slot just emptied. Marking it unoccupied first is what sends
+            -- DeactivateBar down its disabled-bar branch, which hides the bar
+            -- instead of leaving a blank row in the middle of the group.
+            bd.enabled = false
+            bd.name    = ""
+            ns:DeactivateBar(bar, true)
+        end
+    end
+end
+
+local function ScanAutoGroups(unitFilter)
+    if not ns.groupFrames then return end
+    for idx, group in pairs(ns.groupFrames) do
+        if group.isAutoGroup then
+            ns:ScanAutoGroup(idx, unitFilter)
+        end
+    end
+end
+
+-- ----------------------------------------------------------------------------
 -- ScanAllBars: Check all registered bars against current game state.
 -- unit: optional unit filter passed to ScanBar for Buff/Debuff/Proc bars.
 -- ----------------------------------------------------------------------------
 
 function ns:ScanAllBars(unit)
     local bars = ns:GetAllBars()
-    if not bars or #bars == 0 then return end
+    -- No early return on an empty bar list: auto groups are scanned by group,
+    -- not by bar, and would be skipped by one.
     RunScan(function()
-        for _, bar in ipairs(bars) do
+        for _, bar in ipairs(bars or {}) do
             ScanBar(bar, unit)
         end
+        ScanAutoGroups(unit)
     end)
 
     -- Post-scan: hide group frames whose bars are ALL hidden (e.g. the whole
@@ -991,6 +1088,8 @@ end
 -- RebuildAllBarsCache: flatten all group frame bar lists into ns.allBars.
 -- Must be called after RebuildAllFrames / BuildBarsForFrame in FrameManager.
 function ns:RebuildAllBarsCache()
+    -- Bars just changed, so which spells are "already tracked" may have too.
+    wipe(trackedNamesCache)
     local flat = {}
     for _, group in pairs(ns.groupFrames or {}) do
         if group.bars then
@@ -1047,12 +1146,15 @@ function ns:OnUnitAura(unit)
     if unit == "player" and ns.ScanBuffActivity then ns:ScanBuffActivity() end
     if unit == "target" and ns.ScanDebuffActivity then ns:ScanDebuffActivity() end
     ScanBarsByMode(AURA_MODES, unit)
+    -- Auto groups react on the event too, not just on the next 0.25s tick.
+    RunScan(function() ScanAutoGroups(unit) end)
 end
 
 function ns:OnTargetChanged()
     ns:ScanDebuffActivity()
     if ns.ClearStableExpiry then ns:ClearStableExpiry("target") end
     ScanBarsByMode(AURA_MODES, "target")
+    RunScan(function() ScanAutoGroups("target") end)
 end
 
 function ns:OnFocusChanged()
