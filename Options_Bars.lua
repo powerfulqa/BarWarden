@@ -871,6 +871,9 @@ local function CreateBarsTab(parent)
         local bar = frame:GetSelectedBar()
         if bar then
             bar.enabled = checked
+            -- A bar you switch off stops counting as "already tracked", so the
+            -- auto-tracking duplicate filter has to recompute.
+            if ns.InvalidateTrackedNames then ns:InvalidateTrackedNames() end
             for _, liveBar in ipairs(ns:GetAllBars()) do
                 if liveBar.barData == bar then
                     if checked then
