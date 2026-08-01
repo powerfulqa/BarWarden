@@ -312,6 +312,10 @@ end
 -- ----------------------------------------------------------------------------
 function ns:EnableDragReorder(groupFrame)
     if not groupFrame or not groupFrame.bars then return end
+    -- An auto-tracking group's slots are ordered by the auras themselves, and
+    -- its `bars` array in the DB is the user's hand-made list, kept dormant.
+    -- A dropped ghost would reorder bars they cannot see.
+    if groupFrame.isAutoGroup then return end
 
     for _, bar in ipairs(groupFrame.bars) do
         bar:EnableMouse(true)
