@@ -132,6 +132,10 @@ end
 -- health-below, require-buff, etc.) take effect without waiting for the
 -- next scan tick.
 function ns:RefreshBarSettings()
+    -- Guard the cross-file call the same way this function's other callers
+    -- already do (see RebuildAllFrames above), rather than assuming
+    -- BarEngine.lua is present.
+    if ns.InvalidateTrackedNames then ns:InvalidateTrackedNames() end
     ns:RefreshAllBars()
     ns:ScanAllBars()
 end

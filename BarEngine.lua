@@ -972,10 +972,17 @@ end
 -- ----------------------------------------------------------------------------
 
 -- Which names each auto group should skip, keyed by frame index. Rebuilt
--- lazily and thrown away whenever the bar cache is rebuilt, because that is
--- the one thing every bar edit already goes through. Recomputing it per scan
--- would walk the whole DB four times a second for nothing.
+-- lazily and cleared on a full bar-cache rebuild and on any bar-settings
+-- refresh (see InvalidateTrackedNames below), since either can change what
+-- counts as "already tracked". Recomputing it per scan would walk the whole
+-- DB four times a second for nothing.
 local trackedNamesCache = {}
+
+-- Editing a bar's spell or its Enabled box changes what counts as "already
+-- tracked", and neither path rebuilds the bar cache.
+function ns:InvalidateTrackedNames()
+    wipe(trackedNamesCache)
+end
 
 function ns:ScanAutoGroup(frameIndex, unitFilter)
     local group = ns.groupFrames and ns.groupFrames[frameIndex]
@@ -1020,10 +1027,11 @@ function ns:ScanAutoGroup(frameIndex, unitFilter)
             -- A slot changing spell has to re-activate even when the timer
             -- happens to line up, or the bar would keep the old fill.
             local changed = (bd.name ~= a.name)
-            bd.enabled = true
-            bd.name    = a.name
-            bd.spellId = a.spellId
-            bd.unit    = def.unit
+            bd.enabled   = true
+            bd.name      = a.name
+            bd.spellId   = a.spellId
+            bd.unit      = def.unit
+            bd.trackMode = (def.kind == "buff") and "Buff" or "Debuff"
             -- 0.05s tolerance suppresses redundant ActivateBar calls from
             -- server jitter, matching ScanBar.
             if changed or bar.barState ~= BAR_STATE.ACTIVE
@@ -1040,6 +1048,7 @@ function ns:ScanAutoGroup(frameIndex, unitFilter)
             -- instead of leaving a blank row in the middle of the group.
             bd.enabled = false
             bd.name    = ""
+            bd.spellId = nil
             ns:DeactivateBar(bar, true)
         end
     end
