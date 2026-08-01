@@ -639,8 +639,9 @@ local function CreateBarsTab(parent)
               if not g.groupConditions then g.groupConditions = {} end; g.groupConditions.onlyInInstance = v; ns:RefreshBarSettings() end,
           spacing = 2 },
 
-        -- Auto tracking. Last on the page on purpose: its sub-settings hide
-        -- when no feed is picked, and BuildSettings lays widgets out once.
+        -- Auto tracking. Last on the page on purpose: BuildSettings lays widgets
+        -- out once, so a block whose sub-settings hide has to sit at the end or
+        -- hiding them punches a hole through the middle of the panel.
         { type = "header", text = "Auto Track", spacing = 16, offsetX = 10, id = "grpAutoHeader" },
         { type = "dropdown", id = "grpAutoTrackDD", label = "Track", items = autoTrackItems, width = 150,
           tooltip = "Fill this group by itself with every buff or debuff on you "
@@ -907,6 +908,10 @@ local function CreateBarsTab(parent)
         if not ns.copiedBar then ns:Print("Nothing to paste. Copy a bar first."); return end
         local g = BarWardenDB.frames[selectedGroupIndex]
         if not g then return end
+        if g.autoTrack then
+            ns:Print("This group fills itself. Set Auto Track to Off to add bars by hand.")
+            return
+        end
         local maxBars = ns.MAX_BARS_PER_FRAME or 30
         if #g.bars >= maxBars then
             ns:Print("Maximum of " .. maxBars .. " bars per group reached.")
