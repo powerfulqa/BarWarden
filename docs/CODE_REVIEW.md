@@ -85,7 +85,11 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
 16. **Auto-track duplicate matching still misses aura groups.** Matching is by
     resolved spell name: `ns:GetTrackedAuraNames` reads both `spellName` and
     `spellId` and resolves ids through `GetSpellInfo`, so a curated bar
-    configured by name or by bare spell id suppresses correctly either way.
+    configured by name or by bare spell id suppresses correctly either way,
+    provided the client can resolve that id: `GetSpellInfo` returns nil for
+    an id the client's spell table does not know (a custom private-server id
+    with no matching client patch, for example), and such a bar is skipped
+    rather than suppressed, no differently from any other unresolved id.
     An aura group reference such as `@Stunned` still does not suppress,
     because it only expands to a list of ids at scan time
     (`getSpellTokens`), not inside `ns:GetTrackedAuraNames`. Resolving each id

@@ -37,6 +37,10 @@ or the trinket proc you did not know to look for.
   something new. Off by default.
 - Bars you added by hand are kept while a group fills itself, and come back
   unchanged when you set Auto Track to Off.
+
+**Bars that light up instead of counting down.** A new display option for any
+bar, not just auto-tracked ones.
+
 - New **Show as On or Off** bar setting: the bar fills while the tracked thing
   is active and sits empty the rest of the time, with no countdown. Set it per
   bar, or for a whole group at once with the new Bar Style dropdown under Bar

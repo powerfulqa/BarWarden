@@ -1503,8 +1503,12 @@ local function CreateBarsTab(parent)
         local total = #bars
 
         -- Grow the list box to the bar count (min one line, max MAX_BAR_ROWS
-        -- rows); overflow scrolls. Uniform with the Groups tab.
-        local shown = math.max(1, math.min(total, MAX_BAR_ROWS))
+        -- rows); overflow scrolls. Uniform with the Groups tab. An auto
+        -- group shows no rows but its explanatory message wraps to about two
+        -- lines at this width, so floor its height at two rows or the
+        -- message overlaps the + button anchored below the list.
+        local minRows = isAuto and 2 or 1
+        local shown = math.max(minRows, math.min(total, MAX_BAR_ROWS))
         barScrollFrame:SetHeight(shown * BAR_LIST_HEIGHT)
 
         FauxScrollFrame_Update(barScrollFrame, total, MAX_BAR_ROWS, BAR_LIST_HEIGHT)

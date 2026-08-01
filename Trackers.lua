@@ -374,6 +374,13 @@ function ns:PlaceAutoAuras(held, auras, slotCount)
     return result
 end
 
+local function addResolvedSpellId(names, spellId)
+    local resolvedName = GetSpellInfo(spellId)
+    if resolvedName then
+        names[string.lower(resolvedName)] = true
+    end
+end
+
 -- Names of auras that a bar in some other group already tracks, lower-cased,
 -- for the auto-track "Skip Spells I Already Track" setting.
 --
@@ -389,13 +396,6 @@ end
 -- An aura group reference such as "@Stunned" still does not suppress: it only
 -- expands to a list of ids at scan time (getSpellTokens), not here. See
 -- CODE_REVIEW.md item 16.
-local function addResolvedSpellId(names, spellId)
-    local resolvedName = GetSpellInfo(spellId)
-    if resolvedName then
-        names[string.lower(resolvedName)] = true
-    end
-end
-
 function ns:GetTrackedAuraNames(exceptFrameIndex)
     local names = {}
     local frames = BarWardenDB and BarWardenDB.frames

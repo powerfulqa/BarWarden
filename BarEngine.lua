@@ -1100,6 +1100,11 @@ function ns:ScanAutoGroup(frameIndex, unitFilter)
                 ns:ActivateBar(bar, a.expirationTime, a.duration)
             end
             bar.stacks = a.count
+            -- Keep a switch-mode bar's stack text live when only the count
+            -- changes: ActivateStaticBar refreshes it on activation, but a
+            -- same-spell rescan skips that branch and would otherwise freeze
+            -- a stack-format bar on the count it had when it filled.
+            if bar.isStaticBar then ns:UpdateStaticBarText(bar) end
             ns:RenderBarStacks(bar)
             if bar.iconTexture and a.icon then bar.iconTexture:SetTexture(a.icon) end
             if bar.nameText then bar.nameText:SetText(a.name) end

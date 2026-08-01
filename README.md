@@ -252,6 +252,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Background Opacity, Border Opacity
 - Sort Mode (Manual, Remaining Time, Alphabetical)
 - Growth Direction (Down, Up)
+- Bar Style (Countdown, On or Off) for the whole group at once
 - Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**
