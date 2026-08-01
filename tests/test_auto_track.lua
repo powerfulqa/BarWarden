@@ -180,6 +180,77 @@ function M.test_truncatedToMaxBars()
     assertx.assertEqual(out[2].name, "C")
 end
 
+-- --------------------------------------------------------------------------
+-- Truncation with keepNames (Keep Bars In Place, an oversubscribed group)
+--
+-- Without keepNames, truncation goes by expiry alone, so a held aura sitting
+-- outside the soonest-N gets cut before ns:PlaceAutoAuras ever sees it, then
+-- reads back as faded and frees its slot - the exact reshuffle the option
+-- exists to stop. keepNames lets a caller mark names that must survive.
+-- --------------------------------------------------------------------------
+
+function M.test_keepNamesSurvivesTruncation()
+    local ns = fresh()
+    -- A is held and outlasts everything, so a plain soonest-N truncation
+    -- would cut it. D is the one that should give way instead.
+    mock.buffs.player[1] = aura("A", 1, 100, 100)
+    mock.buffs.player[2] = aura("B", 2, 10, 10)
+    mock.buffs.player[3] = aura("C", 3, 20, 20)
+    mock.buffs.player[4] = aura("D", 4, 30, 30)
+    local out = ns:CollectAutoAuras("playerBuffs",
+        { maxBars = 3, keepNames = { ["a"] = true } })
+    assertx.assertEqual(#out, 3, "the held aura does not push the count over maxBars")
+    assertx.assertEqual(out[1].name, "B")
+    assertx.assertEqual(out[2].name, "C")
+    assertx.assertEqual(out[3].name, "A", "the held aura survives despite expiring last")
+    for _, a in ipairs(out) do
+        assertx.assertFalse(a.name == "D", "the non-held aura beyond capacity is dropped instead")
+    end
+end
+
+function M.test_keepNamesIsCaseInsensitive()
+    local ns = fresh()
+    mock.buffs.player[1] = aura("SLICE AND DICE", 1, 100, 100)
+    mock.buffs.player[2] = aura("B", 2, 10, 10)
+    mock.buffs.player[3] = aura("C", 3, 20, 20)
+    local out = ns:CollectAutoAuras("playerBuffs",
+        { maxBars = 2, keepNames = { ["slice and dice"] = true } })
+    assertx.assertEqual(#out, 2)
+    assertx.assertEqual(out[1].name, "B")
+    assertx.assertEqual(out[2].name, "SLICE AND DICE", "matching is case-insensitive, like skipNames")
+end
+
+function M.test_noKeepNamesTruncationIsUnchanged()
+    -- Same shape as test_keepNamesSurvivesTruncation but without keepNames:
+    -- the long-lived aura is simply the one cut, exactly as before.
+    local ns = fresh()
+    mock.buffs.player[1] = aura("A", 1, 100, 100)
+    mock.buffs.player[2] = aura("B", 2, 10, 10)
+    mock.buffs.player[3] = aura("C", 3, 20, 20)
+    mock.buffs.player[4] = aura("D", 4, 30, 30)
+    local out = ns:CollectAutoAuras("playerBuffs", { maxBars = 3 })
+    assertx.assertEqual(#out, 3)
+    assertx.assertEqual(out[1].name, "B")
+    assertx.assertEqual(out[2].name, "C")
+    assertx.assertEqual(out[3].name, "D", "unchanged: A is cut, held-looking or not")
+end
+
+function M.test_keepNamesCannotOverflowTheCap()
+    -- Three held names but only two slots: the cap wins, and the soonest
+    -- non-held aura (D) still does not get a slot despite being the most
+    -- urgent by expiry.
+    local ns = fresh()
+    mock.buffs.player[1] = aura("D", 4, 1, 1)
+    mock.buffs.player[2] = aura("A", 1, 5, 5)
+    mock.buffs.player[3] = aura("B", 2, 10, 10)
+    mock.buffs.player[4] = aura("C", 3, 15, 15)
+    local out = ns:CollectAutoAuras("playerBuffs",
+        { maxBars = 2, keepNames = { ["a"] = true, ["b"] = true, ["c"] = true } })
+    assertx.assertEqual(#out, 2, "more held names than maxBars cannot overflow the cap")
+    assertx.assertEqual(out[1].name, "A")
+    assertx.assertEqual(out[2].name, "B")
+end
+
 function M.test_carriesStackCount()
     local ns = fresh()
     mock.buffs.player[1] = aura("Sunder Armor", 7386, 20, 20, "player", 5)
@@ -414,6 +485,32 @@ function M.test_placeAutoAuras_sortedOrderChangesButHeldAurasStayPut()
     assertx.assertEqual(out[1].name, "A")
     assertx.assertEqual(out[2].name, "B")
     assertx.assertEqual(out[3].name, "C")
+end
+
+function M.test_collectAndPlace_heldAurasSurviveAnOversubscribedGroup()
+    -- The worked example from review: a 3-slot group holds A, B and C, then
+    -- two shorter-lived auras (D, E) land. A full-strength count now exceeds
+    -- the slot cap, so CollectAutoAuras must keep the held three rather than
+    -- the soonest three, and PlaceAutoAuras must then return each held name
+    -- to its original slot with D and E showing nowhere.
+    local ns = fresh()
+    mock.buffs.player[1] = aura("D", 4, 5,  5)
+    mock.buffs.player[2] = aura("E", 5, 10, 10)
+    mock.buffs.player[3] = aura("B", 2, 50, 50)
+    mock.buffs.player[4] = aura("C", 3, 60, 60)
+    mock.buffs.player[5] = aura("A", 1, 100, 100)
+
+    local collected = ns:CollectAutoAuras("playerBuffs", {
+        maxBars   = 3,
+        keepNames = { ["a"] = true, ["b"] = true, ["c"] = true },
+    })
+    assertx.assertEqual(#collected, 3, "D and E do not fit once A, B and C are held")
+
+    local held = { [1] = "A", [2] = "B", [3] = "C" }
+    local placed = ns:PlaceAutoAuras(held, collected, 3)
+    assertx.assertEqual(placed[1].name, "A", "A stays in slot 1 despite expiring last")
+    assertx.assertEqual(placed[2].name, "B")
+    assertx.assertEqual(placed[3].name, "C")
 end
 
 return M

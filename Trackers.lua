@@ -236,12 +236,19 @@ end
 
 -- Collect the auras on a feed's unit, soonest-expiring first.
 --
--- opts = { maxBars, maxDuration, onlyMine, skipNames }
+-- opts = { maxBars, maxDuration, onlyMine, skipNames, keepNames }
 --   maxDuration tests the aura's FULL duration, not what is left: a one-hour
 --   flask with 30 seconds on it is still a flask, and testing remaining time
 --   would surface long buffs at the exact moment they ran out.
 --   skipNames is a set of lower-cased names supplied by the caller, so this
 --   function stays pure and the whole filter chain is testable.
+--   keepNames is a set of lower-cased names, like skipNames, that must
+--   survive truncation to maxBars even if they are not among the soonest to
+--   expire. Without it, truncation is unchanged: whichever names sort last
+--   are cut, held or not. Keep Bars In Place relies on this: a bar that is
+--   already up must not be evicted by truncation just because it happens to
+--   have longer left than something newer, or PlaceAutoAuras would read the
+--   held name's absence as a fade and free its slot.
 function ns:CollectAutoAuras(feed, opts)
     local def = ns.AUTO_TRACK_FEEDS[feed]
     if not def then return {} end
@@ -250,6 +257,7 @@ function ns:CollectAutoAuras(feed, opts)
     local maxBars     = opts.maxBars or 10
     local maxDuration = opts.maxDuration or 0
     local skipNames   = opts.skipNames
+    local keepNames   = opts.keepNames
     local onlyMine    = opts.onlyMine
     local auraFunc    = (def.kind == "buff") and UnitBuff or UnitDebuff
 
@@ -280,8 +288,35 @@ function ns:CollectAutoAuras(feed, opts)
 
     table.sort(found, CompareExpiry)
 
-    for i = #found, maxBars + 1, -1 do
-        found[i] = nil
+    if keepNames and #found > maxBars then
+        -- Split the sorted list into held and not-held, each keeping the
+        -- relative soonest-expiring order it already had. The held ones go
+        -- in first (truncated to the cap themselves, so holding more names
+        -- than there are slots still cannot overflow it); whatever room is
+        -- left fills from the rest, soonest first. Re-sort at the end so the
+        -- documented soonest-expiring-first contract holds for any caller
+        -- that is not doing stable placement.
+        local kept, rest = {}, {}
+        for _, a in ipairs(found) do
+            if keepNames[string.lower(a.name)] then
+                kept[#kept + 1] = a
+            else
+                rest[#rest + 1] = a
+            end
+        end
+        for i = #kept, maxBars + 1, -1 do
+            kept[i] = nil
+        end
+        for i = 1, #rest do
+            if #kept >= maxBars then break end
+            kept[#kept + 1] = rest[i]
+        end
+        table.sort(kept, CompareExpiry)
+        found = kept
+    else
+        for i = #found, maxBars + 1, -1 do
+            found[i] = nil
+        end
     end
 
     return found

@@ -1024,23 +1024,36 @@ function ns:ScanAutoGroup(frameIndex, unitFilter)
         end
     end
 
-    local auras = ns:CollectAutoAuras(feed, {
-        maxBars     = #group.bars,
-        maxDuration = groupData.autoMaxDuration or 0,
-        onlyMine    = groupData.autoOnlyMine,
-        skipNames   = skipNames,
-    })
-
+    -- Gathered before the collect call so a still-held aura can be told apart
+    -- from a merely short-lived one: without keepNames, CollectAutoAuras
+    -- truncates by expiry alone and a held aura sitting outside the soonest-N
+    -- would be cut before PlaceAutoAuras ever sees it, then read back as
+    -- faded and free its slot. That is the exact reshuffle this option exists
+    -- to stop.
+    local held, keepNames
     if groupData.autoStableOrder then
-        local held = {}
+        held = {}
+        keepNames = {}
         for i, bar in ipairs(group.bars) do
             local bd = bar.barData
             -- A slot is occupied only while its bar is enabled; `enabled`
             -- doubles as the occupied flag for an auto slot.
             if bd and bd.enabled and bd.name ~= "" then
                 held[i] = bd.name
+                keepNames[string.lower(bd.name)] = true
             end
         end
+    end
+
+    local auras = ns:CollectAutoAuras(feed, {
+        maxBars     = #group.bars,
+        maxDuration = groupData.autoMaxDuration or 0,
+        onlyMine    = groupData.autoOnlyMine,
+        skipNames   = skipNames,
+        keepNames   = keepNames,
+    })
+
+    if groupData.autoStableOrder then
         auras = ns:PlaceAutoAuras(held, auras, #group.bars)
     end
 
