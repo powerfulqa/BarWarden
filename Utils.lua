@@ -154,6 +154,11 @@ end
 ns.GCD_THRESHOLD = 1.5    -- ignore GCD triggers in cooldown/item trackers
 ns.MAX_AURA_INDEX = 40    -- WoW 3.3.5a maximum buff/debuff index
 
+-- Track modes that read auras. Shared by the event dispatcher in BarEngine and
+-- the auto-track duplicate filter, which have to agree on what counts as
+-- "already tracked" or the filter silently disagrees with the scanner.
+ns.AURA_TRACK_MODES = { Buff = true, Debuff = true, Proc = true }
+
 -- ----------------------------------------------------------------------------
 -- Shared colour palette (design tokens)
 --

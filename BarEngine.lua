@@ -1017,7 +1017,7 @@ end
 -- Mode sets are hoisted, not built per event: SPELL_UPDATE_COOLDOWN in
 -- particular fires constantly in combat, and allocating a throwaway table for
 -- every one of these handlers was needless garbage on a hot path.
-local AURA_MODES     = { Buff = true, Debuff = true, Proc = true }
+local AURA_MODES     = ns.AURA_TRACK_MODES
 local COOLDOWN_MODES = { Cooldown = true }
 local ITEM_MODES     = { Item = true }
 local ENCHANT_MODES  = { Enchant = true, ["Enchant MH"] = true, ["Enchant OH"] = true }

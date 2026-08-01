@@ -287,6 +287,42 @@ function ns:CollectAutoAuras(feed, opts)
     return found
 end
 
+-- Names of auras that a bar in some other group already tracks, lower-cased,
+-- for the auto-track "Skip Spells I Already Track" setting.
+--
+-- Asks whether a bar EXISTS, not whether it is visible right now. Testing
+-- visibility would make auras flicker between groups as conditions changed,
+-- which is worse than a rule the player can predict.
+--
+-- Matching is by name because that is how bars are configured and what the
+-- aura API returns. A bar tracking a bare spell id, or an aura group such as
+-- "@Stunned", therefore does not suppress its spell in a feed.
+function ns:GetTrackedAuraNames(exceptFrameIndex)
+    local names = {}
+    local frames = BarWardenDB and BarWardenDB.frames
+    if not frames then return names end
+
+    for idx, frameData in ipairs(frames) do
+        -- An auto group's own bars are dormant, so they track nothing.
+        if idx ~= exceptFrameIndex and not frameData.autoTrack and frameData.bars then
+            for _, bd in ipairs(frameData.bars) do
+                if ns.AURA_TRACK_MODES[bd.trackMode] and bd.enabled ~= false
+                   and type(bd.spellName) == "string" and bd.spellName ~= "" then
+                    -- A bar accepts a comma-separated list of names.
+                    for token in string.gmatch(bd.spellName, "[^,]+") do
+                        local trimmed = strtrim(token)
+                        if trimmed ~= "" then
+                            names[string.lower(trimmed)] = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return names
+end
+
 -- ----------------------------------------------------------------------------
 -- Cooldown Tracker
 -- ----------------------------------------------------------------------------

@@ -194,4 +194,115 @@ function M.test_emptyWhenNothingQualifies()
     assertx.assertEqual(type(out), "table", "always returns a table, never nil")
 end
 
+-- --------------------------------------------------------------------------
+-- GetTrackedAuraNames: what a bar somewhere else already covers
+-- --------------------------------------------------------------------------
+
+-- These cases drive BarWardenDB directly. It is a real global in the game, so
+-- each case clears it again to keep the suites independent.
+local function withDB(frames, fn)
+    _G.BarWardenDB = { frames = frames }
+    local ok, err = pcall(fn)
+    _G.BarWardenDB = nil
+    if not ok then error(err, 0) end
+end
+
+function M.test_trackedNames_collectsAuraBarsAcrossGroups()
+    local ns = fresh()
+    withDB({
+        { bars = { { trackMode = "Buff",   spellName = "Slice and Dice" } } },
+        { bars = { { trackMode = "Debuff", spellName = "Rupture"        } } },
+        { bars = { { trackMode = "Proc",   spellName = "Clearcasting"   } } },
+    }, function()
+        local names = ns:GetTrackedAuraNames(nil)
+        assertx.assertTrue(names["slice and dice"])
+        assertx.assertTrue(names["rupture"])
+        assertx.assertTrue(names["clearcasting"])
+    end)
+end
+
+function M.test_trackedNames_lowerCasesForMatching()
+    local ns = fresh()
+    withDB({ { bars = { { trackMode = "Buff", spellName = "Slice And Dice" } } } },
+    function()
+        local names = ns:GetTrackedAuraNames(nil)
+        assertx.assertTrue(names["slice and dice"], "names are keyed lower-cased")
+    end)
+end
+
+function M.test_trackedNames_skipsTheAskingGroup()
+    local ns = fresh()
+    withDB({
+        { bars = { { trackMode = "Buff", spellName = "Slice and Dice" } } },
+        { bars = { { trackMode = "Buff", spellName = "Adrenaline Rush" } } },
+    }, function()
+        local names = ns:GetTrackedAuraNames(1)
+        assertx.assertNil(names["slice and dice"], "a group never suppresses itself")
+        assertx.assertTrue(names["adrenaline rush"])
+    end)
+end
+
+function M.test_trackedNames_skipsNonAuraTrackModes()
+    -- A cooldown bar named "Fire Blast" must not hide the buff Fire Blast.
+    local ns = fresh()
+    withDB({ { bars = {
+        { trackMode = "Cooldown", spellName = "Fire Blast" },
+        { trackMode = "Item",     spellName = "Healthstone" },
+        { trackMode = "Totem",    spellName = "Searing Totem" },
+    } } }, function()
+        local names = ns:GetTrackedAuraNames(nil)
+        assertx.assertNil(names["fire blast"])
+        assertx.assertNil(names["healthstone"])
+        assertx.assertNil(names["searing totem"])
+    end)
+end
+
+function M.test_trackedNames_skipsDisabledBars()
+    local ns = fresh()
+    withDB({ { bars = {
+        { trackMode = "Buff", spellName = "Slice and Dice", enabled = false },
+    } } }, function()
+        local names = ns:GetTrackedAuraNames(nil)
+        assertx.assertNil(names["slice and dice"],
+            "a bar you switched off is not something you are tracking")
+    end)
+end
+
+function M.test_trackedNames_skipsOtherAutoGroups()
+    local ns = fresh()
+    withDB({
+        { autoTrack = "playerBuffs", bars = { { trackMode = "Buff", spellName = "Kept Bar" } } },
+    }, function()
+        local names = ns:GetTrackedAuraNames(nil)
+        assertx.assertNil(names["kept bar"],
+            "an auto group's stored bars are dormant, not tracked")
+    end)
+end
+
+function M.test_trackedNames_splitsCommaSeparatedLists()
+    local ns = fresh()
+    withDB({ { bars = {
+        { trackMode = "Buff", spellName = "Slice and Dice, Adrenaline Rush" },
+    } } }, function()
+        local names = ns:GetTrackedAuraNames(nil)
+        assertx.assertTrue(names["slice and dice"])
+        assertx.assertTrue(names["adrenaline rush"], "each token counts separately")
+    end)
+end
+
+function M.test_trackedNames_emptyWithoutDB()
+    local ns = fresh()
+    local names = ns:GetTrackedAuraNames(nil)
+    assertx.assertEqual(type(names), "table")
+    assertx.assertEqual(next(names), nil, "no saved variables yet means nothing tracked")
+end
+
+function M.test_auraTrackModesShared()
+    local ns = fresh()
+    assertx.assertTrue(ns.AURA_TRACK_MODES.Buff)
+    assertx.assertTrue(ns.AURA_TRACK_MODES.Debuff)
+    assertx.assertTrue(ns.AURA_TRACK_MODES.Proc)
+    assertx.assertNil(ns.AURA_TRACK_MODES.Cooldown)
+end
+
 return M
