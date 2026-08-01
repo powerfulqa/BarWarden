@@ -40,6 +40,10 @@ or the trinket proc you did not know to look for.
   something new. Off by default.
 - Bars you added by hand are kept while a group fills itself, and come back
   unchanged when you set Auto Track to Off.
+- **Alt-click a bar's icon** to hide just that spell from its own group,
+  without hiding it everywhere else. The new Hidden In This Group list under
+  Auto Track shows what you have hidden per group, so you can bring one back
+  or clear the lot.
 
 **Bars that light up instead of counting down.** A new display option for any
 bar, not just auto-tracked ones.

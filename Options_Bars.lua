@@ -24,6 +24,11 @@ local BAR_LIST_HEIGHT = 16
 -- visible even at the smallest window size; Groups and Bars use the same cap.
 local MAX_GROUP_ROWS = 6
 local MAX_BAR_ROWS = 6
+-- The banned-spells list under Auto Track uses a FIXED row count (never
+-- grown or shrunk) rather than scrolling, so its footprint stays constant
+-- regardless of how many spells are banned. See fitGroupHeight, further down.
+local MAX_BAN_ROWS = 6
+local BAN_ROW_HEIGHT = 16
 
 -- Blizzard's FauxScrollFrame_Update HIDES the whole scroll frame when the list
 -- fits without scrolling. Both lists have the rest of their column anchored to
@@ -771,6 +776,147 @@ local function CreateBarsTab(parent)
     end
 
     -- ========================================================================
+    -- BANNED SPELLS: management list for the Alt-click bans set from a bar's
+    -- icon (Bar.lua). Built directly with frames, not through BuildSettings /
+    -- GROUP_SETTINGS_SCHEMA above: a per-group list of unknown, changing
+    -- length is not something the declarative schema can express. Anchored
+    -- below the trailing spacer (groupLastWidget) from that schema.
+    --
+    -- Six FIXED rows (shown/hidden, never created or destroyed) keep this
+    -- section's total height constant no matter how many spells are banned,
+    -- or which of its two states - rows + Clear All vs. the single
+    -- empty-state line - is showing. That matters because fitGroupHeight
+    -- (further down this file) measures the scroll child's height once, the
+    -- first time the panel is shown, and caches the result; a section whose
+    -- footprint could change size after that measurement would either get
+    -- clipped or leave a dead gap.
+    -- ========================================================================
+    local banHeader = groupSettingsContent:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    banHeader:SetText("Hidden In This Group")
+    banHeader:SetPoint("TOPLEFT", groupSettingsWidgets.groupLastWidget, "BOTTOMLEFT", 6, -16)
+
+    local banEmptyText = groupSettingsContent:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    banEmptyText:SetJustifyH("LEFT")
+    if ns.ApplyWidth then ns:ApplyWidth(banEmptyText, 44) end
+    banEmptyText:SetText("Alt-click a bar's icon to hide it from this group.")
+    banEmptyText:SetPoint("TOPLEFT", banHeader, "BOTTOMLEFT", -6, -8)
+
+    -- Forward-declared: the row/button click handlers below call it, but it
+    -- has to walk `banRows` and `banClearAllBtn`, which do not exist yet.
+    local UpdateBanList
+
+    local banRows = {}
+    for i = 1, MAX_BAN_ROWS do
+        local row = CreateFrame("Button", nil, groupSettingsContent)
+        row:SetHeight(BAN_ROW_HEIGHT)
+        if i == 1 then
+            row:SetPoint("TOPLEFT", banHeader, "BOTTOMLEFT", -6, -8)
+        else
+            row:SetPoint("TOPLEFT", banRows[i - 1], "BOTTOMLEFT", 0, 0)
+        end
+        row:SetPoint("RIGHT", groupSettingsContent, "RIGHT", -6, 0)
+
+        local highlight = row:CreateTexture(nil, "HIGHLIGHT")
+        highlight:SetAllPoints()
+        highlight:SetTexture(1, 1, 1, 0.1)
+
+        local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        text:SetPoint("LEFT", row, "LEFT", 2, 0)
+        text:SetPoint("RIGHT", row, "RIGHT", -2, 0)
+        text:SetJustifyH("LEFT")
+        row.text = text
+
+        -- row.banKey is nil for the "N more hidden" overflow row (7th+ ban),
+        -- which is informational only: no tooltip, no click action.
+        row:SetScript("OnEnter", function(self)
+            if not self.banKey then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:AddLine(self.text:GetText() or "", 1, 1, 1)
+            GameTooltip:AddLine("Click to bring this back.", 0.6, 0.6, 0.6)
+            GameTooltip:Show()
+        end)
+        row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+        row:SetScript("OnClick", function(self)
+            if not self.banKey then return end
+            local g = getGroup()
+            if not g or not g.autoBanned then return end
+            g.autoBanned[self.banKey] = nil
+            if ns.InvalidateTrackedNames then ns:InvalidateTrackedNames() end
+            UpdateBanList()
+            if selectedGroupIndex and ns.ScanAutoGroup then ns:ScanAutoGroup(selectedGroupIndex) end
+        end)
+
+        banRows[i] = row
+    end
+
+    local banClearAllBtn = ns:CreateButton(groupSettingsContent, "Clear All", 100, function()
+        local g = getGroup()
+        if not g or not g.autoBanned then return end
+        wipe(g.autoBanned)
+        if ns.InvalidateTrackedNames then ns:InvalidateTrackedNames() end
+        UpdateBanList()
+        if selectedGroupIndex and ns.ScanAutoGroup then ns:ScanAutoGroup(selectedGroupIndex) end
+    end)
+    banClearAllBtn:SetPoint("TOPLEFT", banRows[MAX_BAN_ROWS], "BOTTOMLEFT", 6, -6)
+
+    -- Fixed sentinel marking the true bottom of this whole section, whichever
+    -- state is showing (its own anchor chain never changes). fitGroupHeight
+    -- measures against this instead of groupLastWidget once it exists.
+    local banListBottom = CreateFrame("Frame", nil, groupSettingsContent)
+    banListBottom:SetSize(1, 4)
+    banListBottom:SetPoint("TOPLEFT", banClearAllBtn, "BOTTOMLEFT", 0, -4)
+    groupSettingsWidgets.banListLastWidget = banListBottom
+
+    -- Repopulate the list for the selected group. A name-sorted list keeps
+    -- row order predictable between refreshes instead of following
+    -- pairs()'s undefined iteration order.
+    UpdateBanList = function()
+        local g = getGroup()
+        local banned = g and g.autoBanned
+
+        local list = {}
+        if banned then
+            for key, entry in pairs(banned) do
+                list[#list + 1] = { key = key, name = entry.name or key, id = entry.id }
+            end
+            table.sort(list, function(a, b) return a.name < b.name end)
+        end
+
+        local count = #list
+        if count == 0 then
+            for i = 1, MAX_BAN_ROWS do banRows[i]:Hide() end
+            banClearAllBtn:Hide()
+            banEmptyText:Show()
+            return
+        end
+
+        banEmptyText:Hide()
+        banClearAllBtn:Show()
+
+        for i = 1, MAX_BAN_ROWS do
+            local row = banRows[i]
+            if i == MAX_BAN_ROWS and count > MAX_BAN_ROWS then
+                -- Overflow: the last row becomes a plain "N more" line instead
+                -- of a ban entry, so all 6 rows stay occupied either way.
+                row.banKey = nil
+                row.text:SetText((count - (MAX_BAN_ROWS - 1)) .. " more hidden")
+                row:Show()
+            else
+                local item = list[i]
+                if item then
+                    row.banKey = item.key
+                    row.text:SetText(item.id and (item.name .. " (" .. item.id .. ")") or item.name)
+                    row:Show()
+                else
+                    row.banKey = nil
+                    row:Hide()
+                end
+            end
+        end
+    end
+
+    -- ========================================================================
     -- RIGHT PANEL: Bar List + Bar Editor
     -- ========================================================================
     -- Bars tab content: same full-page region as the Groups tab (they occupy
@@ -1431,7 +1577,10 @@ local function CreateBarsTab(parent)
     end
     local function fitGroupHeight()
         if groupHeightDone then return end
-        local last = groupSettingsWidgets.groupLastWidget
+        -- The banned-spells section (built above) sits below groupLastWidget
+        -- and has its own fixed-position bottom sentinel; measure against
+        -- that when it exists so the trim includes that section too.
+        local last = groupSettingsWidgets.banListLastWidget or groupSettingsWidgets.groupLastWidget
         local top = groupSettingsContent:GetTop()
         local bottom = last and last:GetBottom()
         if top and bottom and top > bottom then
@@ -1613,6 +1762,9 @@ local function CreateBarsTab(parent)
             groupSettingsScroll:Hide()
         end
         refreshGroupSettings()
+        -- Repopulate (or hide, via getGroup() returning nil) the banned-
+        -- spells list for whichever group is now selected.
+        UpdateBanList()
     end
 
     function frame:Refresh()

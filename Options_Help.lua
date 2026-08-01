@@ -194,7 +194,10 @@ local HELP_ENTRIES = {
           .. "show. A spell counts as already tracked whenever a bar for it "
           .. "exists in another group, even while that group is hidden, so a "
           .. "spell tracked only in a Combat Only group will not appear in the "
-          .. "auto group out of combat either.",
+          .. "auto group out of combat either. Alt-click a bar's icon to hide "
+          .. "just that spell from this one group. To bring it back, or clear "
+          .. "every one you have hidden, use the Hidden In This Group list "
+          .. "under Auto Track.",
     },
     {
         id = "condition-health-buff-class",
