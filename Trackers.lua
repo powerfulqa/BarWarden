@@ -231,15 +231,22 @@ ns.AUTO_TRACK_FEEDS = {
 }
 
 local function CompareExpiry(a, b)
+    -- Always-on auras pin above the timed ones: they never expire, so they have
+    -- no place in a soonest-first order. Ties are broken by name because every
+    -- one of them shares the same expiry and table.sort is unstable, which would
+    -- otherwise reshuffle the block on every scan.
+    if a.permanent ~= b.permanent then return a.permanent end
+    if a.permanent then return a.name < b.name end
     return a.expirationTime < b.expirationTime
 end
 
 -- Collect the auras on a feed's unit, soonest-expiring first.
 --
--- opts = { maxBars, maxDuration, onlyMine, skipNames, keepNames }
+-- opts = { maxBars, maxDuration, onlyMine, skipNames, keepNames, includePermanent }
 --   maxDuration tests the aura's FULL duration, not what is left: a one-hour
 --   flask with 30 seconds on it is still a flask, and testing remaining time
---   would surface long buffs at the exact moment they ran out.
+--   would surface long buffs at the exact moment they ran out. It only ever
+--   tests a timed aura; a permanent one has no duration to be too long.
 --   skipNames is a set of lower-cased names supplied by the caller, so this
 --   function stays pure and the whole filter chain is testable.
 --   keepNames is a set of lower-cased names, like skipNames, that must
@@ -249,17 +256,21 @@ end
 --   already up must not be evicted by truncation just because it happens to
 --   have longer left than something newer, or PlaceAutoAuras would read the
 --   held name's absence as a fade and free its slot.
+--   includePermanent keeps auras with no duration instead of dropping them
+--   (off by default: a bar with no countdown says nothing). Each entry is
+--   marked `permanent` so callers know which auras have no timer.
 function ns:CollectAutoAuras(feed, opts)
     local def = ns.AUTO_TRACK_FEEDS[feed]
     if not def then return {} end
 
     opts = opts or {}
-    local maxBars     = opts.maxBars or 10
-    local maxDuration = opts.maxDuration or 0
-    local skipNames   = opts.skipNames
-    local keepNames   = opts.keepNames
-    local onlyMine    = opts.onlyMine
-    local auraFunc    = (def.kind == "buff") and UnitBuff or UnitDebuff
+    local maxBars          = opts.maxBars or 10
+    local maxDuration      = opts.maxDuration or 0
+    local skipNames        = opts.skipNames
+    local keepNames        = opts.keepNames
+    local onlyMine         = opts.onlyMine
+    local includePermanent = opts.includePermanent
+    local auraFunc         = (def.kind == "buff") and UnitBuff or UnitDebuff
 
     local found = {}
     for i = 1, MAX_AURA_INDEX do
@@ -267,10 +278,14 @@ function ns:CollectAutoAuras(feed, opts)
             auraFunc(def.unit, i)
         if not name then break end
 
-        -- No duration means a permanent effect (class auras, presences). A bar
-        -- with no countdown tells the player nothing here.
-        local keep = (duration and duration > 0 and expirationTime) and true or false
-        if keep and maxDuration > 0 and duration > maxDuration then keep = false end
+        -- Mirrors the permanent test in ScanAuras above: no duration means a
+        -- permanent effect (class auras, presences). Without includePermanent
+        -- that is dropped, exactly as before; with it, it is kept and marked.
+        local timed = (duration and duration > 0 and expirationTime) and true or false
+        local keep = timed or includePermanent
+        -- maxDuration only ever tests a timed aura: `timed` guards it here so
+        -- a permanent aura with a nil duration cannot reach `duration > maxDuration`.
+        if keep and timed and maxDuration > 0 and duration > maxDuration then keep = false end
         if keep and onlyMine and not MINE_CASTERS[caster] then keep = false end
         if keep and skipNames and skipNames[string.lower(name)] then keep = false end
 
@@ -282,6 +297,7 @@ function ns:CollectAutoAuras(feed, opts)
                 count          = count or 0,
                 duration       = duration,
                 expirationTime = expirationTime,
+                permanent      = not timed,
             }
         end
     end

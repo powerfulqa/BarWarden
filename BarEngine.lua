@@ -1064,11 +1064,12 @@ function ns:ScanAutoGroup(frameIndex, unitFilter)
     end
 
     local auras = ns:CollectAutoAuras(feed, {
-        maxBars     = #group.bars,
-        maxDuration = groupData.autoMaxDuration or 0,
-        onlyMine    = groupData.autoOnlyMine,
-        skipNames   = skipNames,
-        keepNames   = keepNames,
+        maxBars          = #group.bars,
+        maxDuration      = groupData.autoMaxDuration or 0,
+        onlyMine         = groupData.autoOnlyMine,
+        skipNames        = skipNames,
+        keepNames        = keepNames,
+        includePermanent = groupData.autoIncludePermanent,
     })
 
     if groupData.autoStableOrder then
@@ -1087,9 +1088,12 @@ function ns:ScanAutoGroup(frameIndex, unitFilter)
             bd.spellId   = a.spellId
             bd.unit      = def.unit
             bd.trackMode = (def.kind == "buff") and "Buff" or "Debuff"
-            if ns:IsSwitchBar(bar) then
+            if ns:IsSwitchBar(bar) or a.permanent then
                 -- No timer to compare against, so activate on any state or
                 -- identity change instead of the expiry-tolerance check below.
+                -- a.permanent covers Include Always On: that aura has no
+                -- expiry either, so it takes the same no-countdown path as a
+                -- switch-mode bar.
                 if changed or bar.barState ~= BAR_STATE.ACTIVE or not bar.isStaticBar then
                     ns:ActivateStaticBar(bar, a.icon, a.name, a.count)
                 end

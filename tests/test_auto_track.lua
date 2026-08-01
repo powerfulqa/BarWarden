@@ -102,6 +102,104 @@ function M.test_maxDurationZeroDisablesTheLimit()
 end
 
 -- --------------------------------------------------------------------------
+-- Include Always On (opts.includePermanent)
+-- --------------------------------------------------------------------------
+
+function M.test_includePermanentOffStillDropsAlwaysOnAuras()
+    local ns = fresh()
+    -- Same shape as test_skipsPermanentAuras: confirms the default is
+    -- unchanged now that includePermanent exists as a choice.
+    mock.buffs.player[1] = aura("Righteous Fury", 25780, 0, 0)
+    local out = ns:CollectAutoAuras("playerBuffs", {})
+    assertx.assertEqual(#out, 0, "without includePermanent an always-on aura is still dropped")
+end
+
+function M.test_includePermanentKeepsAlwaysOnAndMarksEntries()
+    local ns = fresh()
+    mock.buffs.player[1] = aura("Righteous Fury", 25780, 0, 0)
+    mock.buffs.player[2] = aura("Slice and Dice", 5171, 20, 20)
+    local out = ns:CollectAutoAuras("playerBuffs", { includePermanent = true })
+    assertx.assertEqual(#out, 2)
+
+    local permanentEntry, timedEntry
+    for _, a in ipairs(out) do
+        if a.name == "Righteous Fury" then permanentEntry = a end
+        if a.name == "Slice and Dice" then timedEntry = a end
+    end
+    assertx.assertTrue(permanentEntry.permanent, "an always-on aura is marked permanent")
+    assertx.assertFalse(timedEntry.permanent, "a timed aura is marked not permanent")
+end
+
+function M.test_includePermanentSortsAlwaysOnAboveEveryTimedAura()
+    local ns = fresh()
+    -- The timed aura expires almost immediately (expiry 1) so the old,
+    -- expiry-only comparator would have sorted it first; only the permanence
+    -- pin explains it landing second here.
+    mock.buffs.player[1] = aura("Slice and Dice", 5171, 1, 1)
+    mock.buffs.player[2] = aura("Righteous Fury", 25780, 0, 0)
+    local out = ns:CollectAutoAuras("playerBuffs", { includePermanent = true })
+    assertx.assertEqual(#out, 2)
+    assertx.assertEqual(out[1].name, "Righteous Fury", "always-on pins above every timed aura")
+    assertx.assertEqual(out[2].name, "Slice and Dice")
+end
+
+function M.test_includePermanentTieBreaksByNameDeterministically()
+    local ns = fresh()
+    mock.buffs.player[1] = aura("Zeal", 1, 0, 0)
+    mock.buffs.player[2] = aura("Aura Mastery", 2, 0, 0)
+    local out = ns:CollectAutoAuras("playerBuffs", { includePermanent = true })
+    assertx.assertEqual(out[1].name, "Aura Mastery")
+    assertx.assertEqual(out[2].name, "Zeal")
+
+    -- Built again in the opposite order: without the name tie-break,
+    -- table.sort is free to leave two equal-key entries in either order, so
+    -- this could flip on a re-scan.
+    local ns2 = fresh()
+    mock.buffs.player[1] = aura("Aura Mastery", 2, 0, 0)
+    mock.buffs.player[2] = aura("Zeal", 1, 0, 0)
+    local out2 = ns2:CollectAutoAuras("playerBuffs", { includePermanent = true })
+    assertx.assertEqual(out2[1].name, "Aura Mastery")
+    assertx.assertEqual(out2[2].name, "Zeal")
+end
+
+function M.test_includePermanentIgnoresMaxDurationCap()
+    local ns = fresh()
+    mock.buffs.player[1] = aura("Righteous Fury", 25780, 0, 0)
+    local out = ns:CollectAutoAuras("playerBuffs", { includePermanent = true, maxDuration = 300 })
+    assertx.assertEqual(#out, 1, "an always-on aura has no duration to be too long")
+end
+
+function M.test_includePermanentMaxDurationDoesNotErrorOnNilDuration()
+    -- On 3.3.5a an always-on aura can report a nil duration/expirationTime
+    -- rather than 0; the mock returns exactly what is put in the table, so
+    -- build that shape by hand rather than through the aura() defaults.
+    local ns = fresh()
+    local a = aura("Righteous Fury", 25780, 0, 0)
+    a.duration = nil
+    a.expirationTime = nil
+    mock.buffs.player[1] = a
+    local ok, out = pcall(function()
+        return ns:CollectAutoAuras("playerBuffs", { includePermanent = true, maxDuration = 300 })
+    end)
+    assertx.assertTrue(ok, "maxDuration must not error against a permanent aura with nil duration")
+    assertx.assertEqual(#out, 1)
+    assertx.assertTrue(out[1].permanent)
+end
+
+function M.test_includePermanentTruncatesWithMixOfBoth()
+    local ns = fresh()
+    mock.buffs.player[1] = aura("Timed A",  1, 10, 10)
+    mock.buffs.player[2] = aura("Timed B",  2, 20, 20)
+    mock.buffs.player[3] = aura("Always A", 3, 0, 0)
+    mock.buffs.player[4] = aura("Always B", 4, 0, 0)
+    local out = ns:CollectAutoAuras("playerBuffs", { includePermanent = true, maxBars = 3 })
+    assertx.assertEqual(#out, 3, "maxBars is still respected with a mix of always-on and timed auras")
+    assertx.assertEqual(out[1].name, "Always A", "the always-on block survives truncation first")
+    assertx.assertEqual(out[2].name, "Always B")
+    assertx.assertEqual(out[3].name, "Timed A", "one timed slot remains, soonest first")
+end
+
+-- --------------------------------------------------------------------------
 -- Only Mine
 -- --------------------------------------------------------------------------
 

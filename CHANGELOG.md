@@ -25,6 +25,9 @@ or the trinket proc you did not know to look for.
 - **Skip Longer Than** keeps food, flasks and raid buffs out of the way, so the
   group holds the short-lived things that matter in a fight. It goes by how
   long the buff lasts in total, not how much is left.
+- **Include Always On** brings in things with no timer, like class buffs and
+  tracking, which are skipped by default. They sit in a fixed block above the
+  rest of the group instead of shuffling around.
 - **Max Bars** caps how many show at once. The soonest to expire win.
 - **Only Mine** limits the group to your own casts. On by default for target
   groups, off for groups watching yourself, so a debuff someone else put on you

@@ -409,8 +409,8 @@ local function CreateBarsTab(parent)
     -- block is last on the page: hiding it shortens the panel rather than
     -- leaving a hole in the middle of it.
     local AUTO_SUB_WIDGET_IDS = {
-        "grpAutoMaxBars", "grpAutoMaxDuration", "grpAutoOnlyMine", "grpAutoStableOrder",
-        "grpAutoSkipTracked",
+        "grpAutoMaxBars", "grpAutoMaxDuration", "grpAutoIncludePermanent", "grpAutoOnlyMine",
+        "grpAutoStableOrder", "grpAutoSkipTracked",
     }
     local function SetAutoSubWidgetsShown(shown)
         for _, id in ipairs(AUTO_SUB_WIDGET_IDS) do
@@ -722,6 +722,16 @@ local function CreateBarsTab(parent)
               g.autoMaxDuration = value
           end,
           spacing = 16 },
+        { type = "toggle", id = "grpAutoIncludePermanent", label = "Include Always On",
+          tooltip = "Also show things that have no timer, like class auras and "
+               .. "tracking. They sit at the top of the group and stay put.",
+          get = function() local g = getGroup(); return g and g.autoIncludePermanent end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoIncludePermanent = v and true or false
+              ns:RefreshBarSettings()
+          end,
+          offsetX = -12, spacing = 8 },
         { type = "toggle", id = "grpAutoOnlyMine", label = "Only Mine",
           tooltip = "Only show what you cast yourself.",
           get = function() local g = getGroup(); return g and g.autoOnlyMine end,
@@ -729,7 +739,7 @@ local function CreateBarsTab(parent)
               local g = getGroup(); if not g then return end
               g.autoOnlyMine = v and true or false
           end,
-          offsetX = -12, spacing = 8 },
+          spacing = 8 },
         { type = "toggle", id = "grpAutoStableOrder", label = "Keep Bars In Place",
           tooltip = "Keep each bar where it is for as long as it lasts, instead "
                .. "of reordering them as their timers change.",
