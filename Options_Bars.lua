@@ -1428,14 +1428,14 @@ local function CreateBarsTab(parent)
     -- Empty-state lines, shown when a list has no rows.
     local groupEmptyText = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     groupEmptyText:SetPoint("TOPLEFT", groupScrollFrame, "TOPLEFT", 4, -4)
-    groupEmptyText:SetWidth(170)
+    groupEmptyText:SetWidth((ns.SETTINGS_MAX_WIDTH or 300) - 20)
     groupEmptyText:SetJustifyH("LEFT")
     groupEmptyText:SetText("No groups yet. Click Add to create one.")
     groupEmptyText:Hide()
 
     local barEmptyText = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     barEmptyText:SetPoint("TOPLEFT", barScrollFrame, "TOPLEFT", 4, -4)
-    barEmptyText:SetWidth(180)
+    barEmptyText:SetWidth((ns.SETTINGS_MAX_WIDTH or 300) - 20)
     barEmptyText:SetJustifyH("LEFT")
     barEmptyText:Hide()
 
@@ -1493,8 +1493,8 @@ local function CreateBarsTab(parent)
         KeepListFrameShown(barScrollFrame, "BarWardenBarScrollScrollBar",
                            total > MAX_BAR_ROWS)
         if isAuto then
-            barEmptyText:SetText("This group fills itself. Your own bars are kept "
-                              .. "and come back when you set Auto Track to Off.")
+            barEmptyText:SetText("This group fills itself. Your own bars come back "
+                              .. "when Auto Track is Off.")
             barEmptyText:Show()
         elseif total == 0 then
             if selectedGroupIndex then
