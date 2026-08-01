@@ -447,6 +447,34 @@ function ns:GetTrackedAuraNames(exceptFrameIndex)
     return names
 end
 
+--- Combine the "already tracked elsewhere" names with this group's own banned
+--- list into the single skip set CollectAutoAuras consumes.
+---
+--- trackedNames is the cached, shared result of ns:GetTrackedAuraNames, read
+--- by every auto group's scan; a fresh table is always returned so writing a
+--- ban into it can never leak into that cache and poison another group's
+--- skip set. Either argument may be nil, and both keys are taken verbatim -
+--- both are already lower-cased by their producers. Returns nil (not an
+--- empty table) when there is nothing to skip at all, so CollectAutoAuras
+--- keeps its cheap "no skipNames" path (skipNames is only ever read behind
+--- an `if skipNames and skipNames[...]` check there).
+function ns:BuildAutoSkipSet(trackedNames, autoBanned)
+    if not trackedNames and not autoBanned then return nil end
+
+    local skip = {}
+    if trackedNames then
+        for name in pairs(trackedNames) do
+            skip[name] = true
+        end
+    end
+    if autoBanned then
+        for name in pairs(autoBanned) do
+            skip[name] = true
+        end
+    end
+    return skip
+end
+
 -- ----------------------------------------------------------------------------
 -- Cooldown Tracker
 -- ----------------------------------------------------------------------------

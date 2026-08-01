@@ -530,6 +530,55 @@ function M.test_auraTrackModesShared()
 end
 
 -- --------------------------------------------------------------------------
+-- ns:BuildAutoSkipSet: merge "already tracked elsewhere" names with a group's
+-- own banned list into the single skip set ns:CollectAutoAuras consumes.
+-- --------------------------------------------------------------------------
+
+function M.test_buildAutoSkipSet_mergesBothSources()
+    local ns = fresh()
+    local tracked    = { ["slice and dice"] = true }
+    local autoBanned = { ["blade flurry"] = { name = "Blade Flurry", id = 13877 } }
+    local out = ns:BuildAutoSkipSet(tracked, autoBanned)
+    assertx.assertTrue(out["slice and dice"], "an already-tracked name is still skipped")
+    assertx.assertTrue(out["blade flurry"], "a banned name is skipped too")
+end
+
+function M.test_buildAutoSkipSet_trackedNamesOnly()
+    local ns = fresh()
+    local tracked = { ["slice and dice"] = true }
+    local out = ns:BuildAutoSkipSet(tracked, nil)
+    assertx.assertTrue(out["slice and dice"])
+end
+
+function M.test_buildAutoSkipSet_autoBannedOnly()
+    local ns = fresh()
+    local autoBanned = { ["blade flurry"] = { name = "Blade Flurry", id = 13877 } }
+    local out = ns:BuildAutoSkipSet(nil, autoBanned)
+    assertx.assertTrue(out["blade flurry"])
+end
+
+function M.test_buildAutoSkipSet_nilNilReturnsNil()
+    local ns = fresh()
+    assertx.assertNil(ns:BuildAutoSkipSet(nil, nil),
+        "nothing to skip at all must return nil so CollectAutoAuras keeps its cheap path")
+end
+
+function M.test_buildAutoSkipSet_neverMutatesTrackedNames()
+    -- trackedNames is the cached result of ns:GetTrackedAuraNames, shared
+    -- across every group's scan. Writing a ban into it would poison that
+    -- cache for every other group reading the same table.
+    local ns = fresh()
+    local tracked    = { ["slice and dice"] = true }
+    local autoBanned = { ["blade flurry"] = { name = "Blade Flurry", id = 13877 } }
+    local out = ns:BuildAutoSkipSet(tracked, autoBanned)
+    assertx.assertNil(tracked["blade flurry"],
+        "the caller's trackedNames table must not gain the other group's ban")
+    assertx.assertEqual(next(tracked, "slice and dice"), nil,
+        "trackedNames must still contain only its original one key")
+    assertx.assertFalse(out == tracked, "a fresh table must be returned, not the input")
+end
+
+-- --------------------------------------------------------------------------
 -- ns:PlaceAutoAuras: Keep Bars In Place slot assignment
 --
 -- These are plain data tests: no mock auras, no live frames, just tables in

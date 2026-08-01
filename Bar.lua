@@ -211,28 +211,67 @@ function ns:CreateBarFrame(parent)
             local sid = bd.spellId
             local sname = bd.spellName
             local iid = bd.itemId
+            local shown = false
             if mode == "Item" and iid then
                 GameTooltip:SetHyperlink("item:" .. iid)
+                shown = true
             elseif sid then
                 GameTooltip:SetHyperlink("spell:" .. sid)
+                shown = true
             elseif sname and sname ~= "" then
                 local _, _, _, _, _, _, _, _, _, rid = GetSpellInfo(sname)
                 if rid then
                     GameTooltip:SetHyperlink("spell:" .. rid)
                 else
                     GameTooltip:AddLine(sname, 1, 1, 1)
-                    GameTooltip:Show()
                 end
+                shown = true
             else
                 local name = ns.GetBarDisplayName and ns.GetBarDisplayName(bd) or ""
                 if name ~= "" then
                     GameTooltip:AddLine(name, 1, 1, 1)
-                    GameTooltip:Show()
+                    shown = true
                 end
+            end
+            if shown then
+                -- Auto-tracking groups fill and empty themselves, so alt-click
+                -- is the one per-spell escape hatch; say so every time.
+                if bar.isAutoBar then
+                    GameTooltip:AddLine("Alt-click hides this from the group.", 0.6, 0.6, 0.6)
+                end
+                -- Re-Show after the extra AddLine so the tooltip resizes to
+                -- fit it; SetHyperlink already shows the tooltip on its own,
+                -- so this is a harmless repeat there rather than a new call.
+                GameTooltip:Show()
             end
         end)
         bar.icon:SetScript("OnLeave", function()
             GameTooltip:Hide()
+        end)
+
+        -- Alt-left-click bans this bar's spell from the group, per group. The
+        -- icon is the only mouse-enabled part of a bar (bars themselves stay
+        -- mouse-disabled so clicks pass through to the world), and isAutoBar
+        -- restricts this to auto-tracking slots so a stray alt-click on an
+        -- ordinary bar can never ban anything.
+        bar.icon:SetScript("OnMouseUp", function(self, button)
+            if button ~= "LeftButton" or not IsAltKeyDown() then return end
+            if not bar.isAutoBar then return end
+            local bd = bar.barData
+            if not bd then return end
+            local name = bd.name
+            if not name or name == "" then return end
+            local frameIndex = bar.frameIndex
+            if not frameIndex then return end
+            local groupData = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex]
+            if not groupData then return end
+
+            groupData.autoBanned = groupData.autoBanned or {}
+            groupData.autoBanned[string.lower(name)] = { name = name, id = bd.spellId }
+
+            if ns.InvalidateTrackedNames then ns:InvalidateTrackedNames() end
+            if ns.ScanAutoGroup then ns:ScanAutoGroup(frameIndex) end
+            ns:Print(name .. " hidden from " .. (groupData.name or "this group") .. ".")
         end)
     end
 
