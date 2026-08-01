@@ -91,7 +91,8 @@ local HELP_ENTRIES = {
         a = "Buff tracks a buff on you or another unit and shows its remaining "
           .. "time and stack count. Debuff tracks a debuff on your target or "
           .. "another unit; by default it shows only debuffs you applied. "
-          .. "Untick Only Mine to see debuffs from all sources.",
+          .. "Only Mine works the same way on either: tick it to count just "
+          .. "your own, untick it to count them from anyone.",
     },
     {
         id = "track-proc",
@@ -163,7 +164,11 @@ local HELP_ENTRIES = {
         a = "Yes. Group Conditions (on the Groups tab of Bar Control) apply to "
           .. "an entire group together: Hide When Inactive, Combat Only, Out of "
           .. "Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In "
-          .. "Instance. That saves ticking every bar individually.",
+          .. "Instance. That saves ticking every bar individually. Hide When "
+          .. "Inactive takes charge of the group once you use it: ticked hides "
+          .. "every bar while it has nothing to show, unticked keeps them all "
+          .. "visible even if single bars are set to hide. Leave it alone and "
+          .. "each bar decides for itself.",
     },
     {
         id = "condition-health-buff-class",
@@ -212,9 +217,21 @@ local HELP_ENTRIES = {
     {
         id = "duration-styles",
         q = "How can I change how the timer text reads?",
-        a = "Duration Style (Visuals tab) offers seconds with a decimal, whole "
-          .. "seconds, min:sec, short text, or an auto style that adapts to the "
-          .. "time left.",
+        a = "Two settings on the Visuals page. Text Format picks what a bar "
+          .. "shows: name and countdown, name only, countdown only, stacks, or "
+          .. "nothing. Duration Style picks how the countdown is written: "
+          .. "seconds with a decimal, whole seconds, min:sec, short text, or an "
+          .. "auto style that adapts to the time left. A single group can use "
+          .. "its own Text Format under Bar Control > Groups > Bar Overrides, "
+          .. "so you can change one group without touching the rest.",
+    },
+    {
+        id = "visuals-stacks",
+        q = "How do I see how many stacks something has?",
+        a = "Anything with two or more stacks shows the number on its icon "
+          .. "automatically, whatever text format you use. There is a Show "
+          .. "Stack Count switch on the Visuals page if you would rather not "
+          .. "have it.",
     },
 
     -- ===================================================================
@@ -286,9 +303,13 @@ local HELP_ENTRIES = {
     {
         id = "trouble-bars-not-showing",
         q = "My bars are not showing.",
-        a = "Check the addon is enabled (/bw enable). A group may have been "
-          .. "dragged off screen: type /bw reset to rebuild everything. Make "
-          .. "sure the bar has a valid spell name entered.",
+        a = "Most often the bar is set to hide while it has nothing to track. "
+          .. "Check Hide When Inactive on the bar, and under Group Conditions "
+          .. "for the whole group. Then check the bar's Enabled tickbox, that "
+          .. "the addon itself is on (/bw enable), and that the bar has a valid "
+          .. "spell name. Group conditions such as Combat Only hide the whole "
+          .. "group at once. If a group has been dragged off screen, /bw reset "
+          .. "puts them all back where you can see them.",
     },
     {
         id = "trouble-spell-not-tracked",
@@ -301,6 +322,16 @@ local HELP_ENTRIES = {
         id = "trouble-minimap-missing",
         q = "The minimap button is missing.",
         a = "Open /bw and tick Show Minimap Icon on the main BarWarden page.",
+    },
+    {
+        id = "trouble-undo",
+        q = "I made a mess of my layout. Can I get it back?",
+        a = "Type /bw restore to put back the layout you had before the last "
+          .. "big change. BarWarden takes a snapshot before anything that "
+          .. "replaces your bars: loading a profile or a class starter, "
+          .. "resetting to defaults, deleting a group or a bar, and upgrading "
+          .. "to a new version. Restoring takes a snapshot too, so running it "
+          .. "twice brings you back again.",
     },
     {
         id = "trouble-lua-errors",
