@@ -37,6 +37,25 @@ local function CompareAlpha(a, b)
     return na < nb
 end
 
+-- Runtime-only bar data for one auto-tracking slot. ScanAutoGroup overwrites
+-- the name and id each pass, so this is never written to SavedVariables: the
+-- group's real `bars` array stays untouched in the DB and comes back the
+-- moment auto-tracking is switched off.
+--
+-- `enabled` doubles as the occupied flag. An empty slot is a disabled bar,
+-- which the existing DeactivateBar path already knows to hide, so no new
+-- hide route is needed.
+local function NewAutoBarData()
+    return {
+        name       = "",
+        enabled    = false,
+        trackMode  = "Buff",
+        unit       = "player",
+        display    = { lingerTime = 0 },
+        conditions = {},
+    }
+end
+
 -- Backdrop table for group frames
 local GROUP_BACKDROP = {
     bgFile = "Interface\\Buttons\\WHITE8x8",
@@ -537,6 +556,30 @@ function ns:BuildBarsForFrame(frameIndex)
     end
     frame.bars = {}
 
+    -- An auto-tracking group holds slots, not configured bars: ScanAutoGroup
+    -- fills them from whatever is on the unit. They start disabled, which is
+    -- what keeps an unfilled slot hidden and out of the layout.
+    frame.isAutoGroup = frameData.autoTrack and true or false
+    if frame.isAutoGroup then
+        local slots = math.min(frameData.autoMaxBars or 10, MAX_BARS_PER_FRAME)
+        for i = 1, slots do
+            local bar = ns:AcquireBar(frame)
+            bar.barData    = NewAutoBarData()
+            bar.barIndex   = i
+            bar.frameIndex = frameIndex
+            bar.isAutoBar  = true
+            bar.barState   = ns.BAR_STATE and ns.BAR_STATE.INACTIVE or 0
+            if ns.ApplyVisualConfig then
+                ns:ApplyVisualConfig(bar)
+            end
+            bar:Hide()
+            table.insert(frame.bars, bar)
+        end
+        -- No drag-reorder for slots: their order is the aura order, and a
+        -- dropped ghost would have nothing meaningful to write back.
+        return
+    end
+
     -- Acquire and configure bars
     for i, barData in ipairs(frameData.bars) do
         if i > MAX_BARS_PER_FRAME then break end
@@ -544,6 +587,9 @@ function ns:BuildBarsForFrame(frameIndex)
         bar.barData = barData
         bar.barIndex = i
         bar.frameIndex = frameIndex
+        -- Bars come from a shared pool; a slot released by an auto group would
+        -- otherwise arrive here still flagged and be skipped by every scan.
+        bar.isAutoBar = false
         bar.barState = ns.BAR_STATE and ns.BAR_STATE.INACTIVE or 0
         -- Apply visual config immediately so font, texture, icon position, and
         -- text settings are correct on login, not just when the bar activates.
