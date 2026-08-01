@@ -189,7 +189,10 @@ local HELP_ENTRIES = {
           .. "to Off. Two things to expect: the group is empty until something "
           .. "is actually on you, so unlock your frames to position it, and "
           .. "test bars do not appear in it because there is nothing real to "
-          .. "show.",
+          .. "show. A spell counts as already tracked whenever a bar for it "
+          .. "exists in another group, even while that group is hidden, so a "
+          .. "spell tracked only in a Combat Only group will not appear in the "
+          .. "auto group out of combat either.",
     },
     {
         id = "condition-health-buff-class",

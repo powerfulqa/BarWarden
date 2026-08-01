@@ -165,6 +165,15 @@ F. **`smoothExpiry` masks a shortened refresh (B7).** The aura expiry smoothing
    trade-off is that a genuine re-application with a SHORTER duration is masked
    until it drains. A clean fix needs an absolute-time bar model (ClassTimer's
    approach), which is out of scope for the frozen engine. Rare on 3.3.5a; won't-fix.
+G. **Auto-track skip set checks bar existence, not visibility.** The `Skip Spells
+   I Already Track` filter (`ns:GetTrackedAuraNames`, Trackers.lua) asks whether a
+   bar for a spell exists in another group, not whether it is currently visible.
+   Testing visibility would make spells flicker between groups on every condition
+   change (a spell hides when its group hides, then appears in auto-track, then hides
+   again when the group shows). The cost is that a spell tracked only in a
+   conditionally-hidden group (for example, a buff in a Combat Only group) is
+   suppressed from auto-track while the group is hidden. Owner considered the
+   alternative behaviour and chose to keep this. Won't-fix.
 
 ## Resolved (kept for the record)
 
