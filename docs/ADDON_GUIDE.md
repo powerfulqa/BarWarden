@@ -183,11 +183,16 @@ runtime-only `barData` that is never written to SavedVariables, and
 intact in the DB and comes back untouched when `autoTrack` is cleared.
 
 An auto slot is a real bar drawn through the same rendering path as any
-other, so group-level and addon-wide visuals apply, and so do group and
-per-bar conditions and layout. Per-bar **display** overrides do not: `NewAutoBarData`
-(FrameManager.lua) seeds `display = { lingerTime = 0 }` only, so glow on
-ready, pulse on ready, linger, and the per-bar colour/scale overrides read as
-absent on an auto bar. See CODE_REVIEW.md item 21.
+other, so group-level and addon-wide visuals apply, so do the group's own
+conditions, and so does layout. A slot's own `conditions` and `display`
+tables are inert, not merely unused: `ScanBar` returns at the `bar.isAutoBar`
+check (BarEngine.lua) well before the line that reads `BarConditionsMet`, and
+`ns:ScanAutoGroup` evaluates `groupData.groupConditions` only, never a slot's
+own conditions. `NewAutoBarData` (FrameManager.lua) seeds `display =
+{ lingerTime = 0 }` only, so glow on ready, pulse on ready, linger, and the
+per-bar colour/scale overrides read as absent too. There is also no UI path
+to set either, since the per-bar editor closes for an auto group. See
+CODE_REVIEW.md item 21.
 
 Two invariants hold the design together:
 
