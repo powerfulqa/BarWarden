@@ -216,6 +216,78 @@ local function ScanAuras(auraFunc, unit, barConfig, spell, filterMine)
 end
 
 -- ----------------------------------------------------------------------------
+-- Auto-tracking feeds
+--
+-- A group can fill itself from everything on a unit rather than from bars the
+-- user named. Each feed resolves to a unit and an aura channel; the name is
+-- what gets stored on the group, so it must stay stable.
+-- ----------------------------------------------------------------------------
+
+ns.AUTO_TRACK_FEEDS = {
+    playerBuffs   = { unit = "player", kind = "buff"   },
+    playerDebuffs = { unit = "player", kind = "debuff" },
+    targetBuffs   = { unit = "target", kind = "buff"   },
+    targetDebuffs = { unit = "target", kind = "debuff" },
+}
+
+local function CompareExpiry(a, b)
+    return a.expirationTime < b.expirationTime
+end
+
+-- Collect the auras on a feed's unit, soonest-expiring first.
+--
+-- opts = { maxBars, maxDuration, onlyMine, skipNames }
+--   maxDuration tests the aura's FULL duration, not what is left: a one-hour
+--   flask with 30 seconds on it is still a flask, and testing remaining time
+--   would surface long buffs at the exact moment they ran out.
+--   skipNames is a set of lower-cased names supplied by the caller, so this
+--   function stays pure and the whole filter chain is testable.
+function ns:CollectAutoAuras(feed, opts)
+    local def = ns.AUTO_TRACK_FEEDS[feed]
+    if not def then return {} end
+
+    opts = opts or {}
+    local maxBars     = opts.maxBars or 10
+    local maxDuration = opts.maxDuration or 0
+    local skipNames   = opts.skipNames
+    local onlyMine    = opts.onlyMine
+    local auraFunc    = (def.kind == "buff") and UnitBuff or UnitDebuff
+
+    local found = {}
+    for i = 1, MAX_AURA_INDEX do
+        local name, _, icon, count, _, duration, expirationTime, caster, _, _, spellId =
+            auraFunc(def.unit, i)
+        if not name then break end
+
+        -- No duration means a permanent effect (class auras, presences). A bar
+        -- with no countdown tells the player nothing here.
+        local keep = (duration and duration > 0 and expirationTime) and true or false
+        if keep and maxDuration > 0 and duration > maxDuration then keep = false end
+        if keep and onlyMine and not MINE_CASTERS[caster] then keep = false end
+        if keep and skipNames and skipNames[string.lower(name)] then keep = false end
+
+        if keep then
+            found[#found + 1] = {
+                name           = name,
+                icon           = icon,
+                spellId        = spellId,
+                count          = count or 0,
+                duration       = duration,
+                expirationTime = expirationTime,
+            }
+        end
+    end
+
+    table.sort(found, CompareExpiry)
+
+    for i = #found, maxBars + 1, -1 do
+        found[i] = nil
+    end
+
+    return found
+end
+
+-- ----------------------------------------------------------------------------
 -- Cooldown Tracker
 -- ----------------------------------------------------------------------------
 
