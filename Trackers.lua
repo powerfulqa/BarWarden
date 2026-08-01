@@ -381,9 +381,21 @@ end
 -- visibility would make auras flicker between groups as conditions changed,
 -- which is worse than a rule the player can predict.
 --
--- Matching is by name because that is how bars are configured and what the
--- aura API returns. A bar tracking a bare spell id, or an aura group such as
--- "@Stunned", therefore does not suppress its spell in a feed.
+-- Matching is by resolved spell name, since that is what the aura API
+-- returns. A bar can be configured by name or by spell id (getSpell above
+-- reads `spellName or spellId`), so both are resolved to a name here: an id
+-- goes through GetSpellInfo, and a name is used as-is. A numeric token inside
+-- a comma-separated spellName (typed in as an id) is likewise resolved.
+-- An aura group reference such as "@Stunned" still does not suppress: it only
+-- expands to a list of ids at scan time (getSpellTokens), not here. See
+-- CODE_REVIEW.md item 16.
+local function addResolvedSpellId(names, spellId)
+    local resolvedName = GetSpellInfo(spellId)
+    if resolvedName then
+        names[string.lower(resolvedName)] = true
+    end
+end
+
 function ns:GetTrackedAuraNames(exceptFrameIndex)
     local names = {}
     local frames = BarWardenDB and BarWardenDB.frames
@@ -393,13 +405,22 @@ function ns:GetTrackedAuraNames(exceptFrameIndex)
         -- An auto group's own bars are dormant, so they track nothing.
         if idx ~= exceptFrameIndex and not frameData.autoTrack and frameData.bars then
             for _, bd in ipairs(frameData.bars) do
-                if ns.AURA_TRACK_MODES[bd.trackMode] and bd.enabled ~= false
-                   and type(bd.spellName) == "string" and bd.spellName ~= "" then
-                    -- A bar accepts a comma-separated list of names.
-                    for token in string.gmatch(bd.spellName, "[^,]+") do
-                        local trimmed = strtrim(token)
-                        if trimmed ~= "" then
-                            names[string.lower(trimmed)] = true
+                if ns.AURA_TRACK_MODES[bd.trackMode] and bd.enabled ~= false then
+                    if bd.spellId then
+                        addResolvedSpellId(names, bd.spellId)
+                    end
+                    if type(bd.spellName) == "string" and bd.spellName ~= "" then
+                        -- A bar accepts a comma-separated list of names/ids.
+                        for token in string.gmatch(bd.spellName, "[^,]+") do
+                            local trimmed = strtrim(token)
+                            if trimmed ~= "" then
+                                local asId = tonumber(trimmed)
+                                if asId then
+                                    addResolvedSpellId(names, asId)
+                                else
+                                    names[string.lower(trimmed)] = true
+                                end
+                            end
                         end
                     end
                 end

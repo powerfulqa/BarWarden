@@ -361,18 +361,58 @@ function M.test_trackedNames_splitsCommaSeparatedLists()
     end)
 end
 
-function M.test_trackedNames_ignoresBareSpellIdBars()
-    -- A bar tracking a bare spell id (no name typed in) is the normal shape
-    -- for that setup: spellName stays nil. The gmatch guard checks
-    -- type(bd.spellName) == "string" before ever touching it, so this must
-    -- not error and must not count as tracking anything.
+function M.test_trackedNames_resolvesBareSpellIdBars()
+    -- The owner's exact bug: a bar configured by spellId alone (no name typed
+    -- in) must still suppress its spell. spellId is resolved through
+    -- GetSpellInfo rather than dropped by the old
+    -- `type(bd.spellName) == "string"` guard.
+    local ns = fresh()
+    mock.spellInfo[13877] = { name = "Blade Flurry", spellId = 13877 }
+    withDB({ { bars = {
+        { trackMode = "Buff", spellId = 13877, spellName = nil },
+    } } }, function()
+        local names = ns:GetTrackedAuraNames(nil)
+        assertx.assertTrue(names["blade flurry"],
+            "a bar tracking a bare spell id resolves to its name")
+    end)
+end
+
+function M.test_trackedNames_unknownSpellIdIsSkippedWithoutError()
+    -- GetSpellInfo returns nil for an id with no registry entry; that must
+    -- not error and must not add anything to the set.
     local ns = fresh()
     withDB({ { bars = {
-        { trackMode = "Buff", spellId = 11305, spellName = nil },
+        { trackMode = "Buff", spellId = 99999999, spellName = nil },
     } } }, function()
         local names = ns:GetTrackedAuraNames(nil)
         assertx.assertEqual(type(names), "table")
-        assertx.assertEqual(next(names), nil, "a bare spell id tracks nothing by name")
+        assertx.assertEqual(next(names), nil, "an unresolvable spell id tracks nothing")
+    end)
+end
+
+function M.test_trackedNames_resolvesNumericTokenInSpellName()
+    -- spellName can carry a comma-separated mix of names and typed-in ids.
+    local ns = fresh()
+    mock.spellInfo[13877] = { name = "Blade Flurry", spellId = 13877 }
+    withDB({ { bars = {
+        { trackMode = "Buff", spellName = "Slice and Dice, 13877" },
+    } } }, function()
+        local names = ns:GetTrackedAuraNames(nil)
+        assertx.assertTrue(names["slice and dice"])
+        assertx.assertTrue(names["blade flurry"], "a numeric token resolves via GetSpellInfo")
+    end)
+end
+
+function M.test_trackedNames_combinesSpellNameAndSpellId()
+    -- Both fields can be set on one bar; each contributes its own name(s).
+    local ns = fresh()
+    mock.spellInfo[13877] = { name = "Blade Flurry", spellId = 13877 }
+    withDB({ { bars = {
+        { trackMode = "Buff", spellName = "Rupture", spellId = 13877 },
+    } } }, function()
+        local names = ns:GetTrackedAuraNames(nil)
+        assertx.assertTrue(names["rupture"])
+        assertx.assertTrue(names["blade flurry"])
     end)
 end
 

@@ -82,12 +82,17 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     `starterPrompted` / `v1ImportPrompted` / `backups` live in SavedVariables
     without being declared in `ns.DEFAULTS`, even though `ns:DBSet` treats the
     schema as authoritative. Low.
-16. **Auto-track duplicate matching is by name only.** A curated bar tracking a
-    bare spell id, or an aura group such as `@Stunned`, does not suppress its
-    spell in an auto group with Skip Spells I Already Track on. Matching by name
-    is what the player means by "I already track that"; ids and groups would need
-    `ns:GetTrackedAuraNames` to resolve names through `GetSpellInfo`, which is
-    not safe to call for arbitrary ids on a 4 Hz path without caching.
+16. **Auto-track duplicate matching still misses aura groups.** Matching is by
+    resolved spell name: `ns:GetTrackedAuraNames` reads both `spellName` and
+    `spellId` and resolves ids through `GetSpellInfo`, so a curated bar
+    configured by name or by bare spell id suppresses correctly either way.
+    An aura group reference such as `@Stunned` still does not suppress,
+    because it only expands to a list of ids at scan time
+    (`getSpellTokens`), not inside `ns:GetTrackedAuraNames`. Resolving each id
+    in the group through `GetSpellInfo` would fix it; the function is cached
+    per group (`trackedNamesCache`, BarEngine.lua) and only recomputed on a
+    bar edit, so the earlier "not safe on a 4 Hz path" objection to calling
+    `GetSpellInfo` here does not apply.
 17. **Auto groups with nothing to show still hide while frames are locked.**
     An auto group holds slots rather than configured bars, so with nothing on
     the unit every slot is hidden and `AreAllBarsHidden` (BarEngine.lua) hides
