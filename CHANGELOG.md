@@ -13,6 +13,28 @@ exhaustive notes.
 
 ---
 
+### v2.2.0
+
+**Groups that fill themselves.** Point a group at all buffs or all debuffs, on
+you or on your target, and it shows whatever is there without you naming a
+single spell. That means a bar for the boss debuff you have never seen before,
+or the trinket proc you did not know to look for.
+
+- New **Auto Track** setting on the Groups tab, with four choices: all buffs on
+  player, all debuffs on player, all buffs on target, all debuffs on target.
+- **Skip Longer Than** keeps food, flasks and raid buffs out of the way, so the
+  group holds the short-lived things that matter in a fight. It goes by how
+  long the buff lasts in total, not how much is left.
+- **Max Bars** caps how many show at once. The soonest to expire win.
+- **Only Mine** limits the group to your own casts. On by default for target
+  groups, off for groups watching yourself, so a debuff someone else put on you
+  still shows.
+- **Skip Spells I Already Track** leaves out anything a bar in another group
+  covers, so the group only holds what you have not set up yourself. Off by
+  default, so nothing is hidden unless you ask for it.
+- Bars you added by hand are kept while a group fills itself, and come back
+  unchanged when you set Auto Track to Off.
+
 ### v2.1.1
 
 A full read-through of the addon, and the fixes that came out of it. Two of

@@ -171,6 +171,24 @@ local HELP_ENTRIES = {
           .. "each bar decides for itself.",
     },
     {
+        id = "auto-track",
+        q = "Can a group fill itself?",
+        a = "Yes. On the Groups tab of Bar Control, set Auto Track to one of "
+          .. "the four choices: all buffs or all debuffs, on you or on your "
+          .. "target. The group then shows whatever is there, without you "
+          .. "naming a single spell, which is how you catch a boss debuff or "
+          .. "an unfamiliar proc. Max Bars caps how many show at once, and "
+          .. "Skip Longer Than keeps food, flasks and raid buffs out of the "
+          .. "way. Only Mine limits it to your own casts, and Skip Spells I "
+          .. "Already Track leaves out anything a bar in another group covers, "
+          .. "so the group only holds what you have not set up yourself. Bars "
+          .. "you added by hand are kept and come back when you set Auto Track "
+          .. "to Off. Two things to expect: the group is empty until something "
+          .. "is actually on you, so unlock your frames to position it, and "
+          .. "test bars do not appear in it because there is nothing real to "
+          .. "show.",
+    },
+    {
         id = "condition-health-buff-class",
         q = "What do Health Below, Require Buff, and Require Class do?",
         a = "Health Below % shows the bar only when your HP drops under a "

@@ -30,8 +30,8 @@ and the `BARWARDEN_*` / `__BarWarden_*` provenance globals.
 | [AuraGroups.lua](../AuraGroups.lua) | Named aura equivalency groups (`@Stunned`, `@Bleeding`, ...). |
 | [Conditions.lua](../Conditions.lua) | Visibility-condition registry + evaluator, plus the standalone resolvers every draw path must use: `ResolveHideWhenInactive` (group when set, else bar) and `IsBarEnabled`. |
 | [Bar.lua](../Bar.lua) / [BarPool.lua](../BarPool.lua) | Bar frame construction (`nameText` / `timeText` / `stackText`) + the object pool. Never `CreateFrame("StatusBar")` outside these. |
-| [BarEngine.lua](../BarEngine.lua) | The scan loop, bar state machine, OnUpdate depletion, resource bars. |
-| [Trackers.lua](../Trackers.lua) | Per-`trackMode` checkers (aura / cooldown / item / resource). |
+| [BarEngine.lua](../BarEngine.lua) | The scan loop, bar state machine, OnUpdate depletion, resource bars, and driving auto-tracking group slots (`ns:ScanAutoGroup`). |
+| [Trackers.lua](../Trackers.lua) | Per-`trackMode` checkers (aura / cooldown / item / resource), plus the auto-tracking helpers: whole-unit aura collection (`ns:CollectAutoAuras`) and the cross-group tracked-name set (`ns:GetTrackedAuraNames`). |
 | [FrameManager.lua](../FrameManager.lua) / [DragReorder.lua](../DragReorder.lua) | Group frames + layout; drag-to-reorder. |
 | [ActivityTracker.lua](../ActivityTracker.lua) | Passive usage tracking + per-spell stats store. |
 | [ClassPresets.lua](../ClassPresets.lua) | Per-class / per-spec starter profiles + the loaders. |

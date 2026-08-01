@@ -173,6 +173,51 @@ BarEngine. Call that; do not relayout per bar.
 Any work added inside the scan loop multiplies by bar count times 4Hz.
 Profile additions before you ship them.
 
+### Auto-tracking groups
+
+A group with `autoTrack` set does not build bars from its `bars` array. It
+builds `autoMaxBars` slots (`ns:BuildBarsForFrame`), each carrying a
+runtime-only `barData` that is never written to SavedVariables, and
+`ns:ScanAutoGroup` (BarEngine.lua) fills them each pass from
+`ns:CollectAutoAuras` (Trackers.lua). The group's own `bars` array stays
+intact in the DB and comes back untouched when `autoTrack` is cleared.
+
+Two invariants hold the design together:
+
+- `bar.isAutoBar` makes `ScanBar` early-return, so the per-bar scanner and
+  `ScanAutoGroup` never fight over the same frame.
+- An empty slot is a **disabled** bar (`barData.enabled = false`). That routes
+  it through the existing disabled-bar branch in `ns:DeactivateBar`, which
+  hides it, so no new hide path was needed and an unfilled slot never leaves a
+  blank row in the layout.
+
+`ns.AURA_TRACK_MODES` (Utils.lua) is the shared definition of "this track mode
+reads auras". Both the event dispatcher and the duplicate filter
+(`ns:GetTrackedAuraNames`, Trackers.lua) read it; they have to agree or the
+filter silently disagrees with the scanner.
+
+`ns:InvalidateTrackedNames()` (BarEngine.lua) clears the per-group
+tracked-name cache built by `ns:GetTrackedAuraNames`. It is called from
+`ns:RefreshBarSettings` (Core.lua) and directly from the bar Enabled checkbox
+handler in [Options_Bars.lua](../Options_Bars.lua); those are the only two
+call sites, so a third place that can change what counts as "already tracked"
+needs its own call.
+
+Five keys on a group, all nil on a normal group:
+
+| Key | Effect |
+|---|---|
+| `autoTrack` | Feed name (`playerBuffs`, `playerDebuffs`, `targetBuffs`, `targetDebuffs`), or nil for a normal group |
+| `autoMaxBars` | Pre-allocated slots, capped at `MAX_BARS_PER_FRAME` |
+| `autoMaxDuration` | Skip auras whose full duration exceeds this. 0 = no limit |
+| `autoOnlyMine` | Count only your own casts. Seeded on for the two target feeds, off for the two player feeds when Auto Track is first set; the seed only fires once, so switching feeds afterwards leaves whatever the player has |
+| `autoSkipTracked` | Skip spells a bar in another group already tracks (matched by name via `ns:GetTrackedAuraNames`) |
+
+Drag-reorder is gated off for auto groups in `ns:EnableDragReorder`
+([DragReorder.lua](../DragReorder.lua)), and `ns:ReleaseBar` (BarPool.lua)
+clears drag handlers so a pooled bar cannot carry them into a slot it is
+recycled into.
+
 ---
 
 ## Required patterns

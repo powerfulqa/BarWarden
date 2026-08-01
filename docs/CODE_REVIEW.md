@@ -82,7 +82,24 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     `starterPrompted` / `v1ImportPrompted` / `backups` live in SavedVariables
     without being declared in `ns.DEFAULTS`, even though `ns:DBSet` treats the
     schema as authoritative. Low.
-16. **Options shell differs structurally from EbonClearance.** BarWarden creates
+16. **Auto-track duplicate matching is by name only.** A curated bar tracking a
+    bare spell id, or an aura group such as `@Stunned`, does not suppress its
+    spell in an auto group with Skip Spells I Already Track on. Matching by name
+    is what the player means by "I already track that"; ids and groups would need
+    `ns:GetTrackedAuraNames` to resolve names through `GetSpellInfo`, which is
+    not safe to call for arbitrary ids on a 4 Hz path without caching.
+17. **Auto groups are invisible while empty**, so they are positioned by
+    unlocking frames rather than by using test mode (there are no real auras for
+    test mode to show). If this proves awkward in play, filling the slots with
+    dummy bars while unlocked is the natural follow-up.
+18. **Switching an auto group straight from a target feed to a player feed
+    leaves Only Mine ticked.** `autoOnlyMine` is only seeded the first time
+    Auto Track is set (while it is still nil); the seeding guard cannot tell a
+    value it seeded from one the player deliberately chose, so it never
+    re-seeds on a later feed change. Real but cosmetic - the player unticks it
+    once - and re-seeding on every feed change would clobber a deliberate
+    choice instead.
+19. **Options shell differs structurally from EbonClearance.** BarWarden creates
     each category frame parented to `UIParent` and gives it a body via
     `content:SetAllPoints(child)`; EC parents category frames to
     `InterfaceOptionsFramePanelContainer` and applies **no** addon-owned
