@@ -25,8 +25,8 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Aura equivalency groups** like `@Stunned`, `@Bleeding`, `@Silenced`, `@Feared`, `@Rooted` - one bar tracks any spell in that group
 - **Auto-tracking groups** - point a group at all buffs or all debuffs, on you
   or on your target, and it fills itself. No need to name the spell, so boss
-  debuffs and unfamiliar procs get a bar too. Filter out long buffs like food
-  and flasks, cap how many show at once, and optionally leave out anything you
+  debuffs and unfamiliar procs get a bar too. Leave out long buffs like food
+  and flasks, cap how many show at once, and optionally skip anything you
   already track elsewhere.
 - **LibSharedMedia support** gives access to textures and fonts from all LSM-compatible addons on your client, plus BarWarden's own 13 bar textures and 15 fonts
 - **5 duration display styles**: seconds with decimal, whole seconds, min:sec, short text, or auto-adapting

@@ -157,7 +157,7 @@ F. **`smoothExpiry` masks a shortened refresh (B7).** The aura expiry smoothing
   bodies are either the category frame itself or a ScrollFrame's scroll child
   (never `SetAllPoints` between panel and body), and its auto-hide hides the
   scrollbar only. Worth copying that shape if the options shell is ever
-  reworked; see also backlog item 16.
+  reworked; see also backlog item 19.
 
 - **v2.1.1 whole-addon audit.** Three parallel subsystem passes (engine, data,
   UI) plus a cross-cutting sweep, every finding re-verified against source.
