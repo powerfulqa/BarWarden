@@ -337,7 +337,7 @@ local function CreateBarsTab(parent)
             local cw = math.min(w, ns.SETTINGS_MAX_WIDTH or 300)
             groupSettingsContent:SetWidth(cw)
             local ddW = math.max(120, cw - 60)
-            for _, id in ipairs({ "grpSortDD", "grpGrowthDD", "grpTextureDD", "grpTextFormatDD" }) do
+            for _, id in ipairs({ "grpSortDD", "grpGrowthDD", "grpTextureDD", "grpTextFormatDD", "grpAutoTrackDD" }) do
                 local dd = groupSettingsWidgets[id]
                 if dd then UIDropDownMenu_SetWidth(dd, ddW) end
             end
@@ -394,6 +394,31 @@ local function CreateBarsTab(parent)
         { text = "Stacks Only",       value = "STACKS"        },
         { text = "None",              value = "NONE"          },
     }
+
+    -- Auto-tracking feeds. Values must match the keys in ns.AUTO_TRACK_FEEDS.
+    local autoTrackItems = {
+        { text = "Off",                   value = ""              },
+        { text = "All buffs on player",   value = "playerBuffs"   },
+        { text = "All debuffs on player", value = "playerDebuffs" },
+        { text = "All buffs on target",   value = "targetBuffs"   },
+        { text = "All debuffs on target", value = "targetDebuffs" },
+    }
+
+    -- The auto sub-settings mean nothing with no feed picked, so they hide.
+    -- BuildSettings positions widgets once, at build time, which is why this
+    -- block is last on the page: hiding it shortens the panel rather than
+    -- leaving a hole in the middle of it.
+    local AUTO_SUB_WIDGET_IDS = {
+        "grpAutoMaxBars", "grpAutoMaxDuration", "grpAutoOnlyMine", "grpAutoSkipTracked",
+    }
+    local function SetAutoSubWidgetsShown(shown)
+        for _, id in ipairs(AUTO_SUB_WIDGET_IDS) do
+            local w = groupSettingsWidgets[id]
+            if w then
+                if shown then w:Show() else w:Hide() end
+            end
+        end
+    end
 
     -- Forward-declared so schema `set` closures below can re-run the group
     -- settings Refresh (e.g. to re-check the Custom Bar Colour toggle after the
@@ -607,12 +632,79 @@ local function CreateBarsTab(parent)
           set = function(_, v) local g = getGroup(); if not g then return end
               if not g.groupConditions then g.groupConditions = {} end; g.groupConditions.hideInVehicle = v; ns:RefreshBarSettings() end,
           spacing = 2 },
-        { type = "toggle", id = "groupLastWidget", label = "Only In Instance",
+        { type = "toggle", label = "Only In Instance",
           tooltip = "Only show this entire group inside a dungeon, raid, arena, or battleground.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.onlyInInstance end,
           set = function(_, v) local g = getGroup(); if not g then return end
               if not g.groupConditions then g.groupConditions = {} end; g.groupConditions.onlyInInstance = v; ns:RefreshBarSettings() end,
           spacing = 2 },
+
+        -- Auto tracking. Last on the page on purpose: its sub-settings hide
+        -- when no feed is picked, and BuildSettings lays widgets out once.
+        { type = "header", text = "Auto Track", spacing = 16, offsetX = 10, id = "grpAutoHeader" },
+        { type = "dropdown", id = "grpAutoTrackDD", label = "Track", items = autoTrackItems, width = 150,
+          tooltip = "Fill this group by itself with every buff or debuff on you "
+               .. "or your target, instead of adding bars one spell at a time. "
+               .. "The bars you added by hand are kept and come back when you "
+               .. "set this to Off.",
+          get = function() local g = getGroup(); return g and g.autoTrack or "" end,
+          set = function(_, value)
+              local g = getGroup(); if not g then return end
+              g.autoTrack = (value ~= "" and value) or nil
+              if g.autoTrack then
+                  g.autoMaxBars     = g.autoMaxBars     or 10
+                  g.autoMaxDuration = g.autoMaxDuration or 300
+                  if g.autoOnlyMine == nil then
+                      -- On a target, your own casts are what you are managing.
+                      -- On yourself, a debuff someone else put there is exactly
+                      -- the thing you want to see.
+                      g.autoOnlyMine = (value == "targetBuffs" or value == "targetDebuffs")
+                  end
+              end
+              ns:RebuildAllFrames()
+              frame:Refresh()
+          end,
+          onChange = function(value) SetAutoSubWidgetsShown(value ~= nil and value ~= "") end,
+          offsetX = -16, spacing = 28 },
+        { type = "slider", id = "grpAutoMaxBars", label = "Max Bars", min = 1, max = 30, step = 1,
+          width = 150, stretch = true,
+          tooltip = "How many bars this group can show at once.",
+          get = function() local g = getGroup(); return g and g.autoMaxBars or 10 end,
+          set = function(_, value)
+              local g = getGroup(); if not g then return end
+              g.autoMaxBars = value
+              ns:RebuildAllFrames()
+          end,
+          offsetX = 10, spacing = 16 },
+        { type = "slider", id = "grpAutoMaxDuration", label = "Skip Longer Than", min = 0, max = 1800, step = 30,
+          width = 150, stretch = true,
+          tooltip = "Leave out anything that lasts longer than this, so food, "
+               .. "flasks and raid buffs stay out of the way. Set it to 0 to "
+               .. "show everything.",
+          get = function() local g = getGroup(); return g and (g.autoMaxDuration ~= nil and g.autoMaxDuration or 300) end,
+          set = function(_, value)
+              local g = getGroup(); if not g then return end
+              g.autoMaxDuration = value
+          end,
+          spacing = 16 },
+        { type = "toggle", id = "grpAutoOnlyMine", label = "Only Mine",
+          tooltip = "Only show what you cast yourself.",
+          get = function() local g = getGroup(); return g and g.autoOnlyMine end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoOnlyMine = v and true or false
+          end,
+          offsetX = 10, spacing = 8 },
+        { type = "toggle", id = "grpAutoSkipTracked", label = "Skip Spells I Already Track",
+          tooltip = "Leave out anything a bar in another group already shows, "
+               .. "so this group only holds what you have not set up yourself.",
+          get = function() local g = getGroup(); return g and g.autoSkipTracked end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoSkipTracked = v and true or false
+          end,
+          spacing = 4 },
+        { type = "spacer", id = "groupLastWidget", height = 4 },
     }
 
     refreshGroupSettings = ns:BuildSettings(groupSettingsContent, GROUP_SETTINGS_SCHEMA, groupSettingsWidgets,
@@ -723,6 +815,10 @@ local function CreateBarsTab(parent)
         if not selectedGroupIndex then ns:Print("Select a group first."); return end
         local g = BarWardenDB.frames[selectedGroupIndex]
         if not g then return end
+        if g.autoTrack then
+            ns:Print("This group fills itself. Set Auto Track to Off to add bars by hand.")
+            return
+        end
         local maxBars = ns.MAX_BARS_PER_FRAME or 30
         if #g.bars >= maxBars then
             ns:Print("Maximum of " .. maxBars .. " bars per group reached.")
@@ -740,6 +836,10 @@ local function CreateBarsTab(parent)
         if not selectedGroupIndex or not selectedBarIndex then ns:Print("Select a bar first."); return end
         local g = BarWardenDB.frames[selectedGroupIndex]
         if not g then return end
+        if g.autoTrack then
+            ns:Print("This group fills itself. Set Auto Track to Off to change its bars.")
+            return
+        end
         local bar = g.bars[selectedBarIndex]
         if not bar then return end
         -- Capture the bar itself; the popup is not modal, so re-reading the
@@ -1342,10 +1442,12 @@ local function CreateBarsTab(parent)
     end
 
     local function UpdateBarList()
-        local bars = {}
-        if selectedGroupIndex and BarWardenDB and BarWardenDB.frames[selectedGroupIndex] then
-            bars = BarWardenDB.frames[selectedGroupIndex].bars or {}
-        end
+        local groupData = selectedGroupIndex and BarWardenDB
+                          and BarWardenDB.frames[selectedGroupIndex]
+        -- An auto group's stored bars are dormant while it fills itself, so
+        -- listing them would offer rows that do nothing.
+        local isAuto = groupData and groupData.autoTrack
+        local bars = (not isAuto and groupData and groupData.bars) or {}
         local offset = FauxScrollFrame_GetOffset(barScrollFrame)
         local total = #bars
 
@@ -1357,7 +1459,11 @@ local function CreateBarsTab(parent)
         FauxScrollFrame_Update(barScrollFrame, total, MAX_BAR_ROWS, BAR_LIST_HEIGHT)
         KeepListFrameShown(barScrollFrame, "BarWardenBarScrollScrollBar",
                            total > MAX_BAR_ROWS)
-        if total == 0 then
+        if isAuto then
+            barEmptyText:SetText("This group fills itself. Your own bars are kept "
+                              .. "and come back when you set Auto Track to Off.")
+            barEmptyText:Show()
+        elseif total == 0 then
             if selectedGroupIndex then
                 barEmptyText:SetText("No bars in this group yet. Click + to add one.")
             else
