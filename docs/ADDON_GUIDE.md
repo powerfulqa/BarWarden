@@ -182,6 +182,13 @@ runtime-only `barData` that is never written to SavedVariables, and
 `ns:CollectAutoAuras` (Trackers.lua). The group's own `bars` array stays
 intact in the DB and comes back untouched when `autoTrack` is cleared.
 
+An auto slot is a real bar drawn through the same rendering path as any
+other, so group-level and addon-wide visuals apply, and so do group and
+per-bar conditions and layout. Per-bar **display** overrides do not: `NewAutoBarData`
+(FrameManager.lua) seeds `display = { lingerTime = 0 }` only, so glow on
+ready, pulse on ready, linger, and the per-bar colour/scale overrides read as
+absent on an auto bar. See CODE_REVIEW.md item 21.
+
 Two invariants hold the design together:
 
 - `bar.isAutoBar` makes `ScanBar` early-return, so the per-bar scanner and

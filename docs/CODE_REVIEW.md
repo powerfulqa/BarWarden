@@ -109,6 +109,20 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     would remove a whole class of layout bug (see the v2.1.1 detach entry
     below), but it touches all five panels, so it is a deliberate refactor
     rather than a patch. Med effort, low risk, good payoff.
+20. **Test mode has no guard in `ScanAutoGroup`.** `ScanBar` early-returns on
+    `ns.testMode and bar.isTestBar`, but `ns:ScanAutoGroup` (BarEngine.lua) has
+    no equivalent check. `ns:ActivateTestMode` activates any bar that passes
+    `ns:IsBarEnabled`, which an occupied auto slot does, so it can briefly show
+    a fake timer that the next real scan overwrites. Nothing breaks and
+    nothing persists, but the Help "Can a group fill itself?" answer's claim
+    that test bars do not appear in an auto group is only strictly true while
+    the group is empty. Low, cosmetic.
+21. **Per-bar display settings never reach an auto slot.** `NewAutoBarData`
+    (FrameManager.lua) supplies `display = { lingerTime = 0 }` only, so glow on
+    ready, pulse on ready, linger, and the per-bar colour/scale overrides never
+    apply to an auto bar, since they are read from `bar.barData.display`.
+    Group-level and addon-wide visuals still apply; this is intended, and
+    ADDON_GUIDE's auto-tracking section now says so. Low.
 
 ## Audit decisions (intentional - do not "fix")
 

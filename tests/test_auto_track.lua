@@ -290,6 +290,21 @@ function M.test_trackedNames_splitsCommaSeparatedLists()
     end)
 end
 
+function M.test_trackedNames_ignoresBareSpellIdBars()
+    -- A bar tracking a bare spell id (no name typed in) is the normal shape
+    -- for that setup: spellName stays nil. The gmatch guard checks
+    -- type(bd.spellName) == "string" before ever touching it, so this must
+    -- not error and must not count as tracking anything.
+    local ns = fresh()
+    withDB({ { bars = {
+        { trackMode = "Buff", spellId = 11305, spellName = nil },
+    } } }, function()
+        local names = ns:GetTrackedAuraNames(nil)
+        assertx.assertEqual(type(names), "table")
+        assertx.assertEqual(next(names), nil, "a bare spell id tracks nothing by name")
+    end)
+end
+
 function M.test_trackedNames_emptyWithoutDB()
     local ns = fresh()
     local names = ns:GetTrackedAuraNames(nil)

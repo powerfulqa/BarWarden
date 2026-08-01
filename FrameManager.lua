@@ -561,7 +561,7 @@ function ns:BuildBarsForFrame(frameIndex)
     -- what keeps an unfilled slot hidden and out of the layout.
     frame.isAutoGroup = frameData.autoTrack and true or false
     if frame.isAutoGroup then
-        local slots = math.min(frameData.autoMaxBars or 10, MAX_BARS_PER_FRAME)
+        local slots = math.max(1, math.min(frameData.autoMaxBars or 10, MAX_BARS_PER_FRAME))
         for i = 1, slots do
             local bar = ns:AcquireBar(frame)
             bar.barData    = NewAutoBarData()

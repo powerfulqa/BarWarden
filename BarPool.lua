@@ -39,6 +39,7 @@ function ns:ReleaseBar(bar)
     bar.stacks = nil
     bar.textElapsed = nil
     bar.isTestBar = nil
+    bar.isAutoBar = nil
     bar._lastSparkX = nil
     bar:SetValue(0)
     if bar.nameText then bar.nameText:SetText("") end

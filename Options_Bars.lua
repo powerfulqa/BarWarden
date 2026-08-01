@@ -674,7 +674,15 @@ local function CreateBarsTab(parent)
           set = function(_, value)
               local g = getGroup(); if not g then return end
               g.autoMaxBars = value
-              ns:RebuildAllFrames()
+              -- CreateSlider fires onChange on every drag step, so a full
+              -- ns:RebuildAllFrames() here would tear down and recreate every
+              -- group in the addon up to 30 times on one drag. Rebuild just
+              -- this group's bars instead, matching the other Bars-tab
+              -- setters (Width/Scale/Columns) that target one group.
+              ns:BuildBarsForFrame(selectedGroupIndex)
+              if ns.RebuildAllBarsCache then ns:RebuildAllBarsCache() end
+              local gf = ns.groupFrames[selectedGroupIndex]
+              if gf then ns:UpdateGroupLayout(gf) end
           end,
           offsetX = 10, spacing = 16 },
         { type = "slider", id = "grpAutoMaxDuration", label = "Skip Longer Than", min = 0, max = 1800, step = 30,
@@ -1564,9 +1572,17 @@ local function CreateBarsTab(parent)
             selectedGroupIndex = #frames > 0 and 1 or nil
         end
         if selectedGroupIndex then
-            local bars = frames[selectedGroupIndex].bars or {}
-            if selectedBarIndex and (selectedBarIndex < 1 or selectedBarIndex > #bars) then
-                selectedBarIndex = #bars > 0 and 1 or nil
+            local gd = frames[selectedGroupIndex]
+            if gd.autoTrack then
+                -- An auto group offers no bar to edit: the list above shows it
+                -- empty (its stored bars are dormant), so a surviving selection
+                -- would open the editor on a row the panel says does not exist.
+                selectedBarIndex = nil
+            else
+                local bars = gd.bars or {}
+                if selectedBarIndex and (selectedBarIndex < 1 or selectedBarIndex > #bars) then
+                    selectedBarIndex = #bars > 0 and 1 or nil
+                end
             end
         else
             selectedBarIndex = nil

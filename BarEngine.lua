@@ -1100,11 +1100,19 @@ function ns:RebuildAllBarsCache()
     -- Bars just changed, so which spells are "already tracked" may have too.
     wipe(trackedNamesCache)
     local flat = {}
+    -- Most users have no auto group, and OnUnitAura/OnTargetChanged run on
+    -- every throttled per-unit UNIT_AURA (hundreds of calls a second in a
+    -- 25-man raid), so this flag lets those handlers skip ScanAutoGroups
+    -- entirely instead of paying a RunScan + pcall for nothing.
+    ns.hasAutoGroups = false
     for _, group in pairs(ns.groupFrames or {}) do
         if group.bars then
             for _, bar in ipairs(group.bars) do
                 flat[#flat + 1] = bar
             end
+        end
+        if group.isAutoGroup then
+            ns.hasAutoGroups = true
         end
     end
     ns.allBars = flat
@@ -1156,14 +1164,18 @@ function ns:OnUnitAura(unit)
     if unit == "target" and ns.ScanDebuffActivity then ns:ScanDebuffActivity() end
     ScanBarsByMode(AURA_MODES, unit)
     -- Auto groups react on the event too, not just on the next 0.25s tick.
-    RunScan(function() ScanAutoGroups(unit) end)
+    if ns.hasAutoGroups then
+        RunScan(ScanAutoGroups, unit)
+    end
 end
 
 function ns:OnTargetChanged()
     ns:ScanDebuffActivity()
     if ns.ClearStableExpiry then ns:ClearStableExpiry("target") end
     ScanBarsByMode(AURA_MODES, "target")
-    RunScan(function() ScanAutoGroups("target") end)
+    if ns.hasAutoGroups then
+        RunScan(ScanAutoGroups, "target")
+    end
 end
 
 function ns:OnFocusChanged()
