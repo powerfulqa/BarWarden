@@ -522,7 +522,7 @@ local function CreateBarsTab(parent)
         -- Group-level bar visuals. These override the addon-wide look from the
         -- Visuals page for just this group's bars; left on Inherit / off, they
         -- use the global default.
-        { type = "header", text = "Bar Overrides", spacing = 16, offsetX = 10 },
+        { type = "header", text = "Bar Overrides", spacing = 16, offsetX = 10, large = true },
         { type = "dropdown", id = "grpTextureDD", label = "Bar Texture", items = groupTextureItems, width = 150,
           tooltip = "Texture for this group's bars. Inherit uses the addon-wide "
                .. "texture set on the Visuals page.",
@@ -608,7 +608,7 @@ local function CreateBarsTab(parent)
         -- Bar Colour", dropdowns/sliders at the same x as their counterparts
         -- higher up). Do not "tidy" these back to a uniform value without
         -- re-deriving the running total from the top of the schema.
-        { type = "header", text = "Group Conditions", spacing = 16, offsetX = -4, id = "grpCondHeader" },
+        { type = "header", text = "Group Conditions", spacing = 16, offsetX = -4, id = "grpCondHeader", large = true },
         { type = "toggle", label = "Hide When Inactive",
           tooltip = "Controls the whole group once you use it: ticked hides "
                .. "every bar while it has nothing to show, unticked keeps them "
@@ -668,7 +668,7 @@ local function CreateBarsTab(parent)
         -- Auto tracking. Last on the page on purpose: BuildSettings lays widgets
         -- out once, so a block whose sub-settings hide has to sit at the end or
         -- hiding them punches a hole through the middle of the panel.
-        { type = "header", text = "Auto Track", spacing = 16, offsetX = 6, id = "grpAutoHeader" },
+        { type = "header", text = "Auto Track", spacing = 16, offsetX = 6, id = "grpAutoHeader", large = true },
         { type = "dropdown", id = "grpAutoTrackDD", label = "Track", items = autoTrackItems, width = 150,
           tooltip = "Fill this group by itself with every buff or debuff on you "
                .. "or your target, instead of adding bars one spell at a time. "

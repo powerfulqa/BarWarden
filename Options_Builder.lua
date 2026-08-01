@@ -35,7 +35,9 @@ local addonName, ns = ...
 --
 -- Supported entry types:
 --
---   { type = "header",  text = <string>, spacing = <px> }
+--   { type = "header",  text = <string>, spacing = <px>, large = <bool?> }
+--                       -- large: GameFontNormalLarge instead of GameFontNormal,
+--                       -- for a header that needs to read as a section break.
 --   { type = "note",    text = <string|function>, style = "normal"|"disabled",
 --                       id = <string?>, spacing = <px?> }
 --   { type = "spacer",  height = <px> }
@@ -115,7 +117,11 @@ end
 local BUILDERS = {}
 
 BUILDERS.header = function(parent, entry)
-    local fs = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    -- entry.large picks the bigger font for a header that needs to read as a
+    -- section break rather than just another label; default keeps every
+    -- existing header (built before this option existed) unchanged.
+    local font = entry.large and "GameFontNormalLarge" or "GameFontNormal"
+    local fs = parent:CreateFontString(nil, "ARTWORK", font)
     fs:SetText(entry.text or "")
     return fs
 end
