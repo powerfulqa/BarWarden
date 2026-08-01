@@ -1031,6 +1031,19 @@ function ns:ScanAutoGroup(frameIndex, unitFilter)
         skipNames   = skipNames,
     })
 
+    if groupData.autoStableOrder then
+        local held = {}
+        for i, bar in ipairs(group.bars) do
+            local bd = bar.barData
+            -- A slot is occupied only while its bar is enabled; `enabled`
+            -- doubles as the occupied flag for an auto slot.
+            if bd and bd.enabled and bd.name ~= "" then
+                held[i] = bd.name
+            end
+        end
+        auras = ns:PlaceAutoAuras(held, auras, #group.bars)
+    end
+
     for i, bar in ipairs(group.bars) do
         local a  = auras[i]
         local bd = bar.barData

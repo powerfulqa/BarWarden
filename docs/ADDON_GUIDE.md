@@ -215,7 +215,7 @@ handler in [Options_Bars.lua](../Options_Bars.lua); those are the only two
 call sites, so a third place that can change what counts as "already tracked"
 needs its own call.
 
-Five keys on a group, all nil on a normal group:
+Six keys on a group, all nil on a normal group:
 
 | Key | Effect |
 |---|---|
@@ -224,6 +224,7 @@ Five keys on a group, all nil on a normal group:
 | `autoMaxDuration` | Skip auras whose full duration exceeds this. 0 = no limit |
 | `autoOnlyMine` | Count only your own casts. Seeded on for the two target feeds, off for the two player feeds when Auto Track is first set; the seed only fires once, so switching feeds afterwards leaves whatever the player has |
 | `autoSkipTracked` | Skip spells a bar in another group already tracks (matched by name via `ns:GetTrackedAuraNames`) |
+| `autoStableOrder` | Keep Bars In Place: an aura stays in the slot it first appeared in for as long as it lasts, instead of the soonest-expiring sort reshuffling every slot on each tick or refresh. Only a fade frees a slot. `ns:ScanAutoGroup` builds the held-name list from the live slots and hands it to `ns:PlaceAutoAuras` (Trackers.lua), the tested half that decides the new placement; the untested half is just reading `bar.barData` to build that list |
 
 Drag-reorder is gated off for auto groups in `ns:EnableDragReorder`
 ([DragReorder.lua](../DragReorder.lua)), and `ns:ReleaseBar` (BarPool.lua)

@@ -32,6 +32,9 @@ or the trinket proc you did not know to look for.
 - **Skip Spells I Already Track** leaves out anything a bar in another group
   covers, so the group only holds what you have not set up yourself. Off by
   default, so nothing is hidden unless you ask for it.
+- **Keep Bars In Place** stops the bars reordering as timers count down: each
+  one stays put for as long as it lasts, and only fading frees its spot for
+  something new. Off by default.
 - Bars you added by hand are kept while a group fills itself, and come back
   unchanged when you set Auto Track to Off.
 

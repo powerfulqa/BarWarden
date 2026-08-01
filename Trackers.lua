@@ -287,6 +287,58 @@ function ns:CollectAutoAuras(feed, opts)
     return found
 end
 
+--- Decide which slot each aura occupies when the group is holding positions.
+---
+--- held[i] is the name currently in slot i, or nil for a free slot. An aura
+--- whose name is already held stays where it is, so a bar does not move while
+--- it is up. Whatever is left fills the free slots in the order given, which
+--- is soonest-expiring first.
+---
+--- Returns a sparse array: result[i] is the aura for slot i, or nil if that
+--- slot has nothing.
+function ns:PlaceAutoAuras(held, auras, slotCount)
+    local result = {}
+    if not auras or #auras == 0 or not slotCount or slotCount <= 0 then
+        return result
+    end
+
+    -- Held names claim their slot first, first match wins. `claimed` is keyed
+    -- by the aura table itself so two slots that remember the same name (a
+    -- target with the same debuff from two casters) cannot both grab one
+    -- entry: the second slot finds nothing left and falls through to the
+    -- free-slot pass below.
+    local claimed = {}
+    for i = 1, slotCount do
+        local name = held and held[i]
+        if name then
+            for _, a in ipairs(auras) do
+                if not claimed[a] and a.name == name then
+                    result[i] = a
+                    claimed[a] = true
+                    break
+                end
+            end
+        end
+    end
+
+    -- Free slots fill ascending, taking auras in the order given (soonest-
+    -- expiring first), skipping whatever the pass above already claimed.
+    local nextAura = 1
+    for i = 1, slotCount do
+        if not result[i] then
+            while nextAura <= #auras and claimed[auras[nextAura]] do
+                nextAura = nextAura + 1
+            end
+            if nextAura > #auras then break end
+            result[i] = auras[nextAura]
+            claimed[auras[nextAura]] = true
+            nextAura = nextAura + 1
+        end
+    end
+
+    return result
+end
+
 -- Names of auras that a bar in some other group already tracks, lower-cased,
 -- for the auto-track "Skip Spells I Already Track" setting.
 --

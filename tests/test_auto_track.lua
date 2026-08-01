@@ -320,4 +320,100 @@ function M.test_auraTrackModesShared()
     assertx.assertNil(ns.AURA_TRACK_MODES.Cooldown)
 end
 
+-- --------------------------------------------------------------------------
+-- ns:PlaceAutoAuras: Keep Bars In Place slot assignment
+--
+-- These are plain data tests: no mock auras, no live frames, just tables in
+-- the shape ns:CollectAutoAuras already returns (soonest-expiring first).
+-- --------------------------------------------------------------------------
+
+function M.test_placeAutoAuras_emptyOrNilInputsReturnEmptyTable()
+    local ns = fresh()
+    assertx.assertEqual(type(ns:PlaceAutoAuras(nil, nil, 5)), "table")
+    assertx.assertEqual(next(ns:PlaceAutoAuras(nil, nil, 5)), nil)
+    assertx.assertEqual(next(ns:PlaceAutoAuras(nil, {}, 5)), nil)
+    assertx.assertEqual(next(ns:PlaceAutoAuras({ [1] = "A" }, nil, 5)), nil)
+end
+
+function M.test_placeAutoAuras_heldAuraKeepsSlotWhileOthersChurn()
+    local ns = fresh()
+    -- Sorted soonest-first: C, B, A - but A is held in slot 1, so it must not
+    -- move there even though it is now the last to expire.
+    local auras = { aura("C", 3, 3), aura("B", 2, 5), aura("A", 1, 100) }
+    local held  = { [1] = "A" }
+    local out = ns:PlaceAutoAuras(held, auras, 3)
+    assertx.assertEqual(out[1].name, "A", "the held name stays in its slot")
+    assertx.assertEqual(out[2].name, "C", "free slots fill soonest-expiring first")
+    assertx.assertEqual(out[3].name, "B")
+end
+
+function M.test_placeAutoAuras_fadeFreesSlotForNewAura()
+    local ns = fresh()
+    -- A held in slot 1 has faded and is no longer in auras; B held in slot 2
+    -- is still up. The new aura C takes the freed slot 1, not slot 3.
+    local auras = { aura("C", 3, 3), aura("B", 2, 5) }
+    local held  = { [1] = "A", [2] = "B" }
+    local out = ns:PlaceAutoAuras(held, auras, 2)
+    assertx.assertEqual(out[1].name, "C", "a faded slot is freed for the lowest new aura")
+    assertx.assertEqual(out[2].name, "B", "the still-held aura does not move")
+end
+
+function M.test_placeAutoAuras_duplicateNamesDoNotDoubleClaim()
+    local ns = fresh()
+    -- Two slots both remember "X" (two different casters had it before, Only
+    -- Mine off), but only one aura named X currently exists. The first slot
+    -- wins it; the second must not also grab it and must be treated as free.
+    local auras = { aura("X", 1, 10) }
+    local held  = { [1] = "X", [2] = "X" }
+    local out = ns:PlaceAutoAuras(held, auras, 2)
+    assertx.assertEqual(out[1].name, "X")
+    assertx.assertNil(out[2], "the second slot's claim is not honoured twice")
+end
+
+function M.test_placeAutoAuras_duplicateNamesLeaveSlotFreeForAnotherAura()
+    local ns = fresh()
+    local auras = { aura("X", 1, 10), aura("Y", 2, 20) }
+    local held  = { [1] = "X", [2] = "X" }
+    local out = ns:PlaceAutoAuras(held, auras, 2)
+    assertx.assertEqual(out[1].name, "X")
+    assertx.assertEqual(out[2].name, "Y", "the freed second slot takes the next aura in order")
+end
+
+function M.test_placeAutoAuras_truncatesToSlotCount()
+    local ns = fresh()
+    local auras = {
+        aura("A", 1, 10), aura("B", 2, 20), aura("C", 3, 30),
+        aura("D", 4, 40), aura("E", 5, 50),
+    }
+    local out = ns:PlaceAutoAuras(nil, auras, 2)
+    assertx.assertEqual(out[1].name, "A")
+    assertx.assertEqual(out[2].name, "B")
+    assertx.assertNil(out[3], "never places more than slotCount, and never above it")
+end
+
+function M.test_placeAutoAuras_heldShorterThanSlotCount()
+    local ns = fresh()
+    -- held only knows about slot 1; slots 2 and 3 are simply unheld and fill
+    -- like normal.
+    local auras = { aura("A", 1, 10), aura("B", 2, 20), aura("C", 3, 30) }
+    local held  = { [1] = "A" }
+    local out = ns:PlaceAutoAuras(held, auras, 3)
+    assertx.assertEqual(out[1].name, "A")
+    assertx.assertEqual(out[2].name, "B")
+    assertx.assertEqual(out[3].name, "C")
+end
+
+function M.test_placeAutoAuras_sortedOrderChangesButHeldAurasStayPut()
+    local ns = fresh()
+    -- This is the motivating case: all three names are held, so a refresh
+    -- that reorders the sorted feed (C now outlasts A and B) must not move
+    -- any bar. Every held name is still found and returned to its own slot.
+    local auras = { aura("B", 2, 5), aura("A", 1, 10), aura("C", 3, 100) }
+    local held  = { [1] = "A", [2] = "B", [3] = "C" }
+    local out = ns:PlaceAutoAuras(held, auras, 3)
+    assertx.assertEqual(out[1].name, "A")
+    assertx.assertEqual(out[2].name, "B")
+    assertx.assertEqual(out[3].name, "C")
+end
+
 return M

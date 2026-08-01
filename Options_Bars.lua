@@ -409,7 +409,8 @@ local function CreateBarsTab(parent)
     -- block is last on the page: hiding it shortens the panel rather than
     -- leaving a hole in the middle of it.
     local AUTO_SUB_WIDGET_IDS = {
-        "grpAutoMaxBars", "grpAutoMaxDuration", "grpAutoOnlyMine", "grpAutoSkipTracked",
+        "grpAutoMaxBars", "grpAutoMaxDuration", "grpAutoOnlyMine", "grpAutoStableOrder",
+        "grpAutoSkipTracked",
     }
     local function SetAutoSubWidgetsShown(shown)
         for _, id in ipairs(AUTO_SUB_WIDGET_IDS) do
@@ -714,6 +715,15 @@ local function CreateBarsTab(parent)
               g.autoOnlyMine = v and true or false
           end,
           offsetX = -12, spacing = 8 },
+        { type = "toggle", id = "grpAutoStableOrder", label = "Keep Bars In Place",
+          tooltip = "Keep each bar where it is for as long as it lasts, instead "
+               .. "of reordering them as their timers change.",
+          get = function() local g = getGroup(); return g and g.autoStableOrder end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoStableOrder = v and true or false
+          end,
+          spacing = 4 },
         { type = "toggle", id = "grpAutoSkipTracked", label = "Skip Spells I Already Track",
           tooltip = "Leave out anything a bar in another group already shows, "
                .. "so this group only holds what you have not set up yourself.",
