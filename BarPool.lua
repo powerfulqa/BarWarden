@@ -46,5 +46,13 @@ function ns:ReleaseBar(bar)
     if bar.stackText then bar.stackText:SetText(""); bar.stackText:Hide() end
     if bar.iconTexture then bar.iconTexture:SetTexture(nil) end
     bar.glowStartTime = nil
+    -- Drag handlers are attached per group, so they must not survive a pool
+    -- round-trip. An auto-tracking group never enables them, so a recycled bar
+    -- would keep a handler nothing strips, and a dropped ghost rewrites the
+    -- group's saved bar list.
+    bar:SetScript("OnMouseDown", nil)
+    bar:SetScript("OnMouseUp", nil)
+    bar:EnableMouse(false)
+    bar.dragEnabled = false
     table.insert(ns.barPool, bar)
 end
