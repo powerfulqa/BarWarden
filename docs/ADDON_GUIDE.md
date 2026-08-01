@@ -277,6 +277,7 @@ takes a group override MUST be read through its resolver, never straight off
 |---------|----------|------------|
 | Text format | `ns:GetBarTextFormat(bar)` ([BarEngine.lua](../BarEngine.lua)) | group (`group.textFormat`) then global |
 | Hide when inactive | `ns:ResolveHideWhenInactive(bar)` ([Conditions.lua](../Conditions.lua)) | group when set, else bar (see below) |
+| Switch mode (on/off, no countdown) | `ns:IsSwitchBar(bar)` ([Conditions.lua](../Conditions.lua)) | group (`group.barStyle`) when set, else bar (`display.switchMode`) |
 | Bar texture / colour | resolved inside [Bar.lua](../Bar.lua) `ApplyVisualConfig` | bar then group then global |
 
 A group reaches its data from a live bar via
@@ -293,6 +294,15 @@ It was briefly an OR of bar-and-group (v2.1.0). That was wrong: an OR can only
 ever *add* hiding, so a group whose bars all set the flag individually could
 never be revealed from the group control, which is the entire reason the control
 exists. Do not "simplify" it back.
+
+`ns:IsSwitchBar` mirrors that same group-over-bar shape for switch mode:
+`group.barStyle == "SWITCH"` or `"COUNTDOWN"` overrides every bar in the group
+in either direction, and an untouched group (`nil` / `""`) leaves it to the
+bar's own `display.switchMode`. Switch mode writes no new rendering: it routes
+into `ns:ActivateStaticBar` ([BarEngine.lua](../BarEngine.lua)), the same full
+fill / no-OnUpdate / blank-timer path a permanent aura already uses, so an
+active tracked thing reads as filled and an inactive one is the ordinary dim
+empty bar.
 
 Adding a new group override means: the widget in
 [Options_Bars.lua](../Options_Bars.lua) `GROUP_SETTINGS_SCHEMA` (with an

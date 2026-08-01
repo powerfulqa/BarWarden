@@ -254,6 +254,15 @@ local HELP_ENTRIES = {
           .. "Stack Count switch on the Visuals page if you would rather not "
           .. "have it.",
     },
+    {
+        id = "bar-style",
+        q = "Can a bar just show on or off instead of counting down?",
+        a = "Yes. Turn on Show as On or Off for a bar and it fills while the "
+          .. "thing it tracks is active and sits empty the rest of the time, "
+          .. "with no ticking countdown. You can set it per bar in the bar's "
+          .. "own settings, or for a whole group at once with the Bar Style "
+          .. "dropdown under Bar Control > Groups > Bar Overrides.",
+    },
 
     -- ===================================================================
     { section = "profiles", title = "Profiles & Starters" },

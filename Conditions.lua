@@ -77,6 +77,23 @@ function ns:ResolveHideWhenInactive(bar)
     return not not (barCond and barCond.hideWhenInactive)
 end
 
+-- Resolve "switch mode" (on/off, no countdown) for a live bar.
+--
+-- Same group-over-bar shape as ResolveHideWhenInactive: the group's Bar
+-- Style is authoritative once set, in both directions, so a group can force
+-- every bar in it to read as a switch (or force countdown bars back on) even
+-- if individual bars disagree. A group with no opinion ("" / nil barStyle)
+-- leaves the call to each bar's own display.switchMode.
+function ns:IsSwitchBar(bar)
+    local groupData = bar and bar.frameIndex and BarWardenDB and BarWardenDB.frames
+                      and BarWardenDB.frames[bar.frameIndex]
+    local groupStyle = groupData and groupData.barStyle
+    if groupStyle == "SWITCH" then return true end
+    if groupStyle == "COUNTDOWN" then return false end
+    local disp = bar and bar.barData and bar.barData.display
+    return not not (disp and disp.switchMode)
+end
+
 
 -- ----------------------------------------------------------------------------
 -- Built-in conditions.

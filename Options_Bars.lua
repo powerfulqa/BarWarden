@@ -337,7 +337,7 @@ local function CreateBarsTab(parent)
             local cw = math.min(w, ns.SETTINGS_MAX_WIDTH or 300)
             groupSettingsContent:SetWidth(cw)
             local ddW = math.max(120, cw - 60)
-            for _, id in ipairs({ "grpSortDD", "grpGrowthDD", "grpTextureDD", "grpTextFormatDD", "grpAutoTrackDD" }) do
+            for _, id in ipairs({ "grpSortDD", "grpGrowthDD", "grpTextureDD", "grpTextFormatDD", "grpBarStyleDD", "grpAutoTrackDD" }) do
                 local dd = groupSettingsWidgets[id]
                 if dd then UIDropDownMenu_SetWidth(dd, ddW) end
             end
@@ -541,6 +541,21 @@ local function CreateBarsTab(parent)
           set = function(_, value)
               local g = getGroup(); if not g then return end
               g.textFormat = (value ~= "" and value) or nil
+              ns:RefreshAllBars()
+          end,
+          offsetX = 0, spacing = 28 },
+        { type = "dropdown", id = "grpBarStyleDD", label = "Bar Style",
+          items = {
+              { text = "Inherit (default)", value = "" },
+              { text = "Countdown", value = "COUNTDOWN" },
+              { text = "On or Off", value = "SWITCH" },
+          }, width = 150,
+          tooltip = "How this group's bars show what they track. Countdown "
+               .. "ticks down, On or Off just fills while it is active.",
+          get = function() local g = getGroup(); return g and g.barStyle or "" end,
+          set = function(_, value)
+              local g = getGroup(); if not g then return end
+              g.barStyle = (value ~= "" and value) or nil
               ns:RefreshAllBars()
           end,
           offsetX = 0, spacing = 28 },
@@ -1271,6 +1286,9 @@ local function CreateBarsTab(parent)
             "Display the Bar Name text on this bar.", { spacing = 24 }),
         dispCheck("Show Icon", "showIcon",
             "Display the spell icon on this bar."),
+        dispCheck("Show as On or Off", "switchMode",
+            "Fill the bar while this is active and leave it empty when it "
+         .. "is not, with no countdown."),
 
         { type = "slider", label = "Bar Darkness",
           min = 0, max = 100, step = 1, width = 140, stretch = true,

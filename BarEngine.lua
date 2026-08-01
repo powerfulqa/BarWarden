@@ -925,6 +925,24 @@ local function ScanBar(bar, unitFilter)
         return
     end
 
+    -- Switch mode: show only whether the tracked thing is on, with no
+    -- countdown. Reuses the static-bar path, which is already exactly this
+    -- rendering for a permanent aura.
+    if ns:IsSwitchBar(bar) then
+        if isActive then
+            if bar.barState ~= BAR_STATE.ACTIVE or not bar.isStaticBar then
+                ns:ActivateStaticBar(bar, icon, name, stacks)
+            else
+                bar.stacks = stacks or 0
+                ns:UpdateStaticBarText(bar)
+            end
+            ns:RenderBarStacks(bar)
+        elseif bar.barState == BAR_STATE.ACTIVE or bar.barState == BAR_STATE.LINGERING then
+            ns:DeactivateBar(bar)
+        end
+        return
+    end
+
     -- Permanent aura present (no duration): show a static, full "present" bar.
     -- Guard on the static flag so a re-scan doesn't re-lay-out every poll tick.
     if isActive and permanent then
@@ -1069,9 +1087,15 @@ function ns:ScanAutoGroup(frameIndex, unitFilter)
             bd.spellId   = a.spellId
             bd.unit      = def.unit
             bd.trackMode = (def.kind == "buff") and "Buff" or "Debuff"
+            if ns:IsSwitchBar(bar) then
+                -- No timer to compare against, so activate on any state or
+                -- identity change instead of the expiry-tolerance check below.
+                if changed or bar.barState ~= BAR_STATE.ACTIVE or not bar.isStaticBar then
+                    ns:ActivateStaticBar(bar, a.icon, a.name, a.count)
+                end
             -- 0.05s tolerance suppresses redundant ActivateBar calls from
             -- server jitter, matching ScanBar.
-            if changed or bar.barState ~= BAR_STATE.ACTIVE
+            elseif changed or bar.barState ~= BAR_STATE.ACTIVE
                or abs((bar.expirationTime or 0) - a.expirationTime) > 0.05 then
                 ns:ActivateBar(bar, a.expirationTime, a.duration)
             end

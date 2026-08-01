@@ -295,4 +295,58 @@ function M.test_isBarEnabled_safeWithoutData()
     assertx.assertTrue(ns:IsBarEnabled({}))
 end
 
+-- --------------------------------------------------------------------------
+-- IsSwitchBar: the group's Bar Style wins once set, in BOTH directions,
+-- mirroring ResolveHideWhenInactive's group-over-bar shape. An untouched
+-- group ("" / nil barStyle) leaves the decision to bar.display.switchMode.
+-- --------------------------------------------------------------------------
+
+local function switchBarIn(groupIndex, display)
+    return { frameIndex = groupIndex, barData = { display = display } }
+end
+
+-- Group set to SWITCH overrides a bar that never opted in.
+function M.test_isSwitchBar_groupSwitchOverridesBar()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { barStyle = "SWITCH" } } }
+    assertx.assertTrue(ns:IsSwitchBar(switchBarIn(1, {})))
+    assertx.assertTrue(ns:IsSwitchBar(switchBarIn(1, { switchMode = false })))
+    _G.BarWardenDB = nil
+end
+
+-- Group set to COUNTDOWN overrides a bar that opted into switch mode itself.
+function M.test_isSwitchBar_groupCountdownOverridesBar()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { barStyle = "COUNTDOWN" } } }
+    assertx.assertFalse(ns:IsSwitchBar(switchBarIn(1, { switchMode = true })))
+    _G.BarWardenDB = nil
+end
+
+-- Untouched group (no barStyle): each bar decides for itself, both ways.
+function M.test_isSwitchBar_untouchedGroupDefersToBar()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { {} } }
+    assertx.assertTrue(ns:IsSwitchBar(switchBarIn(1, { switchMode = true })))
+    assertx.assertFalse(ns:IsSwitchBar(switchBarIn(1, { switchMode = false })))
+    assertx.assertFalse(ns:IsSwitchBar(switchBarIn(1, {})))
+    _G.BarWardenDB = nil
+end
+
+-- Safe without data: nil bar, nil barData and nil display all return false.
+function M.test_isSwitchBar_safeWithoutData()
+    local ns = fresh()
+    assertx.assertFalse(ns:IsSwitchBar(nil))
+    assertx.assertFalse(ns:IsSwitchBar({}))
+    assertx.assertFalse(ns:IsSwitchBar({ frameIndex = 1, barData = {} }))
+end
+
+-- No frameIndex: no group to consult, so the bar's own setting decides.
+function M.test_isSwitchBar_noFrameIndexFallsBackToBar()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { barStyle = "SWITCH" } } }
+    assertx.assertTrue(ns:IsSwitchBar({ barData = { display = { switchMode = true } } }))
+    assertx.assertFalse(ns:IsSwitchBar({ barData = { display = { switchMode = false } } }))
+    _G.BarWardenDB = nil
+end
+
 return M

@@ -259,7 +259,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Configure bar name, spell name or ID, track mode, and target unit
 - Toggle "Only Mine" filtering for debuffs
 - Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide While Mounted, Hide While Resting, Hide In Vehicle, Only In Instance, Hide When Inactive, Health Below %, Require Buff, Require Class
-- Per-bar display options: Linger Time, Show Bar Name, Show Icon, Bar Darkness, Sparkle Alert with threshold, Colour Override, Colour by Time with high/med thresholds, Glow on Ready with duration, Pulse on Ready, Crop Icon, Scale Override
+- Per-bar display options: Linger Time, Show Bar Name, Show Icon, Show as On or Off, Bar Darkness, Sparkle Alert with threshold, Colour Override, Colour by Time with high/med thresholds, Glow on Ready with duration, Pulse on Ready, Crop Icon, Scale Override
 
 #### Useful Per-Bar Options Explained
 
@@ -300,11 +300,15 @@ Global settings that apply to all bars.
 
 **Text Options:** Text Position (Left, Right), Font (15 built-in + LibSharedMedia fonts), Font Size, Text Format (Name+Duration, Name Only, Duration Only, Name+Stacks, Stacks Only, None), Duration Style (seconds.ms, seconds, min:sec, short text, auto), Show Stack Count (the number on a bar's icon when something stacks two or more times, whatever the text format)
 
-Groups can override the **Text Format** and the bar texture and colour for their
-own bars (Bar Control > Groups > Bar Overrides). **Hide When Inactive** under
-Group Conditions controls the whole group once you use it: ticked hides every
-bar while it has nothing to show, unticked keeps them all visible even where
-individual bars are set to hide. Leave it alone and each bar decides for itself.
+Groups can override the **Text Format**, the bar texture and colour, and the
+**Bar Style** for their own bars (Bar Control > Groups > Bar Overrides). Bar
+Style picks Countdown (the default, ticks down) or On or Off (fills while the
+tracked thing is active, empty the rest of the time, no countdown); it can
+also be set per bar with **Show as On or Off** above. **Hide When Inactive**
+under Group Conditions controls the whole group once you use it: ticked hides
+every bar while it has nothing to show, unticked keeps them all visible even
+where individual bars are set to hide. Leave it alone and each bar decides for
+itself.
 
 **Icon:** Icon Size, Icon Position (Left, Right), Crop Icons, Cooldown Spiral overlay
 
