@@ -254,6 +254,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Sort Mode (Manual, Remaining Time, Alphabetical, As They Come)
 - Growth Direction (Down, Up)
 - Bar Style (Countdown, On or Off) for the whole group at once
+- Auto Track: fill the group from buffs or debuffs instead of adding bars by hand, with an Icon Only option that draws a compact grid of spell icons instead of bars (sized with the Width slider)
 - Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**

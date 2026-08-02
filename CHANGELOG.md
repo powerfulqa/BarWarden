@@ -76,6 +76,11 @@ below it drops off, the rest close up. Pairs well with Keep Bars In Place on
 an auto-tracking group, since that setting keeps each aura on the same slot
 and this one decides where that slot draws.
 
+**Icon Only for auto-tracking groups.** A new tickbox under Auto Track draws
+a plain grid of spell icons instead of bars, no bar, background or text
+underneath. Size the icons with the Width slider (now up to 600 px) and lay
+them out with Columns (now up to 6), for a compact cooldown or buff tray.
+
 ### v2.1.1
 
 A full read-through of the addon, and the fixes that came out of it. Two of

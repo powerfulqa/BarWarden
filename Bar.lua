@@ -322,7 +322,7 @@ end
 -- visual table, and the resolved style/dimension values it needs.
 -- ----------------------------------------------------------------------------
 
-local function ApplyIconConfig(bar, display, visual, showIcon, iconSize, style)
+local function ApplyIconConfig(bar, display, visual, showIcon, iconSize, style, iconOnly)
     if style == "ComboPoint" then showIcon = false end
 
     local iconOnRight = (visual.iconPosition == "RIGHT")
@@ -334,13 +334,22 @@ local function ApplyIconConfig(bar, display, visual, showIcon, iconSize, style)
     end
 
     bar.icon:Show()
-    bar.icon:SetWidth(iconSize)
-    bar.icon:SetHeight(iconSize)
     bar.icon:ClearAllPoints()
-    if iconOnRight then
-        bar.icon:SetPoint("RIGHT", bar, "RIGHT", 0, 0)
+    if iconOnly then
+        -- Icon-only groups draw square cells sized entirely by the group's
+        -- Width setting (ns:UpdateGroupLayout sets both bar dimensions from
+        -- it). Anchoring to fill the bar, rather than a fixed pixel size,
+        -- keeps the icon in sync with that cell as it resizes with no
+        -- separate code path needed to re-apply a new icon size.
+        bar.icon:SetAllPoints(bar)
     else
-        bar.icon:SetPoint("LEFT", bar, "LEFT", 0, 0)
+        bar.icon:SetWidth(iconSize)
+        bar.icon:SetHeight(iconSize)
+        if iconOnRight then
+            bar.icon:SetPoint("RIGHT", bar, "RIGHT", 0, 0)
+        else
+            bar.icon:SetPoint("LEFT", bar, "LEFT", 0, 0)
+        end
     end
 
     -- Resolve + apply the icon texture. When resolution fails, behaviour
@@ -375,7 +384,8 @@ local function ApplyIconConfig(bar, display, visual, showIcon, iconSize, style)
 end
 
 -- layout fields:
---   style, fontSize, iconActive (bool from ApplyIconConfig), iconSize, iconOnRight
+--   style, fontSize, iconActive (bool from ApplyIconConfig), iconSize,
+--   iconOnRight, iconOnly (group.autoIconOnly)
 local function ApplyTextConfig(bar, display, visual, layout)
     local style    = layout.style
     local fontSize = layout.fontSize
@@ -410,6 +420,15 @@ local function ApplyTextConfig(bar, display, visual, layout)
     local vis = TEXT_FORMAT_VISIBILITY[textFormat] or TEXT_FORMAT_VISIBILITY.NAME_DURATION
     local showNameText = baseVisible and vis.name
     local showTimeText = baseVisible and vis.time
+    -- Icon Only groups show nothing but the icon, whatever the resolved text
+    -- format says. This overrides the format-driven visibility above rather
+    -- than short-circuiting earlier, so a bar returning to a normal group
+    -- always falls back to a value this function computed fresh, never a
+    -- stale leftover from when it was icon-only.
+    if layout.iconOnly then
+        showNameText = false
+        showTimeText = false
+    end
 
     local iconActive      = layout.iconActive
     local iconSize        = layout.iconSize
@@ -480,6 +499,13 @@ function ns:ApplyVisualConfig(bar, config)
     -- Texture and colour. Resolution order: per-bar override, then group
     -- override, then the addon-wide default. Any unset level is skipped.
     local group = GetBarGroup(bar)
+    -- Icon Only groups (auto-tracking only, see Options_Bars.lua's Auto Track
+    -- block) show just the spell icon: no fill, no background, no border, no
+    -- spark, no text. Resolved fresh on every call (not stored on the bar),
+    -- so a bar rebuilt into a different group - through the shared pool, via
+    -- ns:BuildBarsForFrame - always ends up in the state ITS group asks for,
+    -- with nothing left over from whatever group used it before.
+    local iconOnly = group and group.autoIconOnly
     local textureName = display.textureOverride
         or (group and group.barTexture)
         or visual.texture or "Flat"
@@ -491,11 +517,19 @@ function ns:ApplyVisualConfig(bar, config)
     local r, g, b = GetBarColor(bar, config)
     bar:SetStatusBarColor(r, g, b)
 
+    -- Fill: hide by zeroing the status bar texture's own alpha rather than
+    -- the vertex colour (SetStatusBarColor above has no alpha channel in
+    -- 3.3.5a), so GetBarColor's resolved colour is untouched underneath.
+    local fillTexture = bar:GetStatusBarTexture()
+    if fillTexture then
+        fillTexture:SetAlpha(iconOnly and 0 or 1)
+    end
+
     if bar.background then
-        bar.background:SetVertexColor(0, 0, 0, display.barAlpha or 0.6)
+        bar.background:SetVertexColor(0, 0, 0, iconOnly and 0 or (display.barAlpha or 0.6))
     end
     if bar.border then
-        bar.border:SetVertexColor(0, 0, 0, 0.8)
+        bar.border:SetVertexColor(0, 0, 0, iconOnly and 0 or 0.8)
     end
 
     -- Per-bar display.showIcon is authoritative; fall back to global
@@ -507,18 +541,19 @@ function ns:ApplyVisualConfig(bar, config)
     end
 
     -- Delegate to helpers
-    local iconActive, iconOnRight = ApplyIconConfig(bar, display, visual, showIcon, iconSize, style)
+    local iconActive, iconOnRight = ApplyIconConfig(bar, display, visual, showIcon, iconSize, style, iconOnly)
     ApplyTextConfig(bar, display, visual, {
         style       = style,
         fontSize    = fontSize,
         iconActive  = iconActive,
         iconSize    = iconSize,
         iconOnRight = iconOnRight,
+        iconOnly    = iconOnly,
     })
 
     -- Spark
     local showSpark = visual.showSpark ~= false
-    if style == "ComboPoint" then showSpark = false end
+    if style == "ComboPoint" or iconOnly then showSpark = false end
     if bar.sparkFrame then
         if showSpark then bar.sparkFrame:Show() else bar.sparkFrame:Hide() end
     end

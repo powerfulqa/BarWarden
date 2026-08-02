@@ -261,7 +261,7 @@ version merged both halves into the one cached value, which meant unticking
 `ns:BuildGroupSkipSet` exists specifically so that rule is a pure, tested
 function rather than logic buried in the scan loop.
 
-Eight keys on a group, all nil on a normal group:
+Nine keys on a group, all nil on a normal group:
 
 | Key | Effect |
 |---|---|
@@ -273,6 +273,7 @@ Eight keys on a group, all nil on a normal group:
 | `autoSkipTracked` | Skip spells a bar in another group already tracks (matched by name via `ns:GetTrackedAuraNames`) |
 | `autoStableOrder` | Keep Bars In Place: an aura stays in the slot it first appeared in for as long as it lasts, instead of the soonest-expiring sort reshuffling every slot on each tick or refresh. Only a fade frees a slot. `ns:ScanAutoGroup` builds the held-name list from the live slots and hands it to `ns:PlaceAutoAuras` (Trackers.lua), the tested half that decides the new placement; the untested half is just reading `bar.barData` to build that list |
 | `autoBanned` | Per-group spell bans set by alt-left-clicking a bar's icon (`bar.isAutoBar` only), keyed by lower-cased spell name: `{ [name] = { name = "Blade Flurry", id = 13877 } }`, `id` optionally nil. Nil (not `{}`) once every ban is removed, so `ns:BuildAutoSkipSet` keeps its cheap no-skip path. `ns:BuildGroupSkipSet` (Trackers.lua) folds this in unconditionally via `ns:BuildAutoSkipSet`, always returning a fresh table so the caller's own copy is never mutated, so a ban applies even with `autoSkipTracked` off. Managed from the "Hidden In This Group" list under Auto Track in Options_Bars.lua, which only shows/enables for a group with a feed picked (same gate as the `autoMaxBars`-and-friends sub-settings) |
+| `autoIconOnly` | Draw a square icon-only grid instead of bars: no fill, background, border, spark, name or time text. Read fresh in `ns:ApplyVisualConfig` (Bar.lua) via `GetBarGroup(bar)` on every call rather than stored on the bar, so a bar rebuilt into a different group (`ns:BuildBarsForFrame`, via the shared pool) always ends up in whatever state ITS group asks for; nothing needs a separate "un-strip" step. `ns:UpdateGroupLayout` (FrameManager.lua) sizes both bar dimensions from the group's `width` (square cells) instead of the usual fixed `visual.barHeight`; the icon itself fills the bar via `SetAllPoints` rather than a pixel size, so it tracks that cell through every resize |
 
 Drag-reorder is gated off for auto groups in `ns:EnableDragReorder`
 ([DragReorder.lua](../DragReorder.lua)), and `ns:ReleaseBar` (BarPool.lua)

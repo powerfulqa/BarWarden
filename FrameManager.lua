@@ -245,6 +245,13 @@ function ns:UpdateGroupLayout(group)
     if frameData and frameData.width then
         barWidth = frameData.width
     end
+    -- Icon Only groups draw square cells: both dimensions come from Width, so
+    -- the owner sizes the icon grid with that one slider instead of Width and
+    -- Height fighting each other. Everything else about layout (growth
+    -- direction, columns, spacing, backdrop) is unchanged below.
+    if frameData and frameData.autoIconOnly then
+        barHeight = barWidth
+    end
     local columns = (frameData and frameData.columns and frameData.columns > 0) and frameData.columns or 1
 
     -- Build list of visible bars, optionally sorted

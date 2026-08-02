@@ -181,7 +181,9 @@ local HELP_ENTRIES = {
           .. "auto group out of combat either. Alt-click a bar's icon to hide "
           .. "just that spell from this one group. To bring it back, or clear "
           .. "every one you have hidden, use the Hidden In This Group list "
-          .. "under Auto Track.",
+          .. "under Auto Track. Icon Only swaps the bars for a plain grid of "
+          .. "spell icons, no bar or text underneath; size the icons with the "
+          .. "Width slider and lay them out with Columns.",
     },
 
     -- ===================================================================
