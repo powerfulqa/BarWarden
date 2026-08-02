@@ -44,6 +44,11 @@ or the trinket proc you did not know to look for.
   without hiding it everywhere else. The new Hidden In This Group list under
   Auto Track shows what you have hidden per group, so you can bring one back
   or clear the lot.
+- Fixed the Hidden In This Group list clipping its first line and the first
+  letter of each hidden spell against the left edge of the panel.
+- Auto Track now has its own **[?]** help link right on the Groups tab, and
+  its answer moved into its own Help section instead of being filed under
+  Conditions & Visibility, where nobody thought to look for it.
 
 **Bars that light up instead of counting down.** A new display option for any
 bar, not just auto-tracked ones.

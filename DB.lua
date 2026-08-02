@@ -29,6 +29,7 @@ ns.DEFAULTS = {
         -- preserved / default-collapsed respectively.
         helpCollapsed = {
             trackingModes   = true,
+            autoTracking    = true,
             conditions      = true,
             visuals         = true,
             profiles        = true,

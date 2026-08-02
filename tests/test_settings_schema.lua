@@ -99,6 +99,7 @@ function M.test_defaults_globalExact()
         -- Started ships open, so it has no key here; the rest start collapsed.
         helpCollapsed = {
             trackingModes   = true,
+            autoTracking    = true,
             conditions      = true,
             visuals         = true,
             profiles        = true,

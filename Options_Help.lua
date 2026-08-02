@@ -148,28 +148,12 @@ local HELP_ENTRIES = {
     },
 
     -- ===================================================================
-    { section = "conditions", title = "Conditions & Visibility" },
+    { section = "autoTracking", title = "Auto Tracking Groups" },
     -- ===================================================================
-    {
-        id = "conditions-overview",
-        q = "What are conditions?",
-        a = "Conditions decide when a bar shows. Set them per bar so a bar only "
-          .. "appears in combat, below a health threshold, in a group, for a "
-          .. "specific class, and more. A bar whose conditions are not met is "
-          .. "hidden.",
-    },
-    {
-        id = "group-conditions",
-        q = "Can I hide a whole group at once?",
-        a = "Yes. Group Conditions (on the Groups tab of Bar Control) apply to "
-          .. "an entire group together: Hide When Inactive, Combat Only, Out of "
-          .. "Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In "
-          .. "Instance. That saves ticking every bar individually. Hide When "
-          .. "Inactive takes charge of the group once you use it: ticked hides "
-          .. "every bar while it has nothing to show, unticked keeps them all "
-          .. "visible even if single bars are set to hide. Leave it alone and "
-          .. "each bar decides for itself.",
-    },
+    -- Moved out of Conditions & Visibility: this grew from a single toggle
+    -- into a small feature of its own (feed, caps, ordering, alt-click
+    -- bans), and nobody looking for it thought to check Conditions. The id
+    -- stays "auto-track" so the existing [?] deep-links keep resolving.
     {
         id = "auto-track",
         q = "Can a group fill itself?",
@@ -198,6 +182,30 @@ local HELP_ENTRIES = {
           .. "just that spell from this one group. To bring it back, or clear "
           .. "every one you have hidden, use the Hidden In This Group list "
           .. "under Auto Track.",
+    },
+
+    -- ===================================================================
+    { section = "conditions", title = "Conditions & Visibility" },
+    -- ===================================================================
+    {
+        id = "conditions-overview",
+        q = "What are conditions?",
+        a = "Conditions decide when a bar shows. Set them per bar so a bar only "
+          .. "appears in combat, below a health threshold, in a group, for a "
+          .. "specific class, and more. A bar whose conditions are not met is "
+          .. "hidden.",
+    },
+    {
+        id = "group-conditions",
+        q = "Can I hide a whole group at once?",
+        a = "Yes. Group Conditions (on the Groups tab of Bar Control) apply to "
+          .. "an entire group together: Hide When Inactive, Combat Only, Out of "
+          .. "Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In "
+          .. "Instance. That saves ticking every bar individually. Hide When "
+          .. "Inactive takes charge of the group once you use it: ticked hides "
+          .. "every bar while it has nothing to show, unticked keeps them all "
+          .. "visible even if single bars are set to hide. Leave it alone and "
+          .. "each bar decides for itself.",
     },
     {
         id = "condition-health-buff-class",

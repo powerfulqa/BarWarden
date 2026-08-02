@@ -794,6 +794,14 @@ local function CreateBarsTab(parent)
             "LEFT", "RIGHT", 6, 0, "group-conditions")
     end
 
+    -- Deep-link the Auto Track section to its Help answer. This used to be
+    -- reachable only by finding it filed under Conditions & Visibility in the
+    -- Help tab; a direct [?] here is the fix for that.
+    if groupSettingsWidgets.grpAutoHeader and ns.CreateHelpIcon then
+        ns:CreateHelpIcon(groupSettingsContent, groupSettingsWidgets.grpAutoHeader,
+            "LEFT", "RIGHT", 6, 0, "auto-track")
+    end
+
     -- ========================================================================
     -- BANNED SPELLS: management list for the Alt-click bans set from a bar's
     -- icon (Bar.lua). Built directly with frames, not through BuildSettings /
