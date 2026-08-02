@@ -24,11 +24,15 @@ local BAR_LIST_HEIGHT = 16
 -- visible even at the smallest window size; Groups and Bars use the same cap.
 local MAX_GROUP_ROWS = 6
 local MAX_BAR_ROWS = 6
--- The banned-spells list under Auto Track uses a FIXED row count (never
--- grown or shrunk) rather than scrolling, so its footprint stays constant
--- regardless of how many spells are banned. See fitGroupHeight, further down.
-local MAX_BAN_ROWS = 6
-local BAN_ROW_HEIGHT = 16
+-- The banned-spells list under Auto Track is a framed icon/name/id table
+-- (mirrors the Activity Tracker table in Options_Stats.lua) with a FIXED
+-- number of visible rows: it never grows or shrinks its container, it only
+-- scrolls once there are more entries than fit. A fixed footprint is what
+-- keeps fitGroupHeight's one-time measurement valid; see fitGroupHeight,
+-- further down, and the block comment above the ban-list section.
+local MAX_BAN_ROWS = 10
+local BAN_ROW_HEIGHT = 18
+local BAN_ICON_SIZE = 16
 
 -- Blizzard's FauxScrollFrame_Update HIDES the whole scroll frame when the list
 -- fits without scrolling. Both lists have the rest of their column anchored to
@@ -832,14 +836,27 @@ local function CreateBarsTab(parent)
     -- length is not something the declarative schema can express. Anchored
     -- below the trailing spacer (groupLastWidget) from that schema.
     --
-    -- Six FIXED rows (shown/hidden, never created or destroyed) keep this
-    -- section's total height constant no matter how many spells are banned,
-    -- or which of its two states - rows + Clear All vs. the single
-    -- empty-state line - is showing. That matters because fitGroupHeight
-    -- (further down this file) measures the scroll child's height once, the
-    -- first time the panel is shown, and caches the result; a section whose
-    -- footprint could change size after that measurement would either get
-    -- clipped or leave a dead gap.
+    -- A framed icon/name/id table, matching the look of the Activity Tracker
+    -- table in Options_Stats.lua: a tinted, bordered panel with a small
+    -- column-heading row above a FauxScrollFrame of recycled rows.
+    --
+    -- The container is a FIXED height (MAX_BAN_ROWS rows) that never grows or
+    -- shrinks with the ban count - only the FauxScrollFrame's scroll offset
+    -- changes. That is deliberate, not a missed "grow with content" polish
+    -- pass: fitGroupHeight (further down this file) measures the scroll
+    -- child's height once, the first time the panel is shown, and latches
+    -- the result. A section whose footprint could change size after that
+    -- measurement would either get clipped or leave a dead gap, so this
+    -- container's bottom edge has to land in the same place every time,
+    -- whether it is showing 0, 1, or 100 banned spells.
+    --
+    -- No mouse wheel is bound on the inner FauxScrollFrame, matching every
+    -- other list in this addon (Groups, Bars, and the Activity table all
+    -- scroll only by dragging the scrollbar or clicking its arrows, never by
+    -- wheel). This list sits inside groupSettingsContent, itself the scroll
+    -- child of groupSettingsScroll; a wheel-enabled inner scroll region would
+    -- capture wheel events meant for the outer Group Settings panel whenever
+    -- the cursor happened to be over this table.
     -- ========================================================================
     local banHeader = groupSettingsContent:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     banHeader:SetText("Hidden In This Group")
@@ -863,35 +880,100 @@ local function CreateBarsTab(parent)
     -- UpdateBanList itself is forward-declared above (before
     -- SetAutoSubWidgetsShown), since that gate needs to call it too.
 
+    -- Column heading row, matching Options_Stats.lua's headerFrame: an icon
+    -- spacer, a flexing Name column, and a fixed-width right-anchored ID
+    -- column. No click-to-sort - the list is name-sorted and short enough
+    -- that sorting adds nothing.
+    local banHeaderRow = CreateFrame("Frame", nil, groupSettingsContent)
+    banHeaderRow:SetHeight(14)
+    banHeaderRow:SetPoint("TOPLEFT", banHeader, "BOTTOMLEFT", 0, -8)
+    banHeaderRow:SetPoint("RIGHT", groupSettingsContent, "RIGHT", -6, 0)
+
+    local banHIcon = banHeaderRow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    banHIcon:SetPoint("LEFT", banHeaderRow, "LEFT", 4, 0)
+    banHIcon:SetWidth(BAN_ICON_SIZE + 4)
+    banHIcon:SetText("")
+
+    local banHId = banHeaderRow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    banHId:SetPoint("RIGHT", banHeaderRow, "RIGHT", -22, 0)  -- clears the scrollbar, matching the rows below
+    banHId:SetWidth(50)
+    banHId:SetJustifyH("RIGHT")
+    banHId:SetText("ID")
+
+    local banHName = banHeaderRow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    banHName:SetPoint("LEFT", banHIcon, "RIGHT", 2, 0)
+    banHName:SetPoint("RIGHT", banHId, "LEFT", -6, 0)
+    banHName:SetJustifyH("LEFT")
+    banHName:SetText("Name")
+
+    -- Framed list container: fixed height regardless of ban count (see the
+    -- block comment above), a tinted background matching the Activity
+    -- table's listBg, plus a thin border so the section reads as a framed
+    -- panel rather than a loose scroll region.
+    local banListFrame = CreateFrame("Frame", nil, groupSettingsContent)
+    banListFrame:SetPoint("TOPLEFT", banHeaderRow, "BOTTOMLEFT", 0, -2)
+    banListFrame:SetPoint("RIGHT", groupSettingsContent, "RIGHT", -6, 0)
+    banListFrame:SetHeight(MAX_BAN_ROWS * BAN_ROW_HEIGHT + 4)
+
+    local banListBg = banListFrame:CreateTexture(nil, "BACKGROUND")
+    banListBg:SetAllPoints()
+    banListBg:SetTexture(0, 0, 0, 0.3)
+
+    banListFrame:SetBackdrop({
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 12,
+    })
+    banListFrame:SetBackdropBorderColor(1, 1, 1, 0.3)
+
+    local banScrollFrame = CreateFrame("ScrollFrame", "BarWardenBanScrollFrame", banListFrame, "FauxScrollFrameTemplate")
+    banScrollFrame:SetPoint("TOPLEFT", 2, -2)
+    banScrollFrame:SetPoint("BOTTOMRIGHT", -22, 2)
+
     local banRows = {}
     for i = 1, MAX_BAN_ROWS do
-        local row = CreateFrame("Button", nil, groupSettingsContent)
+        -- Rows are children of banListFrame (a fixed frame), not of
+        -- banScrollFrame: Blizzard's FauxScrollFrame_Update can hide the
+        -- scroll frame itself once the list fits without scrolling (see the
+        -- EC-TRAP note on KeepListFrameShown, above), and anchoring the rows
+        -- to a frame that gets hidden out from under them would strand the
+        -- Clear All button below. Matches Options_Stats.lua's row parenting.
+        local row = CreateFrame("Button", nil, banListFrame)
         row:SetHeight(BAN_ROW_HEIGHT)
         if i == 1 then
-            -- Same fix as banEmptyText above: 0, not -6, keeps the row's
-            -- left edge inside the scroll child instead of clipped.
-            row:SetPoint("TOPLEFT", banHeader, "BOTTOMLEFT", 0, -8)
+            row:SetPoint("TOPLEFT",  banListFrame, "TOPLEFT",   2, -2)
+            row:SetPoint("TOPRIGHT", banListFrame, "TOPRIGHT", -22, -2)
         else
-            row:SetPoint("TOPLEFT", banRows[i - 1], "BOTTOMLEFT", 0, 0)
+            row:SetPoint("TOPLEFT",  banRows[i - 1], "BOTTOMLEFT",  0, 0)
+            row:SetPoint("TOPRIGHT", banRows[i - 1], "BOTTOMRIGHT", 0, 0)
         end
-        row:SetPoint("RIGHT", groupSettingsContent, "RIGHT", -6, 0)
 
         local highlight = row:CreateTexture(nil, "HIGHLIGHT")
         highlight:SetAllPoints()
         highlight:SetTexture(1, 1, 1, 0.1)
 
-        local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        text:SetPoint("LEFT", row, "LEFT", 2, 0)
-        text:SetPoint("RIGHT", row, "RIGHT", -2, 0)
-        text:SetJustifyH("LEFT")
-        row.text = text
+        local iconTex = row:CreateTexture(nil, "ARTWORK")
+        iconTex:SetPoint("LEFT", row, "LEFT", 4, 0)
+        iconTex:SetSize(BAN_ICON_SIZE, BAN_ICON_SIZE)
+        iconTex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        row.iconTex = iconTex
 
-        -- row.banKey is nil for the "N more hidden" overflow row (7th+ ban),
-        -- which is informational only: no tooltip, no click action.
+        local idText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        idText:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+        idText:SetWidth(50)
+        idText:SetJustifyH("RIGHT")
+        row.idText = idText
+
+        local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        nameText:SetPoint("LEFT", iconTex, "RIGHT", 4, 0)
+        nameText:SetPoint("RIGHT", idText, "LEFT", -6, 0)
+        nameText:SetJustifyH("LEFT")
+        if nameText.SetWordWrap then nameText:SetWordWrap(false) end
+        row.nameText = nameText
+
         row:SetScript("OnEnter", function(self)
             if not self.banKey then return end
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:AddLine(self.text:GetText() or "", 1, 1, 1)
+            GameTooltip:AddLine(self.banLabel or "", 1, 1, 1)
             GameTooltip:AddLine("Click to bring this back.", 0.6, 0.6, 0.6)
             GameTooltip:Show()
         end)
@@ -925,11 +1007,13 @@ local function CreateBarsTab(parent)
         UpdateBanList()
         if selectedGroupIndex and ns.ScanAutoGroup then ns:ScanAutoGroup(selectedGroupIndex) end
     end)
-    banClearAllBtn:SetPoint("TOPLEFT", banRows[MAX_BAN_ROWS], "BOTTOMLEFT", 6, -6)
+    banClearAllBtn:SetPoint("TOPLEFT", banListFrame, "BOTTOMLEFT", 6, -6)
 
     -- Fixed sentinel marking the true bottom of this whole section, whichever
-    -- state is showing (its own anchor chain never changes). fitGroupHeight
-    -- measures against this instead of groupLastWidget once it exists.
+    -- state is showing (its own anchor chain never changes: banListFrame's
+    -- height is constant, so banClearAllBtn's position beneath it never
+    -- moves). fitGroupHeight measures against this instead of groupLastWidget
+    -- once it exists.
     local banListBottom = CreateFrame("Frame", nil, groupSettingsContent)
     banListBottom:SetSize(1, 4)
     banListBottom:SetPoint("TOPLEFT", banClearAllBtn, "BOTTOMLEFT", 0, -4)
@@ -945,7 +1029,8 @@ local function CreateBarsTab(parent)
         -- "Hidden In This Group" header on an ordinary group.
         if not autoFeedShown then
             banHeader:Hide()
-            for i = 1, MAX_BAN_ROWS do banRows[i]:Hide() end
+            banHeaderRow:Hide()
+            banListFrame:Hide()
             banClearAllBtn:Hide()
             banEmptyText:Hide()
             return
@@ -965,36 +1050,53 @@ local function CreateBarsTab(parent)
 
         local count = #list
         if count == 0 then
-            for i = 1, MAX_BAN_ROWS do banRows[i]:Hide() end
+            banHeaderRow:Hide()
+            banListFrame:Hide()
             banClearAllBtn:Hide()
             banEmptyText:Show()
             return
         end
 
         banEmptyText:Hide()
+        banHeaderRow:Show()
+        banListFrame:Show()
         banClearAllBtn:Show()
+
+        local offset = FauxScrollFrame_GetOffset(banScrollFrame)
+        FauxScrollFrame_Update(banScrollFrame, count, MAX_BAN_ROWS, BAN_ROW_HEIGHT)
 
         for i = 1, MAX_BAN_ROWS do
             local row = banRows[i]
-            if i == MAX_BAN_ROWS and count > MAX_BAN_ROWS then
-                -- Overflow: the last row becomes a plain "N more" line instead
-                -- of a ban entry, so all 6 rows stay occupied either way.
-                row.banKey = nil
-                row.text:SetText((count - (MAX_BAN_ROWS - 1)) .. " more hidden")
+            local item = list[i + offset]
+            if item then
+                row.banKey = item.key
+                row.banLabel = item.id and (item.name .. " (" .. item.id .. ")") or item.name
+                row.nameText:SetText(item.name)
+                row.idText:SetText(item.id and tostring(item.id) or "")
+
+                -- GetSpellInfo returns nil for a spell id the client cannot
+                -- resolve (live on the owner's private server with custom
+                -- ids). The stored name still renders; SetTexture(nil) just
+                -- clears the icon rather than erroring.
+                local icon
+                if item.id then
+                    local _, _, spellIcon = GetSpellInfo(item.id)
+                    icon = spellIcon
+                end
+                row.iconTex:SetTexture(icon)
+
                 row:Show()
             else
-                local item = list[i]
-                if item then
-                    row.banKey = item.key
-                    row.text:SetText(item.id and (item.name .. " (" .. item.id .. ")") or item.name)
-                    row:Show()
-                else
-                    row.banKey = nil
-                    row:Hide()
-                end
+                row.banKey = nil
+                row.banLabel = nil
+                row:Hide()
             end
         end
     end
+
+    banScrollFrame:SetScript("OnVerticalScroll", function(self, offset)
+        FauxScrollFrame_OnVerticalScroll(self, offset, BAN_ROW_HEIGHT, UpdateBanList)
+    end)
 
     -- ========================================================================
     -- RIGHT PANEL: Bar List + Bar Editor
