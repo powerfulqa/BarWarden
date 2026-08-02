@@ -15,7 +15,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Class resource trackers** for Combo Points (rogue/druid), Runes (DK), Runic Power (DK), and Soul Shards (warlock) that fill as the resource builds rather than counting down
 - **Organise bars into groups** like "Cooldowns", "Target Debuffs", or "Buffs" (up to 20 groups, 30 bars each)
 - **Multi-column layouts** so you can display bars in 1 to 6 columns per group
-- **Sort bars dynamically** by remaining time, alphabetically, or manual order per group
+- **Sort bars dynamically** by remaining time, alphabetically, manual order, or As They Come (each bar keeps the spot it first appeared in until it fades) per group
 - **Growth direction** per group: bars can grow downward (default) or upward from the anchor point
 - **Colour-by-time** bars transition green to yellow to red as the timer counts down (per-bar, configurable thresholds)
 - **Glow on ready** bars flash when a cooldown finishes or a buff expires so you know the spell is available
@@ -251,7 +251,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Group Name and Show Group Name toggle
 - Width, Scale, Columns
 - Background Opacity, Border Opacity
-- Sort Mode (Manual, Remaining Time, Alphabetical)
+- Sort Mode (Manual, Remaining Time, Alphabetical, As They Come)
 - Growth Direction (Down, Up)
 - Bar Style (Countdown, On or Off) for the whole group at once
 - Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)

@@ -37,6 +37,28 @@ local function CompareAlpha(a, b)
     return na < nb
 end
 
+-- Sort Mode "As They Come": oldest-still-running first, by the appearanceOrder
+-- stamp BarEngine.lua sets on the INACTIVE -> ACTIVE transition (ActivateBar /
+-- ActivateStaticBar) and clears on deactivate/release. A bar with no stamp
+-- (a resource bar, or anything that never went through the activate path)
+-- has nothing to compare, so it sorts after every stamped bar.
+--
+-- Exposed on `ns` (unlike CompareRemaining/CompareAlpha, which stay local)
+-- purely so tests/test_frame_manager.lua can reach this one pure function
+-- without loading the WoW-frame-creating rest of this file.
+local function CompareAppearance(a, b)
+    local oa, ob = a.appearanceOrder, b.appearanceOrder
+    if oa and ob then return oa < ob end
+    if oa and not ob then return true end
+    if ob and not oa then return false end
+    -- Neither bar has a stamp: table.sort requires a strict weak ordering, so
+    -- fall back to a comparison that is at least consistent for the duration
+    -- of this sort rather than returning false both ways (which some Lua
+    -- sort implementations can loop or corrupt the array on).
+    return tostring(a) < tostring(b)
+end
+ns.CompareAppearance = CompareAppearance
+
 -- Runtime-only bar data for one auto-tracking slot. ScanAutoGroup overwrites
 -- the name and id each pass, so this is never written to SavedVariables: the
 -- group's real `bars` array stays untouched in the DB and comes back the
@@ -239,6 +261,8 @@ function ns:UpdateGroupLayout(group)
         table.sort(visible, CompareRemaining)
     elseif sortMode == "alpha" then
         table.sort(visible, CompareAlpha)
+    elseif sortMode == "appearance" then
+        table.sort(visible, CompareAppearance)
     end
 
     -- Growth direction: "DOWN" (default) anchors bars top-to-bottom with the

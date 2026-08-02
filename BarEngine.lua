@@ -34,6 +34,12 @@ local BAR_STATE = {
 
 ns.BAR_STATE = BAR_STATE
 
+-- Monotonic counter behind Sort Mode "As They Come" (FrameManager.lua's
+-- CompareAppearance). Bumped only on an INACTIVE/LINGERING -> ACTIVE
+-- transition (see ActivateBar / ActivateStaticBar), so a bar keeps its slot
+-- through refreshes and only moves when it actually restarts.
+local appearanceSeq = 0
+
 -- ----------------------------------------------------------------------------
 -- Constants
 -- ----------------------------------------------------------------------------
@@ -470,6 +476,14 @@ function ns:ActivateBar(bar, expirationTime, duration)
 
     ns:CancelBarGlow(bar)
 
+    -- Sort Mode "As They Come" orders bars by when they started, so the stamp
+    -- must survive refreshes: only a bar that was not already running takes a
+    -- new one. Read barState BEFORE the assignment below overwrites it.
+    if bar.barState ~= BAR_STATE.ACTIVE then
+        appearanceSeq = appearanceSeq + 1
+        bar.appearanceOrder = appearanceSeq
+    end
+
     bar.expirationTime = expirationTime
     bar.duration = duration
     bar.barState = BAR_STATE.ACTIVE
@@ -635,6 +649,13 @@ function ns:ActivateStaticBar(bar, icon, name, stacks)
     if not bar then return end
     ns:CancelBarGlow(bar)
 
+    -- See ActivateBar: same stamp-on-transition rule for Sort Mode
+    -- "As They Come", read before barState below is overwritten.
+    if bar.barState ~= BAR_STATE.ACTIVE then
+        appearanceSeq = appearanceSeq + 1
+        bar.appearanceOrder = appearanceSeq
+    end
+
     bar.isResourceBar = false
     bar.isStaticBar = true
     bar.barState = BAR_STATE.ACTIVE
@@ -676,6 +697,10 @@ function ns:DeactivateBar(bar, skipGlow)
     if not bar then return end
 
     bar.barState = BAR_STATE.INACTIVE
+    -- Sort Mode "As They Come" stamp: this bar is no longer running, so it
+    -- must not keep the slot it held. A future re-activation stamps a fresh,
+    -- later order (see ActivateBar/ActivateStaticBar).
+    bar.appearanceOrder = nil
     bar.expirationTime = nil
     bar.duration = nil
     bar.textElapsed = nil

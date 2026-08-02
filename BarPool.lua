@@ -38,6 +38,12 @@ function ns:ReleaseBar(bar)
     bar.lingerRemaining = nil
     bar.stacks = nil
     bar.textElapsed = nil
+    -- Sort Mode "As They Come" stamp: DeactivateBar already clears this on a
+    -- normal fade, but a bar can also be released straight out of an active
+    -- rebuild (RebuildAllFrames deactivates then releases every bar), so
+    -- clear it here too rather than trust a single call site. A pooled bar
+    -- reused by a different group must never inherit another group's slot.
+    bar.appearanceOrder = nil
     bar.isTestBar = nil
     bar.isAutoBar = nil
     bar._lastSparkX = nil

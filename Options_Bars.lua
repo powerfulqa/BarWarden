@@ -361,6 +361,7 @@ local function CreateBarsTab(parent)
         { text = "Manual",         value = "manual" },
         { text = "Remaining Time", value = "remaining" },
         { text = "Alphabetical",   value = "alpha" },
+        { text = "As They Come",   value = "appearance" },
     }
 
     local growDirectionItems = {
@@ -515,7 +516,10 @@ local function CreateBarsTab(parent)
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
         { type = "dropdown", id = "grpSortDD", label = "Sort Mode", items = sortModeItems, width = 130,
           tooltip = "Order the bars in this group: Manual (drag to reorder), by "
-                 .. "remaining time, or alphabetically.",
+                 .. "remaining time, alphabetically, or As They Come, which "
+                 .. "puts each new bar at the end and keeps it there for as "
+                 .. "long as it lasts, so the list only closes up when one "
+                 .. "drops off.",
           get = function() local g = getGroup(); return g and g.sortMode or "manual" end,
           set = function(_, value)
               local g = getGroup(); if not g then return end

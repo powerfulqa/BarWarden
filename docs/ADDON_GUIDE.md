@@ -173,6 +173,38 @@ BarEngine. Call that; do not relayout per bar.
 Any work added inside the scan loop multiplies by bar count times 4Hz.
 Profile additions before you ship them.
 
+### Sort Mode "As They Come"
+
+`sortMode = "appearance"` orders a group's visible bars by when each one
+last started, oldest first, instead of by remaining time or name. The stamp
+lives on the bar object itself (`bar.appearanceOrder`), set by a file-local
+`appearanceSeq` counter in BarEngine.lua. `ns:ActivateBar` and
+`ns:ActivateStaticBar` both fire repeatedly on an already-active bar (a
+timer refresh, a stack change), so each reads `bar.barState` *before*
+overwriting it with `BAR_STATE.ACTIVE` and only stamps on the
+INACTIVE/LINGERING -> ACTIVE transition; a refresh that leaves a bar ACTIVE
+throughout never gets a new stamp, which is what lets it hold its slot.
+`ns:DeactivateBar` and `ns:ReleaseBar` (BarPool.lua) both clear the stamp,
+so a pool round-trip can never let a bar recycled into a different group
+inherit another group's position.
+
+`CompareAppearance` (FrameManager.lua, beside `CompareRemaining` and
+`CompareAlpha`) reads that stamp; a bar with none (a resource bar, or
+anything that never went through the activate path) sorts after every
+stamped bar. It is the one comparator of the three exposed on `ns` (as
+`ns.CompareAppearance`, not local-only like its siblings) specifically so
+`tests/test_frame_manager.lua` can load FrameManager.lua under the test
+harness and exercise it directly; the rest of that file builds real WoW
+frames and stays untested here.
+
+This pairs with an auto-tracking group's `autoStableOrder` ("Keep Bars In
+Place") without conflicting: `autoStableOrder` decides which physical bar
+object (slot) holds a given aura's data across scans, so an aura that keeps
+running never triggers a spurious deactivate/reactivate that would reset
+its stamp; `sortMode = "appearance"` only decides how the currently-visible
+bars are drawn given whatever stamps already exist. One controls slot
+occupancy, the other draw order.
+
 ### Auto-tracking groups
 
 A group with `autoTrack` set does not build bars from its `bars` array. It

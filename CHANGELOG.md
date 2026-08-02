@@ -70,6 +70,12 @@ compact icon grids.
 - **Scale** now goes up to 3.0 (was 2.0).
 - **Columns** now goes up to 6 (was 4).
 
+**A fourth Sort Mode: As They Come.** A bar takes its place the moment its
+spell fires and holds that spot for as long as it lasts; when one above or
+below it drops off, the rest close up. Pairs well with Keep Bars In Place on
+an auto-tracking group, since that setting keeps each aura on the same slot
+and this one decides where that slot draws.
+
 ### v2.1.1
 
 A full read-through of the addon, and the fixes that came out of it. Two of
