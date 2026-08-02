@@ -46,6 +46,16 @@ function M.test_layout_multipleGroupsProtected()
         "more than one group is a built layout, protect it")
 end
 
+function M.test_layout_autoTrackingGroupProtected()
+    -- A pure auto-tracking group has no configured bars by design, but it
+    -- holds a layout worth protecting - it is actively filling itself from
+    -- buffs or debuffs on a unit and must not be overwritten by the starter.
+    local ns = freshUtils()
+    assertx.assertTrue(
+        ns:HasExistingLayout({ { name = "G", autoTrack = "playerBuffs", bars = {} } }),
+        "an auto-tracking group must be protected from the starter prompt")
+end
+
 -- ns:MigrateFrames is the single entry point every frame source routes
 -- through (live DB, profile load, import, starter). It must canonicalise
 -- legacy fields and backfill sub-tables without ever clobbering identity.
