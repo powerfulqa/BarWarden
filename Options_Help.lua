@@ -316,9 +316,9 @@ local HELP_ENTRIES = {
     {
         id = "icon-only",
         q = "Can a group show just icons instead of bars?",
-        a = "Yes. Icon Only, under Bar Control > Groups > Bar Overrides, swaps "
-          .. "that group's bars for a plain grid of spell icons, no bar or "
-          .. "text underneath.\n\n"
+        a = "Yes. Show Icons Only, under Bar Control > Groups > Bar Overrides, "
+          .. "swaps that group's bars for a plain grid of spell icons, no bar "
+          .. "or text underneath.\n\n"
           .. "Size the icons with the Width slider and lay them out with "
           .. "Columns. Works on any group, hand-built or auto-tracking.",
     },

@@ -253,7 +253,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Background Opacity, Border Opacity
 - Sort Mode (Manual, Remaining Time, Alphabetical, As They Come)
 - Growth Direction (Down, Up)
-- Bar Overrides: Bar Texture, Text Format, Bar Style (Countdown, On or Off), Custom Bar Colour, Icon Only (a compact grid of spell icons instead of bars, sized with the Width slider), and Custom Stack Text (its own size and colour for the stack count), all for the whole group at once
+- Bar Overrides: Bar Texture, Text Format, Bar Style (Countdown, On or Off), Custom Bar Colour, Show Icons Only (a compact grid of spell icons instead of bars, sized with the Width slider), and Custom Stack Text (its own size and colour for the stack count), all for the whole group at once
 - Auto Track: fill the group from buffs or debuffs instead of adding bars by hand
 - Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
@@ -308,8 +308,8 @@ Groups can override the **Text Format**, the bar texture and colour, and the
 Style picks Countdown (the default, ticks down) or On or Off (fills while the
 tracked thing is active, empty the rest of the time, no countdown); it can
 also be set per bar with **Show as On or Off** above. The same section has
-an **Icon Only** toggle that draws a plain grid of spell icons for that group
-instead of bars, no bar or text underneath; size the icons with the Width
+a **Show Icons Only** toggle that draws a plain grid of spell icons for that 
+group instead of bars, no bar or text underneath; size the icons with the Width 
 slider. A **Custom Stack Text** toggle gives the group (or, in the bar
 editor, a single bar) its own Stack Text Size and Stack Text Colour instead
 of the addon-wide default; a bar's own setting wins over its group's, which

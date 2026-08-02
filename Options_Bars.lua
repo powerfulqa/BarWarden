@@ -477,7 +477,7 @@ local function CreateBarsTab(parent)
           offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
         { type = "slider", label = "Width", min = 10, max = 600, step = 5, width = 150, stretch = true,
           tooltip = "How wide the bars in this group are, in pixels. With "
-               .. "Icon Only turned on under Bar Overrides, this sets the "
+               .. "Show Icons Only turned on under Bar Overrides, this sets the "
                .. "icon size instead.",
           get = function() local g = getGroup(); return g and g.width or 200 end,
           set = function(_, value)
@@ -626,9 +626,9 @@ local function CreateBarsTab(parent)
               ns:RefreshAllBars()
           end,
           offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
-        { type = "toggle", id = "grpIconOnly", label = "Icon Only",
-          tooltip = "Show just the spell icon for each bar, with no bar "
-               .. "behind it. Use the Width setting to size the icons.",
+        { type = "toggle", id = "grpIconOnly", label = "Show Icons Only",
+          tooltip = "Only show the spell icons for this group's bars, with no "
+               .. "bar behind them. Use the Width slider to size the icons.",
           get = function() local g = getGroup(); return g and g.iconOnly end,
           set = function(_, v)
               local g = getGroup(); if not g then return end

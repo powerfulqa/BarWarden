@@ -76,11 +76,11 @@ below it drops off, the rest close up. Pairs well with Keep Bars In Place on
 an auto-tracking group, since that setting keeps each aura on the same slot
 and this one decides where that slot draws.
 
-**Icon Only for any group.** A new Bar Overrides tickbox draws a plain grid
-of spell icons instead of bars, no bar, background or text underneath, on a
-hand-made group as well as an auto-tracking one. Size the icons with the
-Width slider (now up to 600 px) and lay them out with Columns (now up to
-10), for a compact cooldown or buff tray.
+**Show Icons Only for any group.** A new Bar Overrides tickbox draws a plain 
+grid of spell icons instead of bars, no bar, background or text underneath, on 
+a hand-made group as well as an auto-tracking one. Size the icons with the 
+Width slider (now up to 600 px) and lay them out with Columns (now up to 10), 
+for a compact cooldown or buff tray.
 
 **A bigger, coloured stack count.** Two new settings on the Visuals tab,
 beside Show Stack Count: **Stack Text Size** to match it to your icon size,
