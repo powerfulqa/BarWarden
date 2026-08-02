@@ -1402,10 +1402,13 @@ local function CreateBarsTab(parent)
         return e
     end
 
-    -- Factory: display-slider schema entry. Default offsetX is the canonical
-    -- slider column; callers that are a deliberate sub-item of the toggle
-    -- above them (Alert/High/Med Threshold, Glow Duration - see call sites
-    -- below) pass offsetX = 0 in `extra` to indent under that toggle instead.
+    -- Factory: display-slider schema entry. offsetX always resolves to the
+    -- canonical slider column (ns.OFFSET_SLIDER); a handful of call sites
+    -- below (Alert/High/Med Threshold, Glow Duration) are sub-items whose
+    -- setting only matters while the toggle above them is on, but that is a
+    -- tighter `spacing` (grouping them visually with their toggle), not a
+    -- different offsetX - they sit flush with every other slider in this
+    -- panel, matching how they actually rendered before the offsetX refactor.
     local function dispSlider(label, field, mn, mx, st, default, tip, extra)
         local e = { type = "slider", label = label, tooltip = tip,
             min = mn, max = mx, step = st, width = 140, stretch = true,
@@ -1548,13 +1551,14 @@ local function CreateBarsTab(parent)
             "Flash the bar when the timer is about to expire.",
             { spacing = 24 }),
 
-        -- Deliberate sub-item: indented under Sparkle Alert above (has no
-        -- effect unless that toggle is on), not the canonical slider column.
+        -- Sub-item of Sparkle Alert above (has no effect unless that toggle is
+        -- on); tighter spacing groups it with the toggle, same slider column
+        -- as every other slider in this panel.
         dispSlider("Alert Threshold (sec)", "sparkleThreshold", 1, 15, 1, 5,
             "When Sparkle Alert is enabled, the bar flashes once the remaining "
          .. "time drops below this many seconds. Lower = later warning; higher "
          .. "= more lead time. Has no effect unless Sparkle Alert is ticked.",
-            { spacing = 20, offsetX = 0 }),
+            { spacing = 20 }),
 
         { type = "color", label = "Color Override",
           get = function()
@@ -1572,24 +1576,23 @@ local function CreateBarsTab(parent)
             "Bar colour changes from green to red as the timer counts down.",
             { spacing = 12 }),
 
-        -- Deliberate sub-items: both thresholds only matter while Colour by
-        -- Time is on, so both indent under it at the same column (the old
-        -- schema indented Med Threshold a further step past High Threshold,
-        -- an accumulation-bug artifact rather than an intended design;
-        -- lining them up here is part of this pass's fix, not a regression).
+        -- Both thresholds only matter while Colour by Time is on above; both
+        -- sit on the same canonical slider column as everything else in this
+        -- panel (the old schema indented Med Threshold a further step past
+        -- High Threshold, an accumulation-bug artifact rather than an
+        -- intended design - lining them up flush is the fix, not a regression).
         dispSlider("High Threshold (sec)", "colorHighSeconds", 1, 30, 1, 10,
             "When Colour by Time is enabled, the bar stays green while "
          .. "remaining time is at or above this many seconds, then fades "
          .. "toward yellow as it counts down. Set higher for earlier warning; "
          .. "lower to keep the bar green for longer.",
-            { spacing = 20, offsetX = 0 }),
+            { spacing = 20 }),
 
         dispSlider("Med Threshold (sec)", "colorMedSeconds", 1, 30, 1, 5,
             "When Colour by Time is enabled, the bar fades from yellow to red "
          .. "once remaining time drops below this many seconds. Should be "
          .. "lower than High Threshold; the gap between them is the "
-         .. "yellow zone.",
-            { offsetX = 0 }),
+         .. "yellow zone."),
 
         dispCheck("Glow on Ready", "glowOnReady",
             "Flash the icon when the cooldown finishes and the spell is ready.",
@@ -1602,12 +1605,13 @@ local function CreateBarsTab(parent)
          .. "your view.",
             { spacing = 8 }),
 
-        -- Deliberate sub-item: only takes effect while Glow on Ready is on.
+        -- Sub-item of Glow on Ready above: only takes effect while it is on;
+        -- same slider column as everything else in this panel.
         dispSlider("Glow Duration (sec)", "glowDuration", 1, 10, 1, 3,
             "How long the icon keeps pulsing when Glow on Ready fires "
          .. "(spell comes off cooldown / buff expires). Has no effect unless "
          .. "Glow on Ready is ticked.",
-            { spacing = 20, offsetX = 0 }),
+            { spacing = 20 }),
 
         dispCheck("Crop Icon", "iconCrop",
             "Trim icon border pixels to prevent stretching.",

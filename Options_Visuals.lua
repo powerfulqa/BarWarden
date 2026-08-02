@@ -253,6 +253,16 @@ local function CreateVisualsTab(parent)
           anchorTo = "customTexBox", offsetX = 0, spacing = 4 },
 
         -- -------------------- Section: Text Options --------------------
+        -- anchorTo = "textureDD" (skipping past customTexBox/fallbackWarning)
+        -- rather than a plain chain, because those two are conditionally
+        -- shown/hidden by textureDD's onChange; anchoring to a widget that
+        -- toggles visibility, instead of the last one in the branch, keeps
+        -- this header's position stable regardless of their shown state.
+        -- offsetX = 16 is a RELATIVE nudge from textureDD's frame origin
+        -- (ns.OFFSET_DROPDOWN, -14), and only lands on the header column
+        -- (ns.OFFSET_HEADER, 2) by arithmetic coincidence: -14 + 16 = 2. If
+        -- ns.OFFSET_DROPDOWN ever changes, this 16 must change with it to
+        -- keep the header aligned.
         { type = "header", text = "Text Options",
           anchorTo = "textureDD", spacing = 24, offsetX = 16 },
 

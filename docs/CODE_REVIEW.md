@@ -174,6 +174,23 @@ G. **Auto-track skip set checks bar existence, not visibility.** The `Skip Spell
    conditionally-hidden group (for example, a buff in a Combat Only group) is
    suppressed from auto-track while the group is hidden. Owner considered the
    alternative behaviour and chose to keep this. Won't-fix.
+H. **`ns:BuildSettings`'s `offsetX` is absolute except through `anchorTo`.**
+   Every ordinary entry's `offsetX` is an absolute indent from the panel's left
+   edge (added to `firstX`); an entry with `anchorTo = "<id>"` is the one
+   deliberate exception, keeping the old relative-nudge-from-that-widget
+   semantics instead, because it is a branch off the main chain (a
+   conditionally hidden sub-item, or a section header re-anchoring past one)
+   rather than a row in the panel's own column. Documented in ADDON_GUIDE.md
+   and in the `anchorTo` comment in Options_Builder.lua. Do not "fix" an
+   `anchorTo` entry's `offsetX` to read like an absolute indent.
+I. **Bar Style dropdown has no `[?]` help icon.** Every other Group Settings
+   section header gets one via `ns:CreateHelpIcon`, but `ns:CreateDropdown`
+   (Widgets.lua) builds the dropdown's text label as a private local
+   fontstring and never exposes it on the returned frame, so there is no
+   widget to anchor a help icon next to the visible "Bar Style" text - only
+   the wide `UIDropDownMenuTemplate` box itself, which would put the icon in
+   the wrong place. Adding one needs `ns:CreateDropdown` to expose the label
+   frame first. Deferred, not forgotten.
 
 ## Resolved (kept for the record)
 

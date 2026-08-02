@@ -256,6 +256,33 @@ end
 -- Condition registry order - locks the short-circuit order
 -- --------------------------------------------------------------------------
 
+-- --------------------------------------------------------------------------
+-- Options_Builder's OFFSET_* constants - guard the load-order assumption
+-- --------------------------------------------------------------------------
+
+function M.test_offsetConstants_areNumbersAfterOptionsLoad()
+    -- Options_General.lua's schema reads ns.OFFSET_* at FILE SCOPE (see its
+    -- SCHEMA table literal), so it depends on Options_Builder.lua having
+    -- already run and set them on the shared ns. BarWarden.toc currently
+    -- lists Options_Builder.lua before Options_General.lua; load them here
+    -- in that same order so a future TOC reorder that breaks this silently
+    -- degrades every offsetX to nil (SetPoint math would then error at
+    -- runtime) rather than being caught here.
+    local ns = {}
+    load_addon.load("Options_Builder.lua", "BarWarden", ns)
+    load_addon.load("Options_General.lua",  "BarWarden", ns)
+
+    local names = {
+        "OFFSET_HEADER", "OFFSET_DROPDOWN", "OFFSET_TOGGLE",
+        "OFFSET_SLIDER", "OFFSET_EDITBOX", "OFFSET_COLOR",
+    }
+    for _, name in ipairs(names) do
+        assertx.assertTrue(type(ns[name]) == "number",
+            "ns." .. name .. " must be a number after Options_Builder.lua loads, got "
+                .. type(ns[name]))
+    end
+end
+
 function M.test_conditions_registrationOrder()
     -- Short-circuit order is a perf + correctness contract: requireClass
     -- first (cheapest + most selective; reject non-class bars before

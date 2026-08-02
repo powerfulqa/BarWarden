@@ -88,21 +88,28 @@ local FIRST_Y       = -80  -- y offset (negative = down) of the first widget
 local DEFAULT_GAP   = 8    -- vertical gap between consecutive widgets
 
 -- ----------------------------------------------------------------------------
--- Canonical per-type absolute offsetX values, confirmed correct in the "Bar
--- Overrides" section of Options_Bars.lua's GROUP_SETTINGS_SCHEMA. Each widget
--- template pads its own visible content differently (a dropdown's box sits
--- ~16px right of its frame origin, a checkbox's tickbox only a few px), so
--- each type needs its own frame-origin offset to make the VISIBLE LEFT EDGES
--- line up in the same column. Exposed on `ns` (rather than kept file-local)
--- so every Options_*.lua schema can reference the same numbers instead of
--- re-deriving or copy-pasting them.
+-- Canonical per-type absolute offsetX values. Derived from each widget
+-- template's own padding, then checked by eye against the live Bars tab
+-- (which is the only panel exercising every one of header / dropdown /
+-- toggle / slider / colour in one place; it has no editbox, so that one is
+-- derived from the header column rather than eyeballed in-panel). Each
+-- widget template pads its own visible content differently
+-- (a dropdown's box sits ~16px right of its frame origin, a checkbox's
+-- tickbox only a few px), so each type needs its own frame-origin offset to
+-- make the VISIBLE LEFT EDGES line up in the same column. Exposed on `ns`
+-- (rather than kept file-local) so every Options_*.lua schema can reference
+-- the same numbers instead of re-deriving or copy-pasting them.
 -- ----------------------------------------------------------------------------
 ns.OFFSET_HEADER   = 2     -- plain fontstring, no template padding
 ns.OFFSET_DROPDOWN = -14   -- UIDropDownMenuTemplate box sits ~16px right of frame origin
 ns.OFFSET_TOGGLE   = -4    -- CheckButton tickbox is inset a few px from frame origin
 ns.OFFSET_SLIDER   = 8     -- OptionsSliderTemplate label/track padding
-ns.OFFSET_EDITBOX  = 2     -- InputBoxTemplate has no built-in left inset; matches header
-ns.OFFSET_NOTE     = 2     -- plain fontstring, same as header
+-- InputBoxTemplate's left edge texture actually sits ~5px left of the frame
+-- origin (it is NOT flush), so offsetX = 2 in a firstX = 0 panel puts the box
+-- border a few px inside the scroll clip edge. The value is chosen to align
+-- the editbox's LABEL with the header column, not to clear the border - a
+-- deliberate trade-off, not an oversight.
+ns.OFFSET_EDITBOX  = 2     -- aligns editbox label with header column
 ns.OFFSET_COLOR    = 2     -- bare swatch frame, no built-in inset; matches header
 
 -- ----------------------------------------------------------------------------
@@ -325,6 +332,10 @@ function ns:BuildSettings(parent, schema, widgetRefs, opts)
 
     local rendered = {}    -- list of { widget, entry } for the Refresh closure
     local prev             -- chain tip: the previous in-flow widget
+    local widgetX = {}      -- widget -> its resolved x-from-parent's-left-edge,
+                            -- so a later entry chaining off it (as `prev`, or
+                            -- via `anchorTo`) can compute a single-anchor delta
+                            -- without re-deriving an absolute frame position
 
     for i, entry in ipairs(schema) do
         local builder = BUILDERS[entry.type]
@@ -360,10 +371,15 @@ function ns:BuildSettings(parent, schema, widgetRefs, opts)
         --      THIS widget for subsequent entries.
         --   3. Otherwise, chain y below `prev` (so variable-height widgets
         --      like wrapped notes still flow correctly) but pin x to parent's
-        --      left edge. offsetX is therefore absolute and independent of
-        --      every other entry: two anchors are used (TOP for y, LEFT for
-        --      x) rather than one TOPLEFT, since a single anchor cannot take
-        --      its x from one frame and its y from another.
+        --      left edge, so offsetX stays absolute and independent of every
+        --      other entry. A single TOPLEFT-to-BOTTOMLEFT anchor gets there
+        --      by computing the x delta from `prev`'s already-known resolved
+        --      x (widgetX[prev]) to the target absolute x: anchoring at
+        --      ((firstX + offsetX) - widgetX[prev]) lands this widget's left
+        --      edge at exactly firstX + offsetX from the parent's left edge,
+        --      same result as the old TOP/LEFT anchor pair, without pinning
+        --      two different corner points (one of which carries an implicit
+        --      centring component on the other axis) on the same frame.
         local offsetX = entry.offsetX or 0
         local gap = entry.spacing or DEFAULT_GAP
         local anchorWidget
@@ -371,14 +387,19 @@ function ns:BuildSettings(parent, schema, widgetRefs, opts)
             anchorWidget = widgetRefs[entry.anchorTo]
         end
 
+        local resolvedX
         if anchorWidget then
             widget:SetPoint("TOPLEFT", anchorWidget, "BOTTOMLEFT", offsetX, -gap)
+            resolvedX = (widgetX[anchorWidget] or 0) + offsetX
         elseif not prev then
             widget:SetPoint("TOPLEFT", parent, "TOPLEFT", firstX + offsetX, firstY)
+            resolvedX = firstX + offsetX
         else
-            widget:SetPoint("TOP", prev, "BOTTOM", 0, -gap)
-            widget:SetPoint("LEFT", parent, "LEFT", firstX + offsetX, 0)
+            local prevX = widgetX[prev] or firstX
+            widget:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", (firstX + offsetX) - prevX, -gap)
+            resolvedX = firstX + offsetX
         end
+        widgetX[widget] = resolvedX
 
         -- Full-width entries (editboxes, sliders) also pin their RIGHT edge to
         -- the parent, so they stretch to the panel width instead of a fixed

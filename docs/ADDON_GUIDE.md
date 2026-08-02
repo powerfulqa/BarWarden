@@ -400,14 +400,18 @@ after Refresh; `anchorTo = "<id>"` overrides "anchor to previous";
 `offsetX` is an **absolute** indent from the panel's left edge (added to
 `firstX`), not a nudge from the previous widget - two schema entries with
 the same `offsetX` land in the same column no matter what is above them.
+The one exception: an entry with `anchorTo` keeps a **relative** nudge from
+the named widget instead of an absolute indent, since it is deliberately
+anchored off that widget's frame rather than off the panel edge (see
+`anchorTo` below).
 Each widget template pads its visible content differently, so use the
 matching constant for the entry's type rather than a bespoke number:
 `ns.OFFSET_HEADER` (2), `ns.OFFSET_DROPDOWN` (-14), `ns.OFFSET_TOGGLE`
-(-4), `ns.OFFSET_SLIDER` (8), `ns.OFFSET_EDITBOX` / `ns.OFFSET_NOTE` /
-`ns.OFFSET_COLOR` (2). Only hand-pick a value for an entry that is
-deliberately indented as a sub-item of the setting above it (a threshold
-slider that only matters while its toggle is ticked, for instance) -
-comment it as such so it survives the next cleanup pass.
+(-4), `ns.OFFSET_SLIDER` (8), `ns.OFFSET_EDITBOX` / `ns.OFFSET_COLOR` (2).
+Only hand-pick a value for an entry that is deliberately indented as a
+sub-item of the setting above it (a threshold slider that only matters
+while its toggle is ticked, for instance) - comment it as such so it
+survives the next cleanup pass.
 
 `spacing` is **leading** (the gap above the entry), matching "this
 widget sits N px below the previous."
