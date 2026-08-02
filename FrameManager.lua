@@ -59,6 +59,35 @@ local function CompareAppearance(a, b)
 end
 ns.CompareAppearance = CompareAppearance
 
+-- Whether a group counts as empty for the purpose of the solid start-up
+-- backdrop (see the comment above the call site in UpdateGroupLayout). The
+-- two kinds of group are empty in different ways, so this is two explicit
+-- branches rather than one shared bar-count check:
+--   - An auto-tracking group has no hand-made bars by definition -
+--     frameData.bars is just the dormant hand-list BuildBarsForFrame keeps
+--     for when auto-track is switched back off, so it is always empty and
+--     tells us nothing. The only honest signal is whether any of its slots
+--     are currently showing something.
+--   - An ordinary group has no slots to check, so it stays keyed off its
+--     configured bar count.
+-- Exposed on `ns` (like CompareAppearance above) so
+-- tests/test_frame_manager.lua can cover the rule without loading the
+-- WoW-frame-creating rest of this file.
+local function IsGroupEmptyForBackdrop(group, frameData, visibleCount)
+    -- EC-TRAP: this branch looks redundant with the #frameData.bars == 0 check
+    -- below. Do NOT collapse them: frameData.bars is always the dormant
+    -- hand-list for a pure auto group, so that check is permanently true and
+    -- an auto group would render its solid start-up backdrop forever no
+    -- matter what is on screen. Collapsing them back into one check is the
+    -- exact v2.2.1 bug (Background Opacity 0 stuck at solid black on any
+    -- populated auto-tracking group).
+    if group and group.isAutoGroup then
+        return visibleCount == 0
+    end
+    return (frameData and frameData.bars and #frameData.bars == 0) and true or false
+end
+ns.IsGroupEmptyForBackdrop = IsGroupEmptyForBackdrop
+
 -- Runtime-only bar data for one auto-tracking slot. ScanAutoGroup overwrites
 -- the name and id each pass, so this is never written to SavedVariables: the
 -- group's real `bars` array stays untouched in the DB and comes back the
@@ -307,19 +336,12 @@ function ns:UpdateGroupLayout(group)
     local totalHeight = titleOffset + (rowCount * (barHeight + spacing)) + 4
     local totalWidth = columns * barWidth + (columns - 1) * spacing + 8
 
-    -- A group with no bars is drawn solid rather than at the configured
-    -- backdrop alpha, so a newly added one is obvious at the centre of the
-    -- screen and can be dragged into place. It reverts to the user's own alpha
-    -- as soon as it holds a bar.
-    --
-    -- frameData.bars only holds bars added by hand (auto-track keeps them
-    -- around for when the group is switched back off), so it stays empty for
-    -- a pure auto group even while its slots are full. An auto group with
-    -- nothing currently on the unit needs its own check on visibleCount, or
-    -- it would sit at the user's own (possibly near-invisible) background
-    -- alpha instead of being obvious while unlocked for positioning.
-    local isEmpty = (frameData and frameData.bars and #frameData.bars == 0)
-        or (group.isAutoGroup and visibleCount == 0)
+    -- A group with nothing in it is drawn solid rather than at the configured
+    -- backdrop alpha, so it is obvious at the centre of the screen and can be
+    -- dragged into place. It reverts to the user's own alpha as soon as it
+    -- holds something. See IsGroupEmptyForBackdrop above for what "nothing in
+    -- it" means for an auto-tracking group versus an ordinary one.
+    local isEmpty = IsGroupEmptyForBackdrop(group, frameData, visibleCount)
     if group.SetBackdropColor then
         if isEmpty then
             group:SetBackdropColor(0, 0, 0, 0.85)

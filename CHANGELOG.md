@@ -13,6 +13,16 @@ exhaustive notes.
 
 ---
 
+### v2.2.1
+
+Fixes
+- **Background Opacity set to 0 on an auto-tracking group now actually shows
+  nothing behind the bars.** It was stuck showing a solid black panel
+  whenever the group had anything in it, because the code used the group's
+  hand-added bar list to decide whether it was empty, and an auto-tracking
+  group never has any of those. Out of combat it looked fine, but only
+  because the group hides entirely once it has nothing left to show.
+
 ### v2.2.0
 
 **Groups that fill themselves.** Point a group at all buffs or all debuffs, on

@@ -1,9 +1,9 @@
 -- tests/test_frame_manager.lua
--- Covers ns.CompareAppearance, the pure comparator behind Sort Mode "As They
--- Come" (FrameManager.lua). Everything else in that file builds real WoW
--- frames (CreateFrame, GetTime-driven positioning), which is out of scope for
--- this harness and rides the in-game smoke test instead; CompareAppearance is
--- exposed on `ns` specifically so this one piece of logic can be checked here.
+-- Covers ns.CompareAppearance and ns.IsGroupEmptyForBackdrop, the pure
+-- functions exposed off FrameManager.lua. Everything else in that file builds
+-- real WoW frames (CreateFrame, GetTime-driven positioning), which is out of
+-- scope for this harness and rides the in-game smoke test instead; these two
+-- are exposed on `ns` specifically so this logic can be checked here.
 
 local assertx    = require("assert")
 local load_addon = require("load_addon")
@@ -68,6 +68,47 @@ function M.test_sortWithMixedStamps()
     table.sort(tailNames)
     assertx.assertEqual(tailNames[1], "unstamped1")
     assertx.assertEqual(tailNames[2], "unstamped2")
+end
+
+-- IsGroupEmptyForBackdrop: the v2.2.1 regression. An ordinary group's
+-- emptiness is its configured bar count, same as before this was pulled out.
+function M.test_isGroupEmptyForBackdrop_ordinaryGroup_noBars()
+    local ns = fresh()
+    local group = { isAutoGroup = false }
+    local frameData = { bars = {} }
+    assertx.assertTrue(ns.IsGroupEmptyForBackdrop(group, frameData, 0))
+end
+
+function M.test_isGroupEmptyForBackdrop_ordinaryGroup_withBars()
+    local ns = fresh()
+    local group = { isAutoGroup = false }
+    local frameData = { bars = { { name = "Bar 1" } } }
+    -- visibleCount = 0 on purpose: an ordinary group with a configured bar
+    -- that just isn't showing right now still counts as "not empty" - it is
+    -- keyed off configured bars, not what is currently on screen.
+    assertx.assertFalse(ns.IsGroupEmptyForBackdrop(group, frameData, 0))
+end
+
+-- A pure auto group's frameData.bars is always the dormant hand-list (empty
+-- for a group that has never been anything but auto-tracking), so #bars == 0
+-- must NOT force the solid backdrop here - that was the v2.2.1 bug: Background
+-- Opacity 0 still showed a solid black panel whenever the group had anything
+-- in it, because this check looked at the wrong list.
+function M.test_isGroupEmptyForBackdrop_autoGroup_slotsFilled()
+    local ns = fresh()
+    local group = { isAutoGroup = true }
+    local frameData = { bars = {}, autoTrack = "player" }
+    assertx.assertFalse(ns.IsGroupEmptyForBackdrop(group, frameData, 3))
+end
+
+-- An auto group with nothing currently on the unit still needs the solid
+-- backdrop, or an unlocked-but-momentarily-empty group would vanish into the
+-- user's own (possibly near-invisible) background alpha.
+function M.test_isGroupEmptyForBackdrop_autoGroup_noneVisible()
+    local ns = fresh()
+    local group = { isAutoGroup = true }
+    local frameData = { bars = {}, autoTrack = "player" }
+    assertx.assertTrue(ns.IsGroupEmptyForBackdrop(group, frameData, 0))
 end
 
 return M
