@@ -27,23 +27,24 @@ local HELP_ENTRIES = {
         q = "What does BarWarden do?",
         a = "BarWarden draws timer bars that track your spell cooldowns, "
           .. "buffs, debuffs, procs, item cooldowns, weapon enchants, totems, "
-          .. "and class resources. When something goes on cooldown or a buff "
-          .. "is applied, the matching bar fills and counts down so you always "
-          .. "know when it is ready or about to expire.",
+          .. "and class resources.\n\n"
+          .. "When something goes on cooldown or a buff is applied, the "
+          .. "matching bar fills and counts down, so you always know when it "
+          .. "is ready or about to expire.",
     },
     {
         id = "getting-started",
         q = "I just installed this. Where do I start?",
         a = "Type /bw to open the settings. The quickest setup is the "
           .. "Profiles tab: Load Class Starter gives you a curated set of "
-          .. "bars for your class and spec in one click. To build your own, "
-          .. "go to the Bars / Groups tab, click Add to make a group, then "
-          .. "Add a bar inside it.",
+          .. "bars for your class and spec in one click.\n\n"
+          .. "To build your own instead, go to the Bars / Groups tab, click "
+          .. "Add to make a group, then Add a bar inside it.",
     },
     {
         id = "open-settings",
         q = "How do I open the settings?",
-        a = "Left-click the BarWarden minimap button, or type /bw in chat. "
+        a = "Left-click the BarWarden minimap button, or type /bw in chat.\n\n"
           .. "Right-click the minimap button to quickly enable or disable the "
           .. "addon. Hover any slider, dropdown, or text field for a tooltip "
           .. "explaining what it does.",
@@ -53,18 +54,18 @@ local HELP_ENTRIES = {
         q = "How do I create a group?",
         a = "Groups are containers that hold your bars, like Cooldowns or "
           .. "Target Debuffs. On the Bars / Groups tab, click Add to create a "
-          .. "group. Give it a name and set the width, scale, and columns. "
-          .. "Each group can hold up to 30 bars, and you can have up to 20 "
-          .. "groups.",
+          .. "group.\n\n"
+          .. "Give it a name and set the width, scale, and columns. Each "
+          .. "group can hold up to 30 bars, and you can have up to 20 groups.",
     },
     {
         id = "add-bar",
         q = "How do I add a bar?",
-        a = "On Bar Control, pick a group on the Groups tab, switch to the Bars "
-          .. "tab, and click +. Choose a "
-          .. "Track Mode (Cooldown, Buff, Debuff, and so on), choose a target, "
-          .. "and type the spell name or spell ID. The bar starts tracking the "
-          .. "next time that spell or effect is active.",
+        a = "On Bar Control, pick a group on the Groups tab, switch to the "
+          .. "Bars tab, and click +.\n\n"
+          .. "Choose a Track Mode (Cooldown, Buff, Debuff, and so on), choose "
+          .. "a target, and type the spell name or spell ID. The bar starts "
+          .. "tracking the next time that spell or effect is active.",
     },
     {
         id = "move-groups",
@@ -90,7 +91,7 @@ local HELP_ENTRIES = {
         q = "Buff and Debuff",
         a = "Buff tracks a buff on you or another unit and shows its remaining "
           .. "time and stack count. Debuff tracks a debuff on your target or "
-          .. "another unit; by default it shows only debuffs you applied. "
+          .. "another unit; by default it shows only debuffs you applied.\n\n"
           .. "Only Mine works the same way on either: tick it to count just "
           .. "your own, untick it to count them from anyone.",
     },
@@ -112,9 +113,10 @@ local HELP_ENTRIES = {
         id = "track-enchant",
         q = "Enchant (mainhand / offhand)",
         a = "Tracks temporary weapon enchants like poisons, sharpening stones, "
-          .. "or shaman weapon buffs. Pick Enchant MH for your mainhand or "
-          .. "Enchant OH for your offhand. The Spell field is not used; use the "
-          .. "Bar Name field to label it, for example Deadly Poison.",
+          .. "or shaman weapon buffs.\n\n"
+          .. "Pick Enchant MH for your mainhand or Enchant OH for your "
+          .. "offhand. The Spell field is not used; use the Bar Name field to "
+          .. "label it, for example Deadly Poison.",
     },
     {
         id = "track-totem",
@@ -126,11 +128,12 @@ local HELP_ENTRIES = {
     {
         id = "track-resources",
         q = "Class resources (Combo Points, Runes, Runic Power, Soul Shards)",
-        a = "These fill as the resource builds rather than counting down. "
+        a = "These fill as the resource builds rather than counting down.\n\n"
           .. "Combo Points (rogue/druid) fill 0 to 5 on your target. Runes "
           .. "(DK) use 1-6 in the Spell field for the slot. Runic Power (DK) "
           .. "fills 0 to 100. Soul Shards (warlock) shows the count in your "
-          .. "bag. The class starter profiles pre-fill these for you.",
+          .. "bag.\n\n"
+          .. "The class starter profiles pre-fill these for you.",
     },
     {
         id = "multiple-spells",
@@ -151,37 +154,62 @@ local HELP_ENTRIES = {
     { section = "autoTracking", title = "Auto Tracking Groups" },
     -- ===================================================================
     -- Moved out of Conditions & Visibility: this grew from a single toggle
-    -- into a small feature of its own (feed, caps, ordering, alt-click
-    -- bans), and nobody looking for it thought to check Conditions. The id
-    -- stays "auto-track" so the existing [?] deep-links keep resolving.
+    -- into a small feature of its own (caps, ordering, alt-click bans), and
+    -- nobody looking for it thought to check Conditions. The id stays
+    -- "auto-track" so the existing [?] deep-links keep resolving.
+    --
+    -- This used to be one ~200-word answer covering four distinct questions
+    -- (what it is, what the settings do, hiding a single spell, what to
+    -- expect). Split into four entries so each one reads as a short,
+    -- skimmable answer instead of a wall of text; "auto-track" stays the
+    -- lead entry since it is the deep-link target.
     {
         id = "auto-track",
         q = "Can a group fill itself?",
         a = "Yes. On the Groups tab of Bar Control, set Auto Track to one of "
           .. "the four choices: all buffs or all debuffs, on you or on your "
-          .. "target. The group then shows whatever is there, without you "
-          .. "naming a single spell, which is how you catch a boss debuff or "
-          .. "an unfamiliar proc. Max Bars caps how many show at once, and "
-          .. "Skip Longer Than keeps food, flasks and raid buffs out of the "
-          .. "way. Include Always On adds things that never run out, like "
-          .. "class buffs and tracking, pinned above the rest. Only Mine "
-          .. "limits it to your own casts, and Skip Spells I "
-          .. "Already Track leaves out anything a bar in another group covers, "
-          .. "so the group only holds what you have not set up yourself. Keep "
-          .. "Bars In Place stops the bars reordering as timers count down: "
-          .. "each one stays put for as long as it lasts, and only fading "
-          .. "frees its spot for something new. Bars you added by hand are "
-          .. "kept and come back when you set Auto Track "
-          .. "to Off. Two things to expect: the group is empty until something "
-          .. "is actually on you, so unlock your frames to position it, and "
-          .. "test bars do not appear in it because there is nothing real to "
-          .. "show. A spell counts as already tracked whenever a bar for it "
-          .. "exists in another group, even while that group is hidden, so a "
-          .. "spell tracked only in a Combat Only group will not appear in the "
-          .. "auto group out of combat either. Alt-click a bar's icon to hide "
-          .. "just that spell from this one group. To bring it back, or clear "
-          .. "every one you have hidden, use the Hidden In This Group list "
-          .. "under Auto Track.",
+          .. "target.\n\n"
+          .. "The group then shows whatever is there, without you naming a "
+          .. "single spell, which is how you catch a boss debuff or an "
+          .. "unfamiliar proc. Bars you added by hand are kept and come back "
+          .. "when you set Auto Track to Off.",
+    },
+    {
+        id = "auto-track-settings",
+        q = "What do the Auto Track settings do?",
+        a = "Max Bars caps how many show at once, and Skip Longer Than keeps "
+          .. "food, flasks and raid buffs out of the way (set it to 0 to show "
+          .. "everything).\n\n"
+          .. "Include Always On adds things that never run out, like class "
+          .. "buffs and tracking, pinned above the rest. Only Mine limits it "
+          .. "to your own casts.\n\n"
+          .. "Skip Spells I Already Track leaves out anything a bar in "
+          .. "another group already covers, so the group only holds what you "
+          .. "have not set up yourself. Keep Bars In Place stops the bars "
+          .. "reordering as timers count down: each one stays put for as long "
+          .. "as it lasts, and only fading frees its spot for something new.",
+    },
+    {
+        id = "auto-track-hide-spell",
+        q = "Can I hide just one spell from an auto-tracking group?",
+        a = "Yes. Alt-click a bar's icon to hide that one spell from this "
+          .. "group only.\n\n"
+          .. "To bring it back, or clear everything you have hidden, open the "
+          .. "Hidden In This Group list under Auto Track in the group's "
+          .. "settings.",
+    },
+    {
+        id = "auto-track-tips",
+        q = "What should I expect from an auto-tracking group?",
+        a = "The group is empty until something real is actually active on "
+          .. "you or your target, so unlock your frames to position it before "
+          .. "that happens. Test bars do not appear in it, since there is "
+          .. "nothing real to show.\n\n"
+          .. "A spell counts as already tracked whenever a bar for it exists "
+          .. "in another group, even while that group is hidden. So with Skip "
+          .. "Spells I Already Track on, a spell tracked only in a Combat "
+          .. "Only group will not appear here while you are out of combat "
+          .. "either.",
     },
 
     -- ===================================================================
@@ -198,23 +226,24 @@ local HELP_ENTRIES = {
     {
         id = "group-conditions",
         q = "Can I hide a whole group at once?",
-        a = "Yes. Group Conditions (on the Groups tab of Bar Control) apply to "
-          .. "an entire group together: Hide When Inactive, Combat Only, Out of "
-          .. "Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In "
-          .. "Instance. That saves ticking every bar individually. Hide When "
-          .. "Inactive takes charge of the group once you use it: ticked hides "
-          .. "every bar while it has nothing to show, unticked keeps them all "
-          .. "visible even if single bars are set to hide. Leave it alone and "
-          .. "each bar decides for itself.",
+        a = "Yes. Group Conditions, on the Groups tab of Bar Control, apply to "
+          .. "an entire group at once instead of ticking every bar by hand: "
+          .. "Hide When Inactive, Combat Only, Out of Combat Only, Hide "
+          .. "Mounted, Hide Resting, Hide In Vehicle, Only In Instance.\n\n"
+          .. "Hide When Inactive takes charge of the group once you use it: "
+          .. "ticked hides every bar while it has nothing to show, unticked "
+          .. "keeps them all visible even if individual bars are set to hide. "
+          .. "Leave it alone and each bar decides for itself.",
     },
     {
         id = "condition-health-buff-class",
         q = "What do Health Below, Require Buff, and Require Class do?",
         a = "Health Below % shows the bar only when your HP drops under a "
-          .. "percentage, good for execute spells or panic buttons. Require "
-          .. "Buff shows the bar only while you have a named buff (for example "
-          .. "Stealth on Ambush). Require Class pins a bar to one class so a "
-          .. "shared profile does not leak, say, rune bars onto non-DKs.",
+          .. "percentage, good for execute spells or panic buttons.\n\n"
+          .. "Require Buff shows the bar only while you have a named buff "
+          .. "active (for example Stealth on Ambush).\n\n"
+          .. "Require Class pins a bar to one class so a shared profile does "
+          .. "not leak, say, rune bars onto non-DKs.",
     },
     {
         id = "smart-visibility",
@@ -238,11 +267,12 @@ local HELP_ENTRIES = {
     {
         id = "colour-mode",
         q = "How do I colour my bars?",
-        a = "Colour Mode (Visuals page) sets the default: by class, by tracking "
-          .. "mode, or a custom colour you pick. A group can override it under "
-          .. "Bar Overrides, and a single bar can be given its own colour in the "
-          .. "bar editor. Colour by Time transitions a bar green to yellow to "
-          .. "red as it counts down.",
+        a = "Colour Mode, on the Visuals page, sets the default: by class, by "
+          .. "tracking mode, or a custom colour you pick. A group can override "
+          .. "it under Bar Overrides, and a single bar can be given its own "
+          .. "colour in the bar editor.\n\n"
+          .. "Colour by Time transitions a bar from green to yellow to red as "
+          .. "it counts down.",
     },
     {
         id = "textures-fonts",
@@ -254,13 +284,15 @@ local HELP_ENTRIES = {
     {
         id = "duration-styles",
         q = "How can I change how the timer text reads?",
-        a = "Two settings on the Visuals page. Text Format picks what a bar "
-          .. "shows: name and countdown, name only, countdown only, stacks, or "
-          .. "nothing. Duration Style picks how the countdown is written: "
-          .. "seconds with a decimal, whole seconds, min:sec, short text, or an "
-          .. "auto style that adapts to the time left. A single group can use "
-          .. "its own Text Format under Bar Control > Groups > Bar Overrides, "
-          .. "so you can change one group without touching the rest.",
+        a = "Two settings on the Visuals page control this. Text Format picks "
+          .. "what a bar shows: name and countdown, name only, countdown "
+          .. "only, stacks, or nothing. Duration Style picks how the "
+          .. "countdown is written: seconds with a decimal, whole seconds, "
+          .. "min:sec, short text, or an auto style that adapts to the time "
+          .. "left.\n\n"
+          .. "A single group can use its own Text Format under Bar Control > "
+          .. "Groups > Bar Overrides, so you can change one group without "
+          .. "touching the rest.",
     },
     {
         id = "visuals-stacks",
@@ -276,17 +308,19 @@ local HELP_ENTRIES = {
         q = "Can a bar just show on or off instead of counting down?",
         a = "Yes. Turn on Show as On or Off for a bar and it fills while the "
           .. "thing it tracks is active and sits empty the rest of the time, "
-          .. "with no ticking countdown. You can set it per bar in the bar's "
-          .. "own settings, or for a whole group at once with the Bar Style "
-          .. "dropdown under Bar Control > Groups > Bar Overrides.",
+          .. "with no ticking countdown.\n\n"
+          .. "You can set it per bar in the bar's own settings, or for a whole "
+          .. "group at once with the Bar Style dropdown under Bar Control > "
+          .. "Groups > Bar Overrides.",
     },
     {
         id = "icon-only",
         q = "Can a group show just icons instead of bars?",
         a = "Yes. Icon Only, under Bar Control > Groups > Bar Overrides, swaps "
-          .. "that group's bars for a plain grid of spell icons, no bar or text "
-          .. "underneath. Size the icons with the Width slider and lay them out "
-          .. "with Columns. Works on any group, hand-built or auto-tracking.",
+          .. "that group's bars for a plain grid of spell icons, no bar or "
+          .. "text underneath.\n\n"
+          .. "Size the icons with the Width slider and lay them out with "
+          .. "Columns. Works on any group, hand-built or auto-tracking.",
     },
 
     -- ===================================================================
@@ -296,7 +330,8 @@ local HELP_ENTRIES = {
         id = "profiles-overview",
         q = "How do profiles work?",
         a = "Profiles save and load whole bar layouts and are account-wide, so "
-          .. "you can set up bars on one character and load them on another. "
+          .. "you can set up bars on one character and load them on "
+          .. "another.\n\n"
           .. "Save your current setup under a name, load a saved profile to "
           .. "switch, or rename and delete profiles on the Profiles tab.",
     },
@@ -304,11 +339,11 @@ local HELP_ENTRIES = {
         id = "class-starters",
         q = "What are class starter profiles?",
         a = "Pre-curated bar loadouts for all 10 classes, drawn from the "
-          .. "cooldowns, procs, and resources that matter for each. Load Class "
-          .. "Starter replaces your current groups with the preset for your "
-          .. "class and spec; Add Class Starter adds them alongside what you "
-          .. "already have. A preview lists what will be added before you "
-          .. "commit.",
+          .. "cooldowns, procs, and resources that matter for each.\n\n"
+          .. "Load Class Starter replaces your current groups with the preset "
+          .. "for your class and spec; Add Class Starter adds them alongside "
+          .. "what you already have. A preview lists what will be added "
+          .. "before you commit.",
     },
     {
         id = "export-import",
@@ -340,9 +375,10 @@ local HELP_ENTRIES = {
     {
         id = "activity-search-sort",
         q = "How do I find something in the tracker list?",
-        a = "Use the search box to filter by name, the category dropdown to "
-          .. "narrow by type, and click any column header to sort (click again "
-          .. "to flip the direction). The list auto-refreshes while open.",
+        a = "Type in the search box to only show matching names, use the "
+          .. "category dropdown to narrow by type, and click a column heading "
+          .. "to sort (click again to reverse the order).\n\n"
+          .. "The list keeps itself current while the tab is open.",
     },
 
     -- ===================================================================
@@ -360,11 +396,12 @@ local HELP_ENTRIES = {
         q = "My bars are not showing.",
         a = "Most often the bar is set to hide while it has nothing to track. "
           .. "Check Hide When Inactive on the bar, and under Group Conditions "
-          .. "for the whole group. Then check the bar's Enabled tickbox, that "
-          .. "the addon itself is on (/bw enable), and that the bar has a valid "
-          .. "spell name. Group conditions such as Combat Only hide the whole "
-          .. "group at once. If a group has been dragged off screen, /bw reset "
-          .. "puts them all back where you can see them.",
+          .. "for the whole group - conditions such as Combat Only hide the "
+          .. "whole group at once.\n\n"
+          .. "Also check the bar's Enabled tickbox, that the addon itself is "
+          .. "on (/bw enable), and that the bar has a valid spell name.\n\n"
+          .. "If a group has been dragged off screen, /bw reset puts them all "
+          .. "back where you can see them.",
     },
     {
         id = "trouble-spell-not-tracked",
@@ -382,11 +419,13 @@ local HELP_ENTRIES = {
         id = "trouble-undo",
         q = "I made a mess of my layout. Can I get it back?",
         a = "Type /bw restore to put back the layout you had before the last "
-          .. "big change. BarWarden takes a snapshot before anything that "
-          .. "replaces your bars: loading a profile or a class starter, "
-          .. "resetting to defaults, deleting a group or a bar, and upgrading "
-          .. "to a new version. Restoring takes a snapshot too, so running it "
-          .. "twice brings you back again.",
+          .. "big change.\n\n"
+          .. "BarWarden takes a snapshot before anything that replaces your "
+          .. "bars: loading a profile or a class starter, resetting to "
+          .. "defaults, deleting a group or a bar, and upgrading to a new "
+          .. "version.\n\n"
+          .. "Restoring takes a snapshot too, so running it twice brings you "
+          .. "back again.",
     },
     {
         id = "trouble-lua-errors",
