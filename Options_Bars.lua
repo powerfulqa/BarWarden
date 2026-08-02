@@ -470,7 +470,7 @@ local function CreateBarsTab(parent)
               end
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
-        { type = "slider", label = "Width", min = 50, max = 400, step = 5, width = 150, stretch = true,
+        { type = "slider", label = "Width", min = 10, max = 600, step = 5, width = 150, stretch = true,
           tooltip = "How wide the bars in this group are, in pixels.",
           get = function() local g = getGroup(); return g and g.width or 200 end,
           set = function(_, value)
@@ -480,7 +480,7 @@ local function CreateBarsTab(parent)
               if gf then ns:UpdateGroupLayout(gf) end
           end,
           offsetX = ns.OFFSET_SLIDER, spacing = 12 },
-        { type = "slider", label = "Scale", min = 0.5, max = 2.0, step = 0.1, width = 150, stretch = true,
+        { type = "slider", label = "Scale", min = 0.5, max = 3.0, step = 0.1, width = 150, stretch = true,
           tooltip = "Overall size of this group. 1.00 is normal size.",
           get = function() local g = getGroup(); return g and g.scale or 1.0 end,
           set = function(_, value)
@@ -489,9 +489,9 @@ local function CreateBarsTab(parent)
               local g = getGroup(); if g then g.scale = value end
           end,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
-        { type = "slider", label = "Columns", min = 1, max = 4, step = 1, width = 150, stretch = true,
+        { type = "slider", label = "Columns", min = 1, max = 6, step = 1, width = 150, stretch = true,
           tooltip = "Number of columns the bars in this group are arranged into. "
-               .. "1 = vertical stack (default); 2-4 splits the bars across that "
+               .. "1 = vertical stack (default); 2-6 splits the bars across that "
                .. "many columns side by side. Useful when tracking many bars in a "
                .. "compact footprint.",
           get = function() local g = getGroup(); return g and g.columns or 1 end,

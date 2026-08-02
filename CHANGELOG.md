@@ -63,6 +63,13 @@ sliders across the Groups, Bars, Visuals and General tabs now line up
 consistently, including the Icon and Bar Opacity sections on the Visuals tab
 that had drifted noticeably out of column.
 
+**More room on the group sliders.** For building either larger layouts or
+compact icon grids.
+
+- **Width** now goes down to 10 px (was 50) and up to 600 px (was 400).
+- **Scale** now goes up to 3.0 (was 2.0).
+- **Columns** now goes up to 6 (was 4).
+
 ### v2.1.1
 
 A full read-through of the addon, and the fixes that came out of it. Two of

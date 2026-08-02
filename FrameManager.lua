@@ -18,7 +18,7 @@ local MAX_BARS_PER_FRAME = 30
 ns.MAX_FRAMES = MAX_FRAMES
 ns.MAX_BARS_PER_FRAME = MAX_BARS_PER_FRAME
 local MIN_SCALE = 0.5
-local MAX_SCALE = 2.0
+local MAX_SCALE = 3.0
 
 -- Pre-allocated sort comparators (avoids closure allocation on every layout)
 local sortNow = 0
@@ -375,7 +375,7 @@ end
 -- SetGroupColumns: Set column count for a group and relayout immediately
 -- ----------------------------------------------------------------------------
 function ns:SetGroupColumns(frameIndex, columns)
-    columns = math.max(1, math.min(4, columns))
+    columns = math.max(1, math.min(6, columns))
     if BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex] then
         BarWardenDB.frames[frameIndex].columns = columns
     end
