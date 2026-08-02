@@ -127,20 +127,33 @@ local function CreateVisualsTab(parent)
     title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -16)
     title:SetText("Visuals")
 
-    local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-    desc:SetJustifyH("LEFT")
-    if desc.SetWordWrap then desc:SetWordWrap(true) end
+    -- Statement of scope: large + highlighted so it reads as the page's
+    -- headline, same "large" heading treatment as entry.large in
+    -- BUILDERS.header (Options_Builder.lua), not the smaller body style
+    -- the second sentence uses below.
+    local descLead = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    descLead:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+    descLead:SetJustifyH("LEFT")
+    if descLead.SetWordWrap then descLead:SetWordWrap(true) end
     -- Reactive width so the text wraps to the live panel width (a two-point
     -- TOPLEFT+RIGHT anchor does not wrap reliably on 3.3.5a).
-    if ns.ApplyWidth then ns:ApplyWidth(desc, 32) end
-    desc:SetText("The default look for all bars. Groups and individual bars can "
-              .. "override the texture and colour on their own tabs.")
+    if ns.ApplyWidth then ns:ApplyWidth(descLead, 32) end
+    descLead:SetText("The default look for all bars.")
+
+    -- Second sentence, its own line beneath the headline, in the ordinary
+    -- description style the rest of the tabs use.
+    local descSub = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    descSub:SetPoint("TOPLEFT", descLead, "BOTTOMLEFT", 0, -4)
+    descSub:SetJustifyH("LEFT")
+    if descSub.SetWordWrap then descSub:SetWordWrap(true) end
+    if ns.ApplyWidth then ns:ApplyWidth(descSub, 32) end
+    descSub:SetText("Groups and individual bars can override the texture and "
+              .. "colour on their own tabs.")
 
     -- Scroll frame so content doesn't clip at the bottom of the panel.
     local scrollFrame = CreateFrame("ScrollFrame", "BarWardenVisualsScrollFrame",
                                     frame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT",     desc, "BOTTOMLEFT",  -12,  -6)
+    scrollFrame:SetPoint("TOPLEFT",     descSub, "BOTTOMLEFT",  -12,  -6)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28,   4)
 
     local content = CreateFrame("Frame", nil, scrollFrame)
