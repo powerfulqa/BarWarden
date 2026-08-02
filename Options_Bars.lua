@@ -457,7 +457,7 @@ local function CreateBarsTab(parent)
               if gf and gf.titleText then gf.titleText:SetText(text) end
               frame:Refresh()
           end,
-          offsetX = 4 },
+          offsetX = ns.OFFSET_EDITBOX },
         { type = "toggle", label = "Show Group Name",
           tooltip = "Show or hide the group name on the bar frame.",
           get = function() local g = getGroup(); return g and g.showTitle ~= false end,
@@ -469,7 +469,7 @@ local function CreateBarsTab(parent)
                   if checked then gf.titleText:Show() else gf.titleText:Hide() end
               end
           end,
-          offsetX = -6, spacing = 4 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
         { type = "slider", label = "Width", min = 50, max = 400, step = 5, width = 150, stretch = true,
           tooltip = "How wide the bars in this group are, in pixels.",
           get = function() local g = getGroup(); return g and g.width or 200 end,
@@ -479,7 +479,7 @@ local function CreateBarsTab(parent)
               local gf = ns.groupFrames[selectedGroupIndex]
               if gf then ns:UpdateGroupLayout(gf) end
           end,
-          offsetX = 10, spacing = 12 },
+          offsetX = ns.OFFSET_SLIDER, spacing = 12 },
         { type = "slider", label = "Scale", min = 0.5, max = 2.0, step = 0.1, width = 150, stretch = true,
           tooltip = "Overall size of this group. 1.00 is normal size.",
           get = function() local g = getGroup(); return g and g.scale or 1.0 end,
@@ -488,7 +488,7 @@ local function CreateBarsTab(parent)
               ns:SetFrameScale(selectedGroupIndex, value)
               local g = getGroup(); if g then g.scale = value end
           end,
-          spacing = 16 },
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
         { type = "slider", label = "Columns", min = 1, max = 4, step = 1, width = 150, stretch = true,
           tooltip = "Number of columns the bars in this group are arranged into. "
                .. "1 = vertical stack (default); 2-4 splits the bars across that "
@@ -498,21 +498,21 @@ local function CreateBarsTab(parent)
           set = function(_, value)
               if selectedGroupIndex then ns:SetGroupColumns(selectedGroupIndex, value) end
           end,
-          spacing = 16 },
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
         { type = "slider", label = "Background Opacity", min = 0, max = 1, step = 0.05, width = 150, stretch = true,
           tooltip = "Opacity of this group's background panel. 0 hides it.",
           get = function() local g = getGroup(); return g and (g.bgAlpha ~= nil and g.bgAlpha or 0.6) end,
           set = function(_, value)
               if selectedGroupIndex then ns:SetGroupBgAlpha(selectedGroupIndex, value) end
           end,
-          spacing = 16 },
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
         { type = "slider", label = "Border Opacity", min = 0, max = 1, step = 0.05, width = 150, stretch = true,
           tooltip = "Opacity of this group's border. 0 hides it.",
           get = function() local g = getGroup(); return g and (g.borderAlpha ~= nil and g.borderAlpha or 0.8) end,
           set = function(_, value)
               if selectedGroupIndex then ns:SetGroupBorderAlpha(selectedGroupIndex, value) end
           end,
-          spacing = 16 },
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
         { type = "dropdown", id = "grpSortDD", label = "Sort Mode", items = sortModeItems, width = 130,
           tooltip = "Order the bars in this group: Manual (drag to reorder), by "
                  .. "remaining time, or alphabetically.",
@@ -523,7 +523,7 @@ local function CreateBarsTab(parent)
               local gf = ns.groupFrames[selectedGroupIndex]
               if gf then ns:UpdateGroupLayout(gf) end
           end,
-          offsetX = -16, spacing = 28 },
+          offsetX = ns.OFFSET_DROPDOWN, spacing = 28 },
         { type = "dropdown", id = "grpGrowthDD", label = "Growth Direction", items = growDirectionItems, width = 130,
           tooltip = "Direction bars stack within this group. Down (default) "
                .. "grows bars downward from the title. Up grows bars upward, "
@@ -536,12 +536,12 @@ local function CreateBarsTab(parent)
               local gf = ns.groupFrames[selectedGroupIndex]
               if gf then ns:UpdateGroupLayout(gf) end
           end,
-          spacing = 16 },
+          offsetX = ns.OFFSET_DROPDOWN, spacing = 16 },
 
         -- Group-level bar visuals. These override the addon-wide look from the
         -- Visuals page for just this group's bars; left on Inherit / off, they
         -- use the global default.
-        { type = "header", text = "Bar Overrides", spacing = 16, offsetX = 10, large = true },
+        { type = "header", text = "Bar Overrides", spacing = 16, offsetX = ns.OFFSET_HEADER, large = true },
         { type = "dropdown", id = "grpTextureDD", label = "Bar Texture", items = groupTextureItems, width = 150,
           tooltip = "Texture for this group's bars. Inherit uses the addon-wide "
                .. "texture set on the Visuals page.",
@@ -551,7 +551,7 @@ local function CreateBarsTab(parent)
               g.barTexture = (value ~= "" and value) or nil
               ns:RefreshAllBars()
           end,
-          offsetX = -16, spacing = 28 },
+          offsetX = ns.OFFSET_DROPDOWN, spacing = 28 },
         { type = "dropdown", id = "grpTextFormatDD", label = "Text Format",
           items = groupTextFormatItems, width = 150,
           tooltip = "What this group's bars show as text. Inherit uses the "
@@ -562,7 +562,7 @@ local function CreateBarsTab(parent)
               g.textFormat = (value ~= "" and value) or nil
               ns:RefreshAllBars()
           end,
-          offsetX = 0, spacing = 28 },
+          offsetX = ns.OFFSET_DROPDOWN, spacing = 28 },
         { type = "dropdown", id = "grpBarStyleDD", label = "Bar Style",
           items = {
               { text = "Inherit (default)", value = "" },
@@ -577,7 +577,7 @@ local function CreateBarsTab(parent)
               g.barStyle = (value ~= "" and value) or nil
               ns:RefreshAllBars()
           end,
-          offsetX = 0, spacing = 28 },
+          offsetX = ns.OFFSET_DROPDOWN, spacing = 28 },
         { type = "toggle", label = "Custom Bar Colour",
           tooltip = "Give this group's bars their own colour instead of the "
                .. "addon-wide default. Turn off to go back to the default.",
@@ -601,7 +601,10 @@ local function CreateBarsTab(parent)
                   if value then sw:Show() else sw:Hide() end
               end
           end,
-          offsetX = 10, spacing = 8 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
+        -- Deliberate sub-item: indented 10px further right than the Custom
+        -- Bar Colour toggle above it (which it is shown/hidden with), not
+        -- one of the canonical per-type columns.
         { type = "color", id = "grpColorSwatch", label = "Bar Colour",
           get = function() local g = getGroup(); return (g and g.barColor) or { r = 0.2, g = 0.6, b = 1.0 } end,
           set = function(_, color)
@@ -612,22 +615,17 @@ local function CreateBarsTab(parent)
               if refreshGroupSettings then refreshGroupSettings() end
               ns:RefreshAllBars()
           end,
-          offsetX = 10, spacing = 8 },
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
 
         -- Group-level visibility conditions. These hide the ENTIRE group
         -- (frame + all bars) when the condition fails, saving the user from
         -- ticking the same checkbox on every bar individually.
         --
-        -- NOTE on offsetX below: BuildSettings anchors each widget to the
-        -- PREVIOUS widget, so offsetX is a relative nudge that accumulates
-        -- down the schema, not an absolute indent. The values from here to
-        -- the end of the schema were picked to bring Group Conditions and
-        -- Auto Track back in line with the Bar Overrides block above (headers
-        -- at the same x as "Bar Overrides", toggles at the same x as "Custom
-        -- Bar Colour", dropdowns/sliders at the same x as their counterparts
-        -- higher up). Do not "tidy" these back to a uniform value without
-        -- re-deriving the running total from the top of the schema.
-        { type = "header", text = "Group Conditions", spacing = 16, offsetX = -4, id = "grpCondHeader", large = true },
+        -- offsetX below is now an ABSOLUTE indent from the panel's left edge
+        -- (see Options_Builder.lua), so every header uses ns.OFFSET_HEADER,
+        -- every toggle ns.OFFSET_TOGGLE, every dropdown ns.OFFSET_DROPDOWN,
+        -- matching the rest of this schema instead of a running total.
+        { type = "header", text = "Group Conditions", spacing = 16, offsetX = ns.OFFSET_HEADER, id = "grpCondHeader", large = true },
         { type = "toggle", label = "Hide When Inactive",
           tooltip = "Controls the whole group once you use it: ticked hides "
                .. "every bar while it has nothing to show, unticked keeps them "
@@ -640,7 +638,7 @@ local function CreateBarsTab(parent)
               -- RefreshBarSettings already refreshes the live bars, matching
               -- the other group-condition toggles.
               ns:RefreshBarSettings() end,
-          offsetX = -6, spacing = 4 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
         { type = "toggle", label = "Combat Only",
           tooltip = "Hide this entire group when out of combat.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.combatOnly end,
@@ -649,7 +647,7 @@ local function CreateBarsTab(parent)
               g.groupConditions.combatOnly = v
               if v then g.groupConditions.outOfCombatOnly = false end
               ns:RefreshBarSettings() end,
-          spacing = 4 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
         { type = "toggle", label = "Out of Combat Only",
           tooltip = "Hide this entire group when in combat.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.outOfCombatOnly end,
@@ -658,36 +656,36 @@ local function CreateBarsTab(parent)
               g.groupConditions.outOfCombatOnly = v
               if v then g.groupConditions.combatOnly = false end
               ns:RefreshBarSettings() end,
-          spacing = 2 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 2 },
         { type = "toggle", label = "Hide Mounted",
           tooltip = "Hide this entire group while mounted.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.hideWhileMounted end,
           set = function(_, v) local g = getGroup(); if not g then return end
               if not g.groupConditions then g.groupConditions = {} end; g.groupConditions.hideWhileMounted = v; ns:RefreshBarSettings() end,
-          spacing = 2 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 2 },
         { type = "toggle", label = "Hide Resting",
           tooltip = "Hide this entire group while in an inn or capital city.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.hideWhileResting end,
           set = function(_, v) local g = getGroup(); if not g then return end
               if not g.groupConditions then g.groupConditions = {} end; g.groupConditions.hideWhileResting = v; ns:RefreshBarSettings() end,
-          spacing = 2 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 2 },
         { type = "toggle", label = "Hide In Vehicle",
           tooltip = "Hide this entire group while in a vehicle.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.hideInVehicle end,
           set = function(_, v) local g = getGroup(); if not g then return end
               if not g.groupConditions then g.groupConditions = {} end; g.groupConditions.hideInVehicle = v; ns:RefreshBarSettings() end,
-          spacing = 2 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 2 },
         { type = "toggle", label = "Only In Instance",
           tooltip = "Only show this entire group inside a dungeon, raid, arena, or battleground.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.onlyInInstance end,
           set = function(_, v) local g = getGroup(); if not g then return end
               if not g.groupConditions then g.groupConditions = {} end; g.groupConditions.onlyInInstance = v; ns:RefreshBarSettings() end,
-          spacing = 2 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 2 },
 
         -- Auto tracking. Last on the page on purpose: BuildSettings lays widgets
         -- out once, so a block whose sub-settings hide has to sit at the end or
         -- hiding them punches a hole through the middle of the panel.
-        { type = "header", text = "Auto Track", spacing = 16, offsetX = 6, id = "grpAutoHeader", large = true },
+        { type = "header", text = "Auto Track", spacing = 16, offsetX = ns.OFFSET_HEADER, id = "grpAutoHeader", large = true },
         { type = "dropdown", id = "grpAutoTrackDD", label = "Track", items = autoTrackItems, width = 150,
           tooltip = "Fill this group by itself with every buff or debuff on you "
                .. "or your target, instead of adding bars one spell at a time. "
@@ -711,7 +709,7 @@ local function CreateBarsTab(parent)
               frame:Refresh()
           end,
           onChange = function(value) SetAutoSubWidgetsShown(value ~= nil and value ~= "") end,
-          offsetX = -16, spacing = 28 },
+          offsetX = ns.OFFSET_DROPDOWN, spacing = 28 },
         { type = "slider", id = "grpAutoMaxBars", label = "Max Bars", min = 1, max = 30, step = 1,
           width = 150, stretch = true,
           tooltip = "How many bars this group can show at once.",
@@ -729,7 +727,7 @@ local function CreateBarsTab(parent)
               local gf = ns.groupFrames[selectedGroupIndex]
               if gf then ns:UpdateGroupLayout(gf) end
           end,
-          offsetX = 22, spacing = 16 },
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
         { type = "slider", id = "grpAutoMaxDuration", label = "Skip Longer Than", min = 0, max = 1800, step = 30,
           width = 150, stretch = true,
           tooltip = "Leave out anything that lasts longer than this, so food, "
@@ -740,7 +738,7 @@ local function CreateBarsTab(parent)
               local g = getGroup(); if not g then return end
               g.autoMaxDuration = value
           end,
-          spacing = 16 },
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
         { type = "toggle", id = "grpAutoIncludePermanent", label = "Include Always On",
           tooltip = "Also show things that have no timer, like class auras and "
                .. "tracking. They sit at the top of the group and stay put.",
@@ -750,7 +748,7 @@ local function CreateBarsTab(parent)
               g.autoIncludePermanent = v and true or false
               ns:RefreshBarSettings()
           end,
-          offsetX = -12, spacing = 8 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
         { type = "toggle", id = "grpAutoOnlyMine", label = "Only Mine",
           tooltip = "Only show what you cast yourself.",
           get = function() local g = getGroup(); return g and g.autoOnlyMine end,
@@ -758,7 +756,7 @@ local function CreateBarsTab(parent)
               local g = getGroup(); if not g then return end
               g.autoOnlyMine = v and true or false
           end,
-          spacing = 8 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
         { type = "toggle", id = "grpAutoStableOrder", label = "Keep Bars In Place",
           tooltip = "Keep each bar where it is for as long as it lasts, instead "
                .. "of reordering them as their timers change.",
@@ -767,7 +765,7 @@ local function CreateBarsTab(parent)
               local g = getGroup(); if not g then return end
               g.autoStableOrder = v and true or false
           end,
-          spacing = 4 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
         { type = "toggle", id = "grpAutoSkipTracked", label = "Skip Spells I Already Track",
           tooltip = "Leave out anything a bar in another group already shows, "
                .. "so this group only holds what you have not set up yourself.",
@@ -781,8 +779,13 @@ local function CreateBarsTab(parent)
               -- edit or /reload.
               ns:RefreshBarSettings()
           end,
-          spacing = 4 },
-        { type = "spacer", id = "groupLastWidget", height = 4 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
+        -- Invisible sentinel (no visible content, so no canonical column
+        -- applies); offsetX is picked so the externally-anchored ban-list
+        -- header below (Options_Bars.lua's "Hidden In This Group" block,
+        -- anchored to this widget's id, not part of this schema) lands on
+        -- ns.OFFSET_HEADER: -4 + 6 = 2.
+        { type = "spacer", id = "groupLastWidget", height = 4, offsetX = -4 },
     }
 
     refreshGroupSettings = ns:BuildSettings(groupSettingsContent, GROUP_SETTINGS_SCHEMA, groupSettingsWidgets,
@@ -1359,7 +1362,7 @@ local function CreateBarsTab(parent)
                 bar.conditions[field] = v
                 ns:RefreshBarSettings()
             end,
-            spacing = 2 }
+            offsetX = ns.OFFSET_TOGGLE, spacing = 2 }
         if extra then for k, v in pairs(extra) do e[k] = v end end
         return e
     end
@@ -1374,12 +1377,15 @@ local function CreateBarsTab(parent)
                 bar.display[field] = v and true or false
                 ns:RefreshBarSettings()
             end,
-            spacing = 2 }
+            offsetX = ns.OFFSET_TOGGLE, spacing = 2 }
         if extra then for k, v in pairs(extra) do e[k] = v end end
         return e
     end
 
-    -- Factory: display-slider schema entry
+    -- Factory: display-slider schema entry. Default offsetX is the canonical
+    -- slider column; callers that are a deliberate sub-item of the toggle
+    -- above them (Alert/High/Med Threshold, Glow Duration - see call sites
+    -- below) pass offsetX = 0 in `extra` to indent under that toggle instead.
     local function dispSlider(label, field, mn, mx, st, default, tip, extra)
         local e = { type = "slider", label = label, tooltip = tip,
             min = mn, max = mx, step = st, width = 140, stretch = true,
@@ -1390,14 +1396,14 @@ local function CreateBarsTab(parent)
                 bar.display[field] = v
                 ns:RefreshBarSettings()
             end,
-            spacing = 24, offsetX = 4 }
+            spacing = 24, offsetX = ns.OFFSET_SLIDER }
         if extra then for k, v in pairs(extra) do e[k] = v end end
         return e
     end
 
     local EDITOR_SCHEMA = {
         -- ---- Conditions ----
-        { type = "header", text = "Conditions", id = "conditionsHeader" },
+        { type = "header", text = "Conditions", id = "conditionsHeader", offsetX = ns.OFFSET_HEADER },
 
         -- Combat / OOC are mutually exclusive: set writes both DB fields,
         -- onChange visually unchecks the partner widget via editorWidgets ref.
@@ -1414,7 +1420,7 @@ local function CreateBarsTab(parent)
           onChange = function(v)
               if v and editorWidgets.oocOnly then editorWidgets.oocOnly:SetChecked(false) end
           end,
-          spacing = 4 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
 
         { type = "toggle", id = "oocOnly", label = "Out of Combat Only",
           tooltip = "Show only out of combat",
@@ -1429,7 +1435,7 @@ local function CreateBarsTab(parent)
           onChange = function(v)
               if v and editorWidgets.combatOnly then editorWidgets.combatOnly:SetChecked(false) end
           end,
-          spacing = 2 },
+          offsetX = ns.OFFSET_TOGGLE, spacing = 2 },
 
         condCheck("In Group",            "inGroup",           "Show only when in a group"),
         condCheck("In Raid",             "inRaid",            "Show only when in a raid"),
@@ -1455,7 +1461,7 @@ local function CreateBarsTab(parent)
               bar.conditions.healthBelow = (val and val > 0 and val <= 100) and val or nil
               ns:RefreshBarSettings()
           end,
-          spacing = 18, offsetX = 6 },
+          offsetX = ns.OFFSET_EDITBOX, spacing = 18 },
 
         { type = "editbox", label = "Require Buff", width = 130, stretch = true,
           tooltip = "Only show this bar while you have the named buff active. "
@@ -1469,10 +1475,10 @@ local function CreateBarsTab(parent)
               bar.conditions.requireBuff = (text and text ~= "") and text or nil
               ns:RefreshBarSettings()
           end,
-          spacing = 18 },
+          offsetX = ns.OFFSET_EDITBOX, spacing = 18 },
 
         -- ---- Display Options ----
-        { type = "header", text = "Display Options", spacing = 12 },
+        { type = "header", text = "Display Options", offsetX = ns.OFFSET_HEADER, spacing = 12 },
 
         dispSlider("Linger Time (sec)", "lingerTime", 0, 5, 0.5, 0,
             "After a tracked cooldown or buff expires, the bar holds at 0 for "
@@ -1493,7 +1499,7 @@ local function CreateBarsTab(parent)
               bar.display.scaleOverride = (v ~= 1.0) and v or nil
               ns:RefreshBarSettings()
           end,
-          spacing = 24 },
+          offsetX = ns.OFFSET_SLIDER, spacing = 24 },
 
         dispCheck("Show Bar Name", "showName",
             "Display the Bar Name text on this bar.", { spacing = 24 }),
@@ -1516,17 +1522,19 @@ local function CreateBarsTab(parent)
               bar.display.barAlpha = v / 100
               ns:RefreshBarSettings()
           end,
-          spacing = 24, offsetX = 4 },
+          offsetX = ns.OFFSET_SLIDER, spacing = 24 },
 
         dispCheck("Sparkle Alert", "sparkleAlert",
             "Flash the bar when the timer is about to expire.",
-            { spacing = 24, offsetX = -4 }),
+            { spacing = 24 }),
 
+        -- Deliberate sub-item: indented under Sparkle Alert above (has no
+        -- effect unless that toggle is on), not the canonical slider column.
         dispSlider("Alert Threshold (sec)", "sparkleThreshold", 1, 15, 1, 5,
             "When Sparkle Alert is enabled, the bar flashes once the remaining "
          .. "time drops below this many seconds. Lower = later warning; higher "
          .. "= more lead time. Has no effect unless Sparkle Alert is ticked.",
-            { spacing = 20 }),
+            { spacing = 20, offsetX = 0 }),
 
         { type = "color", label = "Color Override",
           get = function()
@@ -1538,28 +1546,34 @@ local function CreateBarsTab(parent)
               bar.display.colorOverride = { r = color.r, g = color.g, b = color.b }
               ns:RefreshBarSettings()
           end,
-          spacing = 8, offsetX = -4 },
+          offsetX = ns.OFFSET_COLOR, spacing = 8 },
 
         dispCheck("Colour by Time", "colorByTime",
             "Bar colour changes from green to red as the timer counts down.",
-            { spacing = 12, offsetX = -4 }),
+            { spacing = 12 }),
 
+        -- Deliberate sub-items: both thresholds only matter while Colour by
+        -- Time is on, so both indent under it at the same column (the old
+        -- schema indented Med Threshold a further step past High Threshold,
+        -- an accumulation-bug artifact rather than an intended design;
+        -- lining them up here is part of this pass's fix, not a regression).
         dispSlider("High Threshold (sec)", "colorHighSeconds", 1, 30, 1, 10,
             "When Colour by Time is enabled, the bar stays green while "
          .. "remaining time is at or above this many seconds, then fades "
          .. "toward yellow as it counts down. Set higher for earlier warning; "
          .. "lower to keep the bar green for longer.",
-            { spacing = 20 }),
+            { spacing = 20, offsetX = 0 }),
 
         dispSlider("Med Threshold (sec)", "colorMedSeconds", 1, 30, 1, 5,
             "When Colour by Time is enabled, the bar fades from yellow to red "
          .. "once remaining time drops below this many seconds. Should be "
          .. "lower than High Threshold; the gap between them is the "
-         .. "yellow zone."),
+         .. "yellow zone.",
+            { offsetX = 0 }),
 
         dispCheck("Glow on Ready", "glowOnReady",
             "Flash the icon when the cooldown finishes and the spell is ready.",
-            { spacing = 20, offsetX = -4 }),
+            { spacing = 20 }),
 
         dispCheck("Pulse on Ready", "pulseOnReady",
             "Flash the spell icon at the centre of the screen when this "
@@ -1568,15 +1582,16 @@ local function CreateBarsTab(parent)
          .. "your view.",
             { spacing = 8 }),
 
+        -- Deliberate sub-item: only takes effect while Glow on Ready is on.
         dispSlider("Glow Duration (sec)", "glowDuration", 1, 10, 1, 3,
             "How long the icon keeps pulsing when Glow on Ready fires "
          .. "(spell comes off cooldown / buff expires). Has no effect unless "
          .. "Glow on Ready is ticked.",
-            { spacing = 20 }),
+            { spacing = 20, offsetX = 0 }),
 
         dispCheck("Crop Icon", "iconCrop",
             "Trim icon border pixels to prevent stretching.",
-            { spacing = 20, offsetX = -4, id = "editorLastWidget" }),
+            { spacing = 20, id = "editorLastWidget" }),
     }
 
     -- Container frame for the schema-managed region, anchored below the

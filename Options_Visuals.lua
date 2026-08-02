@@ -165,24 +165,29 @@ local function CreateVisualsTab(parent)
         --   12 = sub-widget gap (related toggles/colors)
         --   8  = branch widget (off-chain)
         --   4  = warning text under its owner
+        --
+        -- offsetX is an ABSOLUTE indent from this schema's left edge (see
+        -- Options_Builder.lua): use the matching ns.OFFSET_* constant for
+        -- the entry's type so every header/dropdown/toggle/slider lines up,
+        -- unless the entry is a deliberate sub-item (noted at each one).
 
         -- -------------------- Section: Bar Dimensions --------------------
-        { type = "header", text = "Bar Dimensions", spacing = 16 },
+        { type = "header", text = "Bar Dimensions", offsetX = ns.OFFSET_HEADER, spacing = 16 },
         { type = "slider", label = "Bar Height",
           db = "visual.barHeight", refresh = "RefreshAllBars",
           min = 4, max = 60, step = 1, width = 200,
           tooltip = "How tall each timer bar is, in pixels.",
-          spacing = 16, offsetX = 4 },
+          spacing = 16, offsetX = ns.OFFSET_SLIDER },
         { type = "slider", label = "Bar Spacing",
           db = "visual.barSpacing", refresh = "RefreshAllBars",
           min = 0, max = 30, step = 1, width = 200,
-          spacing = 16,
+          spacing = 16, offsetX = ns.OFFSET_SLIDER,
           tooltip = "Vertical pixels of padding between stacked bars "
                  .. "within a group. 0 = bars touch each other." },
 
         -- -------------------- Section: Bar Visuals --------------------
         { type = "header", text = "Bar Visuals",
-          spacing = 24, offsetX = -4, id = "barVisualsHeader" },
+          spacing = 24, offsetX = ns.OFFSET_HEADER, id = "barVisualsHeader" },
 
         { type = "dropdown", id = "colorModeDD", label = "Color Mode",
           db = "visual.colorMode", refresh = "RefreshAllBars",
@@ -190,7 +195,7 @@ local function CreateVisualsTab(parent)
           tooltip = "How bars are coloured by default: your class colour, a "
                  .. "colour per track mode, or one custom colour. Groups and "
                  .. "individual bars can override this.",
-          spacing = 24, offsetX = -16,
+          spacing = 24, offsetX = ns.OFFSET_DROPDOWN,
           onChange = function(value)
               if widgets.colorSwatch then
                   if value == "CUSTOM" then widgets.colorSwatch:Show()
@@ -198,9 +203,12 @@ local function CreateVisualsTab(parent)
               end
           end },
 
+        -- Deliberate sub-item: indented 20px further right than the Color
+        -- Mode dropdown above it (shown/hidden together via onChange), not
+        -- the canonical colour-swatch column.
         { type = "color", id = "colorSwatch", label = "Default Bar Color",
           db = "visual.defaultColor", refresh = "RefreshAllBars",
-          spacing = 12, offsetX = 20 },
+          spacing = 12, offsetX = ns.OFFSET_DROPDOWN + 20 },
 
         -- Per-bar and per-group colour overrides are always available (in the
         -- bar editor and on the Groups tab). The old global "allow override"
@@ -209,7 +217,7 @@ local function CreateVisualsTab(parent)
         { type = "dropdown", id = "textureDD", label = "Bar Texture",
           db = "visual.texture", refresh = "RefreshAllBars",
           items = textureItems, width = 191,
-          spacing = 16, offsetX = -16,
+          spacing = 16, offsetX = ns.OFFSET_DROPDOWN,
           onChange = function(value)
               local show = (value == "Custom")
               if widgets.customTexBox then
@@ -235,9 +243,14 @@ local function CreateVisualsTab(parent)
                  .. "If the file is missing, BarWarden falls back to the "
                  .. "Flat texture. Press Enter to apply." },
 
+        -- Also anchors to customTexBox rather than chaining normally: with
+        -- offsetX now an ABSOLUTE indent, a plain chain would anchor this to
+        -- the schema's left edge instead of under the box it is warning
+        -- about. anchorTo keeps the old (and correct) "same x as
+        -- customTexBox" relationship explicit instead of accidental.
         { type = "note", id = "fallbackWarning",
           text = "|cffff8800Warning: If file not found, Flat texture will be used.|r",
-          spacing = 4 },
+          anchorTo = "customTexBox", offsetX = 0, spacing = 4 },
 
         -- -------------------- Section: Text Options --------------------
         { type = "header", text = "Text Options",
@@ -246,43 +259,43 @@ local function CreateVisualsTab(parent)
         { type = "dropdown", label = "Text Position",
           db = "visual.textPosition", refresh = "RefreshAllBars",
           items = textPosItems, width = 191,
-          spacing = 24, offsetX = -16 },
+          spacing = 24, offsetX = ns.OFFSET_DROPDOWN },
 
         { type = "dropdown", label = "Font",
           db = "visual.font", refresh = "RefreshAllBars",
           items = fontItems, width = 191,
-          spacing = 16 },
+          spacing = 16, offsetX = ns.OFFSET_DROPDOWN },
 
         { type = "slider", label = "Font Size",
           db = "visual.fontSize", refresh = "RefreshAllBars",
           min = 6, max = 24, step = 1, width = 200,
           tooltip = "Text size for the name and timer shown on each bar.",
-          spacing = 16, offsetX = 16 },
+          spacing = 16, offsetX = ns.OFFSET_SLIDER },
 
         { type = "dropdown", label = "Text Format",
           db = "visual.textFormat", refresh = "RefreshAllBars",
           items = textFormatItems, width = 191,
-          spacing = 24, offsetX = -16 },
+          spacing = 24, offsetX = ns.OFFSET_DROPDOWN },
 
         { type = "dropdown", label = "Duration Style",
           db = "visual.durationStyle", refresh = "RefreshAllBars",
           items = durationStyleItems, width = 191,
-          spacing = 16 },
+          spacing = 16, offsetX = ns.OFFSET_DROPDOWN },
 
         { type = "toggle", label = "Show Stack Count",
           tooltip = "Show the number on a bar's icon when it tracks something "
                  .. "with two or more stacks, whatever the text format is.",
           db = "visual.showStacks", refresh = "RefreshAllBars",
-          spacing = 16, offsetX = 16 },
+          spacing = 16, offsetX = ns.OFFSET_TOGGLE },
 
         -- -------------------- Section: Icon --------------------
         { type = "header", text = "Icon",
-          spacing = 24, offsetX = 16 },
+          spacing = 24, offsetX = ns.OFFSET_HEADER },
 
         { type = "slider", label = "Icon Size",
           db = "visual.iconSize", refresh = "RefreshAllBars",
           min = 0, max = 60, step = 1, width = 200,
-          spacing = 16, offsetX = 4,
+          spacing = 16, offsetX = ns.OFFSET_SLIDER,
           tooltip = "Size (in pixels) of the spell icon shown on each bar. "
                  .. "Set to 0 to hide icons globally. Individual bars can "
                  .. "override this via Show Icon in the per-bar editor." },
@@ -290,12 +303,12 @@ local function CreateVisualsTab(parent)
         { type = "dropdown", label = "Icon Position",
           db = "visual.iconPosition", refresh = "RefreshAllBars",
           items = iconPosItems, width = 191,
-          spacing = 24, offsetX = -16 },
+          spacing = 24, offsetX = ns.OFFSET_DROPDOWN },
 
         { type = "toggle", label = "Crop Icons",
           tooltip = "Trim icon border pixels to prevent stretching on non-square bars.",
           db = "visual.iconCrop", refresh = "RefreshAllBars",
-          spacing = 12, offsetX = 16 },
+          spacing = 12, offsetX = ns.OFFSET_TOGGLE },
 
         { type = "toggle", label = "Cooldown Spiral",
           tooltip = "Overlay a radial sweep on the bar icon that matches the "
@@ -303,7 +316,7 @@ local function CreateVisualsTab(parent)
                  .. "the timer in addition to the bar fill. Has no effect on "
                  .. "resource bars (combo points, runes, etc.).",
           db = "visual.showCooldownSpiral", refresh = "RefreshAllBars",
-          spacing = 12 },
+          spacing = 12, offsetX = ns.OFFSET_TOGGLE },
 
         { type = "toggle", id = "iconTooltip", label = "Icon Tooltip",
           tooltip = "Show the spell or item tooltip when hovering the bar's "
@@ -311,24 +324,24 @@ local function CreateVisualsTab(parent)
                  .. "opening the settings panel. Only the icon is hover-sensitive; "
                  .. "the bar body still passes clicks through to the game world.",
           db = "visual.showBarTooltip",
-          spacing = 8 },
+          spacing = 8, offsetX = ns.OFFSET_TOGGLE },
 
         -- -------------------- Section: Bar Opacity --------------------
         { type = "header", text = "Bar Opacity",
-          spacing = 24 },
+          spacing = 24, offsetX = ns.OFFSET_HEADER },
 
         { type = "slider", label = "Active Opacity",
           db = "visual.activeAlpha", refresh = "RefreshAllBars",
           min = 0, max = 1, step = 0.05, width = 200,
           tooltip = "Opacity of a bar while its timer is running.",
-          spacing = 16, offsetX = 4 },
+          spacing = 16, offsetX = ns.OFFSET_SLIDER },
 
         { type = "slider", id = "inactiveAlpha", label = "Inactive Opacity",
           db = "visual.inactiveAlpha", refresh = "RefreshAllBars",
           min = 0, max = 1, step = 0.05, width = 200,
           tooltip = "Opacity of a bar when nothing is active, for bars set to "
                  .. "stay visible.",
-          spacing = 16 },
+          spacing = 16, offsetX = ns.OFFSET_SLIDER },
     }
 
     frame.Refresh = ns:BuildSettings(content, SCHEMA, widgets,

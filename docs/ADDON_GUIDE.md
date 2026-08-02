@@ -362,8 +362,19 @@ dispatch tables.
 Cross-widget coordination: `id = "<name>"` exposes a widget via an
 optional `widgetRefs` table; `onChange = fn` fires after user writes and
 after Refresh; `anchorTo = "<id>"` overrides "anchor to previous";
-`offsetX` adjusts the horizontal anchor (dropdowns often need `-16`);
 `opts = { firstX, firstY }` (4th arg) overrides first-widget placement.
+
+`offsetX` is an **absolute** indent from the panel's left edge (added to
+`firstX`), not a nudge from the previous widget - two schema entries with
+the same `offsetX` land in the same column no matter what is above them.
+Each widget template pads its visible content differently, so use the
+matching constant for the entry's type rather than a bespoke number:
+`ns.OFFSET_HEADER` (2), `ns.OFFSET_DROPDOWN` (-14), `ns.OFFSET_TOGGLE`
+(-4), `ns.OFFSET_SLIDER` (8), `ns.OFFSET_EDITBOX` / `ns.OFFSET_NOTE` /
+`ns.OFFSET_COLOR` (2). Only hand-pick a value for an entry that is
+deliberately indented as a sub-item of the setting above it (a threshold
+slider that only matters while its toggle is ticked, for instance) -
+comment it as such so it survives the next cleanup pass.
 
 `spacing` is **leading** (the gap above the entry), matching "this
 widget sits N px below the previous."

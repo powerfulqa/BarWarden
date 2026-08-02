@@ -19,10 +19,19 @@ local addonName, ns = ...
 --
 -- Any entry may carry:
 --   spacing = <px>           : vertical gap to previous widget (default 8).
---   offsetX = <px>           : extra x offset on the anchor (default 0).
---                               Useful for dropdowns (invisible left padding)
---                               or for fine-tuning alignment between
---                               different widget types.
+--   offsetX = <px>           : ABSOLUTE x offset from the parent's left edge
+--                               (added to firstX; default 0). NOT a nudge
+--                               from the previous widget - each entry's x is
+--                               independent of every other entry, so adding
+--                               or removing a row above it never shifts it.
+--                               Every widget template pads its own visible
+--                               content differently (a dropdown's box sits
+--                               ~16px right of its frame, a checkbox's
+--                               tickbox a few px), so use the matching
+--                               ns.OFFSET_* constant below for the entry's
+--                               type rather than a bespoke number, unless the
+--                               entry is a deliberate sub-item indented under
+--                               the setting above it.
 --   anchorTo = "<id>"        : override "anchor to previous" and anchor this
 --                               widget relative to another already-rendered
 --                               entry's widget. Does NOT affect the chain
@@ -77,6 +86,24 @@ local addonName, ns = ...
 local FIRST_X       = 16   -- x offset of the first widget from the parent's TOPLEFT
 local FIRST_Y       = -80  -- y offset (negative = down) of the first widget
 local DEFAULT_GAP   = 8    -- vertical gap between consecutive widgets
+
+-- ----------------------------------------------------------------------------
+-- Canonical per-type absolute offsetX values, confirmed correct in the "Bar
+-- Overrides" section of Options_Bars.lua's GROUP_SETTINGS_SCHEMA. Each widget
+-- template pads its own visible content differently (a dropdown's box sits
+-- ~16px right of its frame origin, a checkbox's tickbox only a few px), so
+-- each type needs its own frame-origin offset to make the VISIBLE LEFT EDGES
+-- line up in the same column. Exposed on `ns` (rather than kept file-local)
+-- so every Options_*.lua schema can reference the same numbers instead of
+-- re-deriving or copy-pasting them.
+-- ----------------------------------------------------------------------------
+ns.OFFSET_HEADER   = 2     -- plain fontstring, no template padding
+ns.OFFSET_DROPDOWN = -14   -- UIDropDownMenuTemplate box sits ~16px right of frame origin
+ns.OFFSET_TOGGLE   = -4    -- CheckButton tickbox is inset a few px from frame origin
+ns.OFFSET_SLIDER   = 8     -- OptionsSliderTemplate label/track padding
+ns.OFFSET_EDITBOX  = 2     -- InputBoxTemplate has no built-in left inset; matches header
+ns.OFFSET_NOTE     = 2     -- plain fontstring, same as header
+ns.OFFSET_COLOR    = 2     -- bare swatch frame, no built-in inset; matches header
 
 -- ----------------------------------------------------------------------------
 -- Callback plumbing
@@ -323,11 +350,20 @@ function ns:BuildSettings(parent, schema, widgetRefs, opts)
         end
 
         -- Anchor resolution:
-        --   1. First widget pins to parent TOPLEFT at (firstX, firstY).
+        --   1. First widget pins to parent TOPLEFT at (firstX + offsetX, firstY).
         --   2. `anchorTo = "<id>"` anchors relative to another rendered
-        --      widget by id (using widgetRefs lookup). The chain pointer
-        --      (prev) still updates to THIS widget for subsequent entries.
-        --   3. Otherwise, anchor below `prev` with per-entry spacing/offsetX.
+        --      widget by id (using widgetRefs lookup), offsetX/gap staying a
+        --      relative nudge from THAT widget - this is a deliberate branch
+        --      off the main chain (see Options_Visuals.lua's textureDD/
+        --      customTexBox), not a positioning bug, so it keeps the old
+        --      relative semantics. The chain pointer (prev) still updates to
+        --      THIS widget for subsequent entries.
+        --   3. Otherwise, chain y below `prev` (so variable-height widgets
+        --      like wrapped notes still flow correctly) but pin x to parent's
+        --      left edge. offsetX is therefore absolute and independent of
+        --      every other entry: two anchors are used (TOP for y, LEFT for
+        --      x) rather than one TOPLEFT, since a single anchor cannot take
+        --      its x from one frame and its y from another.
         local offsetX = entry.offsetX or 0
         local gap = entry.spacing or DEFAULT_GAP
         local anchorWidget
@@ -340,7 +376,8 @@ function ns:BuildSettings(parent, schema, widgetRefs, opts)
         elseif not prev then
             widget:SetPoint("TOPLEFT", parent, "TOPLEFT", firstX + offsetX, firstY)
         else
-            widget:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", offsetX, -gap)
+            widget:SetPoint("TOP", prev, "BOTTOM", 0, -gap)
+            widget:SetPoint("LEFT", parent, "LEFT", firstX + offsetX, 0)
         end
 
         -- Full-width entries (editboxes, sliders) also pin their RIGHT edge to

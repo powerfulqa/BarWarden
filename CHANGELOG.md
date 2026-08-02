@@ -58,6 +58,11 @@ bar, not just auto-tracked ones.
   bar, or for a whole group at once with the new Bar Style dropdown under Bar
   Overrides, so a catch-all group can read as a panel of lights.
 
+**Straightened up the settings panels.** Headers, dropdowns, toggles and
+sliders across the Groups, Bars, Visuals and General tabs now line up
+consistently, including the Icon and Bar Opacity sections on the Visuals tab
+that had drifted noticeably out of column.
+
 ### v2.1.1
 
 A full read-through of the addon, and the fixes that came out of it. Two of

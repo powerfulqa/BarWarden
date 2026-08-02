@@ -32,6 +32,7 @@ local SCHEMA = {
                 ns:RebuildAllFrames()
             end
         end,
+        offsetX = ns.OFFSET_TOGGLE,
     },
 
     -- Lock toggle: also stateful, two-branch Lock/UnlockAllFrames side
@@ -49,6 +50,7 @@ local SCHEMA = {
                 ns:UnlockAllFrames()
             end
         end,
+        offsetX = ns.OFFSET_TOGGLE,
     },
 
     -- Minimap toggle: `minimap.hide` stores the LibDBIcon-compatible
@@ -67,6 +69,7 @@ local SCHEMA = {
             ns.db.minimap.hide = not checked
             ns:UpdateMinimapButtonVisibility()
         end,
+        offsetX = ns.OFFSET_TOGGLE,
     },
 
     -- Version-update nudge toggle (Comms.lua).
@@ -79,11 +82,12 @@ local SCHEMA = {
         set     = function(_, checked)
             if ns.db and ns.db.global then ns.db.global.versionAlerts = checked end
         end,
+        offsetX = ns.OFFSET_TOGGLE,
     },
 
     -- Slash Commands section header. The runnable list is rendered below it
     -- (see BuildGeneralInto); id exposes it as the anchor for that list.
-    { type = "header", text = "Slash Commands", spacing = 24, id = "slashHeader" },
+    { type = "header", text = "Slash Commands", spacing = 24, offsetX = ns.OFFSET_HEADER, id = "slashHeader" },
 }
 
 -- Runnable slash commands. `run` is the subcommand passed to the /bw handler;
