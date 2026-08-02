@@ -247,6 +247,17 @@ function ns:MigrateFrames(frames)
             -- Fills nils only; an existing position is never overwritten.
             if f.growDirection == nil then f.growDirection = "DOWN" end
             if f.columns == nil or f.columns < 1 then f.columns = 1 end
+            -- Rename: autoIconOnly -> iconOnly. Icon Only was an Auto Track-
+            -- only tickbox; it is now a general Bar Overrides setting so a
+            -- hand-made group can use it too. Same idempotent legacy-field-
+            -- rename shape as bar.spell / bar.spellInput / bar.target below -
+            -- runs on every load regardless of schemaVersion, so no schema
+            -- bump is needed, and only fills iconOnly when it is still nil so
+            -- a value already set some other way is never clobbered.
+            if f.autoIconOnly ~= nil then
+                if f.iconOnly == nil then f.iconOnly = f.autoIconOnly end
+                f.autoIconOnly = nil
+            end
             if type(f.position) ~= "table" or f.position.point == nil then
                 f.position = { point = "TOPLEFT", relativePoint = "BOTTOMLEFT", x = 100, y = 400 }
             end

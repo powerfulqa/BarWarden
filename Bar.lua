@@ -385,7 +385,7 @@ end
 
 -- layout fields:
 --   style, fontSize, iconActive (bool from ApplyIconConfig), iconSize,
---   iconOnRight, iconOnly (group.autoIconOnly)
+--   iconOnRight, iconOnly (group.iconOnly)
 local function ApplyTextConfig(bar, display, visual, layout)
     local style    = layout.style
     local fontSize = layout.fontSize
@@ -499,13 +499,13 @@ function ns:ApplyVisualConfig(bar, config)
     -- Texture and colour. Resolution order: per-bar override, then group
     -- override, then the addon-wide default. Any unset level is skipped.
     local group = GetBarGroup(bar)
-    -- Icon Only groups (auto-tracking only, see Options_Bars.lua's Auto Track
+    -- Icon Only groups (any group, see Options_Bars.lua's Bar Overrides
     -- block) show just the spell icon: no fill, no background, no border, no
     -- spark, no text. Resolved fresh on every call (not stored on the bar),
     -- so a bar rebuilt into a different group - through the shared pool, via
     -- ns:BuildBarsForFrame - always ends up in the state ITS group asks for,
     -- with nothing left over from whatever group used it before.
-    local iconOnly = group and group.autoIconOnly
+    local iconOnly = group and group.iconOnly
     local textureName = display.textureOverride
         or (group and group.barTexture)
         or visual.texture or "Flat"

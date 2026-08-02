@@ -287,6 +287,33 @@ function M.test_mergeDefaultsDoesNotInjectIntoFrames()
 end
 
 -- --------------------------------------------------------------------------
+-- autoIconOnly -> iconOnly rename (via MigrateFrames, unconditional on every
+-- InitDB regardless of schemaVersion - Icon Only was promoted from an Auto
+-- Track-only tickbox to a general Bar Overrides setting, and this proves the
+-- rename fires even on an already-current-schema DB, not just on upgrade).
+-- --------------------------------------------------------------------------
+
+function M.test_autoIconOnlyRenamesToIconOnlyOnCurrentSchema()
+    freshDB({
+        schemaVersion = 5,
+        global = {}, visual = {}, activity = {},
+        frames = { { bars = {}, autoTrack = "playerBuffs", autoIconOnly = true } },
+    })
+    assertx.assertTrue(_G.BarWardenDB.frames[1].iconOnly)
+    assertx.assertNil(_G.BarWardenDB.frames[1].autoIconOnly)
+end
+
+function M.test_groupWithoutAutoIconOnlyUntouchedOnCurrentSchema()
+    freshDB({
+        schemaVersion = 5,
+        global = {}, visual = {}, activity = {},
+        frames = { { bars = {}, autoTrack = "playerBuffs" } },
+    })
+    assertx.assertNil(_G.BarWardenDB.frames[1].iconOnly)
+    assertx.assertNil(_G.BarWardenDB.frames[1].autoIconOnly)
+end
+
+-- --------------------------------------------------------------------------
 -- Account-DB migration: legacy per-character profiles moved to account store
 -- --------------------------------------------------------------------------
 

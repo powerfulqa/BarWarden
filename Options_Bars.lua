@@ -416,7 +416,7 @@ local function CreateBarsTab(parent)
     -- leaving a hole in the middle of it.
     local AUTO_SUB_WIDGET_IDS = {
         "grpAutoMaxBars", "grpAutoMaxDuration", "grpAutoIncludePermanent", "grpAutoOnlyMine",
-        "grpAutoStableOrder", "grpAutoSkipTracked", "grpAutoIconOnly",
+        "grpAutoStableOrder", "grpAutoSkipTracked",
     }
 
     -- Whether the selected group has a feed picked at all. The banned-spells
@@ -473,8 +473,8 @@ local function CreateBarsTab(parent)
           offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
         { type = "slider", label = "Width", min = 10, max = 600, step = 5, width = 150, stretch = true,
           tooltip = "How wide the bars in this group are, in pixels. With "
-               .. "Icon Only turned on under Auto Track, this sets the icon "
-               .. "size instead.",
+               .. "Icon Only turned on under Bar Overrides, this sets the "
+               .. "icon size instead.",
           get = function() local g = getGroup(); return g and g.width or 200 end,
           set = function(_, value)
               local g = getGroup(); if not g then return end
@@ -622,6 +622,20 @@ local function CreateBarsTab(parent)
               ns:RefreshAllBars()
           end,
           offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
+        { type = "toggle", id = "grpIconOnly", label = "Icon Only",
+          tooltip = "Show just the spell icon for each bar, with no bar "
+               .. "behind it. Use the Width setting to size the icons.",
+          get = function() local g = getGroup(); return g and g.iconOnly end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.iconOnly = v and true or false
+              -- RefreshAllBars re-applies visual config on every bar and
+              -- relayouts every group, matching the Bar Texture/Text
+              -- Format/Bar Style dropdowns above, which flip a group-wide
+              -- look the same way.
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 12 },
 
         -- Group-level visibility conditions. These hide the ENTIRE group
         -- (frame + all bars) when the condition fails, saving the user from
@@ -784,20 +798,6 @@ local function CreateBarsTab(parent)
               -- without it, unticking this had no effect until the next bar
               -- edit or /reload.
               ns:RefreshBarSettings()
-          end,
-          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
-        { type = "toggle", id = "grpAutoIconOnly", label = "Icon Only",
-          tooltip = "Show just the spell icon for each one, with no bar "
-               .. "behind it. Use the Width setting to size the icons.",
-          get = function() local g = getGroup(); return g and g.autoIconOnly end,
-          set = function(_, v)
-              local g = getGroup(); if not g then return end
-              g.autoIconOnly = v and true or false
-              -- RefreshAllBars re-applies visual config on every bar and
-              -- relayouts every group, matching the Bar Texture/Text
-              -- Format/Bar Style dropdowns above, which flip a group-wide
-              -- look the same way.
-              ns:RefreshAllBars()
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
         -- Invisible sentinel (no visible content, so no canonical column

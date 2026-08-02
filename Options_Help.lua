@@ -181,9 +181,7 @@ local HELP_ENTRIES = {
           .. "auto group out of combat either. Alt-click a bar's icon to hide "
           .. "just that spell from this one group. To bring it back, or clear "
           .. "every one you have hidden, use the Hidden In This Group list "
-          .. "under Auto Track. Icon Only swaps the bars for a plain grid of "
-          .. "spell icons, no bar or text underneath; size the icons with the "
-          .. "Width slider and lay them out with Columns.",
+          .. "under Auto Track.",
     },
 
     -- ===================================================================
@@ -280,6 +278,14 @@ local HELP_ENTRIES = {
           .. "with no ticking countdown. You can set it per bar in the bar's "
           .. "own settings, or for a whole group at once with the Bar Style "
           .. "dropdown under Bar Control > Groups > Bar Overrides.",
+    },
+    {
+        id = "icon-only",
+        q = "Can a group show just icons instead of bars?",
+        a = "Yes. Icon Only, under Bar Control > Groups > Bar Overrides, swaps "
+          .. "that group's bars for a plain grid of spell icons, no bar or text "
+          .. "underneath. Size the icons with the Width slider and lay them out "
+          .. "with Columns. Works on any group, hand-built or auto-tracking.",
     },
 
     -- ===================================================================

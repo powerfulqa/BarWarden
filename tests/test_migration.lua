@@ -176,4 +176,54 @@ function M.test_migrateFrames_keepsExistingGroupPosition()
     assertx.assertEqual(frames[1].position.y, 99)
 end
 
+-- --------------------------------------------------------------------------
+-- autoIconOnly -> iconOnly rename: Icon Only was promoted from an Auto
+-- Track-only tickbox to a general Bar Overrides setting. Owners who already
+-- had it ticked on a live auto-tracking group must not silently lose it.
+-- --------------------------------------------------------------------------
+
+function M.test_migrateFrames_autoIconOnlyCarriesOverToIconOnly()
+    local ns = freshDB()
+    local frames = { { bars = {}, autoTrack = "playerBuffs", autoIconOnly = true } }
+    ns:MigrateFrames(frames)
+    assertx.assertTrue(frames[1].iconOnly)
+    assertx.assertNil(frames[1].autoIconOnly)
+end
+
+function M.test_migrateFrames_autoIconOnlyFalseCarriesOver()
+    local ns = freshDB()
+    local frames = { { bars = {}, autoTrack = "playerBuffs", autoIconOnly = false } }
+    ns:MigrateFrames(frames)
+    assertx.assertEqual(frames[1].iconOnly, false)
+    assertx.assertNil(frames[1].autoIconOnly)
+end
+
+function M.test_migrateFrames_groupWithoutAutoIconOnlyIsUntouched()
+    local ns = freshDB()
+    local frames = { { bars = {}, autoTrack = "playerBuffs" } }
+    ns:MigrateFrames(frames)
+    assertx.assertNil(frames[1].iconOnly)
+    assertx.assertNil(frames[1].autoIconOnly)
+end
+
+function M.test_migrateFrames_autoIconOnlyRenameIsIdempotent()
+    local ns = freshDB()
+    local frames = { { bars = {}, autoIconOnly = true } }
+    ns:MigrateFrames(frames)
+    ns:MigrateFrames(frames)
+    assertx.assertTrue(frames[1].iconOnly)
+    assertx.assertNil(frames[1].autoIconOnly)
+end
+
+function M.test_migrateFrames_autoIconOnlyNeverClobbersExistingIconOnly()
+    local ns = freshDB()
+    -- A group that somehow already has both (e.g. a partially-migrated
+    -- import): the existing iconOnly value wins, matching the "fill nil
+    -- keys only" rule every other rename in this function follows.
+    local frames = { { bars = {}, autoIconOnly = true, iconOnly = false } }
+    ns:MigrateFrames(frames)
+    assertx.assertEqual(frames[1].iconOnly, false)
+    assertx.assertNil(frames[1].autoIconOnly)
+end
+
 return M

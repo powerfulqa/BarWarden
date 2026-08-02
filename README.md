@@ -253,8 +253,8 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Background Opacity, Border Opacity
 - Sort Mode (Manual, Remaining Time, Alphabetical, As They Come)
 - Growth Direction (Down, Up)
-- Bar Style (Countdown, On or Off) for the whole group at once
-- Auto Track: fill the group from buffs or debuffs instead of adding bars by hand, with an Icon Only option that draws a compact grid of spell icons instead of bars (sized with the Width slider)
+- Bar Overrides: Bar Texture, Text Format, Bar Style (Countdown, On or Off), Custom Bar Colour, and Icon Only (a compact grid of spell icons instead of bars, sized with the Width slider), all for the whole group at once
+- Auto Track: fill the group from buffs or debuffs instead of adding bars by hand
 - Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**
@@ -307,7 +307,10 @@ Groups can override the **Text Format**, the bar texture and colour, and the
 **Bar Style** for their own bars (Bar Control > Groups > Bar Overrides). Bar
 Style picks Countdown (the default, ticks down) or On or Off (fills while the
 tracked thing is active, empty the rest of the time, no countdown); it can
-also be set per bar with **Show as On or Off** above. **Hide When Inactive**
+also be set per bar with **Show as On or Off** above. The same section has
+an **Icon Only** toggle that draws a plain grid of spell icons for that group
+instead of bars, no bar or text underneath; size the icons with the Width
+slider. **Hide When Inactive**
 under Group Conditions controls the whole group once you use it: ticked hides
 every bar while it has nothing to show, unticked keeps them all visible even
 where individual bars are set to hide. Leave it alone and each bar decides for
