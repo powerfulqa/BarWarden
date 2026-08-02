@@ -44,7 +44,7 @@ cleanup.
   help must lead with what happens, drop the mechanism, and avoid code
   jargon. Internal docstrings and comments may stay technical.
 - **Verify before commit:** `luac -p` on changed files, `lua tests/run.lua`
-  (123 logic tests; frame code is out of scope and rides the in-game
+  (247 logic tests; frame code is out of scope and rides the in-game
   smoke test), then `/reload` in game with `/console scriptErrors 1`.
 
 ## Conventions at a glance

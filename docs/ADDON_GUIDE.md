@@ -762,9 +762,10 @@ time and shown again by the next refresh.
 ## Slash commands
 
 All routed through `SlashHandler` in [Core.lua](../Core.lua). Add new
-subcommands as `elseif cmd == "name" then ...` branches and keep the
-`/bw help` table in sync. `/bw` (and `/barwarden`) with no argument opens
-the options panel.
+subcommands as `SLASH_COMMANDS.name = function() ... end` entries and keep
+the `/bw help` table in sync. `/bw` (and `/barwarden`) with no argument, or
+any string that is not a known key in `SLASH_COMMANDS`, opens the options
+panel via `ns:OpenOptions`.
 
 ---
 
@@ -853,11 +854,12 @@ Current trap sites:
 | [MinimapButton.lua](../MinimapButton.lua) | `if not LDB or not LibDBIcon then return end` early-return (looks like a dead guard) | Graceful degradation when the bundled libs are missing. Do not hard-require them or delete the guard. |
 | [Trackers.lua](../Trackers.lua) `CheckCooldown` | `if duration <= GCD_THRESHOLD then return false` (looks like it drops real short cooldowns) | Filters the global cooldown so bars react only to true cooldowns. |
 | [Utils.lua](../Utils.lua) | `ns.GCD_THRESHOLD = 1.5` (looks like an arbitrary magic number) | The GCD floor. Lowering it spams bars on every global cooldown. |
-| [Core.lua](../Core.lua) | `InterfaceOptionsFrame_OpenToCategory("BarWarden")` called twice (looks like a copy-paste bug) | 3.3.5a quirk: the first call only scrolls, the second opens. Do not dedupe. |
-| [Options.lua](../Options.lua) | same double call in `ns:OpenOptions` | Same 3.3.5a quirk. Do not dedupe. |
-| [Options_Help.lua](../Options_Help.lua) | same double call in `ns:OpenHelpEntry` | Same 3.3.5a quirk. Do not dedupe. |
+| [Options.lua](../Options.lua) `ns:OpenOptions` | `InterfaceOptionsFrame_OpenToCategory(target)` called twice (looks like a copy-paste bug) | 3.3.5a quirk: the first call only scrolls, the second opens. Every options-opening call site (including `ns:OpenHelpEntry`'s deep-link) routes through here or `ns:SelectOptionsTab`, so the category name and the double call live in one place. Do not dedupe. |
 | [Trackers.lua](../Trackers.lua) `CheckItem` | bare `GetItemCooldown(...)` (looks like it should be `C_Container.GetItemCooldown`) | `GetItemCooldown` is the correct bare global on 3.3.5a. Do not "modernise". |
 | [Conditions.lua](../Conditions.lua) | `GetNumPartyMembers()` / `GetNumRaidMembers()` (looks like it should be `GetNumGroupMembers`) | Those are the 3.3.5a group queries; `GetNumGroupMembers` is Cataclysm+, absent here. |
+| [FrameManager.lua](../FrameManager.lua) `IsGroupEmptyForBackdrop` | the auto-group branch looks redundant with the `#frameData.bars == 0` check below it | `frameData.bars` is always the dormant hand-bar list for a pure auto-tracking group (kept for when Auto Track is switched off), so that check is permanently true and tells us nothing. Collapsing the two branches back into one reintroduces the v2.2.1 bug: Background Opacity ignored, stuck at solid black on any populated auto-tracking group. |
+| [Options_Bars.lua](../Options_Bars.lua) `KeepListFrameShown` | the `Show()` right after `FauxScrollFrame_Update` (looks redundant) | Blizzard's `FauxScrollFrame_Update` hides the whole scroll frame, not just its scrollbar, when the list fits without scrolling, and the rest of the column anchors to that frame. Removing the `Show()` re-breaks the Bar Control page whenever a list drops from 7 items to 6 (the dependants strand at the panel origin until something re-shows the frame). |
+| [Comms.lua](../Comms.lua) | `SetItemRef` reassigned wholesale (looks like it should be `hooksecurefunc`'d like everything else) | Replaced on purpose: the stock 3.3.5a handler passes unknown link types to `SetHyperlink`, which errors on the addon's custom `bwupdate:` link. Returning early avoids that path; every other link is forwarded to the original untouched. Do not swap this to a hook. |
 
 ---
 

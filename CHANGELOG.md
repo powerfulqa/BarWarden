@@ -19,7 +19,8 @@ Fixes
 - **Auto-tracking groups are no longer offered the starter prompt.** A group set
   to Auto Track holds a real layout worth protecting - it fills itself from
   buffs or debuffs on a unit, so its saved bar array stays empty by design. The
-  first-login prompt now recognises this and does not offer to overwrite it.
+  first-login prompt now recognises this and no longer offers to add a starter
+  profile on top of it.
 
 ### v2.2.1
 

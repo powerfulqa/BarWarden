@@ -28,11 +28,11 @@ and the `BARWARDEN_*` / `__BarWarden_*` provenance globals.
 | [SharedMedia.lua](../SharedMedia.lua) | Optional LibSharedMedia integration (degrades gracefully when absent). |
 | [DB.lua](../DB.lua) | `ns.DEFAULTS` (schema source of truth), `MigrateDB` + `CURRENT_SCHEMA`. |
 | [AuraGroups.lua](../AuraGroups.lua) | Named aura equivalency groups (`@Stunned`, `@Bleeding`, ...). |
-| [Conditions.lua](../Conditions.lua) | Visibility-condition registry + evaluator, plus the standalone resolvers every draw path must use: `ResolveHideWhenInactive` (group when set, else bar) and `IsBarEnabled`. |
+| [Conditions.lua](../Conditions.lua) | Visibility-condition registry + evaluator, plus the standalone resolvers every draw path must use: `ResolveHideWhenInactive` (group when set, else bar), `IsBarEnabled`, `IsSwitchBar` (group vs. bar Bar Style), and the stack-text display resolvers `GetStackFontSize` / `GetStackColor`. |
 | [Bar.lua](../Bar.lua) / [BarPool.lua](../BarPool.lua) | Bar frame construction (`nameText` / `timeText` / `stackText`) + the object pool. Never `CreateFrame("StatusBar")` outside these. |
 | [BarEngine.lua](../BarEngine.lua) | The scan loop, bar state machine, OnUpdate depletion, resource bars, and driving auto-tracking group slots (`ns:ScanAutoGroup`). |
-| [Trackers.lua](../Trackers.lua) | Per-`trackMode` checkers (aura / cooldown / item / resource), plus the auto-tracking helpers: whole-unit aura collection (`ns:CollectAutoAuras`) and the cross-group tracked-name set (`ns:GetTrackedAuraNames`). |
-| [FrameManager.lua](../FrameManager.lua) / [DragReorder.lua](../DragReorder.lua) | Group frames + layout; drag-to-reorder. |
+| [Trackers.lua](../Trackers.lua) | Per-`trackMode` checkers (aura / cooldown / item / resource), plus the auto-tracking helpers: whole-unit aura collection (`ns:CollectAutoAuras`), slot placement for Keep Bars In Place (`ns:PlaceAutoAuras`), the cross-group tracked-name set (`ns:GetTrackedAuraNames`), and the skip-set builders (`ns:BuildAutoSkipSet` / `ns:BuildGroupSkipSet`). |
+| [FrameManager.lua](../FrameManager.lua) / [DragReorder.lua](../DragReorder.lua) | Group frames + layout; drag-to-reorder. FrameManager also judges whether an auto-tracking group's start-up backdrop counts as empty (`ns.IsGroupEmptyForBackdrop`), since its slot count, not its configured bar count, is the only honest signal. |
 | [ActivityTracker.lua](../ActivityTracker.lua) | Passive usage tracking + per-spell stats store. |
 | [ClassPresets.lua](../ClassPresets.lua) | Per-class / per-spec starter profiles + the loaders. |
 
@@ -48,7 +48,9 @@ and the `BARWARDEN_*` / `__BarWarden_*` provenance globals.
 One file per tab. Each registers via `ns:RegisterOptionsTab(index, builder)`;
 [Options.lua](../Options.lua) owns the shell, `TAB_NAMES`, and tab switching
 (`ns:SelectOptionsTab`). [Options_Builder.lua](../Options_Builder.lua) is the
-declarative settings-schema walker (`ns:BuildSettings`).
+declarative settings-schema walker (`ns:BuildSettings`) and owns the
+canonical `offsetX` indent constants (`ns.OFFSET_HEADER`, `ns.OFFSET_TOGGLE`,
+and the rest of the per-widget-type set).
 
 [General](../Options_General.lua) ·
 [Bars / Groups](../Options_Bars.lua) ·

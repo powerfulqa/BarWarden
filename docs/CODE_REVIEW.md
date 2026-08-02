@@ -194,6 +194,28 @@ I. **Bar Style dropdown has no `[?]` help icon.** Every other Group Settings
 
 ## Resolved (kept for the record)
 
+- **v2.2.2 starter prompt still offered over a real auto-tracking layout.**
+  `ns:HasExistingLayout` (Utils.lua) judged an existing layout by configured
+  bar count / group count, so a group set to Auto Track - whose saved `bars`
+  array stays empty by design - read as a fresh install, and the first-login
+  starter prompt could still appear over it. Fixed by also treating any group
+  with `autoTrack` set as a protected layout. The prompt only ever appends
+  (`ns:AppendClassStarter`), never replaces, so no data was ever actually at
+  risk; the bug was the prompt appearing at all. Covered by
+  `tests/test_migration.lua`.
+
+- **v2.2.1 Background Opacity stuck solid on a populated auto-tracking group.**
+  The group backdrop's emptiness check used `#frameData.bars == 0`, but
+  `frameData.bars` is only ever the dormant hand-added bar list a group keeps
+  for when Auto Track is switched back off - permanently zero for a pure auto
+  group, so the solid start-up backdrop never cleared no matter how many auto
+  slots were filled. Split into `IsGroupEmptyForBackdrop` (FrameManager.lua):
+  an auto-tracking group's emptiness is `visibleCount == 0` (what its slots
+  are actually showing), an ordinary group's stays keyed off its configured
+  bar count. Carries an `EC-TRAP:` marker (indexed in ADDON_GUIDE) since
+  collapsing the two branches back into one reintroduces exactly this bug.
+  Covered by `tests/test_frame_manager.lua`.
+
 - **v2.1.1 Bar Control page detaching (found in play, not by the audit).**
   Blizzard's `FauxScrollFrame_Update` hides the **whole scroll frame**, not just
   its scrollbar, when the list fits without scrolling. Both lists in
