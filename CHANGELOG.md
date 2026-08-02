@@ -68,7 +68,7 @@ compact icon grids.
 
 - **Width** now goes down to 10 px (was 50) and up to 600 px (was 400).
 - **Scale** now goes up to 3.0 (was 2.0).
-- **Columns** now goes up to 6 (was 4).
+- **Columns** now goes up to 10 (was 6).
 
 **A fourth Sort Mode: As They Come.** A bar takes its place the moment its
 spell fires and holds that spot for as long as it lasts; when one above or

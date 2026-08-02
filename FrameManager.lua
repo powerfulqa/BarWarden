@@ -406,7 +406,7 @@ end
 -- SetGroupColumns: Set column count for a group and relayout immediately
 -- ----------------------------------------------------------------------------
 function ns:SetGroupColumns(frameIndex, columns)
-    columns = math.max(1, math.min(6, columns))
+    columns = math.max(1, math.min(10, columns))
     if BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex] then
         BarWardenDB.frames[frameIndex].columns = columns
     end

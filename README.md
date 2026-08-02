@@ -14,7 +14,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Spec-aware starter profiles** for all 30 WotLK talent specs - one-click load of curated cooldowns, procs, and resources tailored to your active spec (falls back to class-level if no talents are spent)
 - **Class resource trackers** for Combo Points (rogue/druid), Runes (DK), Runic Power (DK), and Soul Shards (warlock) that fill as the resource builds rather than counting down
 - **Organise bars into groups** like "Cooldowns", "Target Debuffs", or "Buffs" (up to 20 groups, 30 bars each)
-- **Multi-column layouts** so you can display bars in 1 to 6 columns per group
+- **Multi-column layouts** so you can display bars in 1 to 10 columns per group
 - **Sort bars dynamically** by remaining time, alphabetically, manual order, or As They Come (each bar keeps the spot it first appeared in until it fades) per group
 - **Growth direction** per group: bars can grow downward (default) or upward from the anchor point
 - **Colour-by-time** bars transition green to yellow to red as the timer counts down (per-bar, configurable thresholds)

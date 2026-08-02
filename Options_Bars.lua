@@ -492,9 +492,9 @@ local function CreateBarsTab(parent)
               local g = getGroup(); if g then g.scale = value end
           end,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
-        { type = "slider", label = "Columns", min = 1, max = 6, step = 1, width = 150, stretch = true,
+        { type = "slider", label = "Columns", min = 1, max = 10, step = 1, width = 150, stretch = true,
           tooltip = "Number of columns the bars in this group are arranged into. "
-               .. "1 = vertical stack (default); 2-6 splits the bars across that "
+               .. "1 = vertical stack (default); 2-10 splits the bars across that "
                .. "many columns side by side. Useful when tracking many bars in a "
                .. "compact footprint.",
           get = function() local g = getGroup(); return g and g.columns or 1 end,
