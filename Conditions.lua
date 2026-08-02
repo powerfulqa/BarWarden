@@ -94,6 +94,40 @@ function ns:IsSwitchBar(bar)
     return not not (disp and disp.switchMode)
 end
 
+-- Resolve the stack-count font size for a live bar: bar override, then group
+-- override, then the addon-wide default (Visuals tab). Same bar-then-group-
+-- then-global shape as IsSwitchBar/ResolveHideWhenInactive above, but
+-- resolving a value instead of a boolean, so it falls through on a missing
+-- level rather than an OR/AND of one. Nil-safe at every step (nil bar, nil
+-- barData, nil display, missing frameIndex or an absent group) so a
+-- still-building bar reads the global value rather than erroring.
+function ns:GetStackFontSize(bar)
+    local disp = bar and bar.barData and bar.barData.display
+    if disp and disp.stackFontSize then return disp.stackFontSize end
+
+    local groupData = bar and bar.frameIndex and BarWardenDB and BarWardenDB.frames
+                      and BarWardenDB.frames[bar.frameIndex]
+    if groupData and groupData.stackFontSize then return groupData.stackFontSize end
+
+    local visual = ns:GetVisual()
+    return visual.stackFontSize or 12
+end
+
+-- Resolve the stack-count colour the same way. Returns a { r, g, b } table,
+-- matching how ns:RenderBarStacks (BarEngine.lua) already consumes
+-- visual.stackColor - callers use the fields directly, no unpacking needed.
+function ns:GetStackColor(bar)
+    local disp = bar and bar.barData and bar.barData.display
+    if disp and disp.stackColor then return disp.stackColor end
+
+    local groupData = bar and bar.frameIndex and BarWardenDB and BarWardenDB.frames
+                      and BarWardenDB.frames[bar.frameIndex]
+    if groupData and groupData.stackColor then return groupData.stackColor end
+
+    local visual = ns:GetVisual()
+    return visual.stackColor or { r = 1, g = 1, b = 1 }
+end
+
 
 -- ----------------------------------------------------------------------------
 -- Built-in conditions.

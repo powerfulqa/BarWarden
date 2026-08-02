@@ -334,6 +334,8 @@ takes a group override MUST be read through its resolver, never straight off
 | Switch mode (on/off, no countdown) | `ns:IsSwitchBar(bar)` ([Conditions.lua](../Conditions.lua)) | group (`group.barStyle`) when set, else bar (`display.switchMode`) |
 | Bar texture / colour | resolved inside [Bar.lua](../Bar.lua) `ApplyVisualConfig` | bar then group then global |
 | Icon Only (square icon grid, no bar/text) | read directly as `group.iconOnly` in `ApplyVisualConfig` (Bar.lua) and `ns:UpdateGroupLayout` (FrameManager.lua); no resolver function, no bar-level override | group only (boolean, not an Inherit tri-state) |
+| Stack text size | `ns:GetStackFontSize(bar)` ([Conditions.lua](../Conditions.lua)) | bar (`display.stackFontSize`) then group (`group.stackFontSize`) then global (`visual.stackFontSize`) |
+| Stack text colour | `ns:GetStackColor(bar)` ([Conditions.lua](../Conditions.lua)), returns a `{ r, g, b }` table | bar (`display.stackColor`) then group (`group.stackColor`) then global (`visual.stackColor`) |
 
 A group reaches its data from a live bar via
 `bar.frameIndex -> BarWardenDB.frames[bar.frameIndex]`.
@@ -358,6 +360,17 @@ into `ns:ActivateStaticBar` ([BarEngine.lua](../BarEngine.lua)), the same full
 fill / no-OnUpdate / blank-timer path a permanent aura already uses, so an
 active tracked thing reads as filled and an inactive one is the ordinary dim
 empty bar.
+
+`ns:GetStackFontSize` / `ns:GetStackColor` are the one pair of resolvers that
+go three levels deep (bar, then group, then global) rather than the usual
+group-then-bar shape above, because Stack Text Size/Colour exist at all three
+of bar, group, and the Visuals tab. Both are nil-safe at every step (nil
+bar, nil `barData`, nil `display`, missing `frameIndex`, or an absent group
+all fall through to the next level), so a still-building bar reads the
+addon-wide default instead of erroring. The Custom Stack Text toggle on both
+the Groups tab (`GROUP_SETTINGS_SCHEMA`) and the bar editor (`EDITOR_SCHEMA`)
+writes/clears `stackFontSize`/`stackColor` (`display.*` for the bar) together,
+same toggle-reveals-swatch mechanism as Custom Bar Colour.
 
 Adding a new group override means: the widget in
 [Options_Bars.lua](../Options_Bars.lua) `GROUP_SETTINGS_SCHEMA` (with an

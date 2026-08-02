@@ -298,12 +298,14 @@ function ns:CreateBarFrame(parent)
     -- like the default UI. Parented to the icon frame because a child frame
     -- draws above its parent's OVERLAY layer, so a bar-parented badge would
     -- sit behind the icon. ns:RenderBarStacks reparents it to the bar when
-    -- the icon is hidden, and also applies the Stack Text Size / Stack Text
-    -- Colour Visuals settings on every render. The template here only seeds
-    -- the initial size/colour (visual.stackFontSize/stackColor default to
-    -- matching it) so an inactive bar built before its first render still
-    -- looks right; the font family itself is not the configured bar font, so
-    -- the number stays legible whatever font the bars use.
+    -- the icon is hidden, and also applies the resolved Stack Text Size /
+    -- Stack Text Colour on every render (ns:GetStackFontSize / ns:GetStackColor,
+    -- Conditions.lua: bar override, then group, then the Visuals tab
+    -- default). The template here only seeds the initial size/colour
+    -- (matching the addon-wide default) so an inactive bar built before its
+    -- first render still looks right; the font family itself is not the
+    -- configured bar font, so the number stays legible whatever font the
+    -- bars use.
     local stackParent = bar.icon or bar
     bar.stackText = stackParent:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
     bar.stackText:SetJustifyH("RIGHT")

@@ -640,6 +640,57 @@ local function CreateBarsTab(parent)
               ns:RefreshAllBars()
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 12 },
+        { type = "toggle", label = "Custom Stack Text",
+          tooltip = "Give this group's bars their own size and colour for "
+               .. "the stack count instead of the addon-wide default. Turn "
+               .. "off to go back to the default.",
+          get = function()
+              local g = getGroup()
+              return g and (g.stackFontSize ~= nil or g.stackColor ~= nil)
+          end,
+          set = function(_, checked)
+              local g = getGroup(); if not g then return end
+              if checked then
+                  g.stackFontSize = g.stackFontSize or 12
+                  g.stackColor = g.stackColor or { r = 1, g = 1, b = 1 }
+              else
+                  g.stackFontSize = nil
+                  g.stackColor = nil
+              end
+              ns:RefreshAllBars()
+          end,
+          -- Same toggle-reveals-swatch mechanism as Custom Bar Colour above.
+          onChange = function(value)
+              local slider = groupSettingsWidgets.grpStackSizeSlider
+              local sw = groupSettingsWidgets.grpStackColorSwatch
+              if slider then if value then slider:Show() else slider:Hide() end end
+              if sw then if value then sw:Show() else sw:Hide() end end
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 12 },
+        -- Deliberate sub-items: indented like grpColorSwatch above (shown/
+        -- hidden together with the toggle), not the canonical per-type column.
+        { type = "slider", id = "grpStackSizeSlider", label = "Stack Text Size",
+          min = 6, max = 32, step = 1, width = 150, stretch = true,
+          tooltip = "Size of the stack count on this group's bar icons.",
+          get = function() local g = getGroup(); return (g and g.stackFontSize) or 12 end,
+          set = function(_, value)
+              local g = getGroup(); if not g then return end
+              g.stackFontSize = value
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
+        { type = "color", id = "grpStackColorSwatch", label = "Stack Text Colour",
+          get = function() local g = getGroup(); return (g and g.stackColor) or { r = 1, g = 1, b = 1 } end,
+          set = function(_, color)
+              local g = getGroup(); if not g then return end
+              g.stackColor = { r = color.r, g = color.g, b = color.b }
+              -- Picking a colour implies "custom stack text on" - re-run
+              -- Refresh so the toggle reflects that immediately, matching
+              -- grpColorSwatch's set above.
+              if refreshGroupSettings then refreshGroupSettings() end
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
 
         -- Group-level visibility conditions. These hide the ENTIRE group
         -- (frame + all bars) when the condition fails, saving the user from
@@ -1717,7 +1768,58 @@ local function CreateBarsTab(parent)
 
         dispCheck("Crop Icon", "iconCrop",
             "Trim icon border pixels to prevent stretching.",
-            { spacing = 20, id = "editorLastWidget" }),
+            { spacing = 20 }),
+
+        -- Toggle-reveals-swatch, matching Custom Bar Colour on the Groups
+        -- tab: "off" clears both display keys back to nil so the bar falls
+        -- through to the group, then the addon-wide default (see
+        -- ns:GetStackFontSize / ns:GetStackColor, Conditions.lua). Hand-
+        -- rolled rather than dispCheck: dispCheck always writes a boolean,
+        -- and "off" here must write nil, not false.
+        { type = "toggle", id = "barStackTextToggle", label = "Custom Stack Text",
+          tooltip = "Give this bar its own size and colour for the stack "
+               .. "count instead of the addon-wide default. Turn off to go "
+               .. "back to the default.",
+          get = function()
+              local d = getDisp()
+              return d.stackFontSize ~= nil or d.stackColor ~= nil
+          end,
+          set = function(_, checked)
+              local bar = getBar(); if not bar then return end
+              if not bar.display then bar.display = {} end
+              if checked then
+                  bar.display.stackFontSize = bar.display.stackFontSize or 12
+                  bar.display.stackColor = bar.display.stackColor or { r = 1, g = 1, b = 1 }
+              else
+                  bar.display.stackFontSize = nil
+                  bar.display.stackColor = nil
+              end
+              ns:RefreshBarSettings()
+          end,
+          onChange = function(value)
+              local slider = editorWidgets.barStackSizeSlider
+              local sw = editorWidgets.editorLastWidget
+              if slider then if value then slider:Show() else slider:Hide() end end
+              if sw then if value then sw:Show() else sw:Hide() end end
+          end,
+          spacing = 20, offsetX = ns.OFFSET_TOGGLE },
+
+        dispSlider("Stack Text Size", "stackFontSize", 6, 32, 1, 12,
+            "Size of the stack count on this bar's icon.",
+            { offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8, id = "barStackSizeSlider" }),
+
+        -- Last widget in the panel: id = "editorLastWidget" doubles as the
+        -- fitEditorHeight sentinel (measures the panel's real content
+        -- height), same as Crop Icon carried before this section was added.
+        { type = "color", id = "editorLastWidget", label = "Stack Text Colour",
+          get = function() return getDisp().stackColor or { r = 1, g = 1, b = 1 } end,
+          set = function(_, color)
+              local bar = getBar(); if not bar then return end
+              if not bar.display then bar.display = {} end
+              bar.display.stackColor = { r = color.r, g = color.g, b = color.b }
+              ns:RefreshBarSettings()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
     }
 
     -- Container frame for the schema-managed region, anchored below the

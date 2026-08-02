@@ -85,7 +85,10 @@ Width slider (now up to 600 px) and lay them out with Columns (now up to
 **A bigger, coloured stack count.** Two new settings on the Visuals tab,
 beside Show Stack Count: **Stack Text Size** to match it to your icon size,
 and **Stack Text Colour** to give it its own colour. Both default to how it
-already looked, so nothing changes until you move them.
+already looked, so nothing changes until you move them. The size slider now
+goes up to 32 (was 24), and a new **Custom Stack Text** toggle lets a whole
+group, or a single bar, use its own size and colour instead of the
+addon-wide default, the same way Custom Bar Colour already works.
 
 ### v2.1.1
 

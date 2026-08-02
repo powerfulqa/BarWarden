@@ -300,7 +300,7 @@ local function CreateVisualsTab(parent)
 
         { type = "slider", label = "Stack Text Size",
           db = "visual.stackFontSize", refresh = "RefreshAllBars",
-          min = 6, max = 24, step = 1, width = 200,
+          min = 6, max = 32, step = 1, width = 200,
           spacing = 12, offsetX = ns.OFFSET_SLIDER,
           tooltip = "Size of the stack count on a bar's icon. Make it match "
                  .. "the icon size, or larger to read it at a glance." },

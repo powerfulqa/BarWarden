@@ -17,6 +17,10 @@ local function fresh(class)
 
     local ns = {}
     load_addon.load("Utils.lua",      "BarWarden", ns)
+    -- DB.lua supplies ns.DEFAULTS.visual (stackFontSize/stackColor), the
+    -- addon-wide fallback ns:GetVisual() reads for GetStackFontSize/
+    -- GetStackColor below.
+    load_addon.load("DB.lua",         "BarWarden", ns)
     load_addon.load("Conditions.lua", "BarWarden", ns)
     return ns
 end
@@ -346,6 +350,99 @@ function M.test_isSwitchBar_noFrameIndexFallsBackToBar()
     _G.BarWardenDB = { frames = { { barStyle = "SWITCH" } } }
     assertx.assertTrue(ns:IsSwitchBar({ barData = { display = { switchMode = true } } }))
     assertx.assertFalse(ns:IsSwitchBar({ barData = { display = { switchMode = false } } }))
+    _G.BarWardenDB = nil
+end
+
+-- --------------------------------------------------------------------------
+-- GetStackFontSize / GetStackColor: bar overrides group overrides the
+-- addon-wide default (Visuals tab), mirroring IsSwitchBar's per-level shape
+-- but resolving a value instead of a boolean. Reuses switchBarIn since the
+-- shape it builds (frameIndex + barData.display) is exactly what these
+-- resolvers read too.
+-- --------------------------------------------------------------------------
+
+function M.test_getStackFontSize_barWinsOverGroupAndGlobal()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { stackFontSize = 18 } }, visual = { stackFontSize = 12 } }
+    assertx.assertEqual(ns:GetStackFontSize(switchBarIn(1, { stackFontSize = 24 })), 24)
+    _G.BarWardenDB = nil
+end
+
+function M.test_getStackFontSize_groupWinsOverGlobalWhenBarHasNone()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { stackFontSize = 18 } }, visual = { stackFontSize = 12 } }
+    assertx.assertEqual(ns:GetStackFontSize(switchBarIn(1, {})), 18)
+    _G.BarWardenDB = nil
+end
+
+function M.test_getStackFontSize_usesGlobalWhenNeitherSet()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { {} }, visual = { stackFontSize = 12 } }
+    assertx.assertEqual(ns:GetStackFontSize(switchBarIn(1, {})), 12)
+    _G.BarWardenDB = nil
+end
+
+-- Nil-safe at every step: nil bar, empty bar, missing frameIndex, and no
+-- BarWardenDB at all must all fall through to the addon-wide default rather
+-- than erroring.
+function M.test_getStackFontSize_safeWithoutData()
+    local ns = fresh()
+    assertx.assertEqual(ns:GetStackFontSize(nil), 12)
+    assertx.assertEqual(ns:GetStackFontSize({}), 12)
+    assertx.assertEqual(ns:GetStackFontSize({ frameIndex = 1, barData = {} }), 12)
+
+    _G.BarWardenDB = { frames = {} }
+    assertx.assertEqual(ns:GetStackFontSize(switchBarIn(1, {})), 12)
+    _G.BarWardenDB = nil
+end
+
+function M.test_getStackColor_barWinsOverGroupAndGlobal()
+    local ns = fresh()
+    _G.BarWardenDB = {
+        frames = { { stackColor = { r = 0, g = 1, b = 0 } } },
+        visual = { stackColor = { r = 1, g = 1, b = 1 } },
+    }
+    local color = ns:GetStackColor(switchBarIn(1, { stackColor = { r = 1, g = 0, b = 0 } }))
+    assertx.assertEqual(color.r, 1)
+    assertx.assertEqual(color.g, 0)
+    assertx.assertEqual(color.b, 0)
+    _G.BarWardenDB = nil
+end
+
+function M.test_getStackColor_groupWinsOverGlobalWhenBarHasNone()
+    local ns = fresh()
+    _G.BarWardenDB = {
+        frames = { { stackColor = { r = 0, g = 1, b = 0 } } },
+        visual = { stackColor = { r = 1, g = 1, b = 1 } },
+    }
+    local color = ns:GetStackColor(switchBarIn(1, {}))
+    assertx.assertEqual(color.r, 0)
+    assertx.assertEqual(color.g, 1)
+    assertx.assertEqual(color.b, 0)
+    _G.BarWardenDB = nil
+end
+
+function M.test_getStackColor_usesGlobalWhenNeitherSet()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { {} }, visual = { stackColor = { r = 1, g = 1, b = 1 } } }
+    local color = ns:GetStackColor(switchBarIn(1, {}))
+    assertx.assertEqual(color.r, 1)
+    assertx.assertEqual(color.g, 1)
+    assertx.assertEqual(color.b, 1)
+    _G.BarWardenDB = nil
+end
+
+function M.test_getStackColor_safeWithoutData()
+    local ns = fresh()
+    assertx.assertNotNil(ns:GetStackColor(nil))
+    assertx.assertNotNil(ns:GetStackColor({}))
+    assertx.assertNotNil(ns:GetStackColor({ frameIndex = 1, barData = {} }))
+
+    _G.BarWardenDB = { frames = {} }
+    local color = ns:GetStackColor(switchBarIn(1, {}))
+    assertx.assertEqual(color.r, 1)
+    assertx.assertEqual(color.g, 1)
+    assertx.assertEqual(color.b, 1)
     _G.BarWardenDB = nil
 end
 
