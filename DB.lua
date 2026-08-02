@@ -63,6 +63,12 @@ ns.DEFAULTS = {
         textFormat = "NAME_DURATION",
         durationStyle = "DECIMAL",
         showStacks = true,
+        -- Stack badge size/colour. Defaults match the fixed template the
+        -- badge used before these settings existed (NumberFontNormalSmall:
+        -- Fonts\ARIALN.TTF at 12px, white), so nothing changes until the
+        -- owner moves either one.
+        stackFontSize = 12,
+        stackColor = { r = 1, g = 1, b = 1 },
         colorMode = "CLASS",
         defaultColor = { r = 0.2, g = 0.6, b = 1.0 },
         trackModeColors = {

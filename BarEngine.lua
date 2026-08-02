@@ -343,6 +343,16 @@ function ns:RenderBarStacks(bar)
         fs:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", -2, 2)
     end
 
+    -- Size and colour are configurable (Visuals tab); the font itself stays
+    -- fixed (not the configured bar font) so the number stays legible at any
+    -- size, matching the fixed template this replaced. SetFont MUST run
+    -- before SetText below: on 3.3.5a it can clear a fontstring's existing
+    -- text (see the same note in ns:BuildBarsForFrame, FrameManager.lua).
+    local stackFontSize = visual.stackFontSize or 12
+    fs:SetFont("Fonts\\ARIALN.TTF", stackFontSize, "THICKOUTLINE, MONOCHROME")
+    local stackColor = visual.stackColor or { r = 1, g = 1, b = 1 }
+    fs:SetTextColor(stackColor.r, stackColor.g, stackColor.b)
+
     fs:SetText(tostring(bar.stacks))
     fs:Show()
 end

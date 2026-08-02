@@ -82,6 +82,11 @@ hand-made group as well as an auto-tracking one. Size the icons with the
 Width slider (now up to 600 px) and lay them out with Columns (now up to
 10), for a compact cooldown or buff tray.
 
+**A bigger, coloured stack count.** Two new settings on the Visuals tab,
+beside Show Stack Count: **Stack Text Size** to match it to your icon size,
+and **Stack Text Colour** to give it its own colour. Both default to how it
+already looked, so nothing changes until you move them.
+
 ### v2.1.1
 
 A full read-through of the addon, and the fixes that came out of it. Two of

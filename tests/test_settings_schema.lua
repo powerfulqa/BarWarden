@@ -136,6 +136,7 @@ function M.test_defaults_visualHasExactKeys()
         -- Font + text
         font = 1, fontSize = 1, textEnabled = 1, textPosition = 1,
         textFormat = 1, durationStyle = 1, showStacks = 1,
+        stackFontSize = 1, stackColor = 1,
         -- Colour
         colorMode = 1, defaultColor = 1, trackModeColors = 1,
         -- Alpha
@@ -162,6 +163,7 @@ function M.test_defaults_visualCriticalValues()
     assertx.assertEqual(v.textPosition,  "INSIDE_LEFT")
     assertx.assertEqual(v.durationStyle, "DECIMAL")
     assertx.assertEqual(v.showStacks,    true)
+    assertx.assertEqual(v.stackFontSize, 12)
     assertx.assertEqual(v.colorMode,     "CLASS")
     assertx.assertEqual(v.activeAlpha,   1.0)
     assertx.assertEqual(v.inactiveAlpha, 0.3)
@@ -178,6 +180,14 @@ end
 function M.test_defaults_defaultColorExact()
     local ns = freshDB()
     assertx.assertDeepEqual(ns.DEFAULTS.visual.defaultColor, { r = 0.2, g = 0.6, b = 1.0 })
+end
+
+-- White, matching NumberFontNormalSmall's own <Color r="1" g="1" b="1"/> -
+-- the fixed template the stack badge used before Stack Text Colour existed,
+-- so a fresh install's badge renders identically to before this setting.
+function M.test_defaults_stackColorExact()
+    local ns = freshDB()
+    assertx.assertDeepEqual(ns.DEFAULTS.visual.stackColor, { r = 1, g = 1, b = 1 })
 end
 
 -- --------------------------------------------------------------------------

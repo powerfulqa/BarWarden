@@ -298,6 +298,17 @@ local function CreateVisualsTab(parent)
           db = "visual.showStacks", refresh = "RefreshAllBars",
           spacing = 16, offsetX = ns.OFFSET_TOGGLE },
 
+        { type = "slider", label = "Stack Text Size",
+          db = "visual.stackFontSize", refresh = "RefreshAllBars",
+          min = 6, max = 24, step = 1, width = 200,
+          spacing = 12, offsetX = ns.OFFSET_SLIDER,
+          tooltip = "Size of the stack count on a bar's icon. Make it match "
+                 .. "the icon size, or larger to read it at a glance." },
+
+        { type = "color", label = "Stack Text Colour",
+          db = "visual.stackColor", refresh = "RefreshAllBars",
+          spacing = 12, offsetX = ns.OFFSET_COLOR },
+
         -- -------------------- Section: Icon --------------------
         { type = "header", text = "Icon",
           spacing = 24, offsetX = ns.OFFSET_HEADER },

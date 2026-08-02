@@ -268,7 +268,8 @@ local HELP_ENTRIES = {
         a = "Anything with two or more stacks shows the number on its icon "
           .. "automatically, whatever text format you use. There is a Show "
           .. "Stack Count switch on the Visuals page if you would rather not "
-          .. "have it.",
+          .. "have it, along with Stack Text Size and Stack Text Colour to "
+          .. "make that number bigger and give it its own colour.",
     },
     {
         id = "bar-style",
