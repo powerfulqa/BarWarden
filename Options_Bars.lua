@@ -816,7 +816,12 @@ local function CreateBarsTab(parent)
 
     local banEmptyText = groupSettingsContent:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     banEmptyText:SetJustifyH("LEFT")
-    banEmptyText:SetPoint("TOPLEFT", banHeader, "BOTTOMLEFT", -6, -8)
+    -- Flush with banHeader's own x (0, not a negative nudge): a bare
+    -- fontstring has no internal left inset to absorb a negative offset, so
+    -- -6 here used to push its first few pixels past the scroll child's own
+    -- left edge and into the clip region, shaving the leading letter off
+    -- both this line and the row text below.
+    banEmptyText:SetPoint("TOPLEFT", banHeader, "BOTTOMLEFT", 0, -8)
     -- Wrap against groupSettingsContent's own width (~320, resized on the fly
     -- by the OnSizeChanged handler above), not ns:ApplyWidth's PANEL_WIDTH:
     -- that sizes off the whole options panel (~570), which this fontstring
@@ -832,7 +837,9 @@ local function CreateBarsTab(parent)
         local row = CreateFrame("Button", nil, groupSettingsContent)
         row:SetHeight(BAN_ROW_HEIGHT)
         if i == 1 then
-            row:SetPoint("TOPLEFT", banHeader, "BOTTOMLEFT", -6, -8)
+            -- Same fix as banEmptyText above: 0, not -6, keeps the row's
+            -- left edge inside the scroll child instead of clipped.
+            row:SetPoint("TOPLEFT", banHeader, "BOTTOMLEFT", 0, -8)
         else
             row:SetPoint("TOPLEFT", banRows[i - 1], "BOTTOMLEFT", 0, 0)
         end
