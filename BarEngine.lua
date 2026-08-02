@@ -1000,13 +1000,17 @@ end
 -- alone, matching how ScanBar filters ordinary aura bars.
 -- ----------------------------------------------------------------------------
 
--- Which names each auto group should skip, keyed by frame index - both the
--- "already tracked elsewhere" names and this group's own autoBanned entries,
--- merged by ns:BuildAutoSkipSet (Trackers.lua). Rebuilt lazily and cleared on
--- a full bar-cache rebuild and on any bar-settings refresh (see
--- InvalidateTrackedNames below), since any of those can change what counts as
--- "already tracked" or what is banned. Recomputing it per scan would walk the
--- whole DB four times a second for nothing.
+-- Caches only the expensive half: one group's "already tracked elsewhere"
+-- names (ns:GetTrackedAuraNames), keyed by frame index. Rebuilt lazily and
+-- cleared on a full bar-cache rebuild and on any bar-settings refresh (see
+-- InvalidateTrackedNames below), since either can change what counts as
+-- "already tracked". Recomputing THIS per scan would walk the whole DB four
+-- times a second for nothing.
+--
+-- The cheap half - honouring groupData.autoSkipTracked and folding in
+-- groupData.autoBanned - is NOT cached: ns:BuildGroupSkipSet (Trackers.lua)
+-- reruns on every scan so the setting and the ban list are always current,
+-- rather than only being re-read the next time this cache happens to miss.
 local trackedNamesCache = {}
 
 -- Editing a bar's spell or its Enabled box changes what counts as "already
@@ -1035,20 +1039,19 @@ function ns:ScanAutoGroup(frameIndex, unitFilter)
         return
     end
 
-    -- The cache holds "the names this group skips, whatever the reason", not
-    -- just the already-tracked set: a group can have bans with
-    -- autoSkipTracked off, and those must still be honoured. Only the
-    -- already-tracked half is conditional on the setting; ns:BuildAutoSkipSet
-    -- (Trackers.lua) always folds in the group's own autoBanned regardless.
-    local skipNames = trackedNamesCache[frameIndex]
-    if not skipNames then
-        local tracked
-        if groupData.autoSkipTracked then
+    -- Read the setting BEFORE consulting the cache, so the expensive
+    -- GetTrackedAuraNames lookup is skipped whenever the group has no use
+    -- for it, while ns:BuildGroupSkipSet below still runs fresh every scan
+    -- and re-checks this same setting itself.
+    local tracked
+    if groupData.autoSkipTracked then
+        tracked = trackedNamesCache[frameIndex]
+        if not tracked then
             tracked = ns:GetTrackedAuraNames(frameIndex)
+            trackedNamesCache[frameIndex] = tracked
         end
-        skipNames = ns:BuildAutoSkipSet(tracked, groupData.autoBanned)
-        trackedNamesCache[frameIndex] = skipNames
     end
+    local skipNames = ns:BuildGroupSkipSet(groupData, tracked)
 
     -- Gathered before the collect call so a still-held aura can be told apart
     -- from a merely short-lived one: without keepNames, CollectAutoAuras

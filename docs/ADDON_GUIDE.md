@@ -210,12 +210,24 @@ filter silently disagrees with the scanner.
 
 `ns:InvalidateTrackedNames()` (BarEngine.lua) clears the per-group
 tracked-name cache built by `ns:GetTrackedAuraNames`. It is called from
-`ns:RefreshBarSettings` (Core.lua), from the bar Enabled checkbox handler in
-[Options_Bars.lua](../Options_Bars.lua), from the alt-click ban handler on a
-bar's icon in [Bar.lua](../Bar.lua), and from the banned-spells management
-list's mutations (also Options_Bars.lua); those are the only call sites, so
-anything else that can change what counts as "already tracked" or what is
-banned needs its own call.
+`ns:RefreshBarSettings` (Core.lua) - which the `autoSkipTracked` toggle's
+`set` calls too, alongside every other Group Conditions toggle - from the bar
+Enabled checkbox handler in [Options_Bars.lua](../Options_Bars.lua), from the
+alt-click ban handler on a bar's icon in [Bar.lua](../Bar.lua), and from the
+banned-spells management list's mutations (also Options_Bars.lua); those are
+the only call sites, so anything else that can change what counts as
+"already tracked" or what is banned needs its own call.
+
+That cache (`trackedNamesCache`, keyed by frame index) holds only the
+expensive half: one group's `ns:GetTrackedAuraNames` result. The cheap half -
+honouring `autoSkipTracked` and folding in `autoBanned` - is never cached;
+`ns:ScanAutoGroup` calls `ns:BuildGroupSkipSet(groupData, tracked)`
+(Trackers.lua) fresh every scan, so the setting and the ban list are always
+current even if the tracked-name cache happens to still be warm. An earlier
+version merged both halves into the one cached value, which meant unticking
+`autoSkipTracked` had no effect until something else invalidated the cache;
+`ns:BuildGroupSkipSet` exists specifically so that rule is a pure, tested
+function rather than logic buried in the scan loop.
 
 Eight keys on a group, all nil on a normal group:
 
@@ -228,7 +240,7 @@ Eight keys on a group, all nil on a normal group:
 | `autoOnlyMine` | Count only your own casts. Seeded on for the two target feeds, off for the two player feeds when Auto Track is first set; the seed only fires once, so switching feeds afterwards leaves whatever the player has |
 | `autoSkipTracked` | Skip spells a bar in another group already tracks (matched by name via `ns:GetTrackedAuraNames`) |
 | `autoStableOrder` | Keep Bars In Place: an aura stays in the slot it first appeared in for as long as it lasts, instead of the soonest-expiring sort reshuffling every slot on each tick or refresh. Only a fade frees a slot. `ns:ScanAutoGroup` builds the held-name list from the live slots and hands it to `ns:PlaceAutoAuras` (Trackers.lua), the tested half that decides the new placement; the untested half is just reading `bar.barData` to build that list |
-| `autoBanned` | Per-group spell bans set by alt-left-clicking a bar's icon (`bar.isAutoBar` only), keyed by lower-cased spell name: `{ [name] = { name = "Blade Flurry", id = 13877 } }`, `id` optionally nil. `ns:BuildAutoSkipSet` (Trackers.lua) merges this into the same skip set as "already tracked elsewhere" (`ns:GetTrackedAuraNames`), always returning a fresh table so the shared tracked-names cache is never mutated; `ns:ScanAutoGroup` folds it in unconditionally, so a ban applies even with `autoSkipTracked` off. Managed from the "Hidden In This Group" list under Auto Track in Options_Bars.lua |
+| `autoBanned` | Per-group spell bans set by alt-left-clicking a bar's icon (`bar.isAutoBar` only), keyed by lower-cased spell name: `{ [name] = { name = "Blade Flurry", id = 13877 } }`, `id` optionally nil. Nil (not `{}`) once every ban is removed, so `ns:BuildAutoSkipSet` keeps its cheap no-skip path. `ns:BuildGroupSkipSet` (Trackers.lua) folds this in unconditionally via `ns:BuildAutoSkipSet`, always returning a fresh table so the caller's own copy is never mutated, so a ban applies even with `autoSkipTracked` off. Managed from the "Hidden In This Group" list under Auto Track in Options_Bars.lua, which only shows/enables for a group with a feed picked (same gate as the `autoMaxBars`-and-friends sub-settings) |
 
 Drag-reorder is gated off for auto groups in `ns:EnableDragReorder`
 ([DragReorder.lua](../DragReorder.lua)), and `ns:ReleaseBar` (BarPool.lua)

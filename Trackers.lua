@@ -450,14 +450,16 @@ end
 --- Combine the "already tracked elsewhere" names with this group's own banned
 --- list into the single skip set CollectAutoAuras consumes.
 ---
---- trackedNames is the cached, shared result of ns:GetTrackedAuraNames, read
---- by every auto group's scan; a fresh table is always returned so writing a
---- ban into it can never leak into that cache and poison another group's
---- skip set. Either argument may be nil, and both keys are taken verbatim -
---- both are already lower-cased by their producers. Returns nil (not an
---- empty table) when there is nothing to skip at all, so CollectAutoAuras
---- keeps its cheap "no skipNames" path (skipNames is only ever read behind
---- an `if skipNames and skipNames[...]` check there).
+--- trackedNames, when supplied, is whatever ns:GetTrackedAuraNames returned
+--- for one group's own exceptFrameIndex - a fresh table per call, not one
+--- shared across groups. A fresh table is returned here too, rather than
+--- mutating trackedNames in place, so a caller that keeps its own reference
+--- to that table never sees a stray ban entry appear in it. Either argument
+--- may be nil, and both keys are taken verbatim - both are already
+--- lower-cased by their producers. Returns nil (not an empty table) when
+--- there is nothing to skip at all, so CollectAutoAuras keeps its cheap "no
+--- skipNames" path (skipNames is only ever read behind an
+--- `if skipNames and skipNames[...]` check there).
 function ns:BuildAutoSkipSet(trackedNames, autoBanned)
     if not trackedNames and not autoBanned then return nil end
 
@@ -473,6 +475,24 @@ function ns:BuildAutoSkipSet(trackedNames, autoBanned)
         end
     end
     return skip
+end
+
+--- The names one auto group skips: those tracked elsewhere, but only while
+--- that setting is on, plus the group's own banned list, always.
+---
+--- Takes the already-fetched trackedNames (or nil) rather than calling
+--- ns:GetTrackedAuraNames itself, so this stays pure and the caller keeps
+--- deciding when that lookup is worth paying for. The gate on
+--- groupData.autoSkipTracked lives HERE, not in the caller: passing a
+--- non-nil trackedNames does not mean it gets used, so a caller cannot
+--- forget to check the setting before calling this. groupData.autoBanned is
+--- always folded in regardless of the setting. Tolerates a nil groupData
+--- (nothing to skip). Returns whatever ns:BuildAutoSkipSet returns: nil when
+--- there is nothing to skip at all.
+function ns:BuildGroupSkipSet(groupData, trackedNames)
+    if not groupData then return nil end
+    local tracked = groupData.autoSkipTracked and trackedNames or nil
+    return ns:BuildAutoSkipSet(tracked, groupData.autoBanned)
 end
 
 -- ----------------------------------------------------------------------------

@@ -555,6 +555,10 @@ function M.test_buildAutoSkipSet_autoBannedOnly()
     local autoBanned = { ["blade flurry"] = { name = "Blade Flurry", id = 13877 } }
     local out = ns:BuildAutoSkipSet(nil, autoBanned)
     assertx.assertTrue(out["blade flurry"])
+    -- Without this, the nil-trackedNames path could hand back the caller's
+    -- own autoBanned table (its shape happens to be compatible with a skip
+    -- set's keys) and still satisfy the assertion above.
+    assertx.assertFalse(out == autoBanned, "a fresh table must be returned, not the autoBanned input")
 end
 
 function M.test_buildAutoSkipSet_nilNilReturnsNil()
@@ -576,6 +580,53 @@ function M.test_buildAutoSkipSet_neverMutatesTrackedNames()
     assertx.assertEqual(next(tracked, "slice and dice"), nil,
         "trackedNames must still contain only its original one key")
     assertx.assertFalse(out == tracked, "a fresh table must be returned, not the input")
+end
+
+-- --------------------------------------------------------------------------
+-- ns:BuildGroupSkipSet: the setting-aware wrapper ScanAutoGroup calls every
+-- scan. Unlike ns:BuildAutoSkipSet, this one owns the autoSkipTracked gate
+-- itself, so it is the thing that actually catches "the setting stopped
+-- being read" regressions - the exact bug this suite exists to prevent.
+-- --------------------------------------------------------------------------
+
+function M.test_buildGroupSkipSet_settingOffDropsTrackedButKeepsBans()
+    local ns = fresh()
+    local tracked = { ["slice and dice"] = true }
+    local groupData = { autoSkipTracked = false, autoBanned = { ["blade flurry"] = { name = "Blade Flurry" } } }
+    local out = ns:BuildGroupSkipSet(groupData, tracked)
+    assertx.assertNil(out["slice and dice"],
+        "the tracked half must not appear once the setting is off, even though trackedNames was supplied")
+    assertx.assertTrue(out["blade flurry"], "the group's own bans are skipped regardless of the setting")
+end
+
+function M.test_buildGroupSkipSet_settingOnMergesBoth()
+    local ns = fresh()
+    local tracked = { ["slice and dice"] = true }
+    local groupData = { autoSkipTracked = true, autoBanned = { ["blade flurry"] = { name = "Blade Flurry" } } }
+    local out = ns:BuildGroupSkipSet(groupData, tracked)
+    assertx.assertTrue(out["slice and dice"], "the setting is on, so the tracked half is folded in")
+    assertx.assertTrue(out["blade flurry"])
+end
+
+function M.test_buildGroupSkipSet_bansAloneWithSettingOffStillSkip()
+    local ns = fresh()
+    local groupData = { autoSkipTracked = false, autoBanned = { ["blade flurry"] = { name = "Blade Flurry" } } }
+    local out = ns:BuildGroupSkipSet(groupData, nil)
+    assertx.assertTrue(out["blade flurry"], "a ban with no trackedNames at all is still honoured")
+end
+
+function M.test_buildGroupSkipSet_nothingAtAllReturnsNil()
+    local ns = fresh()
+    local groupData = { autoSkipTracked = true }
+    assertx.assertNil(ns:BuildGroupSkipSet(groupData, nil),
+        "the setting is on but there is nothing tracked and nothing banned")
+end
+
+function M.test_buildGroupSkipSet_nilGroupDataReturnsNil()
+    local ns = fresh()
+    local tracked = { ["slice and dice"] = true }
+    assertx.assertNil(ns:BuildGroupSkipSet(nil, tracked),
+        "a group with no settings table at all skips nothing")
 end
 
 -- --------------------------------------------------------------------------

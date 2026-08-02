@@ -417,6 +417,18 @@ local function CreateBarsTab(parent)
         "grpAutoMaxBars", "grpAutoMaxDuration", "grpAutoIncludePermanent", "grpAutoOnlyMine",
         "grpAutoStableOrder", "grpAutoSkipTracked",
     }
+
+    -- Whether the selected group has a feed picked at all. The banned-spells
+    -- section (built further down) means as little as the sliders/toggles
+    -- above without a feed - Bar.lua's alt-click handler returns early on
+    -- anything that is not bar.isAutoBar - so it shares this same gate.
+    -- UpdateBanList is forward-declared here (not where it is assigned,
+    -- further down) so SetAutoSubWidgetsShown, defined above that point,
+    -- can still call it: an upvalue is only visible to functions defined
+    -- after its `local`, not before.
+    local autoFeedShown = false
+    local UpdateBanList
+
     local function SetAutoSubWidgetsShown(shown)
         for _, id in ipairs(AUTO_SUB_WIDGET_IDS) do
             local w = groupSettingsWidgets[id]
@@ -424,6 +436,8 @@ local function CreateBarsTab(parent)
                 if shown then w:Show() else w:Hide() end
             end
         end
+        autoFeedShown = shown
+        if UpdateBanList then UpdateBanList() end
     end
 
     -- Forward-declared so schema `set` closures below can re-run the group
@@ -761,6 +775,11 @@ local function CreateBarsTab(parent)
           set = function(_, v)
               local g = getGroup(); if not g then return end
               g.autoSkipTracked = v and true or false
+              -- RefreshBarSettings invalidates the tracked-names cache and
+              -- rescans, matching every other Group Conditions toggle above;
+              -- without it, unticking this had no effect until the next bar
+              -- edit or /reload.
+              ns:RefreshBarSettings()
           end,
           spacing = 4 },
         { type = "spacer", id = "groupLastWidget", height = 4 },
@@ -797,13 +816,16 @@ local function CreateBarsTab(parent)
 
     local banEmptyText = groupSettingsContent:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     banEmptyText:SetJustifyH("LEFT")
-    if ns.ApplyWidth then ns:ApplyWidth(banEmptyText, 44) end
-    banEmptyText:SetText("Alt-click a bar's icon to hide it from this group.")
     banEmptyText:SetPoint("TOPLEFT", banHeader, "BOTTOMLEFT", -6, -8)
+    -- Wrap against groupSettingsContent's own width (~320, resized on the fly
+    -- by the OnSizeChanged handler above), not ns:ApplyWidth's PANEL_WIDTH:
+    -- that sizes off the whole options panel (~570), which this fontstring
+    -- does not span - it only fit today because the string is short.
+    banEmptyText:SetPoint("RIGHT", groupSettingsContent, "RIGHT", -6, 0)
+    banEmptyText:SetText("Alt-click a bar's icon to hide it from this group.")
 
-    -- Forward-declared: the row/button click handlers below call it, but it
-    -- has to walk `banRows` and `banClearAllBtn`, which do not exist yet.
-    local UpdateBanList
+    -- UpdateBanList itself is forward-declared above (before
+    -- SetAutoSubWidgetsShown), since that gate needs to call it too.
 
     local banRows = {}
     for i = 1, MAX_BAN_ROWS do
@@ -842,6 +864,13 @@ local function CreateBarsTab(parent)
             local g = getGroup()
             if not g or not g.autoBanned then return end
             g.autoBanned[self.banKey] = nil
+            -- Nil the table once empty rather than leaving `{}` behind: the
+            -- documented shape is nil-on-nothing-banned, and ns:BuildAutoSkipSet
+            -- treats a non-nil autoBanned (even empty) as "something to skip",
+            -- which would otherwise cost CollectAutoAuras its cheap no-skipNames
+            -- path for the rest of the group's life plus leave SavedVariables
+            -- litter.
+            if not next(g.autoBanned) then g.autoBanned = nil end
             if ns.InvalidateTrackedNames then ns:InvalidateTrackedNames() end
             UpdateBanList()
             if selectedGroupIndex and ns.ScanAutoGroup then ns:ScanAutoGroup(selectedGroupIndex) end
@@ -853,7 +882,7 @@ local function CreateBarsTab(parent)
     local banClearAllBtn = ns:CreateButton(groupSettingsContent, "Clear All", 100, function()
         local g = getGroup()
         if not g or not g.autoBanned then return end
-        wipe(g.autoBanned)
+        g.autoBanned = nil
         if ns.InvalidateTrackedNames then ns:InvalidateTrackedNames() end
         UpdateBanList()
         if selectedGroupIndex and ns.ScanAutoGroup then ns:ScanAutoGroup(selectedGroupIndex) end
@@ -872,6 +901,19 @@ local function CreateBarsTab(parent)
     -- row order predictable between refreshes instead of following
     -- pairs()'s undefined iteration order.
     UpdateBanList = function()
+        -- No feed picked: the whole section means nothing (Bar.lua's
+        -- alt-click handler returns early on anything that is not
+        -- bar.isAutoBar), so hide it entirely rather than show an inert
+        -- "Hidden In This Group" header on an ordinary group.
+        if not autoFeedShown then
+            banHeader:Hide()
+            for i = 1, MAX_BAN_ROWS do banRows[i]:Hide() end
+            banClearAllBtn:Hide()
+            banEmptyText:Hide()
+            return
+        end
+        banHeader:Show()
+
         local g = getGroup()
         local banned = g and g.autoBanned
 
@@ -1579,8 +1621,10 @@ local function CreateBarsTab(parent)
         if groupHeightDone then return end
         -- The banned-spells section (built above) sits below groupLastWidget
         -- and has its own fixed-position bottom sentinel; measure against
-        -- that when it exists so the trim includes that section too.
-        local last = groupSettingsWidgets.banListLastWidget or groupSettingsWidgets.groupLastWidget
+        -- that instead. banListLastWidget is assigned unconditionally at
+        -- build time, before fitGroupHeight can ever run, so there is no
+        -- "not built yet" case here to fall back from.
+        local last = groupSettingsWidgets.banListLastWidget
         local top = groupSettingsContent:GetTop()
         local bottom = last and last:GetBottom()
         if top and bottom and top > bottom then
