@@ -13,6 +13,20 @@ exhaustive notes.
 
 ---
 
+### v2.2.3
+
+A single fix: groups no longer shift when the layout is rebuilt.
+
+- **Groups stay put when you delete another group.** Deleting a group rebuilds
+  every remaining one, and a group whose anchor did not match its growth
+  direction was re-pinned from the wrong edge and moved up (or down) the screen
+  by roughly its own height, keeping the new spot afterwards. Taller groups moved
+  further. Grow-up groups and groups that had been through `/bw reset` were the
+  ones affected. They now land exactly where you left them, and a group already
+  anchored correctly is still left alone, so nothing drifts on the normal path.
+
+---
+
 ### v2.2.2
 
 Fixes

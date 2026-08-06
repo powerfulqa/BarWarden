@@ -359,20 +359,41 @@ function ns:UpdateGroupLayout(group)
     -- by a corner, so the SetHeight/SetWidth below grows it away from that
     -- fixed corner. Re-deriving and re-saving the position on every relayout is
     -- what made scaled groups drift toward the corner, because relayout runs on
-    -- every bar activate/deactivate.
+    -- every bar activate/deactivate. Decide here, act after the resize; the
+    -- EC-TRAP note below the resize explains why that order matters.
     local pinPoint = growUp and "BOTTOMLEFT" or "TOPLEFT"
-    if group:GetPoint(1) ~= pinPoint then
-        -- Read the edges BEFORE resizing so the corner we keep is the one the
-        -- user currently sees.
+    local needsRepin = (group:GetPoint(1) ~= pinPoint)
+
+    group:SetHeight(totalHeight)
+    group:SetWidth(totalWidth)
+
+    -- EC-TRAP: the repin belongs AFTER the resize above, not before it. Reading
+    -- the edges first looked right - keep the corner the user is currently
+    -- looking at - and it IS right whenever the size is not changing in the same
+    -- pass, which is every relayout of a settled group, so the two orderings
+    -- agree there and the wrong one never showed itself. They disagree on the
+    -- two paths where the size does change:
+    --   - ns:RebuildAllFrames lays out a frame ns:CreateGroupFrame stubbed at
+    --     SetHeight(30) a moment earlier, a size nobody has ever seen;
+    --   - an auto-tracking group is laid out at whatever its slots happen to
+    --     hold, which is nothing at all on the pass straight after a rebuild.
+    -- Repinning from that geometry pinned the wrong edge by (final height minus
+    -- the size it was read at) and wrote the result straight to SavedVariables,
+    -- so a group whose saved corner did not match its growth direction (every
+    -- grow-up group after `/bw reset` or a position backfill) jumped that far up
+    -- the screen on a rebuild and stayed there, further the taller it was.
+    -- Resizing first grows the frame away from the corner it is ALREADY held by,
+    -- so the edge we then pin is the one the saved anchor asked for.
+    --
+    -- The mismatch guard above is what keeps this off the relayout hot path; it
+    -- is the v2.0.2 drift fix and must stay. Do not re-derive unconditionally.
+    if needsRepin then
         local pos = RepinGroup(group, growUp)
         if pos and group.frameIndex then
             local db = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[group.frameIndex]
             if db then db.position = pos end
         end
     end
-
-    group:SetHeight(totalHeight)
-    group:SetWidth(totalWidth)
 
     -- Title bar position: top of frame for DOWN growth, bottom for UP growth.
     if group.titleText then

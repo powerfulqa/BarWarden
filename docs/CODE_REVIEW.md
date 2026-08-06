@@ -138,6 +138,29 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     Group-level and addon-wide visuals still apply; this is intended, and
     ADDON_GUIDE's auto-tracking section now says so. Low.
 
+22. **Nothing calls `ns:DeleteFrame`.** The Bars tab's Delete button deletes a
+    group inline (`table.remove` + `frame:Refresh()` + `ns:RebuildAllFrames()`,
+    Options_Bars.lua), so `ns:DeleteFrame` (FrameManager.lua) is unreachable.
+    It is not wrong, just a second way to do the same thing that no longer
+    matches the one in use - the same drift that got `ns:CreateFrame` removed in
+    v2.1.1. Either route the button through it or delete it. Low.
+23. **`frame:Refresh()` runs before `ns:RebuildAllFrames()` on the delete path.**
+    In that window `BarWardenDB.frames` has been renumbered but `ns.groupFrames`
+    still holds the old frames at their old indices, so anything index-keyed
+    that ran there would read one group's frame against another's data - and
+    `ns:UpdateGroupLayout` writes `position` by `group.frameIndex`. Nothing in
+    the refresh path currently touches a group frame (every widget callback is
+    behind `ns.suppressCallbacks`, and the two `ns:ScanAutoGroup` calls are
+    click handlers), so this is latent, not live. Swapping the two calls closes
+    it. Verified during the v2.2.3 investigation. Low, but sharp.
+24. **`ns:RebuildAllFrames` leaks a frame per group per rebuild.** 3.3.5a cannot
+    destroy a frame, so `DestroyGroupFrame` hides it, clears its points and
+    drops the reference, and the next `ns:CreateGroupFrame` builds a fresh frame
+    reusing the same global name. The orphans are inert (hidden, unanchored, no
+    bars, not in `ns.groupFrames`, and `ns:ReleaseBar` re-parents their bars), so
+    the cost is memory in a long session with many settings changes, not
+    behaviour. Fixing it means pooling group frames the way bars are pooled. Low.
+
 ## Audit decisions (intentional - do not "fix")
 
 A. **Bundled libraries stay.** LibStub, LibSharedMedia-3.0, LibDataBroker-1.1,
@@ -193,6 +216,30 @@ I. **Bar Style dropdown has no `[?]` help icon.** Every other Group Settings
    frame first. Deferred, not forgotten.
 
 ## Resolved (kept for the record)
+
+- **v2.2.3 group position shifted on a layout rebuild.** `ns:UpdateGroupLayout`
+  re-anchored the group BEFORE applying the size it had just computed, so the
+  edges it read were whatever the frame happened to measure a moment earlier.
+  That is the same size on a settled group, which is why the ordering looked
+  right and never showed itself on the relayout path. It is not the same size on
+  the two paths that matter: `ns:RebuildAllFrames` lays out a frame
+  `ns:CreateGroupFrame` stubbed at `SetHeight(30)`, and an auto-tracking group is
+  laid out with every slot still hidden. Whenever the pinned corner had to change
+  (a grow-up group carrying a TOPLEFT anchor, which is what `/bw reset` and
+  `ns:MigrateFrames`'s position backfill both write, or a new group still on its
+  CENTER anchor), the wrong edge was pinned by (final height minus the size it
+  was read at) and written straight to SavedVariables, so the group jumped that
+  far and stayed there - further the taller it was. Fixed by resizing first and
+  re-anchoring after; the frame grows away from the corner it is already held by,
+  so the edge then pinned is the one the saved anchor asked for. The
+  re-anchor-only-on-mismatch guard from v2.0.2 is untouched, so nothing is
+  re-derived on the hot path. Carries an `EC-TRAP:` marker (indexed in
+  ADDON_GUIDE) because reverting to read-edges-first reads as the obvious
+  "keep the corner the user is looking at" intent. Covered by
+  `tests/test_frame_manager.lua`, which drives `ns:UpdateGroupLayout` through a
+  stub group modelling WoW's grow-away-from-the-pinned-corner rule; the three
+  no-repin cases pass both before and after, which is what proves the v2.0.2
+  guard survived.
 
 - **v2.2.2 starter prompt still offered over a real auto-tracking layout.**
   `ns:HasExistingLayout` (Utils.lua) judged an existing layout by configured
