@@ -13,6 +13,22 @@ exhaustive notes.
 
 ---
 
+### v2.2.4
+
+A single fix: Background Opacity 0 no longer gets ignored on empty groups.
+
+- **Empty groups now honour Background Opacity 0 once they have been
+  placed.** A group with nothing in it (an auto-tracking group with nothing
+  currently on the unit, or any group with no bars) was always drawn as a
+  solid black box, regardless of what its own Background Opacity slider said
+  - fine for a brand-new group still sitting at the screen centre, so it can
+  be found and dragged, but wrong for a group you had already positioned and
+  turned transparent on purpose. Only a group that has never been moved
+  keeps the solid fill now; once it has a real position, its own slider is
+  respected even while empty. Border Opacity was already correct.
+
+---
+
 ### v2.2.3
 
 A single fix: groups no longer shift when the layout is rebuilt.

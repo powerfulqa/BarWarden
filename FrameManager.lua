@@ -88,6 +88,26 @@ local function IsGroupEmptyForBackdrop(group, frameData, visibleCount)
 end
 ns.IsGroupEmptyForBackdrop = IsGroupEmptyForBackdrop
 
+-- Whether a group has ever been given a real screen anchor, as opposed to
+-- still sitting on NewGroup's (Options_Bars.lua) creation placeholder
+-- (position = { point = "CENTER", relativePoint = "CENTER", x = 0, y = 0 }).
+-- ns:NormalizeGroupAnchor (Utils.lua) is the only thing that writes a corner
+-- point, and it only ever writes "TOPLEFT" or "BOTTOMLEFT" - from a drag
+-- (SaveFramePosition), a growth-direction flip, a scale change, `/bw reset`,
+-- or ns:MigrateFrames's position backfill - so a corner point is a reliable
+-- "this group has a real anchor" signal regardless of which of those wrote
+-- it. It is not the same as "the user dragged it": the mismatch-repin below
+-- also resolves a brand-new group's CENTER placeholder to a corner point on
+-- its very first layout pass, before the user has touched anything. That is
+-- fine here - by the time that repin has run once, the group has a genuine
+-- screen position (even if it is just "the screen centre, corner-relative"),
+-- so honouring its own alpha from then on is correct.
+local function HasRealAnchor(frameData)
+    local point = frameData and frameData.position and frameData.position.point
+    return point == "TOPLEFT" or point == "BOTTOMLEFT"
+end
+ns.HasRealAnchor = HasRealAnchor
+
 -- Runtime-only bar data for one auto-tracking slot. ScanAutoGroup overwrites
 -- the name and id each pass, so this is never written to SavedVariables: the
 -- group's real `bars` array stays untouched in the DB and comes back the
@@ -336,14 +356,18 @@ function ns:UpdateGroupLayout(group)
     local totalHeight = titleOffset + (rowCount * (barHeight + spacing)) + 4
     local totalWidth = columns * barWidth + (columns - 1) * spacing + 8
 
-    -- A group with nothing in it is drawn solid rather than at the configured
-    -- backdrop alpha, so it is obvious at the centre of the screen and can be
-    -- dragged into place. It reverts to the user's own alpha as soon as it
-    -- holds something. See IsGroupEmptyForBackdrop above for what "nothing in
-    -- it" means for an auto-tracking group versus an ordinary one.
+    -- A group with nothing in it AND no real screen anchor yet is drawn solid
+    -- rather than at the configured backdrop alpha, so a brand-new group at
+    -- the centre of the screen is obvious and can be dragged into place. It
+    -- reverts to the user's own alpha as soon as it holds something, or as
+    -- soon as it has a real anchor of its own - so a group the owner has
+    -- already placed and deliberately made transparent stays that way even
+    -- while empty. See IsGroupEmptyForBackdrop above for what "nothing in it"
+    -- means, and HasRealAnchor above for what "no real anchor yet" means.
     local isEmpty = IsGroupEmptyForBackdrop(group, frameData, visibleCount)
+    local hasRealAnchor = HasRealAnchor(frameData)
     if group.SetBackdropColor then
-        if isEmpty then
+        if isEmpty and not hasRealAnchor then
             group:SetBackdropColor(0, 0, 0, 0.85)
         else
             local bgAlpha = (frameData and frameData.bgAlpha) or 0.6

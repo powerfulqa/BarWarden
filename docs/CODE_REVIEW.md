@@ -217,6 +217,27 @@ I. **Bar Style dropdown has no `[?]` help icon.** Every other Group Settings
 
 ## Resolved (kept for the record)
 
+- **v2.2.4 Background/Border Opacity 0 stuck solid black on an empty group
+  forever.** `ns:UpdateGroupLayout` (FrameManager.lua) forced the backdrop to
+  a hardcoded solid 0.85 for any empty group, never consulting `bgAlpha` -
+  correct for a brand-new group at the screen centre (otherwise it is
+  invisible and the owner cannot find or drag it), wrong for a group the
+  owner had already positioned and deliberately made transparent, which then
+  stayed at 0.85 on every relayout no matter what the sliders said. Narrowed
+  with a new `HasRealAnchor` helper: the override now only fires while a
+  group is both empty AND still on `NewGroup`'s (Options_Bars.lua) CENTER
+  creation placeholder. `ns:NormalizeGroupAnchor` (Utils.lua) is the only
+  thing that ever writes a corner point ("TOPLEFT"/"BOTTOMLEFT") - from a
+  drag, a growth-direction flip, a scale change, `/bw reset`, or
+  `ns:MigrateFrames`'s position backfill - so a corner point is a reliable
+  "this group has a real anchor" signal regardless of which of those wrote
+  it, including the mismatch-repin inside `ns:UpdateGroupLayout` itself
+  resolving a brand-new group's placeholder on its first layout pass, before
+  the owner has touched anything. Border Opacity was never overridden this
+  way (`SetBackdropBorderColor` only ever reads `borderAlpha` directly), so
+  no equivalent fix was needed there. Covered by
+  `tests/test_frame_manager.lua`.
+
 - **v2.2.3 group position shifted on a layout rebuild.** `ns:UpdateGroupLayout`
   re-anchored the group BEFORE applying the size it had just computed, so the
   edges it read were whatever the frame happened to measure a moment earlier.

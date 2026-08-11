@@ -266,4 +266,72 @@ function M.test_growthFlipOnSettledGroup_doesNotMove()
     assertx.assertEqual(r.bottom, 500 - heightFor(6))
 end
 
+-- ---------------------------------------------------------------------------
+-- ns:UpdateGroupLayout backdrop alpha: the v2.2.4 bug. Background/Border
+-- Opacity 0 on an empty group used to be permanently overridden to a solid
+-- 0.85 fill. HasRealAnchor narrows that override to a group that has never
+-- had a real screen anchor written to it (still on NewGroup's CENTER
+-- placeholder); everything else honours its own alpha even while empty.
+-- ---------------------------------------------------------------------------
+
+local function StubGroupForBackdrop(point)
+    local g = { frameIndex = 1, bars = {}, left = 100, bottom = 100, height = 30, pinned = point }
+    function g:GetPoint()      return self.pinned end
+    function g:GetLeft()      return self.left end
+    function g:GetBottom()    return self.bottom end
+    function g:GetTop()       return self.bottom + self.height end
+    function g:SetWidth(w)    self.width = w end
+    function g:SetHeight(h)   self.height = h end
+    function g:ClearAllPoints() end
+    function g:SetPoint(pt, _relFrame, _relPoint, px, py)
+        self.pinned, self.left, self.bottom = pt, px, py
+    end
+    function g:SetBackdropColor(_r, _g, _b, a) self.bgAlpha = a end
+    return g
+end
+
+-- Drives ns:UpdateGroupLayout end to end (rather than calling the alpha
+-- decision in isolation) so the test proves what the owner actually sees,
+-- through the same repin path a real relayout takes.
+local function backdropAlphaFor(point, configuredBars, bgAlpha)
+    local ns = fresh()
+    local group = StubGroupForBackdrop(point)
+    _G.BarWardenDB = {
+        global = { enabled = true, locked = false },
+        visual = { barWidth = 200, barHeight = BAR_HEIGHT, barSpacing = BAR_SPACING },
+        frames = { {
+            name = "G", width = 200, columns = 1, sortMode = "manual",
+            growDirection = "DOWN", bgAlpha = bgAlpha, bars = configuredBars,
+            position = { point = point, relativePoint = "BOTTOMLEFT", x = 100, y = 100 },
+        } },
+    }
+    ns:UpdateGroupLayout(group)
+    local alpha = group.bgAlpha
+    _G.BarWardenDB = nil
+    return alpha
+end
+
+-- The bug itself: an empty group still on the CENTER creation placeholder
+-- gets the solid emphasis backdrop so a brand-new group can be found and
+-- dragged, even when its own Background Opacity is 0.
+function M.test_backdrop_emptyGroup_neverPositioned_getsEmphasis()
+    local alpha = backdropAlphaFor("CENTER", {}, 0)
+    assertx.assertEqual(alpha, 0.85, "an unpositioned empty group must show the solid emphasis backdrop")
+end
+
+-- The fix: once a group has a real corner anchor, an empty group honours its
+-- own Background Opacity, including 0, exactly like a populated one.
+function M.test_backdrop_emptyGroup_positioned_honoursOwnAlpha()
+    local alpha = backdropAlphaFor("TOPLEFT", {}, 0)
+    assertx.assertEqual(alpha, 0, "an empty group with a real anchor must honour its own alpha, even 0")
+end
+
+-- A populated group always honours its own alpha, positioned or not - the
+-- emphasis backdrop only ever applies while a group is both empty and
+-- unpositioned.
+function M.test_backdrop_populatedGroup_neverPositioned_honoursOwnAlpha()
+    local alpha = backdropAlphaFor("CENTER", { { name = "Bar 1" } }, 0)
+    assertx.assertEqual(alpha, 0, "a populated group must honour its own alpha regardless of anchor")
+end
+
 return M
