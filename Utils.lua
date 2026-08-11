@@ -122,16 +122,10 @@ function ns.FormatUptime(seconds)
     return string.format("%dd %dh", d, h)
 end
 
--- Format seconds as a short, settings-friendly duration string for a
--- slider's live value/end labels: "45s", "5 min", "7 min 30s". Deliberately
--- terser than FormatUptime (a table column) - a slider label has less room
--- and no decimal precision to show. 0 reads as "No limit" rather than "0s"
--- because several duration sliders (e.g. Skip Longer Than) use 0 to mean
--- "no cap", not "zero seconds"; saying so here removes the need for a
--- tooltip caveat.
-function ns.FormatSettingDuration(seconds)
-    seconds = seconds or 0
-    if seconds <= 0 then return "No limit" end
+-- Sub-hour half of ns.FormatSettingDuration: "45s", "5 min", "7 min 30s".
+-- Pulled out so the hour branch below can format its leftover minutes and
+-- seconds the same way instead of duplicating the rule.
+local function FormatSubHourDuration(seconds)
     if seconds < 60 then
         return string.format("%ds", math.floor(seconds))
     end
@@ -141,6 +135,28 @@ function ns.FormatSettingDuration(seconds)
         return string.format("%d min", m)
     end
     return string.format("%d min %ds", m, s)
+end
+
+-- Format seconds as a short, settings-friendly duration string for a
+-- slider's live value/end labels: "45s", "5 min", "7 min 30s", "1 hour",
+-- "1 hour 30 min". Deliberately terser than FormatUptime (a table column) -
+-- a slider label has less room and no decimal precision to show. 0 reads
+-- as "No limit" rather than "0s" because several duration sliders (e.g.
+-- Skip If It Lasts Over) use 0 to mean "no cap", not "zero seconds";
+-- saying so here removes the need for a tooltip caveat.
+function ns.FormatSettingDuration(seconds)
+    seconds = seconds or 0
+    if seconds <= 0 then return "No limit" end
+    if seconds < 3600 then
+        return FormatSubHourDuration(seconds)
+    end
+    local h = math.floor(seconds / 3600)
+    local remainder = seconds - h * 3600
+    local hourWord = (h == 1) and "hour" or "hours"
+    if remainder == 0 then
+        return string.format("%d %s", h, hourWord)
+    end
+    return string.format("%d %s %s", h, hourWord, FormatSubHourDuration(remainder))
 end
 
 -- ----------------------------------------------------------------------------

@@ -177,9 +177,10 @@ local HELP_ENTRIES = {
     {
         id = "auto-track-settings",
         q = "What do the Auto Track settings do?",
-        a = "Max Bars caps how many show at once, and Skip Longer Than keeps "
-          .. "food, flasks and raid buffs out of the way (set it to 0 to show "
-          .. "everything).\n\n"
+        a = "Max Bars caps how many show at once, and Skip If It Lasts Over "
+          .. "keeps food, flasks and raid buffs out of the way by going on "
+          .. "their full length, not the time left on them (set it to 0 to "
+          .. "show everything).\n\n"
           .. "Include Always On adds things that never run out, like class "
           .. "buffs and tracking, pinned above the rest. Only Mine limits it "
           .. "to your own casts.\n\n"

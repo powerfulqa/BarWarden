@@ -805,10 +805,21 @@ local function CreateBarsTab(parent)
               if gf then ns:UpdateGroupLayout(gf) end
           end,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
-        { type = "slider", id = "grpAutoMaxDuration", label = "Skip Longer Than", min = 0, max = 1800, step = 30,
+        -- Max raised from 1800 to 3600 (one hour) so a 30 minute buff can be
+        -- admitted with headroom instead of sitting exactly on the ceiling
+        -- (`duration > maxDuration` never keeps a buff at its own max).
+        -- Step stays 30 across the doubled range: OptionsSliderTemplate only
+        -- takes one SetValueStep, so there is no cheap way to grow it near
+        -- the top, and 30s across 0-3600 is 120 stops, still fine enough to
+        -- drag by feel while the format label carries the exact value.
+        { type = "slider", id = "grpAutoMaxDuration", label = "Skip If It Lasts Over", min = 0, max = 3600, step = 30,
           width = 150, stretch = true, format = ns.FormatSettingDuration,
-          tooltip = "Leave out anything that lasts longer than this, so food, "
-               .. "flasks and raid buffs stay out of the way.",
+          tooltip = "Leave out anything that lasts longer than this in total, so "
+               .. "food, flasks and raid buffs stay out of the way. Goes by the "
+               .. "buff's full length, not how much time is left on it: a 30 "
+               .. "minute buff like Seal of Light stays hidden even with only a "
+               .. "few minutes left, because 30 minutes is still more than this "
+               .. "setting.",
           get = function() local g = getGroup(); return g and (g.autoMaxDuration ~= nil and g.autoMaxDuration or 300) end,
           set = function(_, value)
               local g = getGroup(); if not g then return end

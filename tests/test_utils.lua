@@ -100,7 +100,19 @@ function M.test_formatSettingDuration_boundaries()
     assertx.assertEqual(ns.FormatSettingDuration(60),   "1 min")
     assertx.assertEqual(ns.FormatSettingDuration(300),  "5 min")
     assertx.assertEqual(ns.FormatSettingDuration(330),  "5 min 30s")
-    assertx.assertEqual(ns.FormatSettingDuration(1800), "30 min") -- Skip Longer Than's slider max
+    assertx.assertEqual(ns.FormatSettingDuration(1800), "30 min") -- old slider max, still mid-range
+end
+
+-- Skip If It Lasts Over's slider now runs 0-3600 (one hour); these cover the
+-- hour branch the old 0-1800 range never reached.
+function M.test_formatSettingDuration_hours()
+    local ns = fresh()
+    assertx.assertEqual(ns.FormatSettingDuration(2700), "45 min")
+    assertx.assertEqual(ns.FormatSettingDuration(3600), "1 hour")  -- new slider max
+    assertx.assertEqual(ns.FormatSettingDuration(3630), "1 hour 30s")
+    assertx.assertEqual(ns.FormatSettingDuration(3660), "1 hour 1 min")
+    assertx.assertEqual(ns.FormatSettingDuration(5400), "1 hour 30 min") -- e.g. 90 min, reads sensibly
+    assertx.assertEqual(ns.FormatSettingDuration(7200), "2 hours") -- plural, general past the slider's own range
 end
 
 -- --------------------------------------------------------------------------

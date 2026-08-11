@@ -267,7 +267,7 @@ Eight keys on a group, all nil on a normal group:
 |---|---|
 | `autoTrack` | Feed name (`playerBuffs`, `playerDebuffs`, `targetBuffs`, `targetDebuffs`), or nil for a normal group |
 | `autoMaxBars` | Pre-allocated slots, capped at `MAX_BARS_PER_FRAME` |
-| `autoMaxDuration` | Skip auras whose full duration exceeds this. 0 = no limit |
+| `autoMaxDuration` | Skip auras whose full duration exceeds this (the Groups tab's Skip If It Lasts Over slider, seconds, 0-3600). Tests full duration, not time left, on purpose - see `ns:CollectAutoAuras` above. 0 = no limit |
 | `autoIncludePermanent` | Keep auras with no duration instead of dropping them. Off by default. `ns:CollectAutoAuras` marks each entry `permanent`; permanent entries sort into a stable block above every timed entry (tied broken by name, since they all share expiry 0) and `ns:ScanAutoGroup` routes them through `ns:ActivateStaticBar` instead of `ns:ActivateBar`, the same no-countdown path a switch-mode bar takes |
 | `autoOnlyMine` | Count only your own casts. Seeded on for the two target feeds, off for the two player feeds when Auto Track is first set; the seed only fires once, so switching feeds afterwards leaves whatever the player has |
 | `autoSkipTracked` | Skip spells a bar in another group already tracks (matched by name via `ns:GetTrackedAuraNames`) |

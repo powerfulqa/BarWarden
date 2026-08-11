@@ -13,6 +13,27 @@ exhaustive notes.
 
 ---
 
+### v2.2.7
+
+A clarity fix: the auto-tracking duration slider now says what it actually
+measures, and can reach a full hour.
+
+- **Renamed Skip Longer Than to Skip If It Lasts Over (Groups tab,
+  auto-tracking) and rewrote its tooltip.** It was reported as a bug that a
+  buff with 10 minutes left did not show at a 12 minute setting - it was
+  working as designed, but nothing on screen said the setting goes by a
+  buff's full length, not the time left on it. The tooltip now says so
+  directly, with an example.
+- **Raised its maximum from 30 minutes to 1 hour.** At the old 1800 second
+  ceiling, a 30 minute buff could never be admitted: the test is "longer
+  than this", and 1800 is never longer than 1800. A one hour ceiling gives a
+  30 minute buff room to spare. The step stays 30 seconds across the wider
+  range.
+- `ns.FormatSettingDuration` (Utils.lua) now reads naturally past the old
+  30 minute cap: "1 hour", "1 hour 30 min", and so on.
+
+---
+
 ### v2.2.6
 
 A readability fix: the Skip Longer Than slider now says what its numbers mean.
