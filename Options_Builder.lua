@@ -59,6 +59,7 @@ local addonName, ns = ...
 --   { type = "slider",  label = <string>, tooltip = <string?>,
 --                       db = <path>, refresh = <NsMethod?>,     -- OR get/set pair
 --                       min = <num>, max = <num>, step = <num>,
+--                       format = <function(num) -> string?>,    -- e.g. ns.FormatSettingDuration
 --                       width = <px?>, id = <string?>, onChange = <fn?>,
 --                       spacing = <px?> }
 --
@@ -193,7 +194,7 @@ BUILDERS.slider = function(parent, entry)
     local s = ns:CreateSlider(parent, entry.label or "",
                               entry.min or 0, entry.max or 1, entry.step or 1,
                               BuildSetCallback(entry),
-                              entry.tooltip)
+                              entry.tooltip, entry.format)
     if entry.width then s:SetWidth(entry.width) end
     return s
 end

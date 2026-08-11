@@ -86,6 +86,24 @@ function M.test_formatUptime_boundaries()
 end
 
 -- --------------------------------------------------------------------------
+-- FormatSettingDuration
+-- --------------------------------------------------------------------------
+
+function M.test_formatSettingDuration_boundaries()
+    local ns = fresh()
+    assertx.assertEqual(ns.FormatSettingDuration(0),    "No limit")
+    assertx.assertEqual(ns.FormatSettingDuration(nil),  "No limit")
+    assertx.assertEqual(ns.FormatSettingDuration(-5),   "No limit")
+    assertx.assertEqual(ns.FormatSettingDuration(1),    "1s")
+    assertx.assertEqual(ns.FormatSettingDuration(45),   "45s")
+    assertx.assertEqual(ns.FormatSettingDuration(59),   "59s")
+    assertx.assertEqual(ns.FormatSettingDuration(60),   "1 min")
+    assertx.assertEqual(ns.FormatSettingDuration(300),  "5 min")
+    assertx.assertEqual(ns.FormatSettingDuration(330),  "5 min 30s")
+    assertx.assertEqual(ns.FormatSettingDuration(1800), "30 min") -- Skip Longer Than's slider max
+end
+
+-- --------------------------------------------------------------------------
 -- Base64
 -- --------------------------------------------------------------------------
 

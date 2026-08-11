@@ -118,19 +118,30 @@ function ns:CreateCheckbox(parent, label, tooltip, onClick)
     return cb
 end
 
-function ns:CreateSlider(parent, label, min, max, step, onChange, tooltip)
+-- `format`, if given, is a function(numericValue) -> displayString applied
+-- to the live label AND the Low/High end labels, so the whole slider reads
+-- in the same units (e.g. ns.FormatSettingDuration for a seconds slider).
+-- Omit it and every slider keeps today's bare-number rendering exactly.
+function ns:CreateSlider(parent, label, min, max, step, onChange, tooltip, format)
     local name = NextName("SL")
     local slider = CreateFrame("Slider", name, parent, "OptionsSliderTemplate")
     local labelText = _G[name .. "Text"]
     labelText:SetText(label)
-    _G[name .. "Low"]:SetText(tostring(min))
-    _G[name .. "High"]:SetText(tostring(max))
+    if format then
+        _G[name .. "Low"]:SetText(format(min))
+        _G[name .. "High"]:SetText(format(max))
+    else
+        _G[name .. "Low"]:SetText(tostring(min))
+        _G[name .. "High"]:SetText(tostring(max))
+    end
     slider:SetMinMaxValues(min, max)
     slider:SetValueStep(step)
     slider.label = label  -- store for value display updates
     slider:HookScript("OnValueChanged", function(self, value)
         -- Always update the displayed value, even during suppressed refreshes
-        if step >= 1 then
+        if format then
+            labelText:SetText(label .. ": " .. format(value))
+        elseif step >= 1 then
             labelText:SetText(label .. ": " .. string.format("%d", value))
         else
             labelText:SetText(label .. ": " .. string.format("%.2f", value))

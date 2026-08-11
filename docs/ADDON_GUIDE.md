@@ -427,8 +427,12 @@ Two ways to wire a setting:
 
 Supported entry types: `header`, `note`, `spacer`, `toggle`, `slider`,
 `dropdown`, `editbox`, `color`. Sliders and editboxes accept an optional
-`tooltip`. Add new types by extending the `BUILDERS` + `APPLIERS`
-dispatch tables.
+`tooltip`. A slider also accepts an optional `format = function(num) ->
+string`, applied to the live value label and the Low/High end labels alike
+(e.g. `ns.FormatSettingDuration`, [Utils.lua](../Utils.lua), for a
+seconds-based slider) so the whole control reads in real units instead of a
+bare number; omit it and the slider keeps the old `%d` / `%.2f` rendering.
+Add new types by extending the `BUILDERS` + `APPLIERS` dispatch tables.
 
 Cross-widget coordination: `id = "<name>"` exposes a widget via an
 optional `widgetRefs` table; `onChange = fn` fires after user writes and
@@ -814,9 +818,10 @@ Run locally: `lua tests/run.lua` from the repo root. Exit 0 on all-pass,
 1 on any failure. CI runs it under Lua 5.1 on every push and PR, and the
 release workflow re-runs it so a tag that fails tests will not publish.
 
-Covered: `CopyTable` / `MergeDefaults` / `FormatUptime` / Base64 /
-Serialize / profile export-import / callback bus / `GetVisual` caching
-(test_utils); every schema migration and the "frames not clobbered"
+Covered: `CopyTable` / `MergeDefaults` / `FormatUptime` /
+`FormatSettingDuration` / Base64 / Serialize / profile export-import /
+callback bus / `GetVisual` caching (test_utils); every schema migration
+and the "frames not clobbered"
 guarantee (test_db_migrations - this is the file that catches silent
 data corruption on a schema bump); every built-in condition
 (test_conditions); `CheckBuff` / `CheckDebuff` / `CheckCooldown`,

@@ -13,6 +13,22 @@ exhaustive notes.
 
 ---
 
+### v2.2.6
+
+A readability fix: the Skip Longer Than slider now says what its numbers mean.
+
+- **Skip Longer Than (Groups tab, auto-tracking) now shows minutes and
+  seconds instead of a bare number.** The slider reads in seconds
+  underneath, but nothing on screen said so, so "300" between "0" and
+  "1800" gave no way to tell five minutes from five hours. It now shows
+  "No limit", "45s", "5 min" or "7 min 30s" as you drag it, and the same
+  wording appears at both ends of the track. The tooltip no longer needs
+  to explain that 0 means "show everything" - the slider says it directly.
+- Sliders can now take an optional `format` function to render their value
+  and end labels in real units; every other slider is unchanged.
+
+---
+
 ### v2.2.5
 
 A single fix: locking frames no longer hides an empty auto-tracking group's

@@ -806,10 +806,9 @@ local function CreateBarsTab(parent)
           end,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
         { type = "slider", id = "grpAutoMaxDuration", label = "Skip Longer Than", min = 0, max = 1800, step = 30,
-          width = 150, stretch = true,
+          width = 150, stretch = true, format = ns.FormatSettingDuration,
           tooltip = "Leave out anything that lasts longer than this, so food, "
-               .. "flasks and raid buffs stay out of the way. Set it to 0 to "
-               .. "show everything.",
+               .. "flasks and raid buffs stay out of the way.",
           get = function() local g = getGroup(); return g and (g.autoMaxDuration ~= nil and g.autoMaxDuration or 300) end,
           set = function(_, value)
               local g = getGroup(); if not g then return end
