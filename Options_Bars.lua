@@ -705,7 +705,9 @@ local function CreateBarsTab(parent)
           tooltip = "Controls the whole group once you use it: ticked hides "
                .. "every bar while it has nothing to show, unticked keeps them "
                .. "all visible even if individual bars are set to hide. Leave it "
-               .. "alone to let each bar decide.",
+               .. "alone to let each bar decide. Also decides whether the group "
+               .. "itself, name and all, stays on screen when it has nothing to "
+               .. "show: ticked lets it disappear, unticked keeps it up.",
           get = function() local g = getGroup(); return g and g.groupConditions and g.groupConditions.hideWhenInactive end,
           set = function(_, v) local g = getGroup(); if not g then return end
               if not g.groupConditions then g.groupConditions = {} end

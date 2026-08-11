@@ -13,6 +13,24 @@ exhaustive notes.
 
 ---
 
+### v2.2.5
+
+A single fix: locking frames no longer hides an empty auto-tracking group's
+name.
+
+- **Group Hide When Inactive now also decides whether an empty group's frame
+  stays on screen.** An auto-tracking group with nothing on the unit hides
+  every slot; that used to take the whole group frame with it, name and all,
+  the moment Lock All Frames was ticked, because the carve-out that kept it
+  up only applied while frames were unlocked. Show Group Name only draws a
+  title inside a group that is already visible, so it could never rescue a
+  group the lock state had just hidden. Untick Hide When Inactive on the
+  group and it now stays up, locked or not, so its name stays visible; tick
+  it and the group hides whether locked or unlocked. Leaving it alone keeps
+  today's behaviour exactly: unlocked stays up, locked hides.
+
+---
+
 ### v2.2.4
 
 A single fix: Background Opacity 0 no longer gets ignored on empty groups.

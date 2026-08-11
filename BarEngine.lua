@@ -119,20 +119,19 @@ local function AreAllBarsHidden(group)
     -- as it has a bar.
     if #group.bars == 0 then return false end
 
-    -- An auto-tracking group holds slots rather than configured bars, so with
-    -- nothing on the unit every slot is hidden and the rule below would hide
-    -- the group the moment its feed is chosen, with no way to find it again.
-    -- While frames are unlocked the user is arranging their layout and needs
-    -- to see it, for the same reason a brand-new empty group stays visible.
-    if group.isAutoGroup and BarWardenDB and BarWardenDB.global
-       and not BarWardenDB.global.locked then
-        return false
-    end
-
     for _, b in ipairs(group.bars) do
         if b:IsShown() then return false end
     end
-    return true
+
+    -- Every bar/slot is hidden - the group is "empty". Whether that hides
+    -- the group's frame (and with it the title Show Group Name draws as a
+    -- child of that frame) is the group's own Hide When Inactive call now,
+    -- not the lock state: see ns:ShouldHideEmptyGroup (Conditions.lua) for
+    -- the full truth table.
+    local groupData = group.frameIndex and BarWardenDB and BarWardenDB.frames
+                      and BarWardenDB.frames[group.frameIndex]
+    local isUnlocked = BarWardenDB and BarWardenDB.global and not BarWardenDB.global.locked
+    return ns:ShouldHideEmptyGroup(groupData, group.isAutoGroup, not isUnlocked)
 end
 
 -- Wrap a scan body: increment depth, run fn, decrement, flush on exit.

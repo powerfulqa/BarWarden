@@ -331,6 +331,7 @@ takes a group override MUST be read through its resolver, never straight off
 |---------|----------|------------|
 | Text format | `ns:GetBarTextFormat(bar)` ([BarEngine.lua](../BarEngine.lua)) | group (`group.textFormat`) then global |
 | Hide when inactive | `ns:ResolveHideWhenInactive(bar)` ([Conditions.lua](../Conditions.lua)) | group when set, else bar (see below) |
+| Whether an empty group's frame hides | `ns:ShouldHideEmptyGroup(frameData, isAutoGroup, isLocked)` ([Conditions.lua](../Conditions.lua)) | group when set, else lock/type default (see below) |
 | Switch mode (on/off, no countdown) | `ns:IsSwitchBar(bar)` ([Conditions.lua](../Conditions.lua)) | group (`group.barStyle`) when set, else bar (`display.switchMode`) |
 | Bar texture / colour | resolved inside [Bar.lua](../Bar.lua) `ApplyVisualConfig` | bar then group then global |
 | Icon Only (square icon grid, no bar/text) | read directly as `group.iconOnly` in `ApplyVisualConfig` (Bar.lua) and `ns:UpdateGroupLayout` (FrameManager.lua); no resolver function, no bar-level override | group only (boolean, not an Inherit tri-state) |
@@ -351,6 +352,24 @@ It was briefly an OR of bar-and-group (v2.1.0). That was wrong: an OR can only
 ever *add* hiding, so a group whose bars all set the flag individually could
 never be revealed from the group control, which is the entire reason the control
 exists. Do not "simplify" it back.
+
+The same toggle also governs `ns:ShouldHideEmptyGroup`, which decides whether
+an *empty* group's frame (title and all) hides - a different question from
+`ResolveHideWhenInactive` above, which is only about individual bars.
+`AreAllBarsHidden` (BarEngine.lua) calls it once it has already established
+every bar/slot in the group is hidden. Same `~= nil` shape: ticked hides the
+frame regardless of lock state, unticked keeps it up regardless of lock
+state (this is the case that used to have no control at all - Show Group
+Name only draws a title inside a group that is already visible, so it could
+never rescue a group the lock state had just hidden). Untouched, it
+reproduces the behaviour that predates the setting having any say here: an
+auto-tracking group (slots fed from whatever is on the unit, so "empty" is
+its normal idle state) stays up while unlocked and hides once locked; an
+ordinary group never had that carve-out and always hides when empty. The
+decision lives in Conditions.lua rather than BarEngine.lua because
+BarEngine.lua's frame-heavy locals cannot load under the test harness, and
+the decision itself is pure data - see `test_conditions.lua`'s
+`test_shouldHideEmptyGroup_*` cases for the full truth table.
 
 `ns:IsSwitchBar` mirrors that same group-over-bar shape for switch mode:
 `group.barStyle == "SWITCH"` or `"COUNTDOWN"` overrides every bar in the group

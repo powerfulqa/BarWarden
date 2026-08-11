@@ -77,6 +77,33 @@ function ns:ResolveHideWhenInactive(bar)
     return not not (barCond and barCond.hideWhenInactive)
 end
 
+-- Whether an empty group's frame (backdrop, title, everything) should hide.
+-- "Empty" means every bar/slot in the group has already resolved to hidden -
+-- AreAllBarsHidden (BarEngine.lua) is the only caller and has done that check
+-- before asking, so this only decides what an empty group does next.
+--
+-- Same group-authoritative, ~= nil shape as ResolveHideWhenInactive just
+-- above: once Hide When Inactive has been touched on the group it wins
+-- outright, in both directions, regardless of lock state or group type.
+-- Untouched (nil), it reproduces the behaviour that existed before this
+-- setting had any say over the frame: an auto-tracking group (slots filled
+-- from whatever is on the unit, so "empty" is the normal idle state, not a
+-- misconfiguration) stays on screen while unlocked so it can still be found
+-- and arranged, and hides once locked, the normal playing state. An
+-- ordinary group has never had that carve-out, so it always hides when
+-- empty, locked or not.
+function ns:ShouldHideEmptyGroup(frameData, isAutoGroup, isLocked)
+    local groupCond = frameData and frameData.groupConditions
+    if groupCond and groupCond.hideWhenInactive ~= nil then
+        return not not groupCond.hideWhenInactive
+    end
+
+    if isAutoGroup then
+        return not not isLocked
+    end
+    return true
+end
+
 -- Resolve "switch mode" (on/off, no countdown) for a live bar.
 --
 -- Same group-over-bar shape as ResolveHideWhenInactive: the group's Bar

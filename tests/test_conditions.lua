@@ -276,6 +276,66 @@ function M.test_resolveHideWhenInactive_safeWithoutData()
 end
 
 -- --------------------------------------------------------------------------
+-- ShouldHideEmptyGroup: whether an empty group's FRAME hides (title and all),
+-- as opposed to ResolveHideWhenInactive above which is about individual bars.
+-- Same ~= nil, group-authoritative shape: once touched, Hide When Inactive
+-- wins outright in both directions regardless of lock state or group type.
+-- Untouched (nil) must reproduce the behaviour that existed before this
+-- setting had any say over the frame: an auto group stays up unlocked and
+-- hides locked; an ordinary group always hides when empty.
+-- --------------------------------------------------------------------------
+
+-- Ticked: hides, whether locked or unlocked, auto or ordinary group.
+function M.test_shouldHideEmptyGroup_tickedHidesRegardlessOfLockOrType()
+    local ns = fresh()
+    local frameData = { groupConditions = { hideWhenInactive = true } }
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, true, true))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, true, false))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, false, true))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, false, false))
+end
+
+-- Unticked: stays up, whether locked or unlocked, auto or ordinary group.
+-- This is the case the owner could not previously express at all.
+function M.test_shouldHideEmptyGroup_untickedKeepsGroupUpRegardlessOfLockOrType()
+    local ns = fresh()
+    local frameData = { groupConditions = { hideWhenInactive = false } }
+    assertx.assertFalse(ns:ShouldHideEmptyGroup(frameData, true, true))
+    assertx.assertFalse(ns:ShouldHideEmptyGroup(frameData, true, false))
+    assertx.assertFalse(ns:ShouldHideEmptyGroup(frameData, false, true))
+    assertx.assertFalse(ns:ShouldHideEmptyGroup(frameData, false, false))
+end
+
+-- Untouched, auto group: reproduces today's behaviour exactly - visible
+-- unlocked (so it can still be found and arranged), hidden locked.
+function M.test_shouldHideEmptyGroup_untouchedAutoGroupFollowsLockState()
+    local ns = fresh()
+    local frameData = { groupConditions = {} }
+    assertx.assertFalse(ns:ShouldHideEmptyGroup(frameData, true, false))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, true, true))
+end
+
+-- Untouched, ordinary group: reproduces today's behaviour exactly - there was
+-- never a lock-based carve-out for a non-auto group, so it always hides.
+function M.test_shouldHideEmptyGroup_untouchedOrdinaryGroupAlwaysHides()
+    local ns = fresh()
+    local frameData = { groupConditions = {} }
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, false, false))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, false, true))
+end
+
+-- Nil-safe: nil frameData, a frameData with no groupConditions, and no data
+-- at all must all fall through to the untouched default rather than erroring.
+function M.test_shouldHideEmptyGroup_safeWithoutData()
+    local ns = fresh()
+    assertx.assertFalse(ns:ShouldHideEmptyGroup(nil, true, false))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(nil, true, true))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(nil, false, false))
+    assertx.assertFalse(ns:ShouldHideEmptyGroup({}, true, false))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup({}, false, true))
+end
+
+-- --------------------------------------------------------------------------
 -- IsBarEnabled: a bar switched off in the editor must never be drawn. Four
 -- sites used to decide this independently and disagreed.
 -- --------------------------------------------------------------------------

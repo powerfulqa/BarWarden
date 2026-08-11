@@ -233,7 +233,12 @@ local HELP_ENTRIES = {
           .. "Hide When Inactive takes charge of the group once you use it: "
           .. "ticked hides every bar while it has nothing to show, unticked "
           .. "keeps them all visible even if individual bars are set to hide. "
-          .. "Leave it alone and each bar decides for itself.",
+          .. "Leave it alone and each bar decides for itself.\n\n"
+          .. "It also decides whether the group itself, name and all, stays on "
+          .. "screen when it has nothing to show: ticked lets it disappear, "
+          .. "unticked keeps it up. Leave it alone and an auto-tracking group "
+          .. "stays up while frames are unlocked so you can still find it, and "
+          .. "hides once locked, same as before.",
     },
     {
         id = "condition-health-buff-class",
