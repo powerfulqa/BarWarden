@@ -13,58 +13,45 @@ exhaustive notes.
 
 ---
 
-### v2.2.7
+### v2.3.0
 
-A clarity fix: the auto-tracking duration slider now says what it actually
-measures, and can reach a full hour.
+**A clearer group-visibility rule and a friendlier auto-tracking duration
+slider.** Locking your frames no longer hides an empty group's name out from
+under Hide When Inactive, and the slider that limits which buffs an
+auto-tracking group picks up now reads in real units, has a clearer name, and
+reaches a full hour.
 
-- **Renamed Skip Longer Than to Skip If It Lasts Over (Groups tab,
-  auto-tracking) and rewrote its tooltip.** It was reported as a bug that a
-  buff with 10 minutes left did not show at a 12 minute setting - it was
-  working as designed, but nothing on screen said the setting goes by a
-  buff's full length, not the time left on it. The tooltip now says so
-  directly, with an example.
-- **Raised its maximum from 30 minutes to 1 hour.** At the old 1800 second
-  ceiling, a 30 minute buff could never be admitted: the test is "longer
-  than this", and 1800 is never longer than 1800. A one hour ceiling gives a
-  30 minute buff room to spare. The step stays 30 seconds across the wider
-  range.
-- `ns.FormatSettingDuration` (Utils.lua) now reads naturally past the old
-  30 minute cap: "1 hour", "1 hour 30 min", and so on.
-
----
-
-### v2.2.6
-
-A readability fix: the Skip Longer Than slider now says what its numbers mean.
-
-- **Skip Longer Than (Groups tab, auto-tracking) now shows minutes and
-  seconds instead of a bare number.** The slider reads in seconds
-  underneath, but nothing on screen said so, so "300" between "0" and
-  "1800" gave no way to tell five minutes from five hours. It now shows
-  "No limit", "45s", "5 min" or "7 min 30s" as you drag it, and the same
-  wording appears at both ends of the track. The tooltip no longer needs
-  to explain that 0 means "show everything" - the slider says it directly.
-- Sliders can now take an optional `format` function to render their value
-  and end labels in real units; every other slider is unchanged.
-
----
-
-### v2.2.5
-
-A single fix: locking frames no longer hides an empty auto-tracking group's
-name.
-
-- **Group Hide When Inactive now also decides whether an empty group's frame
-  stays on screen.** An auto-tracking group with nothing on the unit hides
-  every slot; that used to take the whole group frame with it, name and all,
-  the moment Lock All Frames was ticked, because the carve-out that kept it
-  up only applied while frames were unlocked. Show Group Name only draws a
-  title inside a group that is already visible, so it could never rescue a
-  group the lock state had just hidden. Untick Hide When Inactive on the
-  group and it now stays up, locked or not, so its name stays visible; tick
-  it and the group hides whether locked or unlocked. Leaving it alone keeps
-  today's behaviour exactly: unlocked stays up, locked hides.
+- **The duration slider (Groups tab, auto-tracking) now shows minutes and
+  seconds instead of a bare number.** It reads in seconds underneath, but
+  nothing on screen said so, leaving a raw number like "300" with no way to
+  tell what unit it meant. It now shows "No limit", "45s", "5 min" or
+  "7 min 30s" as you drag it, with the same wording at both ends of the
+  track, and the tooltip no longer needs to explain that 0 means "show
+  everything" - the slider says it directly. Sliders can now take an
+  optional `format` function to render their value and end labels in real
+  units; every other slider is unchanged.
+- **Renamed Skip Longer Than to Skip If It Lasts Over, and raised its
+  maximum from 30 minutes to 1 hour.** It was reported as a bug that a buff
+  with 10 minutes left did not show at a 12 minute setting - it was working
+  as designed, but nothing on screen said the setting goes by a buff's full
+  length, not the time left on it, so the tooltip now says so directly,
+  with an example. The old 30 minute ceiling also meant a 30 minute buff
+  could never be admitted, since the test is "longer than this" and 1800 is
+  never longer than 1800; the new one hour ceiling gives it room to spare,
+  with the step still 30 seconds across the wider range.
+  `ns.FormatSettingDuration` (Utils.lua) reads naturally past the old cap
+  too: "1 hour", "1 hour 30 min", and so on.
+- **Group Hide When Inactive now also decides whether an empty group's
+  frame stays on screen.** An auto-tracking group with nothing on the unit
+  hides every slot; that used to take the whole group frame with it, name
+  and all, the moment Lock All Frames was ticked, because the carve-out
+  that kept it up only applied while frames were unlocked. Show Group Name
+  only draws a title inside a group that is already visible, so it could
+  never rescue a group the lock state had just hidden. Untick Hide When
+  Inactive on the group and it now stays up, locked or not, so its name
+  stays visible; tick it and the group hides whether locked or unlocked.
+  Leaving it alone keeps today's behaviour exactly: unlocked stays up,
+  locked hides.
 
 ---
 
