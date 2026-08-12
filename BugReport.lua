@@ -28,7 +28,10 @@ local FormatUptime = ns.FormatUptime
 -- ----------------------------------------------------------------------------
 -- Generate the report string
 -- ----------------------------------------------------------------------------
-local function GenerateReport()
+-- Exposed on ns (rather than kept local) so tests/test_bug_report.lua can
+-- call it directly without going through ns:ShowBugReport, which needs
+-- CreateFrame and is out of scope for the logic test harness.
+function ns:GenerateBugReport()
     local lines = {}
     local function add(text)
         lines[#lines + 1] = text or ""
@@ -71,6 +74,11 @@ local function GenerateReport()
         add(string.format("ColorMode: %s", tostring(v.colorMode)))
         add(string.format("BarSize: %dx%d", v.barWidth or 0, v.barHeight or 0))
         add(string.format("FontSize: %s", tostring(v.fontSize)))
+        add(string.format("StackFontSize: %s", tostring(v.stackFontSize)))
+        local sc = v.stackColor
+        add(string.format("StackColor: %s", sc
+            and string.format("%.2f,%.2f,%.2f", sc.r or 0, sc.g or 0, sc.b or 0)
+            or "nil"))
         add(string.format("TextFormat: %s", tostring(v.textFormat)))
         add(string.format("DurationStyle: %s", tostring(v.durationStyle)))
         add(string.format("IconSize: %s  IconPos: %s", tostring(v.iconSize), tostring(v.iconPosition)))
@@ -83,7 +91,14 @@ local function GenerateReport()
     add("--- Groups & Bars ---")
     if ns.db and ns.db.frames then
         for gi, frameData in ipairs(ns.db.frames) do
-            add(string.format("Group %d: \"%s\" (w=%d, cols=%d, scale=%.1f, sort=%s, grow=%s, enabled=%s)",
+            -- bgAlpha/borderAlpha always print (not gated behind "only when
+            -- set" like the overrides below): both have a live default
+            -- (0.6 / 0.8) applied at read time elsewhere, so the group
+            -- always has an effective opacity and the report should show
+            -- what it actually is. `~= nil` (not a plain `or`) so an
+            -- explicit 0 - the value that makes a group invisible - reads
+            -- as 0.00, not the 0.6/0.8 default.
+            add(string.format("Group %d: \"%s\" (w=%d, cols=%d, scale=%.1f, sort=%s, grow=%s, enabled=%s, bgAlpha=%.2f, borderAlpha=%.2f)",
                 gi,
                 frameData.name or "unnamed",
                 frameData.width or 0,
@@ -91,12 +106,29 @@ local function GenerateReport()
                 frameData.scale or 1.0,
                 tostring(frameData.sortMode or "manual"),
                 tostring(frameData.growDirection or "DOWN"),
-                tostring(frameData.enabled ~= false)))
+                tostring(frameData.enabled ~= false),
+                frameData.bgAlpha ~= nil and frameData.bgAlpha or 0.6,
+                frameData.borderAlpha ~= nil and frameData.borderAlpha or 0.8))
 
             -- Group-level visual overrides (v2): only present when set.
+            -- iconOnly and barStyle folded in here alongside texture/colour
+            -- since both change how the group draws and have each caused
+            -- "why does my group look wrong" confusion on their own.
+            -- textFormat is a group-level override too (GROUP_SETTINGS_SCHEMA
+            -- in Options_Bars.lua) but was missing from this line entirely;
+            -- added for the same reason as barTexture next to it.
             local gover = {}
             if frameData.barTexture then
                 gover[#gover + 1] = "texture=" .. tostring(frameData.barTexture)
+            end
+            if frameData.textFormat and frameData.textFormat ~= "" then
+                gover[#gover + 1] = "textFormat=" .. tostring(frameData.textFormat)
+            end
+            if frameData.barStyle and frameData.barStyle ~= "" then
+                gover[#gover + 1] = "barStyle=" .. tostring(frameData.barStyle)
+            end
+            if frameData.iconOnly then
+                gover[#gover + 1] = "iconOnly"
             end
             if frameData.barColor then
                 gover[#gover + 1] = string.format("colour=%.2f,%.2f,%.2f",
@@ -115,6 +147,38 @@ local function GenerateReport()
                 if gc.hideInVehicle    then gcp[#gcp + 1] = "hideInVehicle" end
                 if gc.onlyInInstance   then gcp[#gcp + 1] = "onlyInInstance" end
                 if #gcp > 0 then add("    groupConditions: " .. table.concat(gcp, ", ")) end
+            end
+
+            -- Auto tracking (v2): only present when this group actually has
+            -- a feed picked, so an ordinary hand-built group gains nothing
+            -- beyond this check. This is the setting that decides whether a
+            -- group is an auto-tracking group at all - previously invisible
+            -- in the report, which is exactly what made "is this an
+            -- auto-track group" a recurring question when diagnosing a
+            -- group that shows or hides unexpectedly.
+            if frameData.autoTrack and frameData.autoTrack ~= "" then
+                add(string.format(
+                    "    autoTrack: feed=%s, maxBars=%d, maxDuration=%d, onlyMine=%s, skipTracked=%s, stableOrder=%s, includePermanent=%s",
+                    tostring(frameData.autoTrack),
+                    frameData.autoMaxBars or 10,
+                    frameData.autoMaxDuration ~= nil and frameData.autoMaxDuration or 300,
+                    tostring(frameData.autoOnlyMine == true),
+                    tostring(frameData.autoSkipTracked == true),
+                    tostring(frameData.autoStableOrder == true),
+                    tostring(frameData.autoIncludePermanent == true)))
+            end
+
+            -- Alt-click ban list (Bar.lua's alt-click handler on an auto bar).
+            -- A count is enough diagnostically; listing every banned spell
+            -- would bloat the report. Kept independent of the autoTrack
+            -- check above: switching the feed off does not clear the list,
+            -- so a stale ban list is itself worth surfacing.
+            if frameData.autoBanned then
+                local bannedCount = 0
+                for _ in pairs(frameData.autoBanned) do bannedCount = bannedCount + 1 end
+                if bannedCount > 0 then
+                    add(string.format("    autoBanned: %d hidden", bannedCount))
+                end
             end
 
             for bi, bar in ipairs(frameData.bars or {}) do
@@ -281,7 +345,7 @@ function ns:ShowBugReport()
         reportFrame = CreateReportFrame()
     end
 
-    local report = GenerateReport()
+    local report = self:GenerateBugReport()
     reportFrame.editBox:SetText(report)
     reportFrame.editBox:SetWidth(reportFrame:GetWidth() - 56)
     reportFrame:Show()

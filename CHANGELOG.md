@@ -29,6 +29,19 @@ overridden by the empty-group carve-out while frames are unlocked.
   outright, whatever the lock state and whatever the auto-tracking carve-out
   would otherwise say. A group whose conditions pass again is unaffected and
   comes straight back, same as before.
+- **The bug report now shows each group's opacity and auto-tracking setup.**
+  `/bw bug` used to leave out whether a group was auto-tracking at all and
+  what its Background Opacity and Border Opacity were set to, which made
+  "my group is invisible" and "my group is showing when it should not"
+  reports impossible to diagnose from the pasted text alone. The per-group
+  line now always shows `bgAlpha` and `borderAlpha` (so a deliberate 0 reads
+  as 0.00, not as absent), a group with `autoTrack` set gets one extra line
+  with its feed and the settings that govern what it picks up, and a count
+  of alt-click-hidden spells is shown when there are any. The overrides line
+  also now folds in `iconOnly`, `barStyle` and the previously-missing
+  `textFormat` group override. The addon-wide Visual Config section gained
+  the Stack Text size and colour settings, which were already missing there
+  too.
 
 ---
 

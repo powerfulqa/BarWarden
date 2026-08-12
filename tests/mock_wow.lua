@@ -178,6 +178,12 @@ function M.install()
         return nil
     end
 
+    -- BugReport.lua's header rows (version, build, character banner).
+    _G.GetBuildInfo = function() return "3.3.5", "12340", "Jun 1 2010", 30300 end
+    _G.UnitLevel = function(unit) return unit == "player" and 80 or 0 end
+    _G.UnitName  = function(unit) return unit == "player" and "TestChar" or nil end
+    _G.date      = function(fmt) return os.date(fmt) end
+
     -- Blizzard globals BarWarden reads
     _G.RAID_CLASS_COLORS = _G.RAID_CLASS_COLORS or {
         DEATHKNIGHT = { r = 0.77, g = 0.12, b = 0.23 },

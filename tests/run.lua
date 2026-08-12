@@ -23,6 +23,7 @@ local TEST_FILES = {
     "test_hygiene",
     "test_comms_version",
     "test_migration",
+    "test_bug_report",
 }
 
 local totalPass, totalFail = 0, 0
