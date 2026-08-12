@@ -131,7 +131,20 @@ local function AreAllBarsHidden(group)
     local groupData = group.frameIndex and BarWardenDB and BarWardenDB.frames
                       and BarWardenDB.frames[group.frameIndex]
     local isUnlocked = BarWardenDB and BarWardenDB.global and not BarWardenDB.global.locked
-    return ns:ShouldHideEmptyGroup(groupData, group.isAutoGroup, not isUnlocked)
+
+    -- A group whose own conditions (Combat Only, Hide Mounted, etc) currently
+    -- fail must hide regardless of lock state, so the auto-group unlocked
+    -- carve-out below can't swallow an explicit "hide this" as if the group
+    -- were merely empty. This re-runs the same check ScanBar/ScanAutoGroup
+    -- already made this pass, but only for a group that reached this point
+    -- with every bar hidden - never the common case of a group with visible
+    -- bars, which bails out above before this line ever runs. One cheap
+    -- table-driven evaluation on that reduced set is not the same cost as
+    -- adding a check per bar per scan.
+    local conditionsFailed = groupData and groupData.groupConditions
+                              and not ns:EvaluateConditions(nil, groupData.groupConditions)
+
+    return ns:ShouldHideEmptyGroup(groupData, group.isAutoGroup, not isUnlocked, conditionsFailed)
 end
 
 -- Wrap a scan body: increment depth, run fn, decrement, flush on exit.

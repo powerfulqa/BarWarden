@@ -331,7 +331,7 @@ takes a group override MUST be read through its resolver, never straight off
 |---------|----------|------------|
 | Text format | `ns:GetBarTextFormat(bar)` ([BarEngine.lua](../BarEngine.lua)) | group (`group.textFormat`) then global |
 | Hide when inactive | `ns:ResolveHideWhenInactive(bar)` ([Conditions.lua](../Conditions.lua)) | group when set, else bar (see below) |
-| Whether an empty group's frame hides | `ns:ShouldHideEmptyGroup(frameData, isAutoGroup, isLocked)` ([Conditions.lua](../Conditions.lua)) | group when set, else lock/type default (see below) |
+| Whether an empty group's frame hides | `ns:ShouldHideEmptyGroup(frameData, isAutoGroup, isLocked, conditionsFailed)` ([Conditions.lua](../Conditions.lua)) | conditionsFailed, then group when set, else lock/type default (see below) |
 | Switch mode (on/off, no countdown) | `ns:IsSwitchBar(bar)` ([Conditions.lua](../Conditions.lua)) | group (`group.barStyle`) when set, else bar (`display.switchMode`) |
 | Bar texture / colour | resolved inside [Bar.lua](../Bar.lua) `ApplyVisualConfig` | bar then group then global |
 | Icon Only (square icon grid, no bar/text) | read directly as `group.iconOnly` in `ApplyVisualConfig` (Bar.lua) and `ns:UpdateGroupLayout` (FrameManager.lua); no resolver function, no bar-level override | group only (boolean, not an Inherit tri-state) |
@@ -357,16 +357,31 @@ The same toggle also governs `ns:ShouldHideEmptyGroup`, which decides whether
 an *empty* group's frame (title and all) hides - a different question from
 `ResolveHideWhenInactive` above, which is only about individual bars.
 `AreAllBarsHidden` (BarEngine.lua) calls it once it has already established
-every bar/slot in the group is hidden. Same `~= nil` shape: ticked hides the
-frame regardless of lock state, unticked keeps it up regardless of lock
-state (this is the case that used to have no control at all - Show Group
-Name only draws a title inside a group that is already visible, so it could
-never rescue a group the lock state had just hidden). Untouched, it
-reproduces the behaviour that predates the setting having any say here: an
-auto-tracking group (slots fed from whatever is on the unit, so "empty" is
-its normal idle state) stays up while unlocked and hides once locked; an
-ordinary group never had that carve-out and always hides when empty. The
-decision lives in Conditions.lua rather than BarEngine.lua because
+every bar/slot in the group is hidden. Precedence, most authoritative first:
+
+1. `conditionsFailed` (the group's own Combat Only / Hide Mounted / etc
+   conditions currently fail) - hide, always, whatever the lock state or
+   group type. `AreAllBarsHidden` computes this itself by calling
+   `ns:EvaluateConditions(nil, groupData.groupConditions)`, the same call
+   `ScanBar`/`ns:ScanAutoGroup` already make to gate the bars, so
+   `ShouldHideEmptyGroup` stays a pure decision function rather than
+   re-evaluating conditions itself. Added in v2.3.1: before this, an
+   auto-tracking group whose condition failed still passed the unlocked
+   carve-out below, because "every slot hidden" read as "nothing matched
+   yet" instead of "the owner said hide this".
+2. `groupConditions.hideWhenInactive ~= nil` (touched) - honoured outright:
+   ticked hides the frame regardless of lock state, unticked keeps it up
+   regardless of lock state (this is the case that used to have no control
+   at all - Show Group Name only draws a title inside a group that is
+   already visible, so it could never rescue a group the lock state had
+   just hidden).
+3. Untouched (`nil`) - reproduces the behaviour that predates the setting
+   having any say here: an auto-tracking group (slots fed from whatever is
+   on the unit, so "empty" is its normal idle state) stays up while
+   unlocked and hides once locked; an ordinary group never had that
+   carve-out and always hides when empty.
+
+The decision lives in Conditions.lua rather than BarEngine.lua because
 BarEngine.lua's frame-heavy locals cannot load under the test harness, and
 the decision itself is pure data - see `test_conditions.lua`'s
 `test_shouldHideEmptyGroup_*` cases for the full truth table.

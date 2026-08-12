@@ -335,6 +335,53 @@ function M.test_shouldHideEmptyGroup_safeWithoutData()
     assertx.assertTrue(ns:ShouldHideEmptyGroup({}, false, true))
 end
 
+-- conditionsFailed is the most authoritative input: a group whose Combat
+-- Only (or any other) condition currently fails must hide, full stop. It
+-- beats the auto-group unlocked carve-out below, which was written for a
+-- group that is empty because nothing matched, not because the user's own
+-- condition said "hide this". Locked/unlocked and auto/ordinary should not
+-- matter once conditionsFailed is true.
+function M.test_shouldHideEmptyGroup_conditionsFailedHidesAutoGroupRegardlessOfLock()
+    local ns = fresh()
+    local frameData = { groupConditions = {} }
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, true, true, true))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, true, false, true))
+end
+
+function M.test_shouldHideEmptyGroup_conditionsFailedHidesOrdinaryGroup()
+    local ns = fresh()
+    local frameData = { groupConditions = {} }
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, false, true, true))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, false, false, true))
+end
+
+-- conditionsFailed wins even over an explicit hideWhenInactive = false: the
+-- condition is the more specific instruction ("hide this exact group right
+-- now") than the general "don't hide me when idle" default.
+function M.test_shouldHideEmptyGroup_conditionsFailedBeatsExplicitHideWhenInactiveFalse()
+    local ns = fresh()
+    local frameData = { groupConditions = { hideWhenInactive = false } }
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, true, true, true))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, true, false, true))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(frameData, false, false, true))
+end
+
+-- conditionsFailed false (or omitted, as every call above this section makes
+-- it) must reproduce the existing truth table exactly - nothing already
+-- tested changes.
+function M.test_shouldHideEmptyGroup_conditionsNotFailedReproducesExistingTable()
+    local ns = fresh()
+    local ticked   = { groupConditions = { hideWhenInactive = true } }
+    local unticked = { groupConditions = { hideWhenInactive = false } }
+    local untouched = { groupConditions = {} }
+
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(ticked, true, false, false))
+    assertx.assertFalse(ns:ShouldHideEmptyGroup(unticked, true, true, false))
+    assertx.assertFalse(ns:ShouldHideEmptyGroup(untouched, true, false, false))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(untouched, true, true, false))
+    assertx.assertTrue(ns:ShouldHideEmptyGroup(untouched, false, false, false))
+end
+
 -- --------------------------------------------------------------------------
 -- IsBarEnabled: a bar switched off in the editor must never be drawn. Four
 -- sites used to decide this independently and disagreed.

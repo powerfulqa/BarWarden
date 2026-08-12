@@ -82,6 +82,16 @@ end
 -- AreAllBarsHidden (BarEngine.lua) is the only caller and has done that check
 -- before asking, so this only decides what an empty group does next.
 --
+-- conditionsFailed is the caller's own evaluation of the group's Combat
+-- Only / Hide Mounted / etc conditions (see AreAllBarsHidden), passed in
+-- rather than evaluated here so this stays a pure decision function and the
+-- caller keeps control of when that evaluation is worth doing. It outranks
+-- everything below: the owner explicitly told this group to hide right now,
+-- which beats both the Hide When Inactive setting and the auto-group
+-- unlocked carve-out. Without this, an auto-tracking group whose Combat
+-- Only condition failed would still show while unlocked, because "empty"
+-- read as "nothing matched yet" instead of "the owner said hide this".
+--
 -- Same group-authoritative, ~= nil shape as ResolveHideWhenInactive just
 -- above: once Hide When Inactive has been touched on the group it wins
 -- outright, in both directions, regardless of lock state or group type.
@@ -92,7 +102,9 @@ end
 -- and arranged, and hides once locked, the normal playing state. An
 -- ordinary group has never had that carve-out, so it always hides when
 -- empty, locked or not.
-function ns:ShouldHideEmptyGroup(frameData, isAutoGroup, isLocked)
+function ns:ShouldHideEmptyGroup(frameData, isAutoGroup, isLocked, conditionsFailed)
+    if conditionsFailed then return true end
+
     local groupCond = frameData and frameData.groupConditions
     if groupCond and groupCond.hideWhenInactive ~= nil then
         return not not groupCond.hideWhenInactive

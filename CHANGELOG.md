@@ -13,6 +13,25 @@ exhaustive notes.
 
 ---
 
+### v2.3.1
+
+A single fix: Combat Only (and the other group conditions) no longer get
+overridden by the empty-group carve-out while frames are unlocked.
+
+- **A group condition that currently fails now hides the group, unlocked or
+  not.** Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide
+  In Vehicle and Only In Instance already hid every bar in a group when they
+  failed, but the group's own frame could stay on screen anyway: the carve-
+  out that keeps an empty auto-tracking group visible while unlocked (so it
+  can still be found and dragged) was written for a group that is empty
+  because nothing matched, and it was also catching a group that is empty
+  because its own condition said to hide it. An explicit condition now wins
+  outright, whatever the lock state and whatever the auto-tracking carve-out
+  would otherwise say. A group whose conditions pass again is unaffected and
+  comes straight back, same as before.
+
+---
+
 ### v2.3.0
 
 **A clearer group-visibility rule and a friendlier auto-tracking duration
