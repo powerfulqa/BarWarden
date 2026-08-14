@@ -15,40 +15,21 @@ exhaustive notes.
 
 ### v2.3.1
 
-A single fix: Combat Only (and the other group conditions) no longer get
-overridden by the empty-group carve-out while frames are unlocked.
+**Combat Only and the other group conditions now hide a group outright, even
+while its frames are unlocked.** An unlocked auto-tracking group with nothing
+on the unit is kept visible on purpose, so it can still be found and dragged,
+but that same carve-out was also catching a group that was empty because its
+own condition - Combat Only, Out of Combat Only, Hide Mounted, Hide Resting,
+Hide In Vehicle or Only In Instance - said to hide it, letting the group sit
+on screen anyway while unlocked. An explicit condition now wins regardless of
+lock state. A group whose conditions pass is unaffected and comes straight
+back, same as before.
 
-- **A group condition that currently fails now hides the group, unlocked or
-  not.** Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide
-  In Vehicle and Only In Instance already hid every bar in a group when they
-  failed, but the group's own frame could stay on screen anyway: the carve-
-  out that keeps an empty auto-tracking group visible while unlocked (so it
-  can still be found and dragged) was written for a group that is empty
-  because nothing matched, and it was also catching a group that is empty
-  because its own condition said to hide it. An explicit condition now wins
-  outright, whatever the lock state and whatever the auto-tracking carve-out
-  would otherwise say. A group whose conditions pass again is unaffected and
-  comes straight back, same as before.
-- **The bug report now shows each group's opacity and auto-tracking setup.**
-  `/bw bug` used to leave out whether a group was auto-tracking at all and
-  what its Background Opacity and Border Opacity were set to, which made
-  "my group is invisible" and "my group is showing when it should not"
-  reports impossible to diagnose from the pasted text alone. The per-group
-  line now always shows `bgAlpha` and `borderAlpha` (so a deliberate 0 reads
-  as 0.00, not as absent), a group with `autoTrack` set gets one extra line
-  with its feed and the settings that govern what it picks up, and a count
-  of alt-click-hidden spells is shown when there are any. The overrides line
-  also now folds in `iconOnly`, `barStyle` and the previously-missing
-  `textFormat` group override. The addon-wide Visual Config section gained
-  the Stack Text size and colour settings, which were already missing there
-  too, plus every remaining display toggle that can make something
-  invisible or change how it draws: Icon Tooltip, Show Stacks, Show Icon,
-  Show Cooldown Spiral, Text Enabled and Icon Crop, alongside the custom
-  texture path, default colour, font, bar spacing and text position. Icon
-  Tooltip was the one that prompted this: it already existed as a setting
-  ("Icon Tooltip" on the Visuals tab), but with no line in the report there
-  was no way to tell from a paste whether it was switched on, which cost
-  two separate "is this a bug" reports before the gap was closed.
+- **`/bw bug` now records more of a group's setup.** The pasted report now
+  includes each group's Background and Border Opacity and, for auto-tracking
+  groups, its tracking setup, plus several addon-wide display toggles it had
+  been leaving out. This only affects what a bug report shows, not anything
+  you see in game.
 
 ---
 
