@@ -134,4 +134,83 @@ function M.test_overridesLineFoldsInIconOnlyAndBarStyle()
     assertx.assertTrue(overridesLine:find("barStyle=SWITCH", 1, true) ~= nil, "barStyle missing from overrides")
 end
 
+-- --- Visual Config section -------------------------------------------------
+-- Extends the visual-config block to cover the display toggles that decide
+-- whether something is visible at all (showBarTooltip, showStacks, showIcon,
+-- showCooldownSpiral, textEnabled, iconCrop) plus the other diagnostically
+-- useful keys in ns.DEFAULTS.visual (DB.lua): customTexture, defaultColor,
+-- font, barSpacing, textPosition. trackModeColors is deliberately left out
+-- (bulky per-mode colour table, rarely the cause).
+
+function M.test_visualConfigPrintsDisplayToggles()
+    local ns = fresh()
+    ns.db = { visual = {
+        texture = "Flat",
+        customTexture = "",
+        barWidth = 200,
+        barHeight = 20,
+        iconSize = 20,
+        showIcon = true,
+        iconPosition = "LEFT",
+        barSpacing = 2,
+        font = "Fonts\\FRIZQT__.TTF",
+        fontSize = 11,
+        textEnabled = true,
+        textPosition = "INSIDE_LEFT",
+        textFormat = "NAME_DURATION",
+        durationStyle = "DECIMAL",
+        showStacks = true,
+        stackFontSize = 12,
+        stackColor = { r = 1, g = 1, b = 1 },
+        colorMode = "CLASS",
+        defaultColor = { r = 0.2, g = 0.6, b = 1.0 },
+        activeAlpha = 1.0,
+        inactiveAlpha = 0.3,
+        showSpark = true,
+        iconCrop = true,
+        showCooldownSpiral = true,
+        showBarTooltip = false,
+    } }
+
+    local report = ns:GenerateBugReport()
+
+    assertx.assertTrue(report:find("ShowBarTooltip: false", 1, true) ~= nil, "showBarTooltip missing (the setting that triggered this gap)")
+    assertx.assertTrue(report:find("ShowStacks: true", 1, true) ~= nil, "showStacks missing")
+    assertx.assertTrue(report:find("ShowIcon: true", 1, true) ~= nil, "showIcon missing")
+    assertx.assertTrue(report:find("ShowCooldownSpiral: true", 1, true) ~= nil, "showCooldownSpiral missing")
+    assertx.assertTrue(report:find("TextEnabled: true", 1, true) ~= nil, "textEnabled missing")
+    assertx.assertTrue(report:find("IconCrop: true", 1, true) ~= nil, "iconCrop missing")
+    assertx.assertTrue(report:find("BarSpacing: 2", 1, true) ~= nil, "barSpacing missing")
+    assertx.assertTrue(report:find("Font: Fonts\\FRIZQT__.TTF", 1, true) ~= nil, "font missing")
+    assertx.assertTrue(report:find("TextPosition: INSIDE_LEFT", 1, true) ~= nil, "textPosition missing")
+    assertx.assertTrue(report:find("DefaultColor: 0.20,0.60,1.00", 1, true) ~= nil, "defaultColor missing")
+    assertx.assertTrue(report:find("CustomTexture: (none)", 1, true) ~= nil, "empty customTexture should read as (none), not blank")
+end
+
+function M.test_visualConfigCustomTextureShownWhenSet()
+    local ns = fresh()
+    ns.db = { visual = { customTexture = "Interface\\AddOns\\BarWarden\\Textures\\Mine" } }
+
+    local report = ns:GenerateBugReport()
+    assertx.assertTrue(report:find("CustomTexture: Interface\\AddOns\\BarWarden\\Textures\\Mine", 1, true) ~= nil,
+        "custom texture path should be printed verbatim when set")
+end
+
+function M.test_visualConfigGuardsPartlyMigratedProfile()
+    local ns = fresh()
+    -- A half-migrated profile: the visual table exists but almost every key
+    -- is nil (unlike stackColor, defaultColor/customTexture aren't always
+    -- seeded). Must not error and must not print a bare "nil" where a
+    -- reader would mistake it for a real value.
+    ns.db = { visual = {} }
+
+    local ok, report = pcall(function() return ns:GenerateBugReport() end)
+
+    assertx.assertTrue(ok, "GenerateBugReport must not error on a partly-configured visual table")
+    assertx.assertTrue(report:find("DefaultColor: nil", 1, true) ~= nil,
+        "a missing defaultColor table should read as nil (matching the stackColor pattern), not error")
+    assertx.assertTrue(report:find("CustomTexture: (none)", 1, true) ~= nil,
+        "a nil customTexture should read as (none), not the bare word nil")
+end
+
 return M

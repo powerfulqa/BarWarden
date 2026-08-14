@@ -66,23 +66,40 @@ function ns:GenerateBugReport()
     add(string.format("Schema: %s", tostring(ns.db and ns.db.schemaVersion or "nil")))
     add("")
 
-    -- Visual config
+    -- Visual config. Covers every ns.DEFAULTS.visual key (DB.lua) that can
+    -- make something invisible or change what is drawn, so a pasted report
+    -- shows whether a toggle explains an "is this a bug" question rather
+    -- than a real cooldown-tracking fault. showBarTooltip is the one that
+    -- prompted this: it existed as a setting with no line in the report,
+    -- so two separate "is this a bug" reports turned out to be the toggle.
+    -- trackModeColors (a colour per track mode) is left out on purpose:
+    -- it is bulky and essentially never the cause of a display problem.
     add("--- Visual Config ---")
     if ns.db and ns.db.visual then
         local v = ns.db.visual
-        add(string.format("Texture: %s", tostring(v.texture)))
+        -- customTexture is "" by default, not nil; render both as "(none)"
+        -- rather than a blank or a misleading literal "nil".
+        local customTex = (v.customTexture and v.customTexture ~= "") and v.customTexture or "(none)"
+        add(string.format("Texture: %s  CustomTexture: %s", tostring(v.texture), customTex))
         add(string.format("ColorMode: %s", tostring(v.colorMode)))
-        add(string.format("BarSize: %dx%d", v.barWidth or 0, v.barHeight or 0))
-        add(string.format("FontSize: %s", tostring(v.fontSize)))
-        add(string.format("StackFontSize: %s", tostring(v.stackFontSize)))
+        local dc = v.defaultColor
+        add(string.format("DefaultColor: %s", dc
+            and string.format("%.2f,%.2f,%.2f", dc.r or 0, dc.g or 0, dc.b or 0)
+            or "nil"))
+        add(string.format("BarSize: %dx%d  BarSpacing: %s", v.barWidth or 0, v.barHeight or 0, tostring(v.barSpacing)))
+        add(string.format("Font: %s  FontSize: %s", tostring(v.font), tostring(v.fontSize)))
+        add(string.format("TextEnabled: %s  TextPosition: %s  TextFormat: %s",
+            tostring(v.textEnabled), tostring(v.textPosition), tostring(v.textFormat)))
+        add(string.format("DurationStyle: %s", tostring(v.durationStyle)))
+        add(string.format("ShowStacks: %s  StackFontSize: %s", tostring(v.showStacks), tostring(v.stackFontSize)))
         local sc = v.stackColor
         add(string.format("StackColor: %s", sc
             and string.format("%.2f,%.2f,%.2f", sc.r or 0, sc.g or 0, sc.b or 0)
             or "nil"))
-        add(string.format("TextFormat: %s", tostring(v.textFormat)))
-        add(string.format("DurationStyle: %s", tostring(v.durationStyle)))
-        add(string.format("IconSize: %s  IconPos: %s", tostring(v.iconSize), tostring(v.iconPosition)))
-        add(string.format("ShowSpark: %s", tostring(v.showSpark)))
+        add(string.format("ShowIcon: %s  IconSize: %s  IconPos: %s  IconCrop: %s",
+            tostring(v.showIcon), tostring(v.iconSize), tostring(v.iconPosition), tostring(v.iconCrop)))
+        add(string.format("ShowSpark: %s  ShowCooldownSpiral: %s  ShowBarTooltip: %s",
+            tostring(v.showSpark), tostring(v.showCooldownSpiral), tostring(v.showBarTooltip)))
         add(string.format("ActiveAlpha: %s  InactiveAlpha: %s", tostring(v.activeAlpha), tostring(v.inactiveAlpha)))
     end
     add("")

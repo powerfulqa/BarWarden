@@ -41,7 +41,14 @@ overridden by the empty-group carve-out while frames are unlocked.
   also now folds in `iconOnly`, `barStyle` and the previously-missing
   `textFormat` group override. The addon-wide Visual Config section gained
   the Stack Text size and colour settings, which were already missing there
-  too.
+  too, plus every remaining display toggle that can make something
+  invisible or change how it draws: Icon Tooltip, Show Stacks, Show Icon,
+  Show Cooldown Spiral, Text Enabled and Icon Crop, alongside the custom
+  texture path, default colour, font, bar spacing and text position. Icon
+  Tooltip was the one that prompted this: it already existed as a setting
+  ("Icon Tooltip" on the Visuals tab), but with no line in the report there
+  was no way to tell from a paste whether it was switched on, which cost
+  two separate "is this a bug" reports before the gap was closed.
 
 ---
 
