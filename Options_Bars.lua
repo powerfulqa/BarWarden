@@ -447,6 +447,7 @@ local function CreateBarsTab(parent)
         "grpAutoPinMana", "grpAutoPinManaColor",
         "grpAutoPinRage", "grpAutoPinRageColor",
         "grpAutoPinEnergy", "grpAutoPinEnergyColor",
+        "grpAutoPinCombo", "grpAutoPinComboColor",
         "grpAutoValueTextDD", "grpAutoShowIcon",
     }
 
@@ -1133,6 +1134,30 @@ local function CreateBarsTab(parent)
           set = function(_, color)
               local g = getGroup(); if not g then return end
               g.autoPinnedResources = ns:SetPinnedResourceColor(g.autoPinnedResources, "energy",
+                  { r = color.r, g = color.g, b = color.b })
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
+        -- Combo Points (v2.5.0): unlike Mana/Rage/Energy above, this is not a
+        -- power type - it shows on its own once you have at least one point,
+        -- and is gated to Rogue/Druid regardless of this tickbox (see
+        -- ns:CollectResources, Trackers.lua): ticking it for a class that
+        -- cannot generate any still shows nothing.
+        { type = "toggle", id = "grpAutoPinCombo", label = "Keep Combo Points Visible",
+          tooltip = "Combo points already show here once you have some. Tick "
+               .. "this to keep the bar up at zero too.",
+          get = function() return isResourcePinned(getGroup(), "combopoints") end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = ns:TogglePinnedResource(g.autoPinnedResources, "combopoints", v and true or false)
+          end,
+          onChange = function(value) onPinToggleChanged("grpAutoPinComboColor", value) end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
+        { type = "color", id = "grpAutoPinComboColor", label = "Combo Points Colour",
+          get = function() return getPinnedResourceColor(getGroup(), "combopoints") end,
+          set = function(_, color)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = ns:SetPinnedResourceColor(g.autoPinnedResources, "combopoints",
                   { r = color.r, g = color.g, b = color.b })
               ns:RefreshAllBars()
           end,

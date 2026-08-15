@@ -1196,6 +1196,16 @@ function ns:CollectResources(opts)
 
     addPowerType((UnitPowerType(unit)))
 
+    -- Normalized once so both the Combo Points gate below and the pinned-
+    -- extras loop at the bottom of this function read the same list, rather
+    -- than each calling ns:NormalizePinnedResources on the raw opts.pinned
+    -- separately.
+    local normalizedPinned = ns:NormalizePinnedResources(pinned)
+    local pinnedKeys = {}
+    for _, entry in ipairs(normalizedPinned) do
+        pinnedKeys[entry.key] = true
+    end
+
     -- Combo Points: always your own, always about your CURRENT target, so
     -- they are meaningful on the player feed and the target feed without
     -- reading anything off `unit` itself (see the file comment above for
@@ -1208,12 +1218,24 @@ function ns:CollectResources(opts)
     -- above, which genuinely describe whatever "targettarget" resolves to.
     -- Gated on the PLAYER's class regardless of which of the two eligible
     -- feeds is asking.
+    --
+    -- Visibility (v2.5.0): shown while "in use" (cur > 0), same as a power
+    -- type is shown while it is the current one, OR when the owner has
+    -- ticked "Keep Combo Points Visible" (autoPinnedResources' "combopoints"
+    -- key) - matching how a pinned power type stays up even when it is not
+    -- the current one. The class gate above still applies REGARDLESS of the
+    -- pin: GetComboPoints returns a plain number with no notion of "this
+    -- class cannot have any", so without the outer `if` here, pinning would
+    -- conjure a 0/5 bar for a class - a Mage, say - that can never generate
+    -- one at all.
     local _, classToken = UnitClass("player")
 
     if (unit == "player" or unit == "target")
        and (classToken == "ROGUE" or classToken == "DRUID") then
         local _, cur, mx, icon, name = CheckComboPoints({})
-        addEntry("combopoints", name, cur, mx, icon)
+        if (cur and cur > 0) or pinnedKeys.combopoints then
+            addEntry("combopoints", name, cur, mx, icon)
+        end
     end
 
     -- Runes, Runic Power, and Soul Shards are the PLAYER's own resource
@@ -1251,7 +1273,7 @@ function ns:CollectResources(opts)
     -- pinned/ticked just finds no entry here and is silently dropped; see
     -- ns:NormalizePinnedResources, which does not itself filter by key.
     local PINNABLE_POWER_TYPES = { mana = 0, rage = 1, energy = 3 }
-    for _, entry in ipairs(ns:NormalizePinnedResources(pinned)) do
+    for _, entry in ipairs(normalizedPinned) do
         local powerType = PINNABLE_POWER_TYPES[entry.key]
         if powerType then addPowerType(powerType) end
     end

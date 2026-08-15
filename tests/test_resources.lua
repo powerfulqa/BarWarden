@@ -646,4 +646,79 @@ function M.test_comboPoints_doNotAppearOnTargetTargetFeed()
         "Combo Points must not appear on the target's-target feed even for a Rogue")
 end
 
+-- --------------------------------------------------------------------------
+-- Combo Points pin (v2.5.0): at zero, Combo Points behave like the other
+-- pinnable resources - shown while "in use" (here, while you have at least
+-- one), hidden at zero unless the owner has ticked "Keep Combo Points
+-- Visible". Pinning must still respect the class gate: it cannot make them
+-- appear for a class that has no Combo Points pool at all.
+-- --------------------------------------------------------------------------
+
+function M.test_comboPoints_hiddenAtZeroWhenUnpinned()
+    local ns = fresh()
+    mock.playerClass = "ROGUE"
+    mock.comboPoints = 0
+
+    local entries = ns:CollectResources()
+    assertx.assertNil(findEntry(entries, "combopoints"),
+        "an idle Rogue with no combo points yet should not see an empty bar")
+end
+
+function M.test_comboPoints_pinnedShowsAtZero()
+    local ns = fresh()
+    mock.playerClass = "ROGUE"
+    mock.comboPoints = 0
+
+    local entries = ns:CollectResources({ pinned = { { key = "combopoints" } } })
+    local cp = findEntry(entries, "combopoints")
+    assertx.assertNotNil(cp, "pinning Combo Points must keep the bar up at zero")
+    assertx.assertEqual(cp.current, 0)
+end
+
+function M.test_comboPoints_nonZeroShowsEvenUnpinned()
+    local ns = fresh()
+    mock.playerClass = "DRUID"
+    mock.comboPoints = 2
+
+    local entries = ns:CollectResources()
+    assertx.assertNotNil(findEntry(entries, "combopoints"),
+        "an already-active combo point count keeps showing without needing the pin")
+end
+
+function M.test_comboPoints_pinDoesNotShowForClassThatCannotGenerateThem()
+    local ns = fresh()
+    mock.playerClass = "MAGE"
+    mock.comboPoints = 0
+
+    local entries = ns:CollectResources({ pinned = { { key = "combopoints" } } })
+    assertx.assertNil(findEntry(entries, "combopoints"),
+        "a Mage cannot generate Combo Points, so pinning them must not conjure a bar")
+end
+
+function M.test_comboPoints_pinnedShowsAtZeroOnTargetFeedToo()
+    local ns = fresh()
+    mock.playerClass = "ROGUE"
+    mock.comboPoints = 0
+    mock.targetExists = true
+    mock.targetPowerType, mock.targetPowerTypeToken = 0, "MANA"
+    mock.targetPower[0], mock.targetPowerMax[0] = 1000, 1000
+
+    local entries = ns:CollectResources({ unit = "target", pinned = { { key = "combopoints" } } })
+    assertx.assertNotNil(findEntry(entries, "combopoints"),
+        "the pin applies to the target feed the same way as the player feed")
+end
+
+function M.test_comboPoints_pinnedStillDoesNotAppearOnTargetTargetFeed()
+    local ns = fresh()
+    mock.playerClass = "ROGUE"
+    mock.comboPoints = 0
+    mock.totExists = true
+    mock.totPowerType, mock.totPowerTypeToken = 0, "MANA"
+    mock.totPower[0], mock.totPowerMax[0] = 1000, 1000
+
+    local entries = ns:CollectResources({ unit = "targettarget", pinned = { { key = "combopoints" } } })
+    assertx.assertNil(findEntry(entries, "combopoints"),
+        "GetComboPoints has no target's-target reading, so the pin must not surface one")
+end
+
 return M

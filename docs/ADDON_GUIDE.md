@@ -304,6 +304,16 @@ across all three feeds; it splits by what the resource actually is:
     `unit == "targettarget"` because the API itself has nothing to say
     about that unit at all.
 
+    Visibility (v2.5.0): unlike Runic Power/Soul Shards (always shown for
+    their class, zero included), Combo Points behave like a pinnable power
+    type - shown while "in use" (`cur > 0`), or unconditionally once the
+    owner ticks "Keep Combo Points Visible" (the `combopoints` key in
+    `autoPinnedResources`). The class gate above still wraps both halves:
+    `GetComboPoints` returns a plain number with no notion of "this class
+    cannot have any", so the pin only ever takes effect for a Rogue or
+    Druid - ticking it for any other class still shows nothing, exactly
+    like pinning Rage for a Mage.
+
 Pinning applies identically to all three feeds: `opts.pinned` reads off
 `unit` too (via the same `addPowerType` helper the current-power-type step
 uses), so "Always Show Rage" on a target-resources group pins the TARGET's
@@ -435,7 +445,7 @@ resources-only, described further above under "The resources feed"):
 | `autoSkipTracked` | Skip spells a bar in another group already tracks (matched by name via `ns:GetTrackedAuraNames`) |
 | `autoStableOrder` | Keep Bars In Place: an aura stays in the slot it first appeared in for as long as it lasts, instead of the soonest-expiring sort reshuffling every slot on each tick or refresh. Only a fade frees a slot. `ns:ScanAutoGroup` builds the held-name list from the live slots and hands it to `ns:PlaceAutoAuras` (Trackers.lua), the tested half that decides the new placement; the untested half is just reading `bar.barData` to build that list |
 | `autoBanned` | Per-group spell bans set by alt-left-clicking a bar's icon (`bar.isAutoBar` only), keyed by lower-cased spell name: `{ [name] = { name = "Blade Flurry", id = 13877 } }`, `id` optionally nil. Nil (not `{}`) once every ban is removed, so `ns:BuildAutoSkipSet` keeps its cheap no-skip path. `ns:BuildGroupSkipSet` (Trackers.lua) folds this in unconditionally via `ns:BuildAutoSkipSet`, always returning a fresh table so the caller's own copy is never mutated, so a ban applies even with `autoSkipTracked` off. Managed from the "Hidden In This Group" list under Auto Track in Options_Bars.lua, which only shows/enables for a group with an AURA feed picked - a resource has nothing to ban, so it hides the same as no feed at all |
-| `autoPinnedResources` | Any resources feed only (v2.5.0: now an ORDERED list, `{ { key = "mana", color = {r,g,b}? }, ... }`, in tick order; a group saved before this existed still carries the legacy set, `{ mana = true }` - `ns:NormalizePinnedResources` (Trackers.lua) accepts either shape, so no migration was needed). Resources the user ticked to always show even when not the unit's current power type, passed as `ns:CollectResources`'s `opts.pinned` and read against `opts.unit` (player, target, or targettarget). Each entry's optional `color` is the most specific level `ns:GetPinnedResourceColor` (Conditions.lua) resolves - see "Resource bar default colours" below. `mana`/`rage`/`energy` are the only pinnable keys (`PINNABLE_POWER_TYPES`, Trackers.lua); `focus` was removed in v2.5.0 (see CHANGELOG) - a legacy save with `focus` still pinned just finds no match there and is silently dropped, no migration needed |
+| `autoPinnedResources` | Any resources feed only (v2.5.0: now an ORDERED list, `{ { key = "mana", color = {r,g,b}? }, ... }`, in tick order; a group saved before this existed still carries the legacy set, `{ mana = true }` - `ns:NormalizePinnedResources` (Trackers.lua) accepts either shape, so no migration was needed). Resources the user ticked to always show even when not the unit's current power type, passed as `ns:CollectResources`'s `opts.pinned` and read against `opts.unit` (player, target, or targettarget). Each entry's optional `color` is the most specific level `ns:GetPinnedResourceColor` (Conditions.lua) resolves - see "Resource bar default colours" below. `mana`/`rage`/`energy` (`PINNABLE_POWER_TYPES`, Trackers.lua) and `combopoints` are the pinnable keys; `focus` was removed in v2.5.0 (see CHANGELOG) - a legacy save with `focus` still pinned just finds no match there and is silently dropped, no migration needed |
 | `autoResourceValueText` | Resources-feed only: nil/`""` (current/max, e.g. "3000/4500"), `"PERCENT"` ("67%"), or `"BOTH"` ("3000/4500 (67%)"). Read directly inside `ns:UpdateResourceBar` (BarEngine.lua) |
 | `autoResourceShowIcon` | Resources-feed only (v2.5.0): nil/unset defers to the addon-wide Show Icon default (so an upgrading group looks exactly as it did before this tickbox existed); `true`/`false` overrides it for every bar in this group. Read directly inside `ApplyVisualConfig` (Bar.lua), the same direct-read shape as `autoResourceValueText` above, since like it there is no per-bar equivalent to resolve against for an auto slot |
 

@@ -88,6 +88,11 @@ the same current-power-type signal the game itself uses.
   blue, unholy green, with death runes their own distinct colour - instead
   of always falling through to the addon-wide default. A group's own Custom
   Bar Colour, or a per-resource colour you picked, still overrides it.
+- **A new "Keep Combo Points Visible" pin**, with its own colour swatch,
+  alongside Mana / Rage / Energy. Combo points now show once you have at
+  least one, the same as any other resource; ticking the pin keeps the bar
+  up at zero too. It only ever does anything for a Rogue or Druid - ticking
+  it for a class with no combo point pool still shows nothing.
 
 ---
 
