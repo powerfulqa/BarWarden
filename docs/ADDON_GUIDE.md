@@ -261,6 +261,30 @@ version merged both halves into the one cached value, which meant unticking
 `ns:BuildGroupSkipSet` exists specifically so that rule is a pure, tested
 function rather than logic buried in the scan loop.
 
+### Bar naming: `ns.GetBarDisplayName`
+
+`ns.GetBarDisplayName` (Bar.lua) returns `barData.name` when set; otherwise
+it resolves one from the spell: `barData.spellId`, or a bare-numeric
+`barData.spellName` (the same numeric-string-as-id rule `getSpell`,
+Trackers.lua, and `ns:GetTrackedAuraNames` already apply, so all three have
+to agree), through `GetSpellInfo`. A bar configured entirely by spell ID and
+never given its own name shows the resolved spell name instead of a blank
+row or a stale "Bar N" placeholder, both on screen and in the Options Bars
+tab's list (`UpdateBarList`). `GetSpellInfo` returns nil for an id the
+client's spell table does not know (a private-server id, for example);
+that falls back to the same empty string this function always returned, not
+an error or a literal "nil".
+
+`GetBarDisplayName` runs from the bar activation/deactivation paths on the
+4 Hz scan loop, so the resolved name is memoised by spell id in a small
+cache local to Bar.lua - a sibling to `trackedNamesCache` above, and
+invalidated the same way: `ns:InvalidateTrackedNames()` also wipes it, so
+every call site listed above that already invalidates the tracked-name
+cache keeps this one current too, with no separate call needed. Never
+written back into `barData`; persisting a client-side lookup into
+SavedVariables would bake in whatever the client could resolve at save
+time and break if the id later resolved differently.
+
 Eight keys on a group, all nil on a normal group:
 
 | Key | Effect |

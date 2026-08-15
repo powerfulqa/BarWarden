@@ -24,6 +24,7 @@ local TEST_FILES = {
     "test_comms_version",
     "test_migration",
     "test_bug_report",
+    "test_bar_display_name",
 }
 
 local totalPass, totalFail = 0, 0

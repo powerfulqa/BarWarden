@@ -35,6 +35,11 @@ back, same as before.
   decides its own bar order, so dragging couldn't do anything useful there;
   it now says so instead of the drag silently going nowhere. Switch that
   group's Sort Mode to Manual to drag bars by hand.
+- **A bar set up by spell ID now shows its real name.** A bar you configured
+  by typing an ID instead of a name used to show blank, or whatever
+  placeholder name it started with, both on the bar and in the Bars tab
+  list. It now shows the spell's own name instead, so you can tell what
+  every bar tracks at a glance.
 
 ---
 

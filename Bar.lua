@@ -55,12 +55,53 @@ end
 
 ns.ResolveBarIcon = ResolveBarIcon
 
+-- Memoises spellId -> resolved name (or `false` for an id GetSpellInfo does
+-- not know) so a bar configured purely by ID doesn't pay for a fresh
+-- GetSpellInfo call on every activation/deactivation, which is called on
+-- the 4 Hz scan loop; the id -> name mapping is stable for the session,
+-- so this needs invalidation on a spell edit, not an expiry. Wiped by
+-- ns:InvalidateTrackedNames (BarEngine.lua) alongside the tracked-name
+-- cache, since both go stale on the same "a bar's spell can change" edits
+-- (ns:RefreshBarSettings and the spell/name edit boxes in Options_Bars.lua).
+local displayNameCache = {}
+
+function ns:InvalidateBarDisplayNameCache()
+    wipe(displayNameCache)
+end
+
+-- Resolve the id to look a display name up under, or nil if this bar has
+-- none. Mirrors getSpell (Trackers.lua) and ns:GetTrackedAuraNames: a bare
+-- numeric barData.spellName is treated as an id there too (the editor
+-- routes a typed-in numeric straight to spellId, but an imported or
+-- hand-edited profile can still carry one in spellName), so this has to
+-- agree rather than show the digits as if they were a real name.
+local function ResolveDisplayNameId(barData)
+    if barData.spellId then return barData.spellId end
+    if type(barData.spellName) == "string" then
+        return tonumber(barData.spellName)
+    end
+    return nil
+end
+
 function ns.GetBarDisplayName(barData)
     if not barData then return "" end
     if barData.name and barData.name ~= "" then
         return barData.name
     end
-    return ""
+
+    local spellId = ResolveDisplayNameId(barData)
+    if not spellId then return "" end
+
+    local cached = displayNameCache[spellId]
+    if cached == nil then
+        -- GetSpellInfo returns nil for an id the client's spell table does
+        -- not know (a custom private-server id, for example); fall back to
+        -- the same blank this function always returned rather than error
+        -- or display "nil".
+        cached = GetSpellInfo(spellId) or false
+        displayNameCache[spellId] = cached
+    end
+    return cached or ""
 end
 
 -- Colour stops for the time-based bar colour gradient:

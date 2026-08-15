@@ -1065,9 +1065,13 @@ end
 local trackedNamesCache = {}
 
 -- Editing a bar's spell or its Enabled box changes what counts as "already
--- tracked", and neither path rebuilds the bar cache.
+-- tracked", and neither path rebuilds the bar cache. The same edits can
+-- also change what ns.GetBarDisplayName (Bar.lua) resolves for a bar with
+-- no name of its own, so its id->name cache is wiped alongside this one
+-- rather than needing its own separate invalidation call sites.
 function ns:InvalidateTrackedNames()
     wipe(trackedNamesCache)
+    if ns.InvalidateBarDisplayNameCache then ns:InvalidateBarDisplayNameCache() end
 end
 
 function ns:ScanAutoGroup(frameIndex, unitFilter)

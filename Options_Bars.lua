@@ -2020,7 +2020,10 @@ local function CreateBarsTab(parent)
             local idx = offset + i
             if idx <= total then
                 local b = bars[idx]
-                row.nameText:SetText(b.name or "")
+                -- ns.GetBarDisplayName falls back to the resolved spell name
+                -- when the bar has none of its own, so an ID-configured bar
+                -- doesn't read as a blank or stale "Bar N" placeholder here.
+                row.nameText:SetText(ns.GetBarDisplayName(b))
                 row.modeText:SetText(b.trackMode or "")
                 row.targetText:SetText(b.unit or b.target or "")
                 row.index = idx
