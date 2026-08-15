@@ -442,7 +442,10 @@ local function CreateBarsTab(parent)
         "grpAutoMaxDuration", "grpAutoIncludePermanent", "grpAutoOnlyMine", "grpAutoSkipTracked",
     }
     local AUTO_RESOURCE_ONLY_WIDGET_IDS = {
-        "grpAutoPinMana", "grpAutoPinRage", "grpAutoPinEnergy", "grpAutoPinFocus",
+        "grpAutoPinMana", "grpAutoPinManaColor",
+        "grpAutoPinRage", "grpAutoPinRageColor",
+        "grpAutoPinEnergy", "grpAutoPinEnergyColor",
+        "grpAutoPinFocus", "grpAutoPinFocusColor",
         "grpAutoValueTextDD", "grpAutoShowIcon",
     }
 
@@ -496,6 +499,42 @@ local function CreateBarsTab(parent)
     -- settings Refresh (e.g. to re-check the Custom Bar Colour toggle after the
     -- colour swatch writes g.barColor). Assigned by BuildSettings just below.
     local refreshGroupSettings
+
+    -- Pinned resources (v2.5.0): whether `key` is currently pinned, and its
+    -- stored colour if it has one, both read through
+    -- ns:NormalizePinnedResources (Trackers.lua) so a group still holding
+    -- the pre-order set shape keeps ticking/unticking correctly instead of
+    -- needing its own separate read path.
+    local DEFAULT_PIN_SWATCH_COLOR = { r = 0.2, g = 0.6, b = 1.0 }
+
+    local function isResourcePinned(g, key)
+        if not g or not g.autoPinnedResources then return false end
+        for _, entry in ipairs(ns:NormalizePinnedResources(g.autoPinnedResources)) do
+            if entry.key == key then return true end
+        end
+        return false
+    end
+
+    local function getPinnedResourceColor(g, key)
+        if g and g.autoPinnedResources then
+            for _, entry in ipairs(ns:NormalizePinnedResources(g.autoPinnedResources)) do
+                if entry.key == key and entry.color then return entry.color end
+            end
+        end
+        return DEFAULT_PIN_SWATCH_COLOR
+    end
+
+    -- Same toggle-reveals-swatch mechanism as Custom Bar Colour: shows/hides
+    -- swatchId with the tickbox and reflows immediately, since a live click
+    -- bypasses the Refresh pass that would otherwise pick this up.
+    local function onPinToggleChanged(swatchId, value)
+        local sw = groupSettingsWidgets[swatchId]
+        if sw then
+            if value then sw:Show() else sw:Hide() end
+        end
+        if reflowGroupSettings then reflowGroupSettings() end
+        if fitGroupHeight and ns.After then ns:After(0, fitGroupHeight) end
+    end
 
     local GROUP_SETTINGS_SCHEMA = {
         { type = "editbox", label = "Group Name", width = 155, stretch = true,
@@ -1000,49 +1039,98 @@ local function CreateBarsTab(parent)
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
         -- Pinned resources: only shown for the "Health and power" feed (see
-        -- AUTO_RESOURCE_ONLY_WIDGET_IDS above). Each writes into a per-group
-        -- set, nil by default like every other auto key, so an untouched
-        -- group carries none of these keys at all.
+        -- AUTO_RESOURCE_ONLY_WIDGET_IDS above). Each tickbox writes into an
+        -- ORDERED list (autoPinnedResources: v2.5.0, replacing the older
+        -- plain set) via ns:TogglePinnedResource (Trackers.lua), so the
+        -- resulting bars appear in the order the tickboxes were ticked, not
+        -- this fixed panel order; unticking then re-ticking moves a resource
+        -- to the end rather than back to wherever it used to sit.
+        -- ns:NormalizePinnedResources tolerates a group still holding the
+        -- pre-order set shape, so nothing here needed a migration.
+        --
+        -- Each tickbox is paired with a colour swatch (v2.5.0) storing a
+        -- colour on that resource's own pinned entry - the most specific of
+        -- the levels ns:GetPinnedResourceColor/ns:GetResourcePowerColor
+        -- (Conditions.lua) resolve for GetBarColor (Bar.lua), ahead of this
+        -- group's own Custom Bar Colour and the power-type default. Shown
+        -- only while its tickbox is ticked, same toggle-reveals-swatch
+        -- mechanism as Custom Bar Colour above.
         { type = "toggle", id = "grpAutoPinMana", label = "Always Show Mana",
           tooltip = "Keep a mana bar in this group even when mana is not "
                .. "your current power.",
-          get = function() local g = getGroup(); return g and g.autoPinnedResources and g.autoPinnedResources.mana end,
+          get = function() return isResourcePinned(getGroup(), "mana") end,
           set = function(_, v)
               local g = getGroup(); if not g then return end
-              g.autoPinnedResources = g.autoPinnedResources or {}
-              g.autoPinnedResources.mana = v and true or false
+              g.autoPinnedResources = ns:TogglePinnedResource(g.autoPinnedResources, "mana", v and true or false)
           end,
+          onChange = function(value) onPinToggleChanged("grpAutoPinManaColor", value) end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
+        { type = "color", id = "grpAutoPinManaColor", label = "Mana Colour",
+          get = function() return getPinnedResourceColor(getGroup(), "mana") end,
+          set = function(_, color)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = ns:SetPinnedResourceColor(g.autoPinnedResources, "mana",
+                  { r = color.r, g = color.g, b = color.b })
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
         { type = "toggle", id = "grpAutoPinRage", label = "Always Show Rage",
           tooltip = "Keep a rage bar in this group even when rage is not "
                .. "your current power.",
-          get = function() local g = getGroup(); return g and g.autoPinnedResources and g.autoPinnedResources.rage end,
+          get = function() return isResourcePinned(getGroup(), "rage") end,
           set = function(_, v)
               local g = getGroup(); if not g then return end
-              g.autoPinnedResources = g.autoPinnedResources or {}
-              g.autoPinnedResources.rage = v and true or false
+              g.autoPinnedResources = ns:TogglePinnedResource(g.autoPinnedResources, "rage", v and true or false)
           end,
+          onChange = function(value) onPinToggleChanged("grpAutoPinRageColor", value) end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
+        { type = "color", id = "grpAutoPinRageColor", label = "Rage Colour",
+          get = function() return getPinnedResourceColor(getGroup(), "rage") end,
+          set = function(_, color)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = ns:SetPinnedResourceColor(g.autoPinnedResources, "rage",
+                  { r = color.r, g = color.g, b = color.b })
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
         { type = "toggle", id = "grpAutoPinEnergy", label = "Always Show Energy",
           tooltip = "Keep an energy bar in this group even when energy is "
                .. "not your current power.",
-          get = function() local g = getGroup(); return g and g.autoPinnedResources and g.autoPinnedResources.energy end,
+          get = function() return isResourcePinned(getGroup(), "energy") end,
           set = function(_, v)
               local g = getGroup(); if not g then return end
-              g.autoPinnedResources = g.autoPinnedResources or {}
-              g.autoPinnedResources.energy = v and true or false
+              g.autoPinnedResources = ns:TogglePinnedResource(g.autoPinnedResources, "energy", v and true or false)
           end,
+          onChange = function(value) onPinToggleChanged("grpAutoPinEnergyColor", value) end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
+        { type = "color", id = "grpAutoPinEnergyColor", label = "Energy Colour",
+          get = function() return getPinnedResourceColor(getGroup(), "energy") end,
+          set = function(_, color)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = ns:SetPinnedResourceColor(g.autoPinnedResources, "energy",
+                  { r = color.r, g = color.g, b = color.b })
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
         { type = "toggle", id = "grpAutoPinFocus", label = "Always Show Focus",
           tooltip = "Keep a focus bar in this group even when focus is not "
                .. "your current power.",
-          get = function() local g = getGroup(); return g and g.autoPinnedResources and g.autoPinnedResources.focus end,
+          get = function() return isResourcePinned(getGroup(), "focus") end,
           set = function(_, v)
               local g = getGroup(); if not g then return end
-              g.autoPinnedResources = g.autoPinnedResources or {}
-              g.autoPinnedResources.focus = v and true or false
+              g.autoPinnedResources = ns:TogglePinnedResource(g.autoPinnedResources, "focus", v and true or false)
           end,
+          onChange = function(value) onPinToggleChanged("grpAutoPinFocusColor", value) end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
+        { type = "color", id = "grpAutoPinFocusColor", label = "Focus Colour",
+          get = function() return getPinnedResourceColor(getGroup(), "focus") end,
+          set = function(_, color)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = ns:SetPinnedResourceColor(g.autoPinnedResources, "focus",
+                  { r = color.r, g = color.g, b = color.b })
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
         { type = "dropdown", id = "grpAutoValueTextDD", label = "Value Text",
           items = {
               { text = "Current / Max", value = ""        },

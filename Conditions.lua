@@ -297,9 +297,10 @@ end
 -- per-bar/per-group/global levels):
 --   1. per-bar colorOverride (pre-existing; practically unreachable for an
 --      auto-tracking slot, which has no per-bar editor, but still honoured)
---   2. the group's Custom Bar Colour (pre-existing group.barColor)
---   3. the power-type default below (ns:GetResourcePowerColor)
---   4. the addon-wide Colour Mode default (pre-existing)
+--   2. this pinned resource's own colour (ns:GetPinnedResourceColor)
+--   3. the group's Custom Bar Colour (pre-existing group.barColor)
+--   4. the power-type default below (ns:GetResourcePowerColor)
+--   5. the addon-wide Colour Mode default (pre-existing)
 -- ----------------------------------------------------------------------------
 
 -- ns:CollectResources' resource keys (Trackers.lua) that ARE power types,
@@ -352,6 +353,31 @@ function ns:GetResourcePowerColor(bar)
     local c = fromClient or RESOURCE_COLOR_FALLBACK[key]
     if not c then return nil end
     return c.r or 0, c.g or 0, c.b or 0
+end
+
+-- Resolve a per-pinned-resource colour override for a resource bar: the
+-- colour swatch under a pinned resource's tickbox (Options_Bars.lua),
+-- stored on the matching entry in groupData.autoPinnedResources. Reads
+-- through ns:NormalizePinnedResources (Trackers.lua) so both the ordered
+-- shape and the legacy set (which carries no colour at all) are handled the
+-- same way. Returns (r, g, b), or nil when the bar is not a resource bar,
+-- the resource is not currently pinned, or it is pinned with no colour set.
+function ns:GetPinnedResourceColor(bar)
+    local key = bar and bar.barData and bar.barData.resourceKey
+    if not key then return nil end
+
+    local groupData = bar.frameIndex and BarWardenDB and BarWardenDB.frames
+                      and BarWardenDB.frames[bar.frameIndex]
+    local pinned = groupData and groupData.autoPinnedResources
+    if not pinned then return nil end
+
+    for _, entry in ipairs(ns:NormalizePinnedResources(pinned)) do
+        if entry.key == key and entry.color then
+            local c = entry.color
+            return c.r or 1, c.g or 1, c.b or 1
+        end
+    end
+    return nil
 end
 
 -- ----------------------------------------------------------------------------

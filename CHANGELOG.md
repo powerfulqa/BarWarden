@@ -51,10 +51,15 @@ the same current-power-type signal the game itself uses.
 - **Resource bars now use the game's own colours by default** - a blue mana
   bar, a yellow energy bar, a red rage bar, and so on - instead of the
   addon-wide default colour. A group's own Custom Bar Colour still overrides
-  it.
+  it, and so does the new per-resource colour below.
 - **A new Show Icon tickbox** on a resource group lets you hide the bar
   icons for a plainer look. On by default, matching how resource bars have
   always looked.
+- **Always Show Mana / Rage / Energy / Focus now remember the order you
+  ticked them in**, so the bars appear top-to-bottom in that order rather
+  than a fixed panel order. Unticking one and re-ticking it later moves it
+  to the end. Each pin also gets its own colour swatch, ahead of the
+  group's Custom Bar Colour and the power-type default above.
 
 ---
 

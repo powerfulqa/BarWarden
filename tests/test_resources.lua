@@ -211,6 +211,162 @@ function M.test_pinnedExtra_alreadyActiveDoesNotDuplicate()
 end
 
 -- --------------------------------------------------------------------------
+-- Pinned resources: order follows tick order (v2.5.0)
+--
+-- ns:NormalizePinnedResources / ns:TogglePinnedResource / ns:SetPinnedResourceColor
+-- are the pure ordering layer CollectResources' pinned-extras step now goes
+-- through, so a group's autoPinnedResources can carry sequence (and a
+-- per-resource colour) instead of just an unordered set.
+-- --------------------------------------------------------------------------
+
+function M.test_pinnedOrder_newShapeFollowsListOrder()
+    local ns = fresh()
+    mock.playerClass = "MAGE"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 3000, 4500
+    -- Pin Energy before Focus: reversed from both the panel's own tickbox
+    -- order (Mana, Rage, Energy, Focus) and alphabetical order, so only the
+    -- list's own sequence could explain the result below.
+    mock.power[3], mock.powerMax[3] = 50, 100
+    mock.power[2], mock.powerMax[2] = 20, 100
+
+    local pinned = { { key = "energy" }, { key = "focus" } }
+    local entries = ns:CollectResources({ pinned = pinned })
+
+    local energyIdx, focusIdx
+    for i, e in ipairs(entries) do
+        if e.key == "energy" then energyIdx = i end
+        if e.key == "focus" then focusIdx = i end
+    end
+    assertx.assertNotNil(energyIdx, "expected energy to be collected")
+    assertx.assertNotNil(focusIdx, "expected focus to be collected")
+    assertx.assertTrue(energyIdx < focusIdx, "energy was pinned first, so it must appear first")
+end
+
+function M.test_pinnedOrder_reversedListReversesOutput()
+    local ns = fresh()
+    mock.playerClass = "MAGE"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 3000, 4500
+    mock.power[3], mock.powerMax[3] = 50, 100
+    mock.power[2], mock.powerMax[2] = 20, 100
+
+    -- Same two resources as above, ticked in the opposite order.
+    local pinned = { { key = "focus" }, { key = "energy" } }
+    local entries = ns:CollectResources({ pinned = pinned })
+
+    local energyIdx, focusIdx
+    for i, e in ipairs(entries) do
+        if e.key == "energy" then energyIdx = i end
+        if e.key == "focus" then focusIdx = i end
+    end
+    assertx.assertTrue(focusIdx < energyIdx, "focus was pinned first this time, so it must appear first")
+end
+
+function M.test_pinnedOrder_orderedShapeDoesNotDuplicateActiveResource()
+    local ns = fresh()
+    mock.playerClass = "MAGE"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 3000, 4500
+
+    local pinned = { { key = "mana" } }
+    local entries = ns:CollectResources({ pinned = pinned })
+    local count = 0
+    for _, e in ipairs(entries) do
+        if e.key == "mana" then count = count + 1 end
+    end
+    assertx.assertEqual(count, 1, "pinning the active power type must not duplicate it, ordered shape included")
+end
+
+function M.test_normalizePinnedResources_legacySetShapeStillWorks()
+    local ns = fresh()
+    mock.playerClass = "MAGE"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 3000, 4500
+    mock.power[1], mock.powerMax[1] = 10, 100
+    mock.power[3], mock.powerMax[3] = 20, 100
+
+    -- The pre-order saved shape: a plain set, { key = true }.
+    local legacy = { rage = true, energy = true }
+    local entries = ns:CollectResources({ pinned = legacy })
+
+    assertx.assertNotNil(findEntry(entries, "rage"), "legacy pinned set must keep working")
+    assertx.assertNotNil(findEntry(entries, "energy"), "legacy pinned set must keep working")
+end
+
+function M.test_normalizePinnedResources_legacyShapeOrderIsDeterministic()
+    local ns = fresh()
+    local list = ns:NormalizePinnedResources({ rage = true, energy = true, mana = true })
+    -- Alphabetical: energy, mana, rage. Matches the table.sort order
+    -- CollectResources used before pin order existed, so a profile saved
+    -- before this feature does not visibly reshuffle just from upgrading.
+    assertx.assertEqual(list[1].key, "energy")
+    assertx.assertEqual(list[2].key, "mana")
+    assertx.assertEqual(list[3].key, "rage")
+end
+
+function M.test_normalizePinnedResources_nilIsEmptyList()
+    local ns = fresh()
+    local list = ns:NormalizePinnedResources(nil)
+    assertx.assertEqual(#list, 0)
+end
+
+function M.test_normalizePinnedResources_toleratesColorOnEntries()
+    local ns = fresh()
+    local list = ns:NormalizePinnedResources({ { key = "mana", color = { r = 1, g = 0, b = 0 } } })
+    assertx.assertEqual(list[1].key, "mana")
+    assertx.assertEqual(list[1].color.r, 1)
+end
+
+function M.test_togglePinnedResource_tickAppendsToEnd()
+    local ns = fresh()
+    local pinned = ns:TogglePinnedResource(nil, "mana", true)
+    pinned = ns:TogglePinnedResource(pinned, "rage", true)
+    assertx.assertEqual(#pinned, 2)
+    assertx.assertEqual(pinned[1].key, "mana")
+    assertx.assertEqual(pinned[2].key, "rage")
+end
+
+function M.test_togglePinnedResource_untickRemovesEntry()
+    local ns = fresh()
+    local pinned = ns:TogglePinnedResource(nil, "mana", true)
+    pinned = ns:TogglePinnedResource(pinned, "mana", false)
+    assertx.assertEqual(#pinned, 0)
+end
+
+function M.test_togglePinnedResource_reTickMovesToEnd()
+    local ns = fresh()
+    local pinned = ns:TogglePinnedResource(nil, "mana", true)
+    pinned = ns:TogglePinnedResource(pinned, "rage", true)
+
+    -- Untick mana, then re-tick it: it must land after rage, not back in
+    -- its old slot 1 - "the order you ticked them", not "the order first seen".
+    pinned = ns:TogglePinnedResource(pinned, "mana", false)
+    pinned = ns:TogglePinnedResource(pinned, "mana", true)
+
+    assertx.assertEqual(#pinned, 2)
+    assertx.assertEqual(pinned[1].key, "rage")
+    assertx.assertEqual(pinned[2].key, "mana")
+end
+
+function M.test_setPinnedResourceColor_addsColorToExistingEntry()
+    local ns = fresh()
+    local pinned = ns:TogglePinnedResource(nil, "mana", true)
+    pinned = ns:SetPinnedResourceColor(pinned, "mana", { r = 1, g = 0, b = 0 })
+    assertx.assertEqual(pinned[1].color.r, 1)
+    assertx.assertEqual(pinned[1].color.g, 0)
+    assertx.assertEqual(pinned[1].color.b, 0)
+end
+
+function M.test_setPinnedResourceColor_onUnpinnedKeyAppendsRatherThanDrops()
+    local ns = fresh()
+    local pinned = ns:SetPinnedResourceColor(nil, "mana", { r = 0, g = 1, b = 0 })
+    assertx.assertEqual(#pinned, 1)
+    assertx.assertEqual(pinned[1].key, "mana")
+    assertx.assertEqual(pinned[1].color.g, 1)
+end
+
+-- --------------------------------------------------------------------------
 -- Zero-max resources are skipped, not divided by zero
 -- --------------------------------------------------------------------------
 

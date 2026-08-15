@@ -950,11 +950,13 @@ end
 --             optional: a future entry with no natural icon is still valid.
 --
 -- opts = { pinned }
---   pinned - a set (or nil) of resource keys ("mana", "rage", "energy",
---            "focus") the user ticked in Group Settings to always show,
---            even when not the character's current power type. Iterated in
---            alphabetical (not pairs()) order so slot assignment is stable
---            from one login to the next.
+--   pinned - the resource keys ("mana", "rage", "energy", "focus") the user
+--            ticked in Group Settings to always show, even when not the
+--            character's current power type. Passed straight through
+--            ns:NormalizePinnedResources (below), so either the current
+--            ordered-list shape or the legacy set shape is accepted; see
+--            that function's own comment for the two shapes and why both
+--            still work.
 --
 -- Class-resource applicability (combo points/runes/runic power/soul shards)
 -- is decided by UnitClass("player") - the same signal Conditions.lua's
@@ -966,6 +968,94 @@ end
 -- never tell an applicable class from an inapplicable one; UnitClass is the
 -- only honest signal available here.
 --
+-- ----------------------------------------------------------------------------
+-- Pinned-resource ordering (v2.5.0): groupData.autoPinnedResources used to be
+-- a plain set ({ mana = true, rage = true }), which cannot express "the
+-- order the owner ticked them in". It is now an ordered list of
+-- { key, color? } entries, but a set saved before this existed has to keep
+-- working - the functions below are the single place that shape decision
+-- lives, so CollectResources, the Options_Bars.lua tickboxes, and
+-- ns:GetPinnedResourceColor (Conditions.lua) all agree on it.
+-- ----------------------------------------------------------------------------
+
+-- Fallback order for the legacy set shape, which carries no sequence of its
+-- own: alphabetical, matching the table.sort() this function replaces, so a
+-- profile saved before pin order existed does not visibly reshuffle the
+-- moment this code ships - it just keeps showing what it always did, now
+-- expressed in the ordered shape.
+local LEGACY_PINNED_ORDER = { "energy", "focus", "mana", "rage" }
+
+-- Pure: given a group's raw autoPinnedResources value (nil, the legacy set,
+-- or the current ordered list), returns a FRESH ordered list of
+-- { key = "mana", color = {r,g,b} | nil } entries. Never the caller's own
+-- table, so callers can table.remove/insert on the result without mutating
+-- the DB - ns:TogglePinnedResource and ns:SetPinnedResourceColor below rely
+-- on that to stay pure themselves.
+--
+-- Shape detection: the ordered list always has a table at index 1 (a
+-- string key never lands on a numeric index via plain assignment), so
+-- `pinned[1] ~= nil` is enough to tell it apart from the legacy set (whose
+-- keys are always the resource-name strings) or an empty/nil table.
+function ns:NormalizePinnedResources(pinned)
+    local list = {}
+    if not pinned then return list end
+
+    if pinned[1] ~= nil then
+        for _, entry in ipairs(pinned) do
+            if type(entry) == "table" and entry.key then
+                list[#list + 1] = { key = entry.key, color = entry.color }
+            elseif type(entry) == "string" then
+                list[#list + 1] = { key = entry }
+            end
+        end
+        return list
+    end
+
+    for _, key in ipairs(LEGACY_PINNED_ORDER) do
+        if pinned[key] then
+            list[#list + 1] = { key = key }
+        end
+    end
+    return list
+end
+
+-- Pure state transition for one resource's tickbox: given the group's
+-- current autoPinnedResources value (either shape) and the key just
+-- ticked/unticked, returns the new ordered list to save back.
+--
+-- Always removes any existing entry for `key` first, then re-appends it
+-- when ticked - so unticking then re-ticking moves it to the END, not back
+-- to wherever it used to sit, which is what "the order you ticked them"
+-- means. Unticking drops the entry (colour included, mirroring how turning
+-- off Custom Bar Colour clears g.barColor): re-pinning the same resource
+-- later starts it fresh at the end with no leftover colour.
+function ns:TogglePinnedResource(pinned, key, ticked)
+    local list = ns:NormalizePinnedResources(pinned)
+    for i = #list, 1, -1 do
+        if list[i].key == key then table.remove(list, i) end
+    end
+    if ticked then
+        list[#list + 1] = { key = key }
+    end
+    return list
+end
+
+-- Pure: sets (or clears) the stored colour for one pinned entry, returning
+-- the updated ordered list. If `key` is not currently pinned - should not
+-- happen through the UI, since the swatch only shows while ticked - it is
+-- appended rather than the colour choice silently being dropped.
+function ns:SetPinnedResourceColor(pinned, key, color)
+    local list = ns:NormalizePinnedResources(pinned)
+    for _, entry in ipairs(list) do
+        if entry.key == key then
+            entry.color = color
+            return list
+        end
+    end
+    list[#list + 1] = { key = key, color = color }
+    return list
+end
+
 -- Always returns a table (never nil), even with nothing to show.
 function ns:CollectResources(opts)
     opts = opts or {}
@@ -1053,19 +1143,14 @@ function ns:CollectResources(opts)
     end
 
     -- Pinned extras: resources the user always wants visible even when not
-    -- currently in use (e.g. a caster Druid pinning Energy). Sorted so the
-    -- order is deterministic across logins, not whatever pairs() happens to
-    -- yield. addEntry's zero-max guard still applies, so pinning a power the
+    -- currently in use (e.g. a caster Druid pinning Energy), in the order
+    -- they were ticked (ns:NormalizePinnedResources also accepts the legacy
+    -- unordered set, falling back to a deterministic alphabetical order for
+    -- it). addEntry's zero-max guard still applies, so pinning a power the
     -- character truly cannot have (a Mage pinning Rage) shows nothing.
-    local pinnedKeys = {}
-    for key, on in pairs(pinned) do
-        if on then pinnedKeys[#pinnedKeys + 1] = key end
-    end
-    table.sort(pinnedKeys)
-
     local PINNABLE_POWER_TYPES = { mana = 0, rage = 1, focus = 2, energy = 3 }
-    for _, key in ipairs(pinnedKeys) do
-        local powerType = PINNABLE_POWER_TYPES[key]
+    for _, entry in ipairs(ns:NormalizePinnedResources(pinned)) do
+        local powerType = PINNABLE_POWER_TYPES[entry.key]
         if powerType then addPowerType(powerType) end
     end
 

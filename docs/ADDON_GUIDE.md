@@ -268,6 +268,23 @@ current power type and once as an explicit class resource) is de-duplicated
 by `key`, and anything with `max <= 0` is skipped (how a resource the
 character does not have reports).
 
+**Pinned-resource order (v2.5.0).** `autoPinnedResources` used to be a plain
+set (`{ mana = true }`); it is now an ordered list of `{ key, color? }`
+entries, so the pinned extras appear in the order the tickboxes were
+ticked, not a fixed order. `ns:NormalizePinnedResources` (Trackers.lua) is
+the single place that shape decision lives: it accepts either shape and
+always returns a fresh ordered list, falling back to a deterministic
+alphabetical order for the legacy set (matching the `table.sort()` this
+replaced, so an upgrading profile's bars do not visibly reshuffle just from
+loading the new code) - no `ns:MigrateFrames` migration was needed, since
+every read site normalizes on demand instead. `ns:TogglePinnedResource(pinned,
+key, ticked)` is the pure state transition behind each tickbox: it always
+removes any existing entry for `key` first, then re-appends it when ticked,
+so unticking and re-ticking a resource moves it to the end rather than back
+to its old slot. `ns:SetPinnedResourceColor(pinned, key, color)` writes the
+colour swatch's value onto the matching entry the same way. All three are
+pure and covered by `test_resources.lua`.
+
 `ns:ScanAutoGroup` branches on `def.kind == "resource"` straight after the
 group-conditions gate and hands off to a local `ScanAutoResourceGroup`,
 which maps `entries[i]` to `group.bars[i]` directly - no expiry, no
@@ -280,9 +297,10 @@ special case (the "Ns" countdown-to-ready text) still renders correctly
 inside an auto group, not just on a hand-placed Runes bar.
 `ScanAutoResourceGroup` also stamps `bd.resourceKey = e.key` onto each
 occupied slot (nil'd again when a slot empties), which is how
-`ns:GetResourcePowerColor` (Conditions.lua, see "Resource bar default
-colours" below) knows which resource a given bar represents without
-threading the collector's entry through the whole call chain.
+`ns:GetResourcePowerColor` / `ns:GetPinnedResourceColor` (Conditions.lua,
+see "Resource bar default colours" below) know which resource a given bar
+represents without threading the collector's entry through the whole call
+chain.
 
 The group's Value Text setting (`autoResourceValueText`: nil/current-max,
 `"PERCENT"`, `"BOTH"`) is read directly inside `ns:UpdateResourceBar` off
@@ -355,7 +373,7 @@ resources-only, described further above under "The resources feed"):
 | `autoSkipTracked` | Skip spells a bar in another group already tracks (matched by name via `ns:GetTrackedAuraNames`) |
 | `autoStableOrder` | Keep Bars In Place: an aura stays in the slot it first appeared in for as long as it lasts, instead of the soonest-expiring sort reshuffling every slot on each tick or refresh. Only a fade frees a slot. `ns:ScanAutoGroup` builds the held-name list from the live slots and hands it to `ns:PlaceAutoAuras` (Trackers.lua), the tested half that decides the new placement; the untested half is just reading `bar.barData` to build that list |
 | `autoBanned` | Per-group spell bans set by alt-left-clicking a bar's icon (`bar.isAutoBar` only), keyed by lower-cased spell name: `{ [name] = { name = "Blade Flurry", id = 13877 } }`, `id` optionally nil. Nil (not `{}`) once every ban is removed, so `ns:BuildAutoSkipSet` keeps its cheap no-skip path. `ns:BuildGroupSkipSet` (Trackers.lua) folds this in unconditionally via `ns:BuildAutoSkipSet`, always returning a fresh table so the caller's own copy is never mutated, so a ban applies even with `autoSkipTracked` off. Managed from the "Hidden In This Group" list under Auto Track in Options_Bars.lua, which only shows/enables for a group with an AURA feed picked - a resource has nothing to ban, so it hides the same as no feed at all |
-| `autoPinnedResources` | Resources-feed only: a set of resource keys (`mana`, `rage`, `energy`, `focus`) the user ticked to always show even when not the character's current power type, passed as `ns:CollectResources`'s `opts.pinned` |
+| `autoPinnedResources` | Resources-feed only (v2.5.0: now an ORDERED list, `{ { key = "mana", color = {r,g,b}? }, ... }`, in tick order; a group saved before this existed still carries the legacy set, `{ mana = true }` - `ns:NormalizePinnedResources` (Trackers.lua) accepts either shape, so no migration was needed). Resources the user ticked to always show even when not the character's current power type, passed as `ns:CollectResources`'s `opts.pinned`. Each entry's optional `color` is the most specific level `ns:GetPinnedResourceColor` (Conditions.lua) resolves - see "Resource bar default colours" below |
 | `autoResourceValueText` | Resources-feed only: nil/`""` (current/max, e.g. "3000/4500"), `"PERCENT"` ("67%"), or `"BOTH"` ("3000/4500 (67%)"). Read directly inside `ns:UpdateResourceBar` (BarEngine.lua) |
 | `autoResourceShowIcon` | Resources-feed only (v2.5.0): nil/unset defers to the addon-wide Show Icon default (so an upgrading group looks exactly as it did before this tickbox existed); `true`/`false` overrides it for every bar in this group. Read directly inside `ApplyVisualConfig` (Bar.lua), the same direct-read shape as `autoResourceValueText` above, since like it there is no per-bar equivalent to resolve against for an auto slot |
 
@@ -430,7 +448,7 @@ takes a group override MUST be read through its resolver, never straight off
 | Hide when inactive | `ns:ResolveHideWhenInactive(bar)` ([Conditions.lua](../Conditions.lua)) | group when set, else bar (see below) |
 | Whether an empty group's frame hides | `ns:ShouldHideEmptyGroup(frameData, isAutoGroup, isLocked, conditionsFailed)` ([Conditions.lua](../Conditions.lua)) | conditionsFailed, then group when set, else lock/type default (see below) |
 | Switch mode (on/off, no countdown) | `ns:IsSwitchBar(bar)` ([Conditions.lua](../Conditions.lua)) | group (`group.barStyle`) when set, else bar (`display.switchMode`) |
-| Bar texture / colour | resolved inside [Bar.lua](../Bar.lua) `ApplyVisualConfig` | bar then group then global; a **resource** bar additionally slots in `ns:GetResourcePowerColor` ([Conditions.lua](../Conditions.lua)) between the group colour and the global default - see "Resource bar default colours" below |
+| Bar texture / colour | resolved inside [Bar.lua](../Bar.lua) `ApplyVisualConfig` | bar then group then global; a **resource** bar additionally slots in `ns:GetPinnedResourceColor` and `ns:GetResourcePowerColor` (both [Conditions.lua](../Conditions.lua)) between the per-bar override and the group colour, and between the group colour and the global default respectively - see "Resource bar default colours" below |
 | Icon Only (square icon grid, no bar/text) | read directly as `group.iconOnly` in `ApplyVisualConfig` (Bar.lua) and `ns:UpdateGroupLayout` (FrameManager.lua); no resolver function, no bar-level override | group only (boolean, not an Inherit tri-state) |
 | Resource bar icon shown | read directly as `group.autoResourceShowIcon` in `ApplyVisualConfig` (Bar.lua), same direct-read shape as Icon Only above | bar (`display.showIcon`, practically never set for an auto slot) then group (resources feed only) then global (`visual.showIcon`) |
 | Stack text size | `ns:GetStackFontSize(bar)` ([Conditions.lua](../Conditions.lua)) | bar (`display.stackFontSize`) then group (`group.stackFontSize`) then global (`visual.stackFontSize`) |
@@ -561,33 +579,41 @@ ever flashing.
 current power type, a pinned extra) the game's own conventional colour - a
 blue mana bar, a yellow energy bar, a red rage bar - instead of the
 addon-wide default, without overriding anything the owner has actually set.
-`ns:GetResourcePowerColor(bar)`, in Conditions.lua for the same reason as
-the Bar Alerts pair (pure arithmetic `GetBarColor`, Bar.lua, consults;
-frame-heavy code never touches it), reads `bar.barData.resourceKey`
-(stamped by `ScanAutoResourceGroup`, BarEngine.lua, onto every occupied
-resource slot) and maps it to a colour: the power-type keys (`mana`,
-`rage`, `focus`, `energy`, `runicpower`) go through the client's own
-`PowerBarColor` table first (keyed by the same string tokens
-`UnitPowerType`'s second return uses - Blizzard's own UnitFrame.lua reads
-it the same way), falling back to a hardcoded `RESOURCE_COLOR_FALLBACK`
-table when `PowerBarColor` is absent or missing that token. `health` and
-`soulshards` are not power types at all, so they always use the fallback
-table (health's green is the plain WoW convention, not tied to Colour
-Mode's CLASS option). Combo points and the six DK runes have no single
-conventional colour (combo points render as pips, not a status bar; each
-rune has its own colour by TYPE, which `ns:CollectResources` does not
-thread through as part of the entry) and are deliberately left out, so they
-fall through to the addon-wide default like any other bar.
+Two resolvers, both in Conditions.lua for the same reason as the Bar Alerts
+pair (pure arithmetic `GetBarColor`, Bar.lua, consults; frame-heavy code
+never touches them):
 
-`GetBarColor` (Bar.lua) slots this in among the pre-existing per-bar/
+- `ns:GetResourcePowerColor(bar)` reads `bar.barData.resourceKey` (stamped
+  by `ScanAutoResourceGroup`, BarEngine.lua, onto every occupied resource
+  slot) and maps it to a colour: the power-type keys (`mana`, `rage`,
+  `focus`, `energy`, `runicpower`) go through the client's own
+  `PowerBarColor` table first (keyed by the same string tokens
+  `UnitPowerType`'s second return uses - Blizzard's own UnitFrame.lua reads
+  it the same way), falling back to a hardcoded `RESOURCE_COLOR_FALLBACK`
+  table when `PowerBarColor` is absent or missing that token. `health` and
+  `soulshards` are not power types at all, so they always use the fallback
+  table (health's green is the plain WoW convention, not tied to Colour
+  Mode's CLASS option). Combo points and the six DK runes have no single
+  conventional colour (combo points render as pips, not a status bar; each
+  rune has its own colour by TYPE, which `ns:CollectResources` does not
+  thread through as part of the entry) and are deliberately left out, so
+  they fall through to the addon-wide default like any other bar.
+- `ns:GetPinnedResourceColor(bar)` resolves the colour swatch under a
+  pinned resource's own tickbox (Options_Bars.lua), reading
+  `groupData.autoPinnedResources` through `ns:NormalizePinnedResources`
+  (Trackers.lua) so both the ordered shape and the colour-less legacy set
+  are handled identically.
+
+`GetBarColor` (Bar.lua) slots both in among the pre-existing per-bar/
 per-group/global levels, gated on `bar.isResourceBar` so an ordinary bar's
 resolution is completely unchanged. Precedence, most specific first: (1)
 per-bar `display.colorOverride` (pre-existing; practically unreachable for
 an auto slot, which has no per-bar editor of its own, but still honoured),
-(2) the group's Custom Bar Colour (pre-existing `group.barColor`), (3)
-`ns:GetResourcePowerColor`, (4) the addon-wide Colour Mode default
-(pre-existing). Level (3) is the only one new to a resource bar; a
-non-resource bar reaches the same three pre-existing levels it always did.
+(2) `ns:GetPinnedResourceColor`, (3) the group's Custom Bar Colour
+(pre-existing `group.barColor`), (4) `ns:GetResourcePowerColor`, (5) the
+addon-wide Colour Mode default (pre-existing). Levels (2) and (4) are the
+only two new to a resource bar; a non-resource bar reaches the same three
+pre-existing levels it always did.
 
 Adding a new group override means: the widget in
 [Options_Bars.lua](../Options_Bars.lua) `GROUP_SETTINGS_SCHEMA` (with an

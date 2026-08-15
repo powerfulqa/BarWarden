@@ -837,11 +837,25 @@ function M.test_resolvePlayerFrameHidden_nilSafe()
 end
 
 -- --------------------------------------------------------------------------
--- Resource bar default colours (v2.5.0): ns:GetResourcePowerColor resolves
--- the game's own power-type colour for a resource bar. It feeds GetBarColor
--- (Bar.lua), which is why it lives here beside the other resolvers rather
+-- Resource bar default colours (v2.5.0): ns:GetResourcePowerColor (the
+-- game's own power-type colour) and ns:GetPinnedResourceColor (a per-pinned-
+-- resource override, one level more specific). Both feed GetBarColor
+-- (Bar.lua), which is why they live here beside the other resolvers rather
 -- than in frame code - see docs/ADDON_GUIDE.md's "Group overrides" table.
 -- --------------------------------------------------------------------------
+
+-- GetPinnedResourceColor needs ns:NormalizePinnedResources (Trackers.lua),
+-- so this loads one file more than the plain `fresh()` above. Cross-file at
+-- runtime only (a resolver in Conditions.lua calling a helper defined in
+-- Trackers.lua, which loads after it per the .toc) - fine, since neither
+-- call happens until the game is fully loaded; see GetTimeBasedColor's own
+-- upvalue-hoist comment (BarEngine.lua) for the one case where load ORDER
+-- actually would matter, which this is not.
+local function freshWithTrackers()
+    local ns = fresh()
+    load_addon.load("Trackers.lua", "BarWarden", ns)
+    return ns
+end
 
 local function resourceBarIn(groupIndex, resourceKey)
     return { frameIndex = groupIndex, isResourceBar = true,
@@ -895,6 +909,46 @@ function M.test_getResourcePowerColor_nilForBarWithNoResourceKey()
     local ns = fresh()
     assertx.assertNil(ns:GetResourcePowerColor({ barData = {} }))
     assertx.assertNil(ns:GetResourcePowerColor(nil))
+end
+
+function M.test_getPinnedResourceColor_returnsStoredColor()
+    local ns = freshWithTrackers()
+    _G.BarWardenDB = { frames = { { autoPinnedResources = {
+        { key = "mana", color = { r = 0.3, g = 0.4, b = 0.5 } },
+    } } } }
+    local r, g, b = ns:GetPinnedResourceColor(resourceBarIn(1, "mana"))
+    assertx.assertEqual(r, 0.3)
+    assertx.assertEqual(g, 0.4)
+    assertx.assertEqual(b, 0.5)
+    _G.BarWardenDB = nil
+end
+
+function M.test_getPinnedResourceColor_nilWhenEntryHasNoColor()
+    local ns = freshWithTrackers()
+    _G.BarWardenDB = { frames = { { autoPinnedResources = { { key = "mana" } } } } }
+    assertx.assertNil(ns:GetPinnedResourceColor(resourceBarIn(1, "mana")))
+    _G.BarWardenDB = nil
+end
+
+function M.test_getPinnedResourceColor_nilWhenNotPinned()
+    local ns = freshWithTrackers()
+    _G.BarWardenDB = { frames = { {} } }
+    assertx.assertNil(ns:GetPinnedResourceColor(resourceBarIn(1, "mana")))
+    _G.BarWardenDB = nil
+end
+
+function M.test_getPinnedResourceColor_toleratesLegacySetShape()
+    local ns = freshWithTrackers()
+    -- Legacy shape carries no colour data at all: must not error, just nil.
+    _G.BarWardenDB = { frames = { { autoPinnedResources = { mana = true } } } }
+    assertx.assertNil(ns:GetPinnedResourceColor(resourceBarIn(1, "mana")))
+    _G.BarWardenDB = nil
+end
+
+function M.test_getPinnedResourceColor_safeWithoutData()
+    local ns = freshWithTrackers()
+    assertx.assertNil(ns:GetPinnedResourceColor(nil))
+    assertx.assertNil(ns:GetPinnedResourceColor({ barData = {} }))
 end
 
 return M

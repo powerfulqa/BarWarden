@@ -192,6 +192,14 @@ local function GetBarColor(bar, config)
         return c.r or 1, c.g or 1, c.b or 1
     end
 
+    -- Resource bars (v2.5.0): a per-pinned-resource colour is the next most
+    -- specific, ahead of the group's Custom Bar Colour - see the precedence
+    -- comment above ns:GetResourcePowerColor (Conditions.lua).
+    if bar.isResourceBar then
+        local rr, rg, rb = ns:GetPinnedResourceColor(bar)
+        if rr then return rr, rg, rb end
+    end
+
     -- Group-level colour override sits between per-bar and global: a group can
     -- give all its bars a colour without touching every bar or the whole addon.
     local group = GetBarGroup(bar)
