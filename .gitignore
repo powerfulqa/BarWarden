@@ -16,3 +16,7 @@ docs/superpowers/
 # Local dump of reference addons (ElvinCDs, Forte, ClassTimer, etc.)
 # used for curation lookups. Never ship; never commit.
 3.3.5.a/
+
+# Local reference copy of a third-party addon (separately licensed under
+# its own Source-Available Attribution License). Must never be committed.
+Xperl-Grimfall-main/
