@@ -254,7 +254,11 @@ current target either way you look at them. A target with nothing selected
 just shows nothing, the same as an empty group. Tick **Group Name Follows
 Target** and the group's title shows the target's own name instead of the
 name you gave the group; with nothing selected, the title falls back to
-that name.
+that name. **Show Target Level**, next to it, also adds the target's level:
+`??` for a boss whose level cannot be read, a trailing `+` for an elite or
+boss, `R` for a rare, `R+` for a rare elite, coloured the same way the game
+colours it elsewhere. It only does anything while Group Name Follows Target
+is also ticked.
 
 "Health and power (target of target)" does the same again for whatever your
 target has targeted. Group Name Follows Target works here too, showing your
@@ -282,6 +286,11 @@ nothing.
 - **Group Name Follows Target** - target and target-of-target groups only.
   Shows the unit's own name as the group's title instead of the name you
   gave the group; falls back to that name with nothing selected.
+- **Show Target Level** - next to Group Name Follows Target, and only does
+  anything while that one is also ticked. Adds the unit's level to the
+  title: `??` for a boss whose level cannot be read, `+` for an elite or
+  boss, `R` for a rare, `R+` for a rare elite, coloured the same way the
+  game colours it elsewhere. Off by default.
 
 Unlike an aura-tracking group, there is nothing to skip by duration, filter
 to your own casts, or ban one spell from: those settings hide for a

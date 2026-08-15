@@ -7,6 +7,7 @@
 
 local assertx    = require("assert")
 local load_addon = require("load_addon")
+local mock       = require("mock_wow")
 
 local M = {}
 
@@ -374,6 +375,155 @@ function M.test_resolveGroupTitleName_noGroupNameStillSafe()
     local ns = fresh()
     assertx.assertEqual(ns:ResolveGroupTitleName({ autoTitleFollowsUnit = true }, nil), "")
     assertx.assertEqual(ns:ResolveGroupTitleName(nil, "Ragnaros"), "")
+end
+
+-- --------------------------------------------------------------------------
+-- Show Target Level (v2.5.0): a level (and mark/colour) appended to the
+-- title, only while the group is already titled after the unit, gated on
+-- its own tickbox (groupData.autoTitleShowsLevel) so someone who wants the
+-- name alone can have that. UnitLevel/UnitClassification/the difficulty-
+-- colour lookup are all mock_wow.lua stubs, controlled per-unit via
+-- mock.unitLevel / mock.unitClassification / mock.difficultyColor.
+-- --------------------------------------------------------------------------
+
+function M.test_resolveGroupTitleName_level_appendsNormalLevel()
+    local ns = fresh()
+    mock.unitLevel.target = 42
+    local name = ns:ResolveGroupTitleName(
+        { name = "Target", autoTitleFollowsUnit = true, autoTitleShowsLevel = true },
+        "Ragnaros", "target")
+    assertx.assertTrue(name:find("Ragnaros", 1, true) ~= nil, "expected the name to stay: " .. name)
+    assertx.assertTrue(name:find("42", 1, true) ~= nil, "expected the level to appear: " .. name)
+end
+
+function M.test_resolveGroupTitleName_level_bossShowsUnavailableMarker()
+    local ns = fresh()
+    mock.unitLevel.target = -1
+    mock.unitClassification.target = "worldboss"
+    local name = ns:ResolveGroupTitleName(
+        { name = "Target", autoTitleFollowsUnit = true, autoTitleShowsLevel = true },
+        "Ragnaros", "target")
+    assertx.assertTrue(name:find("??", 1, true) ~= nil, "expected the unavailable marker: " .. name)
+end
+
+function M.test_resolveGroupTitleName_level_eliteGetsMark()
+    local ns = fresh()
+    mock.unitLevel.target = 63
+    mock.unitClassification.target = "elite"
+    local name = ns:ResolveGroupTitleName(
+        { name = "Target", autoTitleFollowsUnit = true, autoTitleShowsLevel = true },
+        "Ragnaros", "target")
+    assertx.assertTrue(name:find("63+", 1, true) ~= nil, "expected the elite mark: " .. name)
+end
+
+function M.test_resolveGroupTitleName_level_rareGetsMark()
+    local ns = fresh()
+    mock.unitLevel.target = 55
+    mock.unitClassification.target = "rare"
+    local name = ns:ResolveGroupTitleName(
+        { name = "Target", autoTitleFollowsUnit = true, autoTitleShowsLevel = true },
+        "Ragnaros", "target")
+    assertx.assertTrue(name:find("55R", 1, true) ~= nil, "expected the rare mark: " .. name)
+end
+
+function M.test_resolveGroupTitleName_level_rareEliteGetsBothMarks()
+    local ns = fresh()
+    mock.unitLevel.target = 61
+    mock.unitClassification.target = "rareelite"
+    local name = ns:ResolveGroupTitleName(
+        { name = "Target", autoTitleFollowsUnit = true, autoTitleShowsLevel = true },
+        "Ragnaros", "target")
+    assertx.assertTrue(name:find("61R+", 1, true) ~= nil, "expected both the rare and elite marks: " .. name)
+end
+
+function M.test_resolveGroupTitleName_level_colourEscapeAppears()
+    local ns = fresh()
+    mock.unitLevel.target = 30
+    mock.difficultyColor = function() return 0, 1, 0 end -- green
+    local name = ns:ResolveGroupTitleName(
+        { name = "Target", autoTitleFollowsUnit = true, autoTitleShowsLevel = true },
+        "Ragnaros", "target")
+    assertx.assertTrue(name:find("|cff00ff00", 1, true) ~= nil, "expected the difficulty colour escape: " .. name)
+    assertx.assertTrue(name:find("|r", 1, true) ~= nil, "expected the colour escape to close: " .. name)
+end
+
+function M.test_resolveGroupTitleName_level_bossAlwaysRedRegardlessOfDifficultyFn()
+    local ns = fresh()
+    mock.unitLevel.target = -1
+    mock.unitClassification.target = "worldboss"
+    -- Even if the difficulty-colour lookup would say otherwise, an
+    -- unavailable ("??") level is always shown at the highest-danger colour.
+    mock.difficultyColor = function() return 0, 1, 0 end
+    local name = ns:ResolveGroupTitleName(
+        { name = "Target", autoTitleFollowsUnit = true, autoTitleShowsLevel = true },
+        "Ragnaros", "target")
+    assertx.assertTrue(name:find("|cffff0000", 1, true) ~= nil, "expected boss red regardless of the colour lookup: " .. name)
+end
+
+function M.test_resolveGroupTitleName_levelTickboxOff_nameOnly()
+    local ns = fresh()
+    mock.unitLevel.target = 42
+    local name = ns:ResolveGroupTitleName(
+        { name = "Target", autoTitleFollowsUnit = true, autoTitleShowsLevel = false },
+        "Ragnaros", "target")
+    assertx.assertEqual(name, "Ragnaros")
+end
+
+function M.test_resolveGroupTitleName_level_noUnitDegradesSafely()
+    local ns = fresh()
+    -- No unit token (nil): the name-only fallback path is already exercised
+    -- above by the plain follows-unit tests; this proves the level branch
+    -- itself does not error or append a stray marker with no unit to ask.
+    mock.unitLevel.target = 42
+    local name = ns:ResolveGroupTitleName(
+        { name = "Target", autoTitleFollowsUnit = true, autoTitleShowsLevel = true },
+        "Ragnaros", nil)
+    assertx.assertEqual(name, "Ragnaros")
+end
+
+function M.test_resolveGroupTitleName_level_unavailableLevelDegradesSafely()
+    local ns = fresh()
+    -- A unit IS present (the name resolved), but UnitLevel has nothing
+    -- sensible to report for it (0: never a real level on 3.3.5a) - must
+    -- not show a stray "0" or error, just the name.
+    mock.unitLevel.target = 0
+    local name = ns:ResolveGroupTitleName(
+        { name = "Target", autoTitleFollowsUnit = true, autoTitleShowsLevel = true },
+        "Ragnaros", "target")
+    assertx.assertEqual(name, "Ragnaros")
+end
+
+function M.test_resolveGroupTitleName_level_noUnitSelectedFallsBackToGroupName()
+    local ns = fresh()
+    -- Mirrors test_resolveGroupTitleName_noUnitFallsBackToGroupName above,
+    -- with the level tickbox also ticked: no unit selected still falls back
+    -- to the group's own name, not a name-plus-stray-level.
+    mock.unitLevel.target = 42
+    assertx.assertEqual(ns:ResolveGroupTitleName(
+        { name = "Target", autoTitleFollowsUnit = true, autoTitleShowsLevel = true }, nil, "target"), "Target")
+end
+
+-- --------------------------------------------------------------------------
+-- ns:FormatUnitLevelSuffix directly: the pure level+colour string builder
+-- ResolveGroupTitleName above delegates to.
+-- --------------------------------------------------------------------------
+
+function M.test_formatUnitLevelSuffix_noUnitReturnsEmpty()
+    local ns = fresh()
+    assertx.assertEqual(ns:FormatUnitLevelSuffix(nil), "")
+end
+
+-- 3.3.5a may expose the quest-difficulty colour lookup under either name
+-- depending on the server; production code must resolve defensively rather
+-- than assuming GetQuestDifficultyColor exists.
+function M.test_formatUnitLevelSuffix_fallsBackToGetDifficultyColorWhenQuestVersionMissing()
+    local ns = fresh()
+    mock.unitLevel.target = 20
+    _G.GetQuestDifficultyColor = nil
+    _G.GetDifficultyColor = function(level) return 1, 1, 0 end -- yellow
+    local suffix = ns:FormatUnitLevelSuffix("target")
+    assertx.assertTrue(suffix:find("|cffffff00", 1, true) ~= nil,
+        "expected the fallback colour function to be used: " .. suffix)
 end
 
 return M

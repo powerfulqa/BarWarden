@@ -1179,10 +1179,14 @@ local function ScanAutoResourceGroup(group, groupData, unit)
     -- to the UnitHealth/UnitPower calls ns:CollectResources just made above.
     -- group.lastTitleName (a runtime-only field, never saved) is what keeps
     -- the actual fontstring write off the per-scan path: an unchanged name
-    -- never touches it again until it actually changes.
+    -- never touches it again until it actually changes - this still holds
+    -- with Show Target Level (groupData.autoTitleShowsLevel) ticked, since a
+    -- level change (or a mark/colour change from a classification change)
+    -- changes what ns:ResolveGroupTitleName resolves to, the same as a name
+    -- change would.
     if groupData.autoTitleFollowsUnit and unit ~= "player" and group.titleText then
         local unitName = (UnitExists and UnitExists(unit)) and UnitName(unit) or nil
-        local resolved = ns:ResolveGroupTitleName(groupData, unitName)
+        local resolved = ns:ResolveGroupTitleName(groupData, unitName, unit)
         if group.lastTitleName ~= resolved then
             group.lastTitleName = resolved
             group.titleText:SetText(resolved)

@@ -394,6 +394,39 @@ from `group.lastTitleName`, a runtime-only cache field - so an unchanged
 title never touches the fontstring on the 4 Hz scan loop, keeping this off
 the true per-frame path even though the CHECK itself runs every scan.
 
+**Show Target Level** (`autoTitleShowsLevel`, v2.5.0) is a second, nested
+tickbox next to Group Name Follows Target: it only does anything while that
+one is ALSO ticked and a unit is actually resolved (not the group-name
+fallback), and appends a compact, colour-escaped level to the title -
+`ns:ResolveGroupTitleName(groupData, unitName, unit)` (FrameManager.lua)
+takes the raw unit token as a third argument for exactly this, since the
+level needs its own `UnitLevel`/`UnitClassification` reads that have nothing
+to do with the already-resolved name string. The actual text/colour is built
+by `ns:FormatUnitLevelSuffix(unit)`, a small pure helper `ResolveGroupTitleName`
+delegates to (kept separate so the string building - not just the branch
+that decides whether to call it - is independently testable):
+  * A plain number for a normal unit (`"80"`); `UnitLevel`'s own `-1` ("too
+    high to determine") becomes `"??"`, the game's own convention for a
+    boss whose level cannot be read.
+  * `UnitClassification(unit)` adds a mark: `+` for `elite`/`worldboss`
+    (matching how the game marks those units elsewhere), `R` for `rare`,
+    and both together (`R+`) for `rareelite`. A plain `normal` unit gets no
+    mark.
+  * Coloured via `GetQuestDifficultyColor(level)`, resolved defensively as
+    `GetQuestDifficultyColor or GetDifficultyColor` since 3.3.5a may expose
+    it under either name depending on the server, with a hardcoded red for
+    the unresolvable (`-1`) boss case (there is no meaningful level to hand
+    the colour function) and a plain white fallback if neither global
+    exists or the call errors - guarding the API return rather than
+    trusting it, per the 3.3.5a/private-server rule.
+  * Degrades to nothing (the bare name, no stray marker) when there is no
+    unit, no `UnitLevel` global at all, or `UnitLevel` reports `0` - never a
+    real level on 3.3.5a, so treated the same as "unavailable" rather than
+    shown literally.
+Nil (off) by default, same reasoning as Group Name Follows Target itself:
+defaulting it on would silently change the title of anyone who had already
+ticked that one, the first time they updated.
+
 **Keeping `totResources` current.** `PLAYER_TARGET_CHANGED` only ever tells
 the addon that the PLAYER's own target changed; there is no client event at
 all for "your target's target changed" while your own target stays the
@@ -521,6 +554,7 @@ resources-only, described further above under "The resources feed"):
 | `autoResourceValueText` | Resources-feed only: nil/`""` (current/max, e.g. "3000/4500"), `"PERCENT"` ("67%"), or `"BOTH"` ("3000/4500 (67%)"). Read directly inside `ns:UpdateResourceBar` (BarEngine.lua) |
 | `autoResourceShowIcon` | Resources-feed only (v2.5.0): nil/unset defers to the addon-wide Show Icon default (so an upgrading group looks exactly as it did before this tickbox existed); `true`/`false` overrides it for every bar in this group. Read directly inside `ApplyVisualConfig` (Bar.lua), the same direct-read shape as `autoResourceValueText` above, since like it there is no per-bar equivalent to resolve against for an auto slot |
 | `autoTitleFollowsUnit` | `targetResources`/`totResources` only (v2.5.0). nil by default. When true, the group's title shows the feed's unit name instead of the group's own configured name - see "Group Name Follows Target" below |
+| `autoTitleShowsLevel` | `targetResources`/`totResources` only (v2.5.0). nil by default. When true AND `autoTitleFollowsUnit` resolved a unit name, the title also shows that unit's level - see "Show Target Level" below |
 
 `iconOnly` used to live in this table as `autoIconOnly`, gated to
 auto-tracking groups only. It is now a general Bar Overrides setting (see

@@ -459,6 +459,7 @@ local function CreateBarsTab(parent)
     -- three resource feeds and this is narrower still.
     local AUTO_TARGET_RESOURCE_ONLY_WIDGET_IDS = {
         "grpAutoTitleFollowsUnit",
+        "grpAutoTitleShowsLevel",
     }
 
     -- Whether the selected group has an AURA feed picked (not "resources").
@@ -1233,6 +1234,31 @@ local function CreateBarsTab(parent)
           set = function(_, v)
               local g = getGroup(); if not g then return end
               g.autoTitleFollowsUnit = v and true or false
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
+        -- Show Target Level (v2.5.0): only does anything alongside Group
+        -- Name Follows Target above (ns:ResolveGroupTitleName only appends a
+        -- level once the title is actually following the unit), which is
+        -- why it is listed right under it rather than with Show Icon/Value
+        -- Text above. Off by default: Group Name Follows Target itself
+        -- already ships off by default so an existing group's title stays
+        -- untouched until opted in, and defaulting THIS on would silently
+        -- change the title of anyone who had already ticked that one, the
+        -- first time they update - the same reasoning, just one setting
+        -- later. The level text and its colour are built by
+        -- ns:FormatUnitLevelSuffix (FrameManager.lua): "80" for a normal
+        -- level, "??" for a unit whose level cannot be determined (bosses),
+        -- a trailing "+" for elite/boss, "R" for rare, "R+" for a rare
+        -- elite, coloured by the game's own quest-difficulty colouring.
+        { type = "toggle", id = "grpAutoTitleShowsLevel", label = "Show Target Level",
+          tooltip = "Also show the target's level next to its name, "
+               .. "coloured the same way the game colours it elsewhere. "
+               .. "Only does anything while Group Name Follows Target above "
+               .. "is ticked.",
+          get = function() local g = getGroup(); return g and g.autoTitleShowsLevel end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoTitleShowsLevel = v and true or false
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
         -- Invisible sentinel (no visible content, so no canonical column

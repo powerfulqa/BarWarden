@@ -96,6 +96,12 @@ the same current-power-type signal the game itself uses.
   target-of-target resource groups, shows the unit's own name as the
   group's title instead of the name you gave the group. Off by default; a
   group with nothing selected falls back to its own name.
+- **A new Show Target Level tickbox**, alongside Group Name Follows
+  Target, adds the unit's level next to its name: `??` for a boss whose
+  level cannot be determined, a trailing `+` for an elite or a boss, `R`
+  for a rare, `R+` for a rare elite. The level is coloured the same way
+  the game colours it elsewhere, relative to your own level. Off by
+  default, alongside Group Name Follows Target itself.
 - **The pinned resource tickboxes have been reworded.** "Always Show Mana /
   Rage / Energy" read as the switch for whether the resource ever shows at
   all; a druid in caster form unticking it and still seeing mana looked

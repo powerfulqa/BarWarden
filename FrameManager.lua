@@ -185,6 +185,94 @@ local function OnDragStop(self)
     SaveFramePosition(self)
 end
 
+-- Elite/boss units are conventionally marked with a trailing "+" (matching
+-- Blizzard's own unit frames/tooltips); rare units are conventionally marked
+-- too, so a rare-but-not-elite unit gets "R" and a rare elite gets both,
+-- "R+". A plain "normal" unit gets no mark at all.
+local CLASSIFICATION_MARKS = {
+    elite     = "+",
+    worldboss = "+",
+    rareelite = "R+",
+    rare      = "R",
+}
+
+-- A boss-tier level (UnitLevel's -1, "level above what you can determine")
+-- has no entry in the quest-difficulty colour table to look up - it is
+-- conventionally shown as the highest-danger colour outright, same as the
+-- game's own tooltips paint a skull-level enemy red.
+local BOSS_LEVEL_COLOR = { r = 1, g = 0, b = 0 }
+-- Guard-rail fallback: a private server missing BOTH colour globals (see
+-- below) still gets a legible white level rather than an error.
+local FALLBACK_LEVEL_COLOR = { r = 1, g = 1, b = 1 }
+
+-- Resolves the (r, g, b) to colour a unit's level by, via the game's own
+-- quest-difficulty colouring. 3.3.5a may expose this under either
+-- GetQuestDifficultyColor or GetDifficultyColor depending on the server, so
+-- both are tried; a private server missing both (or one that errors on an
+-- unexpected level) degrades to plain white rather than propagating an
+-- error into the title bar.
+local function ResolveLevelColor(level)
+    if level == -1 then
+        return BOSS_LEVEL_COLOR.r, BOSS_LEVEL_COLOR.g, BOSS_LEVEL_COLOR.b
+    end
+
+    local colorFn = GetQuestDifficultyColor or GetDifficultyColor
+    if not colorFn then
+        return FALLBACK_LEVEL_COLOR.r, FALLBACK_LEVEL_COLOR.g, FALLBACK_LEVEL_COLOR.b
+    end
+
+    local ok, r, g, b = pcall(colorFn, level)
+    if not ok or not r then
+        return FALLBACK_LEVEL_COLOR.r, FALLBACK_LEVEL_COLOR.g, FALLBACK_LEVEL_COLOR.b
+    end
+    return r, g, b
+end
+
+-- ns:FormatUnitLevelSuffix(unit): the compact, colour-escaped level text
+-- ns:ResolveGroupTitleName appends to a title when "Show Target Level" is
+-- ticked - e.g. "|cffffffff80|r" for a normal level-80 unit, or
+-- "|cffff000063+|r" for a red-coloured level-63 elite. Empty string when
+-- there is nothing sensible to show: no unit, no UnitLevel API at all, or a
+-- level of 0 (a unit UnitLevel has no real reading for - never a live
+-- level on 3.3.5a, where the lowest character/creature level is 1).
+--
+-- Deliberately its own function rather than inlined into
+-- ResolveGroupTitleName below: it is reused there but is also just string
+-- building around a couple of guarded API calls, so it is worth testing on
+-- its own.
+function ns:FormatUnitLevelSuffix(unit)
+    if not unit or not UnitLevel then return "" end
+
+    local ok, level = pcall(UnitLevel, unit)
+    -- A sensible reading is a positive level, or exactly -1 (the "too high to
+    -- determine" boss marker). Anything else - 0, a stray negative, a
+    -- non-number - has nothing worth showing.
+    if not ok or type(level) ~= "number" or not (level > 0 or level == -1) then
+        return ""
+    end
+
+    local levelText = (level == -1) and "??" or tostring(level)
+
+    local classification
+    if UnitClassification then
+        local okc, c = pcall(UnitClassification, unit)
+        if okc then classification = c end
+    end
+    local mark = CLASSIFICATION_MARKS[classification] or ""
+
+    local r, g, b = ResolveLevelColor(level)
+    -- Clamp before scaling to 0-255: a private server's colour function is
+    -- not trusted to hand back values inside 0-1, and an out-of-range
+    -- %02x would either error or silently print garbage into the title.
+    local function toByte(c)
+        c = (type(c) == "number") and c or 1
+        if c < 0 then c = 0 elseif c > 1 then c = 1 end
+        return math.floor(c * 255 + 0.5)
+    end
+    return string.format("|cff%02x%02x%02x%s%s|r",
+        toByte(r), toByte(g), toByte(b), levelText, mark)
+end
+
 -- Resolve the title text a group's frame should show for THIS scan (v2.5.0
 -- "Group Name Follows Target"): the unit's own name when
 -- groupData.autoTitleFollowsUnit is ticked and a unit is actually selected,
@@ -197,17 +285,35 @@ end
 -- itself stays visible (rather than vanishing outright) while unlocked with
 -- an empty auto-tracking feed - see ns:ShouldHideEmptyGroup (Conditions.lua).
 --
--- Pure (config + a resolved name string in, a string out) so this is
--- testable without a live frame or a real UnitName call: the caller
+-- Show Target Level (v2.5.0): when groupData.autoTitleShowsLevel is ALSO
+-- ticked, ns:FormatUnitLevelSuffix's result is appended after the name -
+-- but only while the title is actually following the unit (unitName was
+-- used, not the group-name fallback); a group showing its own configured
+-- name has no unit whose level would make sense there. `unit` is the raw
+-- unit token (e.g. "target"), separate from `unitName`, since the level
+-- needs its own UnitLevel/UnitClassification reads rather than anything
+-- derivable from the resolved name string.
+--
+-- Pure (config + a resolved name string + a unit token in, a string out) so
+-- this is testable without a live frame or real Unit* calls: the caller
 -- (ns:ScanAutoResourceGroup, BarEngine.lua) is the one that knows the unit
 -- token to ask WoW for a name, and whether the RESULT actually changed since
 -- the last scan - it decides whether to touch the fontstring at all, which
 -- is what keeps this off the per-frame OnUpdate path.
-function ns:ResolveGroupTitleName(groupData, unitName)
-    if groupData and groupData.autoTitleFollowsUnit and unitName and unitName ~= "" then
+function ns:ResolveGroupTitleName(groupData, unitName, unit)
+    local followsUnit = groupData and groupData.autoTitleFollowsUnit
+                         and unitName and unitName ~= ""
+    if not followsUnit then
+        return (groupData and groupData.name) or ""
+    end
+
+    if not groupData.autoTitleShowsLevel then
         return unitName
     end
-    return (groupData and groupData.name) or ""
+
+    local suffix = ns:FormatUnitLevelSuffix(unit)
+    if suffix == "" then return unitName end
+    return unitName .. " " .. suffix
 end
 
 -- ----------------------------------------------------------------------------

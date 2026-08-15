@@ -102,6 +102,25 @@ M.weaponEnchant = { false, 0, 0, false, 0, 0 }  -- mh, mhExpire, mhCharges, oh, 
 M.totem         = DEFAULT_TOTEM
 M.invTexture    = DEFAULT_INV_TEXTURE
 
+-- Level/classification, for "Show Target Level" (v2.5.0). [unit] = level;
+-- "player" defaults to 80 to match UnitLevel's long-standing test default
+-- (BugReport.lua reads UnitLevel("player") for its banner). Any other unit
+-- with no entry reads back 0 ("no meaningful level" - see UnitLevel below),
+-- so a test only needs to set the units it cares about. Fresh tables each
+-- time (never a shared literal): M.reset() below reassigns new ones rather
+-- than clearing this one in place, so a test poking mock.unitLevel.target
+-- can never leak into the "player = 80" default other tests rely on.
+local function freshUnitLevel()          return { player = 80 } end
+local function freshUnitClassification() return {} end
+-- Deliberately not a real quest-difficulty colour table: the pure code under
+-- test only needs to prove it CALLS this and uses whatever it returns, not
+-- that Blizzard's own level-vs-player maths is reproduced here.
+local DEFAULT_DIFFICULTY_COLOR = function(level) return 1, 1, 1 end
+
+M.unitLevel          = freshUnitLevel()
+M.unitClassification = freshUnitClassification()
+M.difficultyColor    = DEFAULT_DIFFICULTY_COLOR
+
 -- --------------------------------------------------------------------------
 -- Reset helper
 -- --------------------------------------------------------------------------
@@ -151,6 +170,15 @@ function M.reset()
     M.weaponEnchant = { false, 0, 0, false, 0, 0 }
     M.totem         = DEFAULT_TOTEM
     M.invTexture    = DEFAULT_INV_TEXTURE
+    M.unitLevel          = freshUnitLevel()
+    M.unitClassification = freshUnitClassification()
+    M.difficultyColor    = DEFAULT_DIFFICULTY_COLOR
+
+    -- Re-run the stub install so a test that deleted or replaced a global
+    -- directly (e.g. `_G.GetQuestDifficultyColor = nil` to exercise the
+    -- GetDifficultyColor fallback) cannot leak that change into the next
+    -- test. M.install() is idempotent, so calling it again here is safe.
+    M.install()
 end
 
 -- --------------------------------------------------------------------------
@@ -275,9 +303,22 @@ function M.install()
 
     -- BugReport.lua's header rows (version, build, character banner).
     _G.GetBuildInfo = function() return "3.3.5", "12340", "Jun 1 2010", 30300 end
-    _G.UnitLevel = function(unit) return unit == "player" and 80 or 0 end
+    _G.UnitLevel = function(unit)
+        local lvl = M.unitLevel[unit]
+        if lvl ~= nil then return lvl end
+        return unit == "player" and 80 or 0
+    end
     _G.UnitName  = function(unit) return unit == "player" and "TestChar" or nil end
     _G.date      = function(fmt) return os.date(fmt) end
+
+    -- "Show Target Level" (v2.5.0): UnitClassification and the quest-
+    -- difficulty colour lookup. 3.3.5a may expose the latter under either
+    -- name (GetQuestDifficultyColor or GetDifficultyColor, private-server
+    -- dependent), so both stubs exist; production code resolves defensively
+    -- between them rather than assuming one exists.
+    _G.UnitClassification = function(unit) return M.unitClassification[unit] or "normal" end
+    _G.GetQuestDifficultyColor = function(level) return M.difficultyColor(level) end
+    _G.GetDifficultyColor      = function(level) return M.difficultyColor(level) end
 
     -- Blizzard globals BarWarden reads
     _G.RAID_CLASS_COLORS = _G.RAID_CLASS_COLORS or {
