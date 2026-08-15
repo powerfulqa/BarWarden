@@ -450,6 +450,16 @@ local function CreateBarsTab(parent)
         "grpAutoPinCombo", "grpAutoPinComboColor",
         "grpAutoValueTextDD", "grpAutoShowIcon",
     }
+    -- Group Name Follows Target (v2.5.0) only means anything on the two
+    -- feeds that read a unit other than the player: a player-resources
+    -- group's title following "you" would just repeat the group's own name
+    -- back, and every aura feed has no single "the unit" it is about in the
+    -- same way. Its own bucket rather than folding into
+    -- AUTO_RESOURCE_ONLY_WIDGET_IDS above, since that one shows for all
+    -- three resource feeds and this is narrower still.
+    local AUTO_TARGET_RESOURCE_ONLY_WIDGET_IDS = {
+        "grpAutoTitleFollowsUnit",
+    }
 
     -- Whether the selected group has an AURA feed picked (not "resources").
     -- The banned-spells section (built further down) is keyed off this too:
@@ -474,8 +484,8 @@ local function CreateBarsTab(parent)
     -- aura feed keys, or "resources".
     local function SetAutoSubWidgetsShown(value)
         local hasFeed = value ~= nil and value ~= ""
-        local isAura  = hasFeed and value ~= "resources" and value ~= "targetResources"
-                         and value ~= "totResources"
+        local isTargetResource = value == "targetResources" or value == "totResources"
+        local isAura  = hasFeed and value ~= "resources" and not isTargetResource
 
         local function setAll(ids, shown)
             for _, id in ipairs(ids) do
@@ -489,6 +499,7 @@ local function CreateBarsTab(parent)
         setAll(AUTO_SUB_WIDGET_IDS, hasFeed)
         setAll(AUTO_AURA_ONLY_WIDGET_IDS, isAura)
         setAll(AUTO_RESOURCE_ONLY_WIDGET_IDS, hasFeed and not isAura)
+        setAll(AUTO_TARGET_RESOURCE_ONLY_WIDGET_IDS, isTargetResource)
 
         autoFeedShown = isAura
         if UpdateBanList then UpdateBanList() end
@@ -1198,6 +1209,30 @@ local function CreateBarsTab(parent)
               local g = getGroup(); if not g then return end
               g.autoResourceShowIcon = v and true or false
               ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
+        -- Group Name Follows Target (v2.5.0): only shown for the target and
+        -- target's-target resource feeds (see
+        -- AUTO_TARGET_RESOURCE_ONLY_WIDGET_IDS above) - a player-resources
+        -- group following "you" would just repeat the group's own name.
+        -- Nil by default, so an existing group's title is unaffected until
+        -- ticked. Interacts with Show Group Name above it: that toggle still
+        -- owns whether the title shows AT ALL; this one only changes what
+        -- text it shows while it is visible - unticking Show Group Name
+        -- hides the title exactly as before, regardless of this setting.
+        -- The actual text is kept current by ns:ScanAutoResourceGroup
+        -- (BarEngine.lua), which reads UnitName off this feed's own unit and
+        -- only writes the fontstring when the resolved name actually
+        -- changes - no live update wired here to avoid fighting that path;
+        -- the 0.25s scan loop picks up a fresh toggle within one tick.
+        { type = "toggle", id = "grpAutoTitleFollowsUnit", label = "Group Name Follows Target",
+          tooltip = "Show the target's name as this group's title instead of "
+               .. "the name above. With no target selected, the title falls "
+               .. "back to the name above.",
+          get = function() local g = getGroup(); return g and g.autoTitleFollowsUnit end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoTitleFollowsUnit = v and true or false
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
         -- Invisible sentinel (no visible content, so no canonical column

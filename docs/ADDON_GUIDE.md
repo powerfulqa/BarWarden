@@ -316,11 +316,44 @@ across all three feeds; it splits by what the resource actually is:
 
 Pinning applies identically to all three feeds: `opts.pinned` reads off
 `unit` too (via the same `addPowerType` helper the current-power-type step
-uses), so "Always Show Rage" on a target-resources group pins the TARGET's
+uses), so "Keep Rage Visible" on a target-resources group pins the TARGET's
 rage, and on a target's-target group pins THAT unit's rage - never the
 player's. The existing zero-max guard in `addEntry` already makes pinning a
 power the unit does not have a no-op, so none of the three feeds needs an
 extra carve-out to keep that safe.
+
+**The pinned tickboxes are additive, never a removal switch** (v2.5.0
+wording fix). "Keep Mana/Rage/Energy/Combo Points Visible" read, before this
+fix, as the on/off switch for whether the resource ever shows - a druid in
+caster form unticking "Keep Mana Visible" and still seeing mana confused
+that reading, when the actual behaviour (mana is the current power type, so
+it shows regardless of the tickbox) was always correct. The labels and
+tooltips now say plainly that the resource already appears on its own
+whenever the unit is using it, and the tickbox only keeps it up the rest of
+the time - matching what the code has always done; no behaviour changed.
+
+**Group Name Follows Target** (`autoTitleFollowsUnit`, v2.5.0) lets the
+target and target's-target resource groups show the unit's own name as the
+title instead of the group's configured name - offered only on those two
+feeds (`AUTO_TARGET_RESOURCE_ONLY_WIDGET_IDS`, Options_Bars.lua): a
+player-resources group following "you" would just repeat its own name back.
+nil by default, so an existing group is unaffected until ticked.
+`ns:ResolveGroupTitleName(groupData, unitName)` (FrameManager.lua) is the
+pure decision: the unit's name when the option is on and a name was
+resolved, else the group's own configured name - including when no unit is
+selected at all (nil/empty `unitName`), so the title never goes blank while
+Show Group Name is ticked, it just reverts to the label the owner gave the
+group. It composes with Show Group Name rather than replacing it: that
+toggle still owns whether the title shows AT ALL
+(`frame.titleText:Show()`/`Hide()`, CreateTitleBar); this one only changes
+WHAT TEXT it carries while visible. Kept current by
+`ns:ScanAutoResourceGroup` (BarEngine.lua), which reads `UnitName(unit)`
+every scan (there is no event at all for "your target's target changed",
+same gap `ns:OnUnitDisplayPowerChanged` above already lives with) but only
+calls `group.titleText:SetText` when the resolved name actually differs
+from `group.lastTitleName`, a runtime-only cache field - so an unchanged
+title never touches the fontstring on the 4 Hz scan loop, keeping this off
+the true per-frame path even though the CHECK itself runs every scan.
 
 **Keeping `totResources` current.** `PLAYER_TARGET_CHANGED` only ever tells
 the addon that the PLAYER's own target changed; there is no client event at
@@ -448,6 +481,7 @@ resources-only, described further above under "The resources feed"):
 | `autoPinnedResources` | Any resources feed only (v2.5.0: now an ORDERED list, `{ { key = "mana", color = {r,g,b}? }, ... }`, in tick order; a group saved before this existed still carries the legacy set, `{ mana = true }` - `ns:NormalizePinnedResources` (Trackers.lua) accepts either shape, so no migration was needed). Resources the user ticked to always show even when not the unit's current power type, passed as `ns:CollectResources`'s `opts.pinned` and read against `opts.unit` (player, target, or targettarget). Each entry's optional `color` is the most specific level `ns:GetPinnedResourceColor` (Conditions.lua) resolves - see "Resource bar default colours" below. `mana`/`rage`/`energy` (`PINNABLE_POWER_TYPES`, Trackers.lua) and `combopoints` are the pinnable keys; `focus` was removed in v2.5.0 (see CHANGELOG) - a legacy save with `focus` still pinned just finds no match there and is silently dropped, no migration needed |
 | `autoResourceValueText` | Resources-feed only: nil/`""` (current/max, e.g. "3000/4500"), `"PERCENT"` ("67%"), or `"BOTH"` ("3000/4500 (67%)"). Read directly inside `ns:UpdateResourceBar` (BarEngine.lua) |
 | `autoResourceShowIcon` | Resources-feed only (v2.5.0): nil/unset defers to the addon-wide Show Icon default (so an upgrading group looks exactly as it did before this tickbox existed); `true`/`false` overrides it for every bar in this group. Read directly inside `ApplyVisualConfig` (Bar.lua), the same direct-read shape as `autoResourceValueText` above, since like it there is no per-bar equivalent to resolve against for an auto slot |
+| `autoTitleFollowsUnit` | `targetResources`/`totResources` only (v2.5.0). nil by default. When true, the group's title shows the feed's unit name instead of the group's own configured name - see "Group Name Follows Target" below |
 
 `iconOnly` used to live in this table as `autoIconOnly`, gated to
 auto-tracking groups only. It is now a general Bar Overrides setting (see

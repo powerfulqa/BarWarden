@@ -243,31 +243,45 @@ follow a druid through Bear, Cat, and Caster form live), then your class
 resources if you have any (combo points, runes, runic power, soul shards),
 with nothing to name by hand. Bars use the game's own colours by default -
 a blue mana bar, a red rage bar, a yellow energy bar, and so on - the same
-convention Blizzard's own frames use.
+convention Blizzard's own frames use. Death Knight rune bars are coloured
+by type too: blood red, frost blue, unholy green, with death runes their
+own distinct colour.
 
 "Health and power (target)" does the same for whatever you have targeted:
 its health, then its current power. Combo Points show here too, alongside
 the player resource group, since they are always your points on your
 current target either way you look at them. A target with nothing selected
-just shows nothing, the same as an empty group.
+just shows nothing, the same as an empty group. Tick **Group Name Follows
+Target** and the group's title shows the target's own name instead of the
+name you gave the group; with nothing selected, the title falls back to
+that name.
 
 "Health and power (target of target)" does the same again for whatever your
-target has targeted. Combo Points do NOT show here: they are always your
+target has targeted. Group Name Follows Target works here too, showing your
+target's target's name. Combo Points do NOT show here: they are always your
 points on your own target, not on whatever your target is looking at, so
 showing them under this group would just repeat the other group's number
 under the wrong label. A target with nothing of its own targeted shows
 nothing.
 
-- **Always Show Mana / Rage / Energy** - pin a power you always want
-  visible, even when it is not the one you are currently using. Bars appear
-  in the order you tick them, top to bottom; unticking one and re-ticking it
-  later moves it to the end rather than back to where it used to be. Each
-  pin gets its own colour swatch, which beats both the group's Custom Bar
-  Colour and the default power colour above. Works the same on either of
-  the target resource groups, pinning that group's own unit's power.
+- **Keep Mana / Rage / Energy / Combo Points Visible** - each resource
+  already appears on its own whenever it is what you are (or your target
+  is) currently using; these tickboxes just keep it up the rest of the
+  time too. Combo Points already show once you have some - the tickbox
+  keeps the bar up at zero too, and only does anything for a class that can
+  generate them. Bars appear in the order you tick them, top to bottom;
+  unticking one and re-ticking it later moves it to the end rather than
+  back to where it used to be. Each pin gets its own colour swatch, which
+  opens on the resource's own default colour and beats both the group's
+  Custom Bar Colour and the default power colour above. Works the same on
+  either of the target resource groups, pinning that group's own unit's
+  power.
 - **Show Icon** - show or hide the resource icon on this group's bars.
 - **Value Text** - how each bar's number is shown: Current / Max (`4200/5100`),
   Percent (`82%`), or Both (`4200/5100 (82%)`).
+- **Group Name Follows Target** - target and target-of-target groups only.
+  Shows the unit's own name as the group's title instead of the name you
+  gave the group; falls back to that name with nothing selected.
 
 Unlike an aura-tracking group, there is nothing to skip by duration, filter
 to your own casts, or ban one spell from: those settings hide for a
@@ -328,7 +342,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Sort Mode (Manual, Remaining Time, Alphabetical, As They Come)
 - Growth Direction (Down, Up)
 - Bar Overrides: Bar Texture, Text Format, Bar Style (Countdown, On or Off), Custom Bar Colour, Show Icons Only (a compact grid of spell icons instead of bars, sized with the Width slider), Custom Stack Text (its own size and colour for the stack count), and Custom Bar Effects (Glow on Ready, Pulse on Ready, Linger Time), all for the whole group at once - Custom Bar Effects is also the only way to turn these on for an auto-tracking group
-- Auto Track: fill the group from buffs or debuffs, or from health and power (yours, your target's, or your target's target's), instead of adding bars by hand. Any Health and power choice adds its own Always Show Mana/Rage/Energy tickboxes (in the order you tick them, each with an optional colour swatch), a Show Icon toggle, and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings
+- Auto Track: fill the group from buffs or debuffs, or from health and power (yours, your target's, or your target's target's), instead of adding bars by hand. Any Health and power choice adds its own Keep Mana/Rage/Energy/Combo Points Visible tickboxes (in the order you tick them, each with an optional colour swatch), a Show Icon toggle, and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings. The target and target-of-target choices also add a Group Name Follows Target tickbox
 - Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**

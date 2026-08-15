@@ -1166,6 +1166,28 @@ local function ScanAutoResourceGroup(group, groupData, unit)
             ns:DeactivateBar(bar, true)
         end
     end
+
+    -- Group Name Follows Target (v2.5.0): only meaningful on the two feeds
+    -- that read a unit other than the player (targetResources/totResources -
+    -- the Options UI only offers the tickbox on those two, but the
+    -- `unit ~= "player"` guard here means a stray saved value on the player
+    -- feed is still a harmless no-op rather than overwriting the player
+    -- feed's own title). There is no event at all for a target's target
+    -- changing (see ns:OnTargetChanged's own comment), so this can only ever
+    -- be kept current by the same 0.25s scan loop that already re-collects
+    -- this feed's resources - re-deriving one string here costs nothing next
+    -- to the UnitHealth/UnitPower calls ns:CollectResources just made above.
+    -- group.lastTitleName (a runtime-only field, never saved) is what keeps
+    -- the actual fontstring write off the per-scan path: an unchanged name
+    -- never touches it again until it actually changes.
+    if groupData.autoTitleFollowsUnit and unit ~= "player" and group.titleText then
+        local unitName = (UnitExists and UnitExists(unit)) and UnitName(unit) or nil
+        local resolved = ns:ResolveGroupTitleName(groupData, unitName)
+        if group.lastTitleName ~= resolved then
+            group.lastTitleName = resolved
+            group.titleText:SetText(resolved)
+        end
+    end
 end
 
 function ns:ScanAutoGroup(frameIndex, unitFilter)

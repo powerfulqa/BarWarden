@@ -185,6 +185,31 @@ local function OnDragStop(self)
     SaveFramePosition(self)
 end
 
+-- Resolve the title text a group's frame should show for THIS scan (v2.5.0
+-- "Group Name Follows Target"): the unit's own name when
+-- groupData.autoTitleFollowsUnit is ticked and a unit is actually selected,
+-- otherwise the group's own configured name. Nil by default, so an existing
+-- group's title is completely unaffected until the owner opts in.
+--
+-- "No unit selected" (unitName nil or "") falls back to the group's own
+-- name rather than going blank: the title stays legible identity for the
+-- group even with nothing to follow right now, matching how the group
+-- itself stays visible (rather than vanishing outright) while unlocked with
+-- an empty auto-tracking feed - see ns:ShouldHideEmptyGroup (Conditions.lua).
+--
+-- Pure (config + a resolved name string in, a string out) so this is
+-- testable without a live frame or a real UnitName call: the caller
+-- (ns:ScanAutoResourceGroup, BarEngine.lua) is the one that knows the unit
+-- token to ask WoW for a name, and whether the RESULT actually changed since
+-- the last scan - it decides whether to touch the fontstring at all, which
+-- is what keeps this off the per-frame OnUpdate path.
+function ns:ResolveGroupTitleName(groupData, unitName)
+    if groupData and groupData.autoTitleFollowsUnit and unitName and unitName ~= "" then
+        return unitName
+    end
+    return (groupData and groupData.name) or ""
+end
+
 -- ----------------------------------------------------------------------------
 -- CreateTitleBar: Build the title bar for a group frame
 -- ----------------------------------------------------------------------------

@@ -93,6 +93,21 @@ the same current-power-type signal the game itself uses.
   least one, the same as any other resource; ticking the pin keeps the bar
   up at zero too. It only ever does anything for a Rogue or Druid - ticking
   it for a class with no combo point pool still shows nothing.
+- **A new Group Name Follows Target tickbox**, on the target and
+  target-of-target resource groups, shows the unit's own name as the
+  group's title instead of the name you gave the group. Off by default; a
+  group with nothing selected falls back to its own name.
+- **The pinned resource tickboxes have been reworded.** "Always Show Mana /
+  Rage / Energy" read as the switch for whether the resource ever shows at
+  all; a druid in caster form unticking it and still seeing mana looked
+  like a bug, when mana showing was actually correct (it is their current
+  power). Now called "Keep Mana / Rage / Energy Visible", with tooltips
+  that say plainly the resource already shows on its own, and the tickbox
+  only keeps it up the rest of the time. No behaviour changed.
+- **Each pinned resource's colour swatch now opens on that resource's own
+  default colour** - mana blue, rage red, energy yellow - instead of the
+  same placeholder blue for every one, so the panel matches what the bar
+  actually draws before you ever touch the swatch.
 
 ---
 

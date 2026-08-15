@@ -334,4 +334,46 @@ function M.test_backdrop_populatedGroup_neverPositioned_honoursOwnAlpha()
     assertx.assertEqual(alpha, 0, "a populated group must honour its own alpha regardless of anchor")
 end
 
+-- --------------------------------------------------------------------------
+-- ns:ResolveGroupTitleName (v2.5.0): the pure half of "Group Name Follows
+-- Target" - given a group's own config and the unit's resolved name (or nil
+-- if there is none right now), decides what the title bar text should read.
+-- The live half (reading UnitName off the feed's actual unit, and only
+-- writing the fontstring when this resolved value changes) lives in
+-- ns:ScanAutoResourceGroup (BarEngine.lua) and rides the in-game smoke test.
+-- --------------------------------------------------------------------------
+
+function M.test_resolveGroupTitleName_followsUnitWhenTicked()
+    local ns = fresh()
+    local name = ns:ResolveGroupTitleName({ name = "Target", autoTitleFollowsUnit = true }, "Ragnaros")
+    assertx.assertEqual(name, "Ragnaros")
+end
+
+function M.test_resolveGroupTitleName_usesGroupNameWhenNotTicked()
+    local ns = fresh()
+    local name = ns:ResolveGroupTitleName({ name = "Target", autoTitleFollowsUnit = false }, "Ragnaros")
+    assertx.assertEqual(name, "Target")
+end
+
+function M.test_resolveGroupTitleName_niloptionDefaultsToGroupName()
+    local ns = fresh()
+    -- nil by default (existing groups unaffected until explicitly ticked).
+    local name = ns:ResolveGroupTitleName({ name = "Target" }, "Ragnaros")
+    assertx.assertEqual(name, "Target")
+end
+
+-- No unit selected (nil/empty unitName): falls back to the group's own
+-- configured name rather than going blank while the title is shown.
+function M.test_resolveGroupTitleName_noUnitFallsBackToGroupName()
+    local ns = fresh()
+    assertx.assertEqual(ns:ResolveGroupTitleName({ name = "Target", autoTitleFollowsUnit = true }, nil), "Target")
+    assertx.assertEqual(ns:ResolveGroupTitleName({ name = "Target", autoTitleFollowsUnit = true }, ""), "Target")
+end
+
+function M.test_resolveGroupTitleName_noGroupNameStillSafe()
+    local ns = fresh()
+    assertx.assertEqual(ns:ResolveGroupTitleName({ autoTitleFollowsUnit = true }, nil), "")
+    assertx.assertEqual(ns:ResolveGroupTitleName(nil, "Ragnaros"), "")
+end
+
 return M
