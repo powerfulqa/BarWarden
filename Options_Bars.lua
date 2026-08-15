@@ -692,6 +692,78 @@ local function CreateBarsTab(parent)
           end,
           offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
 
+        -- Same toggle-reveals-dependents shape as Custom Stack Text above:
+        -- "off" clears all three keys back to nil so every bar in the group
+        -- falls through to its own setting (ns:GetBarGlowOnReady/
+        -- GetBarPulseOnReady/GetBarLingerTime, Conditions.lua). This is also
+        -- the only way an auto-tracking group's slots - which have no bar
+        -- list of their own to set these on - can glow, pulse, or linger.
+        { type = "toggle", id = "grpBarEffectsToggle", label = "Custom Bar Effects",
+          tooltip = "Give this group's bars their own Glow on Ready, Pulse "
+               .. "on Ready and Linger Time instead of leaving it to each "
+               .. "bar. Turn off to let each bar decide for itself again.",
+          get = function()
+              local g = getGroup()
+              return g and (g.glowOnReady ~= nil or g.pulseOnReady ~= nil or g.lingerTime ~= nil)
+          end,
+          set = function(_, checked)
+              local g = getGroup(); if not g then return end
+              if checked then
+                  g.glowOnReady = g.glowOnReady or false
+                  g.pulseOnReady = g.pulseOnReady or false
+                  g.lingerTime = g.lingerTime or 0
+              else
+                  g.glowOnReady = nil
+                  g.pulseOnReady = nil
+                  g.lingerTime = nil
+              end
+              ns:RefreshAllBars()
+          end,
+          onChange = function(value)
+              local glowCB = groupSettingsWidgets.grpGlowToggle
+              local pulseCB = groupSettingsWidgets.grpPulseToggle
+              local slider = groupSettingsWidgets.grpLingerSlider
+              if glowCB then if value then glowCB:Show() else glowCB:Hide() end end
+              if pulseCB then if value then pulseCB:Show() else pulseCB:Hide() end end
+              if slider then if value then slider:Show() else slider:Hide() end end
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 12 },
+        -- Deliberate sub-items: indented like grpStackSizeSlider above (shown/
+        -- hidden together with the toggle), not the canonical per-type column.
+        { type = "toggle", id = "grpGlowToggle", label = "Glow on Ready",
+          tooltip = "Flash the icon on this group's bars when a cooldown "
+               .. "finishes or a tracked buff or debuff runs out.",
+          get = function() local g = getGroup(); return g and g.glowOnReady end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.glowOnReady = v and true or false
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 6 },
+        { type = "toggle", id = "grpPulseToggle", label = "Pulse on Ready",
+          tooltip = "Flash the spell icon at the centre of the screen when "
+               .. "this group's bars come off cooldown or a tracked buff or "
+               .. "debuff runs out.",
+          get = function() local g = getGroup(); return g and g.pulseOnReady end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.pulseOnReady = v and true or false
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 6 },
+        { type = "slider", id = "grpLingerSlider", label = "Linger Time (sec)",
+          min = 0, max = 5, step = 0.5, width = 150, stretch = true,
+          tooltip = "After a tracked cooldown or buff expires, this group's "
+               .. "bars hold at 0 for this many seconds before fading out. "
+               .. "Same range as the per-bar Linger Time slider.",
+          get = function() local g = getGroup(); return (g and g.lingerTime) or 0 end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.lingerTime = v
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
+
         -- Group-level visibility conditions. These hide the ENTIRE group
         -- (frame + all bars) when the condition fails, saving the user from
         -- ticking the same checkbox on every bar individually.

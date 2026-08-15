@@ -40,6 +40,11 @@ back, same as before.
   placeholder name it started with, both on the bar and in the Bars tab
   list. It now shows the spell's own name instead, so you can tell what
   every bar tracks at a glance.
+- **Groups can now set Glow on Ready, Pulse on Ready and Linger Time for
+  every bar at once.** A new Custom Bar Effects option on the Groups tab
+  applies these to the whole group in one go instead of setting them bar by
+  bar, and it is the only way to turn them on for an auto-tracking group,
+  which has no bar list of its own to set them on.
 
 ---
 

@@ -167,6 +167,50 @@ function ns:GetStackColor(bar)
     return visual.stackColor or { r = 1, g = 1, b = 1 }
 end
 
+-- Resolve "glow on ready" for a live bar: most-specific-wins (bar, then
+-- group, then off), the same per-level shape as GetStackFontSize/
+-- GetStackColor above rather than IsSwitchBar's group-authoritative one.
+-- An auto slot's display never carries this key at all (NewAutoBarData,
+-- FrameManager.lua, seeds only lingerTime), so it always falls through to
+-- the group - which is the whole point of offering it at group level.
+function ns:GetBarGlowOnReady(bar)
+    local disp = bar and bar.barData and bar.barData.display
+    if disp and disp.glowOnReady then return true end
+
+    local groupData = bar and bar.frameIndex and BarWardenDB and BarWardenDB.frames
+                      and BarWardenDB.frames[bar.frameIndex]
+    return not not (groupData and groupData.glowOnReady)
+end
+
+-- Same shape as GetBarGlowOnReady, for the centre-screen icon pulse.
+function ns:GetBarPulseOnReady(bar)
+    local disp = bar and bar.barData and bar.barData.display
+    if disp and disp.pulseOnReady then return true end
+
+    local groupData = bar and bar.frameIndex and BarWardenDB and BarWardenDB.frames
+                      and BarWardenDB.frames[bar.frameIndex]
+    return not not (groupData and groupData.pulseOnReady)
+end
+
+-- Resolve linger time the same way, but a bare truthy check does not work
+-- here: 0 is BarWarden's own "off" sentinel for this field (Bar_OnUpdate and
+-- ScanBar, BarEngine.lua, both gate on `lingerTime > 0`), and 0 is truthy in
+-- Lua. `if disp.lingerTime then` would misread every bar's untouched default
+-- of 0 (NewBar, Options_Bars.lua, and NewAutoBarData, FrameManager.lua) as an
+-- explicit override and the group's value would never be reachable. `> 0` is
+-- what makes "no bar override" mean the same thing here as at every other
+-- lingerTime read site.
+function ns:GetBarLingerTime(bar)
+    local disp = bar and bar.barData and bar.barData.display
+    if disp and disp.lingerTime and disp.lingerTime > 0 then return disp.lingerTime end
+
+    local groupData = bar and bar.frameIndex and BarWardenDB and BarWardenDB.frames
+                      and BarWardenDB.frames[bar.frameIndex]
+    if groupData and groupData.lingerTime and groupData.lingerTime > 0 then return groupData.lingerTime end
+
+    return 0
+end
+
 
 -- ----------------------------------------------------------------------------
 -- Built-in conditions.

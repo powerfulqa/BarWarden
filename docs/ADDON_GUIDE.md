@@ -221,10 +221,18 @@ tables are inert, not merely unused: `ScanBar` returns at the `bar.isAutoBar`
 check (BarEngine.lua) well before the line that reads `BarConditionsMet`, and
 `ns:ScanAutoGroup` evaluates `groupData.groupConditions` only, never a slot's
 own conditions. `NewAutoBarData` (FrameManager.lua) seeds `display =
-{ lingerTime = 0 }` only, so glow on ready, pulse on ready, linger, and the
-per-bar colour/scale overrides read as absent too. There is also no UI path
-to set either, since the per-bar editor closes for an auto group. See
-CODE_REVIEW.md item 21.
+{ lingerTime = 0 }` only, so a slot's own glow on ready, pulse on ready and
+linger are always absent, and the per-bar colour/scale overrides read as
+absent too. There is also no UI path to set any of them directly, since the
+per-bar editor closes for an auto group.
+
+Since v2.3.1, Glow on Ready, Pulse on Ready and Linger Time are also
+resolvable at group level (`ns:GetBarGlowOnReady` / `ns:GetBarPulseOnReady` /
+`ns:GetBarLingerTime`, Conditions.lua - see the group-overrides table below),
+so the Groups tab's Custom Bar Effects toggle is the only way to turn these
+three on for an auto-tracking group. The per-bar colour/scale overrides have
+no group-level equivalent and stay unreachable there. See CODE_REVIEW.md item
+20.
 
 Two invariants hold the design together:
 
@@ -373,6 +381,9 @@ takes a group override MUST be read through its resolver, never straight off
 | Icon Only (square icon grid, no bar/text) | read directly as `group.iconOnly` in `ApplyVisualConfig` (Bar.lua) and `ns:UpdateGroupLayout` (FrameManager.lua); no resolver function, no bar-level override | group only (boolean, not an Inherit tri-state) |
 | Stack text size | `ns:GetStackFontSize(bar)` ([Conditions.lua](../Conditions.lua)) | bar (`display.stackFontSize`) then group (`group.stackFontSize`) then global (`visual.stackFontSize`) |
 | Stack text colour | `ns:GetStackColor(bar)` ([Conditions.lua](../Conditions.lua)), returns a `{ r, g, b }` table | bar (`display.stackColor`) then group (`group.stackColor`) then global (`visual.stackColor`) |
+| Glow on ready | `ns:GetBarGlowOnReady(bar)` ([Conditions.lua](../Conditions.lua)) | bar (`display.glowOnReady`, truthy) then group (`group.glowOnReady`) then off |
+| Pulse on ready | `ns:GetBarPulseOnReady(bar)` ([Conditions.lua](../Conditions.lua)) | bar (`display.pulseOnReady`, truthy) then group (`group.pulseOnReady`) then off |
+| Linger time | `ns:GetBarLingerTime(bar)` ([Conditions.lua](../Conditions.lua)) | bar (`display.lingerTime`, only when `> 0`) then group (`group.lingerTime`, only when `> 0`) then 0 |
 
 A group reaches its data from a live bar via
 `bar.frameIndex -> BarWardenDB.frames[bar.frameIndex]`.
@@ -441,6 +452,24 @@ addon-wide default instead of erroring. The Custom Stack Text toggle on both
 the Groups tab (`GROUP_SETTINGS_SCHEMA`) and the bar editor (`EDITOR_SCHEMA`)
 writes/clears `stackFontSize`/`stackColor` (`display.*` for the bar) together,
 same toggle-reveals-swatch mechanism as Custom Bar Colour.
+
+`ns:GetBarGlowOnReady` / `ns:GetBarPulseOnReady` / `ns:GetBarLingerTime`
+(v2.3.1) are most-specific-wins like the stack pair, but the bar side of that
+precedence is a plain always-present checkbox/slider rather than a field
+gated behind its own per-bar "Custom" toggle, so "the bar has its own value"
+has to be read as **truthy**, not merely non-nil: `disp.glowOnReady` /
+`disp.pulseOnReady` win only when `true` (an untouched, still-`false` bar
+defers to the group; a bar cannot force the effect off against a group that
+has it on - the trade-off of not having a per-bar nil state to spend). Linger
+time additionally has to guard on `> 0`, not truthiness alone, because 0 is
+both the field's schema default (`NewBar`, Options_Bars.lua, and
+`NewAutoBarData`, FrameManager.lua) and its existing "off" sentinel at every
+other read site (`Bar_OnUpdate`/`ScanBar` both gate on `lingerTime > 0`) - and
+0 is truthy in Lua, so a bare `if disp.lingerTime then` would treat every
+untouched bar as having its own override and the group's Linger Time would
+never be reachable. The Custom Bar Effects toggle on the Groups tab
+(`GROUP_SETTINGS_SCHEMA`) writes/clears all three group keys together, same
+mechanism as Custom Stack Text.
 
 Adding a new group override means: the widget in
 [Options_Bars.lua](../Options_Bars.lua) `GROUP_SETTINGS_SCHEMA` (with an

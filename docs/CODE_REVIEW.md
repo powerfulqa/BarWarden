@@ -131,11 +131,18 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     that test bars do not appear in an auto group is only strictly true while
     the group is empty. Low, cosmetic.
 20. **Per-bar display settings never reach an auto slot.** `NewAutoBarData`
-    (FrameManager.lua) supplies `display = { lingerTime = 0 }` only, so glow on
-    ready, pulse on ready, linger, and the per-bar colour/scale overrides never
-    apply to an auto bar, since they are read from `bar.barData.display`.
-    Group-level and addon-wide visuals still apply; this is intended, and
-    ADDON_GUIDE's auto-tracking section now says so. Low.
+    (FrameManager.lua) supplies `display = { lingerTime = 0 }` only, so a
+    slot's own glow on ready, pulse on ready, linger, and the per-bar
+    colour/scale overrides never apply to an auto bar, since they are read
+    from `bar.barData.display`. Group-level and addon-wide visuals still
+    apply; this is intended, and ADDON_GUIDE's auto-tracking section says so.
+    **Partly resolved in v2.3.1**: glow on ready, pulse on ready and linger
+    now have a group-level equivalent (`ns:GetBarGlowOnReady` /
+    `ns:GetBarPulseOnReady` / `ns:GetBarLingerTime`, Conditions.lua, plus the
+    Groups tab's Custom Bar Effects toggle), which an auto-tracking group can
+    use since it has no bar list of its own to set them on. The per-bar
+    colour/scale overrides have no group-level equivalent and remain
+    unreachable there. Low.
 
 21. **Nothing calls `ns:DeleteFrame`.** The Bars tab's Delete button deletes a
     group inline (`table.remove` + `frame:Refresh()` + `ns:RebuildAllFrames()`,

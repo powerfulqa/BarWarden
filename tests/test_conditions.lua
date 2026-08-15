@@ -553,4 +553,125 @@ function M.test_getStackColor_safeWithoutData()
     _G.BarWardenDB = nil
 end
 
+-- --------------------------------------------------------------------------
+-- GetBarGlowOnReady / GetBarPulseOnReady / GetBarLingerTime: most-specific-
+-- wins (bar, then group, then off), the same per-level shape as
+-- GetStackFontSize/GetStackColor above rather than IsSwitchBar's group-
+-- authoritative one. Reuses switchBarIn for the same reason those two do.
+-- --------------------------------------------------------------------------
+
+function M.test_getBarGlowOnReady_barWinsOverGroup()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { glowOnReady = false } } }
+    assertx.assertTrue(ns:GetBarGlowOnReady(switchBarIn(1, { glowOnReady = true })))
+    _G.BarWardenDB = nil
+end
+
+function M.test_getBarGlowOnReady_groupWinsWhenBarHasNone()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { glowOnReady = true } } }
+    assertx.assertTrue(ns:GetBarGlowOnReady(switchBarIn(1, { glowOnReady = false })))
+    _G.BarWardenDB = nil
+end
+
+function M.test_getBarGlowOnReady_offWhenNeitherSet()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { {} } }
+    assertx.assertFalse(ns:GetBarGlowOnReady(switchBarIn(1, { glowOnReady = false })))
+    _G.BarWardenDB = nil
+end
+
+-- Safe without data: nil bar, nil barData, missing frameIndex and a missing
+-- group entry all fall through to false rather than erroring.
+function M.test_getBarGlowOnReady_safeWithoutData()
+    local ns = fresh()
+    assertx.assertFalse(ns:GetBarGlowOnReady(nil))
+    assertx.assertFalse(ns:GetBarGlowOnReady({}))
+    assertx.assertFalse(ns:GetBarGlowOnReady({ frameIndex = 1, barData = {} }))
+
+    _G.BarWardenDB = { frames = {} }
+    assertx.assertFalse(ns:GetBarGlowOnReady(switchBarIn(1, {})))
+    _G.BarWardenDB = nil
+end
+
+function M.test_getBarPulseOnReady_barWinsOverGroup()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { pulseOnReady = false } } }
+    assertx.assertTrue(ns:GetBarPulseOnReady(switchBarIn(1, { pulseOnReady = true })))
+    _G.BarWardenDB = nil
+end
+
+function M.test_getBarPulseOnReady_groupWinsWhenBarHasNone()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { pulseOnReady = true } } }
+    assertx.assertTrue(ns:GetBarPulseOnReady(switchBarIn(1, { pulseOnReady = false })))
+    _G.BarWardenDB = nil
+end
+
+function M.test_getBarPulseOnReady_offWhenNeitherSet()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { {} } }
+    assertx.assertFalse(ns:GetBarPulseOnReady(switchBarIn(1, { pulseOnReady = false })))
+    _G.BarWardenDB = nil
+end
+
+function M.test_getBarPulseOnReady_safeWithoutData()
+    local ns = fresh()
+    assertx.assertFalse(ns:GetBarPulseOnReady(nil))
+    assertx.assertFalse(ns:GetBarPulseOnReady({}))
+    assertx.assertFalse(ns:GetBarPulseOnReady({ frameIndex = 1, barData = {} }))
+
+    _G.BarWardenDB = { frames = {} }
+    assertx.assertFalse(ns:GetBarPulseOnReady(switchBarIn(1, {})))
+    _G.BarWardenDB = nil
+end
+
+function M.test_getBarLingerTime_barWinsOverGroup()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { lingerTime = 1 } } }
+    assertx.assertEqual(ns:GetBarLingerTime(switchBarIn(1, { lingerTime = 3 })), 3)
+    _G.BarWardenDB = nil
+end
+
+function M.test_getBarLingerTime_groupWinsWhenBarHasNone()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { lingerTime = 2 } } }
+    assertx.assertEqual(ns:GetBarLingerTime(switchBarIn(1, {})), 2)
+    _G.BarWardenDB = nil
+end
+
+-- Regression: an auto slot's display always carries lingerTime = 0 (its only
+-- seeded field - NewAutoBarData, FrameManager.lua) and an ordinary bar's
+-- display defaults to the same 0 (NewBar, Options_Bars.lua). 0 is truthy in
+-- Lua, so a bare `if disp.lingerTime then` would misread that untouched
+-- default as an explicit bar override and the group's Linger Time would
+-- never be reachable. This is the case that makes "an auto slot never has
+-- its own value, so the group's always applies there" true.
+function M.test_getBarLingerTime_barZeroDoesNotShadowGroup()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { { lingerTime = 2.5 } } }
+    assertx.assertEqual(ns:GetBarLingerTime(switchBarIn(1, { lingerTime = 0 })), 2.5)
+    _G.BarWardenDB = nil
+end
+
+function M.test_getBarLingerTime_offWhenNeitherSet()
+    local ns = fresh()
+    _G.BarWardenDB = { frames = { {} } }
+    assertx.assertEqual(ns:GetBarLingerTime(switchBarIn(1, {})), 0)
+    _G.BarWardenDB = nil
+end
+
+-- Safe without data: nil bar, nil barData, missing frameIndex and a missing
+-- group entry all fall through to 0 rather than erroring.
+function M.test_getBarLingerTime_safeWithoutData()
+    local ns = fresh()
+    assertx.assertEqual(ns:GetBarLingerTime(nil), 0)
+    assertx.assertEqual(ns:GetBarLingerTime({}), 0)
+    assertx.assertEqual(ns:GetBarLingerTime({ frameIndex = 1, barData = {} }), 0)
+
+    _G.BarWardenDB = { frames = {} }
+    assertx.assertEqual(ns:GetBarLingerTime(switchBarIn(1, {})), 0)
+    _G.BarWardenDB = nil
+end
+
 return M

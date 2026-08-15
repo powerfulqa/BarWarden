@@ -424,8 +424,9 @@ local function Bar_OnUpdate(self, elapsed)
     -- Active state
     local remaining = self.expirationTime - now
     if remaining <= 0 then
-        -- Cooldown/buff has expired
-        local lingerTime = display.lingerTime or 0
+        -- Cooldown/buff has expired. ns:GetBarLingerTime (Conditions.lua)
+        -- falls through to the group's Linger Time when this bar has none.
+        local lingerTime = ns:GetBarLingerTime(self)
         if lingerTime > 0 then
             self.barState = BAR_STATE.LINGERING
             self.lingerRemaining = lingerTime
@@ -742,8 +743,11 @@ function ns:DeactivateBar(bar, skipGlow)
     -- Glow on ready: if enabled, flash the bar briefly to signal the spell is ready.
     -- skipGlow is true during teardown/rebuild so internal lifecycle events don't
     -- trigger glow animations as if a cooldown had just expired.
-    local glowDisplay = bar.barData and bar.barData.display
-    if not skipGlow and glowDisplay and glowDisplay.glowOnReady then
+    -- ns:GetBarGlowOnReady/GetBarPulseOnReady (Conditions.lua) resolve the
+    -- bar's own setting, falling through to the group's Custom Bar Effects
+    -- override when the bar has none - which is the only way an auto-
+    -- tracking slot (whose own display is never wired up) can glow/pulse.
+    if not skipGlow and ns:GetBarGlowOnReady(bar) then
         activeGlows[bar] = GetTime()
         bar:SetAlpha(1.0)
         bar:Show()
@@ -755,7 +759,7 @@ function ns:DeactivateBar(bar, skipGlow)
 
     -- Pulse on ready: centre-screen icon flash (Doom_CooldownPulse pattern).
     -- Uses the bar's current icon texture so the user sees which spell is ready.
-    if not skipGlow and glowDisplay and glowDisplay.pulseOnReady then
+    if not skipGlow and ns:GetBarPulseOnReady(bar) then
         local tex = bar.iconTexture and bar.iconTexture:GetTexture()
         if tex then ns:TriggerPulse(tex) end
     end
@@ -1030,10 +1034,17 @@ local function ScanBar(bar, unitFilter)
     -- Tracker reports inactive: deactivate (with optional linger)
     if bar.barState ~= BAR_STATE.ACTIVE then return end
 
-    local lingerTime = (bd.display and bd.display.lingerTime) or 0
-    -- A static (permanent-aura) bar carries no OnUpdate because it never
-    -- depletes, and OnUpdate is the only thing that ends a linger. Letting one
-    -- linger would strand it at 0 fill reading "0.0" until /reload.
+    -- ns:GetBarLingerTime falls through to the group's Linger Time when this
+    -- bar has none (Conditions.lua); ScanBar never reaches an auto slot at
+    -- all (bar.isAutoBar returns above), so this only matters for ordinary
+    -- bars, but the resolver is nil-safe regardless.
+    local lingerTime = ns:GetBarLingerTime(bar)
+    -- A static (permanent-aura or switch-mode) bar carries no OnUpdate
+    -- because it never depletes, and OnUpdate is the only thing that ends a
+    -- linger. Letting one linger would strand it at 0 fill reading "0.0"
+    -- until /reload - true whether the linger time came from the bar or, now,
+    -- the group, so this guard still has to run after the resolver, not
+    -- before it.
     if lingerTime > 0 and not bar.isStaticBar then
         bar.barState = BAR_STATE.LINGERING
         bar.lingerRemaining = lingerTime
