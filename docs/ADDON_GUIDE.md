@@ -512,8 +512,10 @@ read site - `ResolveHideWhenInactive` replaced five separate
 ### Declarative options schema (`ns:BuildSettings`)
 
 [Options_Builder.lua](../Options_Builder.lua) walks a schema table and
-builds one widget per entry, anchoring each below the previous, and
-returns a Refresh closure that re-reads DB values into the widgets.
+builds one widget per entry, chaining each below the previous, and returns
+**two** values: a Refresh closure that re-reads DB values into the widgets,
+and a Reflow function that re-anchors the currently VISIBLE widgets to close
+any gap a hidden one would otherwise leave.
 
 ```lua
 local SCHEMA = {
@@ -523,11 +525,42 @@ local SCHEMA = {
                        refresh = "UpdateMinimapButtonVisibility" },
     { type = "note",   text = "Help text", spacing = 6 },
 }
-frame.Refresh = ns:BuildSettings(frame, SCHEMA)
+frame.Refresh, frame.Reflow = ns:BuildSettings(frame, SCHEMA)
 ```
 
-Used by [Options_General.lua](../Options_General.lua) and
-[Options_Visuals.lua](../Options_Visuals.lua).
+Used by [Options_General.lua](../Options_General.lua),
+[Options_Visuals.lua](../Options_Visuals.lua), and (both return values, for
+the reveal-pattern settings on its Group Settings and bar editor panels)
+[Options_Bars.lua](../Options_Bars.lua).
+
+The vertical chain is reflowable, not fixed at build time: a widget hidden
+via `widget:Hide()` (a master toggle or dropdown revealing sub-settings via
+its `onChange`) is skipped entirely on the next reflow, and the widgets that
+were chained below it re-anchor to whichever visible widget now precedes
+them, closing the gap. Only the VERTICAL position ever moves this way -
+`offsetX` stays exactly the absolute column it always was (see below), and
+an `anchorTo` entry is never folded into the chain by a reflow; it keeps
+following its named target, hidden or not (see `anchorTo` below).
+
+Refresh calls Reflow itself at the end of every pass, since its own
+`onChange` hooks are what usually drive visibility. That covers a Refresh
+triggered by selecting a different group/bar or reopening a panel, but NOT a
+live user click: clicking a checkbox fires its `set` callback (and then
+`onChange`) directly, bypassing Refresh's schema walk entirely. Any
+show/hide helper that calls `widget:Show()`/`Hide()` from an `onChange` must
+therefore call the panel's own Reflow itself right afterwards - see
+Options_Bars.lua for `reflowGroupSettings`/`reflowEditorSettings` for the
+pattern (a master toggle's `onChange`, plus the forward-declared upvalues
+needed because the show/hide helper is defined - and can fire - before the
+`ns:BuildSettings` call that assigns it).
+
+Reflow returns the screen-space `GetBottom()` of the last widget it
+positioned (or nil if nothing in the schema is visible) - the true bottom of
+the live content regardless of which entry the schema lists last, useful for
+a scroll child's height fitter that would otherwise need a hand-picked
+sentinel widget that might itself be one of the hidden ones (see
+`fitEditorHeight` in Options_Bars.lua, whose old sentinel - the Stack Text
+Colour swatch - is exactly a widget Custom Stack Text can hide).
 
 Two ways to wire a setting:
 
@@ -548,8 +581,10 @@ Add new types by extending the `BUILDERS` + `APPLIERS` dispatch tables.
 
 Cross-widget coordination: `id = "<name>"` exposes a widget via an
 optional `widgetRefs` table; `onChange = fn` fires after user writes and
-after Refresh; `anchorTo = "<id>"` overrides "anchor to previous";
-`opts = { firstX, firstY }` (4th arg) overrides first-widget placement.
+after Refresh (call the panel's own Reflow return value here too if it
+Shows()/Hides() another widget by id); `anchorTo = "<id>"` overrides "anchor
+to previous"; `opts = { firstX, firstY }` (4th arg) overrides first-widget
+placement.
 
 `offsetX` is an **absolute** indent from the panel's left edge (added to
 `firstX`), not a nudge from the previous widget - two schema entries with

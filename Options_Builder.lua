@@ -10,7 +10,27 @@ local addonName, ns = ...
 --
 -- ns:BuildSettings(parent, schema, widgetRefs?, opts?) walks `schema`, builds
 -- one widget per entry under `parent`, anchors each below the previous, and
--- returns a Refresh closure that re-reads DB values into the live widgets.
+-- returns two values:
+--   1. Refresh   - re-reads DB values into the live widgets (and fires
+--                  onChange for each, then reflows - see below).
+--   2. Reflow    - re-anchors every currently VISIBLE widget to the previous
+--                  VISIBLE one, closing the gap a hidden widget would
+--                  otherwise leave. Refresh calls this itself at the end of
+--                  every pass (its onChange hooks are what drive visibility),
+--                  but a live user click bypasses Refresh entirely (it goes
+--                  through the per-entry set callback, not the schema walk),
+--                  so any onChange/show-hide helper that Shows()/Hides() a
+--                  widget must call the caller's own Reflow after doing so.
+--                  Returns the screen-space GetBottom() of the last widget it
+--                  positioned (or nil if nothing in the schema is visible),
+--                  so a caller measuring a scroll child's real content height
+--                  can use that instead of a hand-picked sentinel id that
+--                  might itself be one of the widgets that just got hidden.
+--
+-- Only the VERTICAL chain reflows. Horizontal position (offsetX, resolved
+-- once at build time into an absolute x-from-parent's-left-edge) never
+-- changes: hiding or showing a widget only ever opens or closes vertical
+-- space, never shifts a column.
 --
 -- opts table (all optional):
 --   firstX / firstY   : x/y offset of the first widget from parent's TOPLEFT
@@ -36,7 +56,12 @@ local addonName, ns = ...
 --                               widget relative to another already-rendered
 --                               entry's widget. Does NOT affect the chain
 --                               pointer; the next entry without anchorTo
---                               anchors to THIS entry normally.
+--                               anchors to THIS entry normally (unless it is
+--                               hidden, in which case it is skipped like any
+--                               other hidden entry - see Reflow, above). A
+--                               reflow never re-anchors an anchorTo entry
+--                               into the chain: it always stays relative to
+--                               its named target, hidden or not.
 --
 -- Inspired by Ace3's AceConfig pattern, but homegrown and minimal, with no
 -- library dependency. Used by Options_General.lua (v1.4.0) and
@@ -324,6 +349,77 @@ local function ResolveValue(entry)
 end
 
 -- ----------------------------------------------------------------------------
+-- Vertical layout: positions ONE rendered entry - either chaining it below
+-- `prevWidget` (the previous VISIBLE widget) or, if it carries `anchorTo`,
+-- pinning it to a named widget instead. Shared by the initial build loop and
+-- by Reflow (below): a freshly built widget is shown by default, so the
+-- "only position a shown widget" gate is a no-op at build time and the real
+-- skip-hidden logic once Reflow starts running after user-driven Show/Hide -
+-- one copy of the anchor maths instead of two that could drift apart.
+--
+-- Returns the widget if it was positioned, so the caller's running chain tip
+-- becomes this widget, or nil if it was skipped for being hidden - the
+-- caller must then leave its chain tip unchanged, so the NEXT visible entry
+-- still chains off the last widget that was actually shown.
+--
+-- Anchor resolution:
+--   1. First VISIBLE widget pins to parent TOPLEFT at (firstX + offsetX, firstY).
+--   2. `anchorTo = "<id>"` anchors relative to another rendered widget by id
+--      (via widgetRefs), offsetX/gap staying a relative nudge from THAT
+--      widget - a deliberate branch off the main chain (see
+--      Options_Visuals.lua's textureDD/customTexBox), not a positioning bug,
+--      so it keeps the old relative semantics and is never folded into the
+--      chain by a reflow. Re-running this SetPoint on every reflow (even
+--      while the target is itself hidden) is harmless: same widget, same
+--      numbers, and WoW keeps a hidden frame's own anchored position live so
+--      a visible dependant still lands in the right place.
+--   3. Otherwise, chain y below `prevWidget` (so variable-height widgets like
+--      wrapped notes still flow correctly) but pin x to parent's left edge,
+--      so offsetX stays absolute and independent of every other entry. A
+--      single TOPLEFT-to-BOTTOMLEFT anchor gets there by computing the x
+--      delta from `prevWidget`'s already-known resolved x (widgetX[prevWidget])
+--      to the target absolute x: anchoring at ((firstX + offsetX) -
+--      widgetX[prevWidget]) lands this widget's left edge at exactly firstX +
+--      offsetX from the parent's left edge, same result as the old TOP/LEFT
+--      anchor pair, without pinning two different corner points (one of
+--      which carries an implicit centring component on the other axis) on
+--      the same frame.
+--
+-- Only ever sets the TOPLEFT point, never touches RIGHT: a `stretch` entry's
+-- parent-relative RIGHT anchor (set once, separately, by the caller) is
+-- untouched by any later reflow.
+-- ----------------------------------------------------------------------------
+local function PositionEntry(parent, r, prevWidget, widgetX, widgetRefs, firstX, firstY)
+    local widget, entry = r.widget, r.entry
+    if not widget:IsShown() then
+        return nil
+    end
+
+    local offsetX = entry.offsetX or 0
+    local gap = entry.spacing or DEFAULT_GAP
+    local anchorWidget
+    if entry.anchorTo and widgetRefs then
+        anchorWidget = widgetRefs[entry.anchorTo]
+    end
+
+    local resolvedX
+    if anchorWidget then
+        widget:SetPoint("TOPLEFT", anchorWidget, "BOTTOMLEFT", offsetX, -gap)
+        resolvedX = (widgetX[anchorWidget] or 0) + offsetX
+    elseif not prevWidget then
+        widget:SetPoint("TOPLEFT", parent, "TOPLEFT", firstX + offsetX, firstY)
+        resolvedX = firstX + offsetX
+    else
+        local prevX = widgetX[prevWidget] or firstX
+        widget:SetPoint("TOPLEFT", prevWidget, "BOTTOMLEFT", (firstX + offsetX) - prevX, -gap)
+        resolvedX = firstX + offsetX
+    end
+    widgetX[widget] = resolvedX
+
+    return widget
+end
+
+-- ----------------------------------------------------------------------------
 -- Public: BuildSettings
 -- ----------------------------------------------------------------------------
 
@@ -331,12 +427,16 @@ function ns:BuildSettings(parent, schema, widgetRefs, opts)
     local firstX = (opts and opts.firstX) or FIRST_X
     local firstY = (opts and opts.firstY) or FIRST_Y
 
-    local rendered = {}    -- list of { widget, entry } for the Refresh closure
+    local rendered = {}    -- list of { widget, entry } for Refresh/Reflow
     local prev             -- chain tip: the previous in-flow widget
     local widgetX = {}      -- widget -> its resolved x-from-parent's-left-edge,
                             -- so a later entry chaining off it (as `prev`, or
                             -- via `anchorTo`) can compute a single-anchor delta
-                            -- without re-deriving an absolute frame position
+                            -- without re-deriving an absolute frame position.
+                            -- Purely a function of each entry's own static
+                            -- offsetX (plus, for anchorTo, the target's own
+                            -- widgetX), so it never needs recomputing once
+                            -- built - only the y-chain (prev) changes on reflow.
 
     for i, entry in ipairs(schema) do
         local builder = BUILDERS[entry.type]
@@ -361,63 +461,55 @@ function ns:BuildSettings(parent, schema, widgetRefs, opts)
             widgetRefs[entry.id] = widget
         end
 
-        -- Anchor resolution:
-        --   1. First widget pins to parent TOPLEFT at (firstX + offsetX, firstY).
-        --   2. `anchorTo = "<id>"` anchors relative to another rendered
-        --      widget by id (using widgetRefs lookup), offsetX/gap staying a
-        --      relative nudge from THAT widget - this is a deliberate branch
-        --      off the main chain (see Options_Visuals.lua's textureDD/
-        --      customTexBox), not a positioning bug, so it keeps the old
-        --      relative semantics. The chain pointer (prev) still updates to
-        --      THIS widget for subsequent entries.
-        --   3. Otherwise, chain y below `prev` (so variable-height widgets
-        --      like wrapped notes still flow correctly) but pin x to parent's
-        --      left edge, so offsetX stays absolute and independent of every
-        --      other entry. A single TOPLEFT-to-BOTTOMLEFT anchor gets there
-        --      by computing the x delta from `prev`'s already-known resolved
-        --      x (widgetX[prev]) to the target absolute x: anchoring at
-        --      ((firstX + offsetX) - widgetX[prev]) lands this widget's left
-        --      edge at exactly firstX + offsetX from the parent's left edge,
-        --      same result as the old TOP/LEFT anchor pair, without pinning
-        --      two different corner points (one of which carries an implicit
-        --      centring component on the other axis) on the same frame.
-        local offsetX = entry.offsetX or 0
-        local gap = entry.spacing or DEFAULT_GAP
-        local anchorWidget
-        if entry.anchorTo and widgetRefs then
-            anchorWidget = widgetRefs[entry.anchorTo]
-        end
-
-        local resolvedX
-        if anchorWidget then
-            widget:SetPoint("TOPLEFT", anchorWidget, "BOTTOMLEFT", offsetX, -gap)
-            resolvedX = (widgetX[anchorWidget] or 0) + offsetX
-        elseif not prev then
-            widget:SetPoint("TOPLEFT", parent, "TOPLEFT", firstX + offsetX, firstY)
-            resolvedX = firstX + offsetX
-        else
-            local prevX = widgetX[prev] or firstX
-            widget:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", (firstX + offsetX) - prevX, -gap)
-            resolvedX = firstX + offsetX
-        end
-        widgetX[widget] = resolvedX
+        local r = { widget = widget, entry = entry }
+        local positioned = PositionEntry(parent, r, prev, widgetX, widgetRefs, firstX, firstY)
+        if positioned then prev = positioned end
 
         -- Full-width entries (editboxes, sliders) also pin their RIGHT edge to
         -- the parent, so they stretch to the panel width instead of a fixed
         -- `width`. Dropdowns cannot stretch this way (their box width is a
-        -- template property), so they are left alone.
+        -- template property), so they are left alone. Set once here, never
+        -- touched by a later reflow (PositionEntry only ever sets TOPLEFT).
         if entry.stretch then
             widget:SetPoint("RIGHT", parent, "RIGHT", -(entry.stretchPad or 6), 0)
         end
 
-        rendered[#rendered + 1] = { widget = widget, entry = entry }
-        prev = widget
+        rendered[#rendered + 1] = r
+    end
+
+    -- Reflow: re-anchors every currently VISIBLE widget to the previous
+    -- VISIBLE one, so a widget some onChange hid closes the gap it would
+    -- otherwise leave rather than that space staying empty forever (widgets
+    -- were previously anchored once, at build time, with no way to re-flow
+    -- around a later Show()/Hide()). Cheap and infrequent by construction:
+    -- it only runs from Refresh (below) and from a caller's own show/hide
+    -- helper, both user-driven, never per-frame or from the scan loop.
+    --
+    -- Returns the screen-space GetBottom() of the last widget it positioned
+    -- (nil if nothing in the schema is visible), so a caller measuring a
+    -- scroll child's real content height can use that instead of a
+    -- hand-picked sentinel id, which might be exactly the widget that just
+    -- got hidden.
+    local function Reflow()
+        local reflowPrev
+        local lastBottom
+        for _, r in ipairs(rendered) do
+            local positioned = PositionEntry(parent, r, reflowPrev, widgetX, widgetRefs, firstX, firstY)
+            if positioned then
+                reflowPrev = positioned
+                local bottom = positioned:GetBottom()
+                if bottom then lastBottom = bottom end
+            end
+        end
+        return lastBottom
     end
 
     -- Refresh closure: walks the rendered list, applies current DB values
     -- back into widgets, and fires onChange hooks so coupled widgets resync.
     -- Brackets itself with ns.suppressCallbacks so SetValue/SetChecked calls
-    -- inside appliers don't loop back into user-write callbacks.
+    -- inside appliers don't loop back into user-write callbacks. Reflows at
+    -- the end, since the onChange hooks just fired are exactly what drive
+    -- widget visibility.
     return function()
         if not BarWardenDB then return end
         ns.suppressCallbacks = true
@@ -439,5 +531,6 @@ function ns:BuildSettings(parent, schema, widgetRefs, opts)
             end
         end
         ns.suppressCallbacks = false
-    end
+        Reflow()
+    end, Reflow
 end

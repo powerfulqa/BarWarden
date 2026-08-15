@@ -28,8 +28,10 @@ local MAX_BAR_ROWS = 6
 -- (mirrors the Activity Tracker table in Options_Stats.lua) with a FIXED
 -- number of visible rows: it never grows or shrinks its container, it only
 -- scrolls once there are more entries than fit. A fixed footprint is what
--- keeps fitGroupHeight's one-time measurement valid; see fitGroupHeight,
--- further down, and the block comment above the ban-list section.
+-- keeps fitGroupHeight's measurement predictable (a ban count that resized
+-- this section would need its own reflow trigger, on top of the Auto Track
+-- section's); see fitGroupHeight, further down, and the block comment above
+-- the ban-list section.
 local MAX_BAN_ROWS = 10
 local BAN_ROW_HEIGHT = 18
 local BAN_ICON_SIZE = 16
@@ -415,9 +417,15 @@ local function CreateBarsTab(parent)
     }
 
     -- The auto sub-settings mean nothing with no feed picked, so they hide.
-    -- BuildSettings positions widgets once, at build time, which is why this
-    -- block is last on the page: hiding it shortens the panel rather than
-    -- leaving a hole in the middle of it.
+    -- BuildSettings can now reflow the visible widgets around a hidden one
+    -- (see Options_Builder.lua's Reflow), so this block no longer needs to
+    -- sit last on the page to keep a hidden sub-section from punching a hole
+    -- through the middle of the panel. It stays last anyway because the
+    -- Banned Spells list further down is paired with it (a per-group ban list
+    -- only means anything for an auto-tracking group) and is anchored
+    -- directly below this section's last widget; moving Auto Track without
+    -- also moving that list would split one feature across two places in the
+    -- panel for no benefit.
     local AUTO_SUB_WIDGET_IDS = {
         "grpAutoMaxBars", "grpAutoMaxDuration", "grpAutoIncludePermanent", "grpAutoOnlyMine",
         "grpAutoStableOrder", "grpAutoSkipTracked",
@@ -434,6 +442,14 @@ local function CreateBarsTab(parent)
     local autoFeedShown = false
     local UpdateBanList
 
+    -- Forward-declared (same reason as UpdateBanList above) so
+    -- SetAutoSubWidgetsShown and the other group-settings show/hide helpers,
+    -- all defined ahead of the BuildSettings call that assigns these, can
+    -- reflow and re-measure right after they change visibility instead of
+    -- only picking up the change on the next full Refresh pass.
+    local reflowGroupSettings
+    local fitGroupHeight
+
     local function SetAutoSubWidgetsShown(shown)
         for _, id in ipairs(AUTO_SUB_WIDGET_IDS) do
             local w = groupSettingsWidgets[id]
@@ -443,6 +459,10 @@ local function CreateBarsTab(parent)
         end
         autoFeedShown = shown
         if UpdateBanList then UpdateBanList() end
+        if reflowGroupSettings then reflowGroupSettings() end
+        -- Re-measure once the Show/Hide above has actually taken effect (see
+        -- fitGroupHeight's own comment for why this needs a frame's delay).
+        if fitGroupHeight and ns.After then ns:After(0, fitGroupHeight) end
     end
 
     -- Forward-declared so schema `set` closures below can re-run the group
@@ -610,6 +630,11 @@ local function CreateBarsTab(parent)
               if sw then
                   if value then sw:Show() else sw:Hide() end
               end
+              -- Live click bypasses Refresh (this fires from the checkbox's
+              -- own set callback, not the schema walk), so reflow directly
+              -- rather than waiting for the next full Refresh pass.
+              if reflowGroupSettings then reflowGroupSettings() end
+              if fitGroupHeight and ns.After then ns:After(0, fitGroupHeight) end
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
         -- Deliberate sub-item: indented 10px further right than the Custom
@@ -665,6 +690,10 @@ local function CreateBarsTab(parent)
               local sw = groupSettingsWidgets.grpStackColorSwatch
               if slider then if value then slider:Show() else slider:Hide() end end
               if sw then if value then sw:Show() else sw:Hide() end end
+              -- Live click bypasses Refresh; see the Custom Bar Colour
+              -- onChange above for why this reflows directly.
+              if reflowGroupSettings then reflowGroupSettings() end
+              if fitGroupHeight and ns.After then ns:After(0, fitGroupHeight) end
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 12 },
         -- Deliberate sub-items: indented like grpColorSwatch above (shown/
@@ -726,6 +755,10 @@ local function CreateBarsTab(parent)
               if glowCB then if value then glowCB:Show() else glowCB:Hide() end end
               if pulseCB then if value then pulseCB:Show() else pulseCB:Hide() end end
               if slider then if value then slider:Show() else slider:Hide() end end
+              -- Live click bypasses Refresh; see the Custom Bar Colour
+              -- onChange above for why this reflows directly.
+              if reflowGroupSettings then reflowGroupSettings() end
+              if fitGroupHeight and ns.After then ns:After(0, fitGroupHeight) end
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 12 },
         -- Deliberate sub-items: indented like grpStackSizeSlider above (shown/
@@ -947,7 +980,7 @@ local function CreateBarsTab(parent)
         { type = "spacer", id = "groupLastWidget", height = 4, offsetX = -4 },
     }
 
-    refreshGroupSettings = ns:BuildSettings(groupSettingsContent, GROUP_SETTINGS_SCHEMA, groupSettingsWidgets,
+    refreshGroupSettings, reflowGroupSettings = ns:BuildSettings(groupSettingsContent, GROUP_SETTINGS_SCHEMA, groupSettingsWidgets,
         { firstX = 0, firstY = 0 })
 
     -- Deep-link the Group Conditions section to its Help answer.
@@ -979,11 +1012,12 @@ local function CreateBarsTab(parent)
     -- shrinks with the ban count - only the FauxScrollFrame's scroll offset
     -- changes. That is deliberate, not a missed "grow with content" polish
     -- pass: fitGroupHeight (further down this file) measures the scroll
-    -- child's height once, the first time the panel is shown, and latches
-    -- the result. A section whose footprint could change size after that
-    -- measurement would either get clipped or leave a dead gap, so this
-    -- container's bottom edge has to land in the same place every time,
-    -- whether it is showing 0, 1, or 100 banned spells.
+    -- child's height against this section's bottom sentinel every time it
+    -- runs (a group's settings can reflow the schema section above this one
+    -- at any point). A section whose OWN footprint could also change size
+    -- would need its own reflow trigger on top of that, so this container's
+    -- bottom edge has to land in the same place every time, whether it is
+    -- showing 0, 1, or 100 banned spells.
     --
     -- No mouse wheel is bound on the inner FauxScrollFrame, matching every
     -- other list in this addon (Groups, Bars, and the Activity table all
@@ -1622,6 +1656,14 @@ local function CreateBarsTab(parent)
         return bar and (bar.display or {}) or {}
     end
 
+    -- Forward-declared so UpdateAlertWidgetsShown and the schema's onChange
+    -- closures below, all defined ahead of the BuildSettings call that
+    -- assigns these, can reflow and re-measure right after they change
+    -- visibility rather than only picking it up on the next full Refresh
+    -- (same reasoning as reflowGroupSettings/fitGroupHeight on the Groups tab).
+    local reflowEditorSettings
+    local fitEditorHeight
+
     -- Bar Alerts' master toggle, unit dropdown, and style dropdown between
     -- them gate which of the sub-widgets show (the master gates all of
     -- them; the unit picks Seconds vs. Percent slider; the style shows the
@@ -1647,6 +1689,14 @@ local function CreateBarsTab(parent)
         setShown("dispAlertPercentSlider", masterOn and unit == "PERCENT")
         setShown("alertActionDD", masterOn)
         setShown("alertColorSwatch", masterOn and (action == "COLOUR" or action == "BOTH"))
+
+        -- Live click bypasses Refresh (this fires from the widget's own set
+        -- callback, not the schema walk), so reflow directly rather than
+        -- waiting for the next full Refresh pass.
+        if reflowEditorSettings then reflowEditorSettings() end
+        -- Re-measure once the Show/Hide above has actually taken effect (see
+        -- fitEditorHeight's own comment for why this needs a frame's delay).
+        if fitEditorHeight and ns.After then ns:After(0, fitEditorHeight) end
     end
 
     -- Factory: condition-toggle schema entry (1 line per checkbox)
@@ -1990,6 +2040,13 @@ local function CreateBarsTab(parent)
               local sw = editorWidgets.editorLastWidget
               if slider then if value then slider:Show() else slider:Hide() end end
               if sw then if value then sw:Show() else sw:Hide() end end
+              -- Live click bypasses Refresh; see UpdateAlertWidgetsShown
+              -- above for why this reflows directly. editorLastWidget - the
+              -- schema's own last entry - is exactly the widget this toggle
+              -- can hide, so fitEditorHeight's sentinel needs the reflow's
+              -- own "last VISIBLE widget" bottom rather than that fixed id.
+              if reflowEditorSettings then reflowEditorSettings() end
+              if fitEditorHeight and ns.After then ns:After(0, fitEditorHeight) end
           end,
           spacing = 20, offsetX = ns.OFFSET_TOGGLE },
 
@@ -1997,9 +2054,13 @@ local function CreateBarsTab(parent)
             "Size of the stack count on this bar's icon.",
             { offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8, id = "barStackSizeSlider" }),
 
-        -- Last widget in the panel: id = "editorLastWidget" doubles as the
-        -- fitEditorHeight sentinel (measures the panel's real content
-        -- height), same as Crop Icon carried before this section was added.
+        -- Last widget in the panel. It used to double as the fitEditorHeight
+        -- sentinel directly (same as Crop Icon carried before this section
+        -- was added); now that Custom Stack Text above can hide it, that
+        -- sentinel role has moved to reflowEditorSettings()'s own "last
+        -- VISIBLE widget" return value (see fitEditorHeight), so this id
+        -- staying last in the schema is no longer load-bearing for that -
+        -- it is just where the entry naturally falls.
         { type = "color", id = "editorLastWidget", label = "Stack Text Colour",
           get = function() return getDisp().stackColor or { r = 1, g = 1, b = 1 } end,
           set = function(_, color)
@@ -2020,7 +2081,8 @@ local function CreateBarsTab(parent)
     editorSettingsFrame:SetPoint("RIGHT", ec, "RIGHT", 0, 0)
     editorSettingsFrame:SetHeight(800)
 
-    local refreshEditorSettings = ns:BuildSettings(
+    local refreshEditorSettings
+    refreshEditorSettings, reflowEditorSettings = ns:BuildSettings(
         editorSettingsFrame, EDITOR_SCHEMA, editorWidgets,
         { firstX = 0, firstY = 0 })
 
@@ -2048,35 +2110,52 @@ local function CreateBarsTab(parent)
     end
     editorScroll:SetScript("OnSizeChanged", function(_, w) reflowEditor(w) end)
 
-    -- Trim the scroll children to their real content once laid out, so the
-    -- scroll range covers every control (and no more). Runs once each - the
-    -- widget set is fixed - and only when the panel is visible (GetBottom is nil
-    -- while hidden). The generous fallback heights keep content reachable until
-    -- then.
-    local editorHeightDone, groupHeightDone
-    local function fitEditorHeight()
-        if editorHeightDone then return end
-        local last = editorWidgets.editorLastWidget
+    -- Trim the scroll children to their real content, so the scroll range
+    -- covers every VISIBLE control (and no more). Used to latch after a
+    -- single first measurement (the widget set was fixed); now that a master
+    -- toggle/dropdown can reflow the panel at any time, the live content
+    -- height changes with it, so both functions re-measure on every call
+    -- instead. Always invoked via ns:After(0, ...) (see the show/hide
+    -- helpers above, and UpdateBarEditor/UpdateGroupName below): reading
+    -- geometry in the same frame a widget was Shown/Hidden can return stale
+    -- positions, so the measurement always waits a frame after the
+    -- visibility change even though Reflow's SetPoint calls land
+    -- immediately. The generous fallback heights (ec/groupSettingsContent
+    -- SetHeight above) keep content reachable before the first measurement.
+    -- Assigned (not `local function`) into the forward-declared upvalues
+    -- from earlier in this file, so the show/hide helpers defined ahead of
+    -- these bodies (SetAutoSubWidgetsShown, UpdateAlertWidgetsShown, and the
+    -- Custom Bar Colour/Stack Text/Bar Effects onChange closures) already
+    -- close over the SAME variable rather than a shadowing new local that
+    -- would leave their captured upvalue permanently nil.
+    fitEditorHeight = function()
         local top = ec:GetTop()
-        local bottom = last and last:GetBottom()
+        -- reflowEditorSettings() both re-anchors the visible widgets (a
+        -- harmless no-op if nothing has changed since the last call) and
+        -- returns the screen-space bottom of the last VISIBLE one. That is
+        -- deliberately used here instead of a fixed sentinel id: the
+        -- schema's own last entry (editorLastWidget, the Stack Text Colour
+        -- swatch) is itself one of the widgets Custom Stack Text can hide,
+        -- so a fixed id would measure to a hidden widget's position instead
+        -- of the panel's true (now shorter) bottom.
+        local bottom = reflowEditorSettings and reflowEditorSettings()
         if top and bottom and top > bottom then
             ec:SetHeight(top - bottom + 24)
-            editorHeightDone = true
         end
     end
-    local function fitGroupHeight()
-        if groupHeightDone then return end
+    fitGroupHeight = function()
         -- The banned-spells section (built above) sits below groupLastWidget
         -- and has its own fixed-position bottom sentinel; measure against
-        -- that instead. banListLastWidget is assigned unconditionally at
-        -- build time, before fitGroupHeight can ever run, so there is no
-        -- "not built yet" case here to fall back from.
+        -- that instead. Unlike editorLastWidget above, banListLastWidget is
+        -- a plain frame built outside the schema and is never itself
+        -- hidden - only its position moves as the schema above it reflows -
+        -- so the fixed sentinel is still correct here, it just needs
+        -- re-reading instead of latching the first answer.
         local last = groupSettingsWidgets.banListLastWidget
         local top = groupSettingsContent:GetTop()
         local bottom = last and last:GetBottom()
         if top and bottom and top > bottom then
             groupSettingsContent:SetHeight(top - bottom + 24)
-            groupHeightDone = true
         end
     end
 

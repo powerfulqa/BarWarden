@@ -25,6 +25,11 @@ on screen anyway while unlocked. An explicit condition now wins regardless of
 lock state. A group whose conditions pass is unaffected and comes straight
 back, same as before.
 
+- **Group Settings and the bar editor no longer leave a gap where a hidden
+  setting used to be.** Turning off Custom Bar Colour, Custom Stack Text,
+  Custom Bar Effects, Sparkle Alert, or setting Auto Track back to Off now
+  closes the space its sub-settings left behind instead of leaving an empty
+  strip in the middle of the panel.
 - **`/bw bug` now records more of a group's setup.** The pasted report now
   includes each group's Background and Border Opacity and, for auto-tracking
   groups, its tracking setup, plus several addon-wide display toggles it had
