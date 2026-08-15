@@ -127,10 +127,21 @@ local function LerpColor(a, b, t)
     return a + (b - a) * t
 end
 
--- Smoothly interpolates between COLOR_HIGH/MED/LOW based on remaining seconds.
--- Returns (r, g, b) or nil if the bar hasn't opted in to colour-by-time.
-function ns.GetTimeBasedColor(remaining, display, visual)
-    if not display or not display.colorByTime then return nil end
+-- Smoothly interpolates between COLOR_HIGH/MED/LOW based on remaining seconds,
+-- unless Bar Alerts has taken over (ns:GetBarAlertColor, Conditions.lua): an
+-- explicit "flash this exact colour right now" is a more specific instruction
+-- than the ambient gradient, and checking it first also means a bar gets its
+-- alert colour even with Colour by Time switched off, which is the common
+-- case for this feature - a bar that only wants the one alert cue near the
+-- end, not a colour that drifts for its entire active life.
+-- Returns (r, g, b) or nil if neither is active.
+function ns.GetTimeBasedColor(remaining, display, visual, duration)
+    if not display then return nil end
+
+    local ar, ag, ab = ns:GetBarAlertColor(display, remaining, duration)
+    if ar then return ar, ag, ab end
+
+    if not display.colorByTime then return nil end
 
     local highSec = display.colorHighSeconds or 10
     local medSec  = display.colorMedSeconds  or 5

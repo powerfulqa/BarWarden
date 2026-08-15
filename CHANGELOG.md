@@ -13,7 +13,7 @@ exhaustive notes.
 
 ---
 
-### v2.3.1
+### v2.4.0
 
 **Combat Only and the other group conditions now hide a group outright, even
 while its frames are unlocked.** An unlocked auto-tracking group with nothing
@@ -45,6 +45,14 @@ back, same as before.
   applies these to the whole group in one go instead of setting them bar by
   bar, and it is the only way to turn them on for an auto-tracking group,
   which has no bar list of its own to set them on.
+- **Sparkle Alert can now warn by percent, and turn the bar a colour of your
+  choosing instead of just flashing it.** A new Alert When setting picks
+  between a fixed number of seconds and a percent of the buff's full length,
+  so the same warning still means something on a 30 minute buff instead of
+  disappearing into its last sixth. A new Alert Style setting picks Sparkle,
+  Colour, or Both, with an Alert Colour swatch for the colour you want.
+  Existing bars with only Sparkle Alert ticked keep behaving exactly as they
+  do today.
 
 ---
 

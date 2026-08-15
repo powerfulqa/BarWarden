@@ -256,7 +256,29 @@ function ns:GenerateBugReport()
                             disp.colorOverride.r or 0, disp.colorOverride.g or 0, disp.colorOverride.b or 0)
                     end
                     if disp.colorByTime then dispParts[#dispParts + 1] = "colorByTime" end
-                    if disp.sparkleAlert then dispParts[#dispParts + 1] = "sparkleAlert=" .. tostring(disp.sparkleThreshold or 5) end
+                    -- sparkleAlert is the Bar Alerts master toggle (name kept
+                    -- for saved-variable/bug-report continuity even though
+                    -- the feature now covers colour too, not just the
+                    -- sparkle). The threshold printed matches whichever unit
+                    -- is actually in effect (alertUnit), so an untouched bar
+                    -- prints the exact same "sparkleAlert=5" it always has;
+                    -- alertAction/alertColor only appear once they diverge
+                    -- from the sparkle-only default, matching how every
+                    -- other display field here only prints when it differs.
+                    if disp.sparkleAlert then
+                        if disp.alertUnit == "PERCENT" then
+                            dispParts[#dispParts + 1] = "sparkleAlert=" .. tostring(disp.alertPercent or 20) .. "%"
+                        else
+                            dispParts[#dispParts + 1] = "sparkleAlert=" .. tostring(disp.sparkleThreshold or 5)
+                        end
+                        local action = disp.alertAction or "SPARKLE"
+                        if action ~= "SPARKLE" then
+                            dispParts[#dispParts + 1] = "alertAction=" .. action
+                            local c = disp.alertColor or { r = 1, g = 0, b = 0 }
+                            dispParts[#dispParts + 1] = string.format("alertColor=%.2f,%.2f,%.2f",
+                                c.r or 0, c.g or 0, c.b or 0)
+                        end
+                    end
                     if disp.glowOnReady then dispParts[#dispParts + 1] = "glow=" .. tostring(disp.glowDuration or 3) end
                     if disp.pulseOnReady then dispParts[#dispParts + 1] = "pulseOnReady" end
                     if #dispParts > 0 then

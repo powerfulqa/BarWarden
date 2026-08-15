@@ -211,6 +211,59 @@ function ns:GetBarLingerTime(bar)
     return 0
 end
 
+-- Bar Alerts (v2.4.0): whether a bar is inside its expiry alert window.
+-- display.sparkleAlert is the master on/off (unchanged from the original
+-- sparkle-only feature, and still what a bar with none of the newer fields
+-- set reads as: this function's seconds branch below reproduces the old
+-- inline `remaining <= threshold` check in Bar_OnUpdate exactly). No group
+-- override exists for this feature (unlike the resolvers above), so this is
+-- a plain bar-only decision, but pulled out of BarEngine.lua for the same
+-- reason as the others: BarEngine.lua's frame-heavy locals cannot load under
+-- the test harness, and the arithmetic itself is pure.
+--
+-- alertUnit picks how the threshold is read:
+--   nil / "SECONDS" - remaining <= sparkleThreshold (today's behaviour).
+--   "PERCENT"       - remaining <= duration * alertPercent / 100.
+--
+-- A missing or zero duration in percent mode returns false rather than
+-- dividing by zero: a permanent or static bar (duration nil, see
+-- ns:ActivateStaticBar/UpdateResourceBar, BarEngine.lua) has no "full
+-- length" to take a percentage of, so it has no meaningful percentage
+-- threshold at all - reads as "never alerting" in that mode, not an error
+-- and not "always alerting" (which 0/0 or x/0 could otherwise be misread as).
+function ns:IsBarAlerting(display, remaining, duration)
+    if not display or not display.sparkleAlert or remaining == nil then
+        return false
+    end
+
+    if display.alertUnit == "PERCENT" then
+        if not duration or duration <= 0 then return false end
+        local percent = display.alertPercent or 20
+        return remaining <= duration * percent / 100
+    end
+
+    local threshold = display.sparkleThreshold or 5
+    return remaining <= threshold
+end
+
+-- Resolve the alert colour for a bar, so the drawing code (ns.GetTimeBasedColor,
+-- Bar.lua) has one place to ask instead of re-checking alertAction and
+-- re-deriving the alert window itself. Returns (r, g, b) - matching
+-- GetTimeBasedColor's own multi-return shape, since that is this resolver's
+-- only caller - or nil when the bar is not alerting or its alert action does
+-- not include colour ("SPARKLE", the default, or a bar not currently inside
+-- its window). display.alertColor defaults to a plain red: a vivid, obvious
+-- "this is about to end" cue distinct from colorByTime's softer low-end red.
+function ns:GetBarAlertColor(display, remaining, duration)
+    if not display then return nil end
+    local action = display.alertAction or "SPARKLE"
+    if action ~= "COLOUR" and action ~= "BOTH" then return nil end
+    if not ns:IsBarAlerting(display, remaining, duration) then return nil end
+
+    local c = display.alertColor or { r = 1, g = 0, b = 0 }
+    return c.r or 1, c.g or 0, c.b or 0
+end
+
 
 -- ----------------------------------------------------------------------------
 -- Built-in conditions.

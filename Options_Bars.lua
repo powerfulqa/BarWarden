@@ -1622,6 +1622,33 @@ local function CreateBarsTab(parent)
         return bar and (bar.display or {}) or {}
     end
 
+    -- Bar Alerts' master toggle, unit dropdown, and style dropdown between
+    -- them gate which of the sub-widgets show (the master gates all of
+    -- them; the unit picks Seconds vs. Percent slider; the style shows the
+    -- swatch only when it includes colour), so one shared updater - matching
+    -- SetAutoSubWidgetsShown's shape on the Groups tab - is hooked to all
+    -- three onChange callbacks (and re-runs on every Refresh pass) instead
+    -- of duplicating this three-way visibility logic per widget.
+    local function UpdateAlertWidgetsShown()
+        local d = getDisp()
+        local masterOn = d.sparkleAlert
+        local unit = d.alertUnit or "SECONDS"
+        local action = d.alertAction or "SPARKLE"
+
+        local function setShown(id, shown)
+            local w = editorWidgets[id]
+            if w then
+                if shown then w:Show() else w:Hide() end
+            end
+        end
+
+        setShown("alertUnitDD", masterOn)
+        setShown("dispAlertSecondsSlider", masterOn and unit == "SECONDS")
+        setShown("dispAlertPercentSlider", masterOn and unit == "PERCENT")
+        setShown("alertActionDD", masterOn)
+        setShown("alertColorSwatch", masterOn and (action == "COLOUR" or action == "BOTH"))
+    end
+
     -- Factory: condition-toggle schema entry (1 line per checkbox)
     local function condCheck(label, field, tip, extra)
         local e = { type = "toggle", label = label, tooltip = tip,
@@ -1798,17 +1825,82 @@ local function CreateBarsTab(parent)
           offsetX = ns.OFFSET_SLIDER, spacing = 24 },
 
         dispCheck("Sparkle Alert", "sparkleAlert",
-            "Flash the bar when the timer is about to expire.",
-            { spacing = 24 }),
+            "Flash the bar, change its colour, or both once the timer gets "
+         .. "close to running out. Alert When and Alert Style below decide "
+         .. "the details.",
+            { spacing = 24, onChange = function() UpdateAlertWidgetsShown() end }),
 
-        -- Sub-item of Sparkle Alert above (has no effect unless that toggle is
-        -- on); tighter spacing groups it with the toggle, same slider column
-        -- as every other slider in this panel.
-        dispSlider("Alert Threshold (sec)", "sparkleThreshold", 1, 15, 1, 5,
-            "When Sparkle Alert is enabled, the bar flashes once the remaining "
-         .. "time drops below this many seconds. Lower = later warning; higher "
-         .. "= more lead time. Has no effect unless Sparkle Alert is ticked.",
-            { spacing = 20 }),
+        -- Sub-items of Sparkle Alert above: all hidden together with it via
+        -- UpdateAlertWidgetsShown, matching the Custom Bar Colour / Custom
+        -- Stack Text toggle-reveals-widget pattern elsewhere in this file
+        -- (see the comment above UpdateAlertWidgetsShown, further up).
+        { type = "dropdown", id = "alertUnitDD", label = "Alert When",
+          items = {
+              { text = "Seconds Remaining (default)", value = "SECONDS" },
+              { text = "Percent Remaining",           value = "PERCENT" },
+          }, width = 150,
+          tooltip = "Whether the threshold below is read as a fixed number "
+               .. "of seconds left, or as a percent of the buff's full "
+               .. "length. Percent scales with the timer, so the same "
+               .. "setting works for a short cooldown and a half-hour buff "
+               .. "alike.",
+          get = function() return getDisp().alertUnit or "SECONDS" end,
+          set = function(_, value)
+              local bar = getBar(); if not bar then return end
+              if not bar.display then bar.display = {} end
+              bar.display.alertUnit = (value ~= "SECONDS") and value or nil
+              ns:RefreshBarSettings()
+          end,
+          onChange = function() UpdateAlertWidgetsShown() end,
+          spacing = 8, offsetX = ns.OFFSET_DROPDOWN },
+
+        -- Seconds and Percent each get their own slider (rather than
+        -- re-ranging one) because a slider's min/max are fixed at build
+        -- time; UpdateAlertWidgetsShown shows whichever matches Alert When.
+        dispSlider("Alert Threshold", "sparkleThreshold", 1, 15, 1, 5,
+            "When Alert When is set to Seconds Remaining, the alert fires "
+         .. "once the remaining time drops below this many seconds. Has no "
+         .. "effect unless Sparkle Alert is ticked and Alert When is "
+         .. "Seconds Remaining.",
+            { spacing = 16, id = "dispAlertSecondsSlider" }),
+
+        dispSlider("Alert Threshold (%)", "alertPercent", 1, 100, 1, 20,
+            "When Alert When is set to Percent Remaining, the alert fires "
+         .. "once the remaining time drops below this percent of the "
+         .. "buff's full length. Has no effect unless Sparkle Alert is "
+         .. "ticked and Alert When is Percent Remaining.",
+            { spacing = 8, id = "dispAlertPercentSlider" }),
+
+        { type = "dropdown", id = "alertActionDD", label = "Alert Style",
+          items = {
+              { text = "Sparkle (default)", value = "SPARKLE" },
+              { text = "Colour",            value = "COLOUR"  },
+              { text = "Both",              value = "BOTH"    },
+          }, width = 150,
+          tooltip = "What happens once the threshold above is reached: "
+               .. "flash the bar, turn it a colour you pick below, or both.",
+          get = function() return getDisp().alertAction or "SPARKLE" end,
+          set = function(_, value)
+              local bar = getBar(); if not bar then return end
+              if not bar.display then bar.display = {} end
+              bar.display.alertAction = (value ~= "SPARKLE") and value or nil
+              ns:RefreshBarSettings()
+          end,
+          onChange = function() UpdateAlertWidgetsShown() end,
+          spacing = 16, offsetX = ns.OFFSET_DROPDOWN },
+
+        -- Color swatches have no tooltip support (CreateColorSwatch,
+        -- Widgets.lua); matches Color Override / Stack Text Colour below,
+        -- neither of which carries one either.
+        { type = "color", id = "alertColorSwatch", label = "Alert Colour",
+          get = function() return getDisp().alertColor or { r = 1, g = 0, b = 0 } end,
+          set = function(_, color)
+              local bar = getBar(); if not bar then return end
+              if not bar.display then bar.display = {} end
+              bar.display.alertColor = { r = color.r, g = color.g, b = color.b }
+              ns:RefreshBarSettings()
+          end,
+          offsetX = ns.OFFSET_COLOR, spacing = 8 },
 
         { type = "color", label = "Color Override",
           get = function()

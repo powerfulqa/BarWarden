@@ -451,8 +451,12 @@ local function Bar_OnUpdate(self, elapsed)
     if progress > 1 then progress = 1 end
     self:SetValue(progress)
 
-    -- Colour-by-time: override bar colour based on remaining seconds
-    local cbtr, cbtg, cbtb = GetTimeBasedColor(remaining, display, visual)
+    -- Colour-by-time / Bar Alerts: override bar colour based on remaining
+    -- seconds or the alert window. self.duration (not the `duration` local
+    -- above, which defaults a nil/permanent bar to 1) is passed through
+    -- verbatim so percent-mode alerts read a static bar's true "no full
+    -- length" state instead of a false stand-in.
+    local cbtr, cbtg, cbtb = GetTimeBasedColor(remaining, display, visual, self.duration)
     if cbtr then
         self:SetStatusBarColor(cbtr, cbtg, cbtb)
     end
@@ -473,10 +477,15 @@ local function Bar_OnUpdate(self, elapsed)
         end
     end
 
-    -- Sparkle alert: flash the bar when timer is below threshold
+    -- Bar Alerts: flash the bar once inside its alert window, provided the
+    -- chosen action includes Sparkle. ns:IsBarAlerting (Conditions.lua) is
+    -- the single source of truth for "inside the window" (seconds vs.
+    -- percent), so that arithmetic lives in one pure, tested place instead
+    -- of being re-derived here; a Colour-only action must not flash at all.
     if display.sparkleAlert then
-        local threshold = display.sparkleThreshold or 5
-        if remaining <= threshold then
+        local alerting = ns:IsBarAlerting(display, remaining, self.duration)
+        local action = display.alertAction or "SPARKLE"
+        if alerting and (action == "SPARKLE" or action == "BOTH") then
             local pulse = 0.65 + 0.35 * sin(now * 6 * pi)
             self:SetAlpha(pulse)
         else

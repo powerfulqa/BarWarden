@@ -674,4 +674,137 @@ function M.test_getBarLingerTime_safeWithoutData()
     _G.BarWardenDB = nil
 end
 
+-- --------------------------------------------------------------------------
+-- IsBarAlerting / GetBarAlertColor: Bar Alerts (v2.4.0). Pure arithmetic over
+-- remaining/duration plus the action-variant colour resolver; no group
+-- override exists for this feature, so these are plain bar-only helpers
+-- (see the doc comment in Conditions.lua for why they live here anyway).
+-- --------------------------------------------------------------------------
+
+-- Master toggle off (or absent) always reads as not alerting, regardless of
+-- how the rest of `display` is configured.
+function M.test_isBarAlerting_offWhenMasterToggleOff()
+    local ns = fresh()
+    assertx.assertFalse(ns:IsBarAlerting({ sparkleAlert = false, sparkleThreshold = 5 }, 1, 10))
+    assertx.assertFalse(ns:IsBarAlerting({ sparkleAlert = false }, 100, 10))
+end
+
+function M.test_isBarAlerting_safeWithoutData()
+    local ns = fresh()
+    assertx.assertFalse(ns:IsBarAlerting(nil, 5, 10))
+    assertx.assertFalse(ns:IsBarAlerting({ sparkleAlert = true }, nil, 10))
+end
+
+-- Seconds mode (nil alertUnit, or "SECONDS") must match today's exact
+-- behaviour: true at and below the threshold, false above it.
+function M.test_isBarAlerting_secondsMode_matchesTodayAtThreshold()
+    local ns = fresh()
+    local disp = { sparkleAlert = true, sparkleThreshold = 5 }
+    assertx.assertTrue(ns:IsBarAlerting(disp, 5, 30), "at threshold")
+    assertx.assertTrue(ns:IsBarAlerting(disp, 4, 30), "below threshold")
+    assertx.assertFalse(ns:IsBarAlerting(disp, 6, 30), "above threshold")
+end
+
+function M.test_isBarAlerting_secondsMode_defaultsToFiveSeconds()
+    local ns = fresh()
+    local disp = { sparkleAlert = true }
+    assertx.assertTrue(ns:IsBarAlerting(disp, 5, 30))
+    assertx.assertFalse(ns:IsBarAlerting(disp, 5.1, 30))
+end
+
+-- Percent mode scales with duration: the same 20% threshold reads as a
+-- couple of seconds on a short buff and minutes on a long one.
+function M.test_isBarAlerting_percentMode_shortDuration()
+    local ns = fresh()
+    local disp = { sparkleAlert = true, alertUnit = "PERCENT", alertPercent = 20 }
+    -- 20% of 10s = 2s
+    assertx.assertTrue(ns:IsBarAlerting(disp, 2, 10), "at 20% of a 10s buff")
+    assertx.assertFalse(ns:IsBarAlerting(disp, 3, 10), "above 20% of a 10s buff")
+end
+
+function M.test_isBarAlerting_percentMode_longDuration()
+    local ns = fresh()
+    local disp = { sparkleAlert = true, alertUnit = "PERCENT", alertPercent = 20 }
+    -- 20% of 1800s (30 min) = 360s
+    assertx.assertTrue(ns:IsBarAlerting(disp, 300, 1800), "well inside the window on a 30 minute buff")
+    assertx.assertFalse(ns:IsBarAlerting(disp, 400, 1800), "still outside the window on a 30 minute buff")
+end
+
+function M.test_isBarAlerting_percentMode_defaultsToTwentyPercent()
+    local ns = fresh()
+    local disp = { sparkleAlert = true, alertUnit = "PERCENT" }
+    assertx.assertTrue(ns:IsBarAlerting(disp, 20, 100))
+    assertx.assertFalse(ns:IsBarAlerting(disp, 21, 100))
+end
+
+-- A permanent/static bar (no meaningful "full length") never alerts in
+-- percent mode rather than dividing by zero or reading as always-on.
+function M.test_isBarAlerting_percentMode_nilOrZeroDurationNeverAlerts()
+    local ns = fresh()
+    local disp = { sparkleAlert = true, alertUnit = "PERCENT", alertPercent = 20 }
+    assertx.assertFalse(ns:IsBarAlerting(disp, 1, nil))
+    assertx.assertFalse(ns:IsBarAlerting(disp, 0, 0))
+    assertx.assertFalse(ns:IsBarAlerting(disp, 1, -5))
+end
+
+-- GetBarAlertColor: nil unless the bar is actually alerting AND the action
+-- includes colour. Sparkle-only never returns a colour even while alerting.
+function M.test_getBarAlertColor_nilWhenActionIsSparkleOnly()
+    local ns = fresh()
+    local disp = { sparkleAlert = true, sparkleThreshold = 5, alertAction = "SPARKLE" }
+    assertx.assertNil(ns:GetBarAlertColor(disp, 3, 30))
+end
+
+function M.test_getBarAlertColor_nilWhenNotAlerting()
+    local ns = fresh()
+    local disp = { sparkleAlert = true, sparkleThreshold = 5, alertAction = "COLOUR" }
+    assertx.assertNil(ns:GetBarAlertColor(disp, 10, 30))
+end
+
+function M.test_getBarAlertColor_returnsCustomColourWhenActionIsColour()
+    local ns = fresh()
+    local disp = {
+        sparkleAlert = true, sparkleThreshold = 5, alertAction = "COLOUR",
+        alertColor = { r = 0, g = 0, b = 1 },
+    }
+    local r, g, b = ns:GetBarAlertColor(disp, 3, 30)
+    assertx.assertEqual(r, 0)
+    assertx.assertEqual(g, 0)
+    assertx.assertEqual(b, 1)
+end
+
+function M.test_getBarAlertColor_returnsColourWhenActionIsBoth()
+    local ns = fresh()
+    local disp = {
+        sparkleAlert = true, sparkleThreshold = 5, alertAction = "BOTH",
+        alertColor = { r = 0, g = 1, b = 0 },
+    }
+    local r, g, b = ns:GetBarAlertColor(disp, 3, 30)
+    assertx.assertEqual(r, 0)
+    assertx.assertEqual(g, 1)
+    assertx.assertEqual(b, 0)
+end
+
+function M.test_getBarAlertColor_defaultsToRedWhenUnset()
+    local ns = fresh()
+    local disp = { sparkleAlert = true, sparkleThreshold = 5, alertAction = "COLOUR" }
+    local r, g, b = ns:GetBarAlertColor(disp, 3, 30)
+    assertx.assertEqual(r, 1)
+    assertx.assertEqual(g, 0)
+    assertx.assertEqual(b, 0)
+end
+
+-- Master toggle off beats an action of Colour/Both: the whole feature is
+-- off, not just the sparkle half.
+function M.test_getBarAlertColor_nilWhenMasterToggleOff()
+    local ns = fresh()
+    local disp = { sparkleAlert = false, alertAction = "COLOUR", alertColor = { r = 1, g = 1, b = 1 } }
+    assertx.assertNil(ns:GetBarAlertColor(disp, 1, 30))
+end
+
+function M.test_getBarAlertColor_safeWithoutData()
+    local ns = fresh()
+    assertx.assertNil(ns:GetBarAlertColor(nil, 1, 30))
+end
+
 return M

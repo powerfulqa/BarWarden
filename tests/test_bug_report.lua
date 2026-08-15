@@ -213,4 +213,80 @@ function M.test_visualConfigGuardsPartlyMigratedProfile()
         "a nil customTexture should read as (none), not the bare word nil")
 end
 
+-- --- Bar Alerts (v2.4.0) ----------------------------------------------------
+-- A bar's flashing/colour behaviour is exactly the kind of setting that
+-- turns into a "why is my bar doing that" report, so the display dump must
+-- cover the new alert fields the same way it already covers sparkleAlert.
+
+-- A bar with only sparkleAlert set (the pre-v2.4.0 shape) must print the
+-- exact same line as before: no alertUnit/alertAction/alertColor keys means
+-- nothing new should appear.
+function M.test_perBarDisplay_sparkleOnlyBarUnchanged()
+    local ns = fresh()
+    ns.db = withFrames({
+        { name = "Cooldowns", bars = {
+            { trackMode = "Cooldown", spellName = "Recklessness",
+              display = { sparkleAlert = true } },
+        } },
+    })
+
+    local report = ns:GenerateBugReport()
+    local dispLine = report:match("display:[^\n]*")
+
+    assertx.assertNotNil(dispLine, "display line missing")
+    assertx.assertTrue(dispLine:find("sparkleAlert=5", 1, true) ~= nil, "default seconds threshold missing")
+    assertx.assertTrue(dispLine:find("alertAction=", 1, true) == nil, "sparkle-only bar must not print alertAction")
+    assertx.assertTrue(dispLine:find("alertColor=", 1, true) == nil, "sparkle-only bar must not print alertColor")
+end
+
+function M.test_perBarDisplay_percentUnitPrintsPercentThreshold()
+    local ns = fresh()
+    ns.db = withFrames({
+        { name = "Cooldowns", bars = {
+            { trackMode = "Cooldown", spellName = "Recklessness",
+              display = { sparkleAlert = true, alertUnit = "PERCENT", alertPercent = 35 } },
+        } },
+    })
+
+    local report = ns:GenerateBugReport()
+    local dispLine = report:match("display:[^\n]*")
+
+    assertx.assertTrue(dispLine:find("sparkleAlert=35%", 1, true) ~= nil, "percent threshold missing")
+end
+
+function M.test_perBarDisplay_colourActionPrintsActionAndColour()
+    local ns = fresh()
+    ns.db = withFrames({
+        { name = "Cooldowns", bars = {
+            { trackMode = "Cooldown", spellName = "Recklessness",
+              display = {
+                  sparkleAlert = true, alertAction = "COLOUR",
+                  alertColor = { r = 0, g = 1, b = 0 },
+              } },
+        } },
+    })
+
+    local report = ns:GenerateBugReport()
+    local dispLine = report:match("display:[^\n]*")
+
+    assertx.assertTrue(dispLine:find("alertAction=COLOUR", 1, true) ~= nil, "alertAction missing")
+    assertx.assertTrue(dispLine:find("alertColor=0.00,1.00,0.00", 1, true) ~= nil, "alertColor missing")
+end
+
+function M.test_perBarDisplay_bothActionPrintsDefaultRedWhenColorUnset()
+    local ns = fresh()
+    ns.db = withFrames({
+        { name = "Cooldowns", bars = {
+            { trackMode = "Cooldown", spellName = "Recklessness",
+              display = { sparkleAlert = true, alertAction = "BOTH" } },
+        } },
+    })
+
+    local report = ns:GenerateBugReport()
+    local dispLine = report:match("display:[^\n]*")
+
+    assertx.assertTrue(dispLine:find("alertAction=BOTH", 1, true) ~= nil, "alertAction missing")
+    assertx.assertTrue(dispLine:find("alertColor=1.00,0.00,0.00", 1, true) ~= nil, "default red alertColor missing")
+end
+
 return M

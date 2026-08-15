@@ -20,7 +20,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Colour-by-time** bars transition green to yellow to red as the timer counts down (per-bar, configurable thresholds)
 - **Glow on ready** bars flash when a cooldown finishes or a buff expires so you know the spell is available
 - **Pulse on ready** optionally flashes the spell icon at the centre of the screen when a cooldown completes, so you notice even if the bar is at the edge of your view
-- **Sparkle alert** bars pulse when the timer drops below a configurable threshold
+- **Bar Alerts** flash the bar, turn it a colour you pick, or both once the timer gets close to running out. Set the threshold as a fixed number of seconds or as a percent of the buff's full length, so the same setting works for a short cooldown and a half-hour buff alike
 - **Cooldown spiral overlay** on bar icons gives a second visual read of the remaining time
 - **Aura equivalency groups** like `@Stunned`, `@Bleeding`, `@Silenced`, `@Feared`, `@Rooted` - one bar tracks any spell in that group
 - **Auto-tracking groups** - point a group at all buffs or all debuffs, on you
@@ -265,7 +265,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Configure bar name, spell name or ID, track mode, and target unit
 - Toggle "Only Mine" filtering for debuffs
 - Set conditions: Combat Only, Out of Combat Only, In Group, In Raid, Hide While Mounted, Hide While Resting, Hide In Vehicle, Only In Instance, Hide When Inactive, Health Below %, Require Buff, Require Class
-- Per-bar display options: Linger Time, Show Bar Name, Show Icon, Show as On or Off, Bar Darkness, Sparkle Alert with threshold, Colour Override, Colour by Time with high/med thresholds, Glow on Ready with duration, Pulse on Ready, Crop Icon, Scale Override, Custom Stack Text (its own size and colour for the stack count)
+- Per-bar display options: Linger Time, Show Bar Name, Show Icon, Show as On or Off, Bar Darkness, Sparkle Alert with Alert When (seconds or percent), Alert Style (sparkle, colour, or both) and Alert Colour, Colour Override, Colour by Time with high/med thresholds, Glow on Ready with duration, Pulse on Ready, Crop Icon, Scale Override, Custom Stack Text (its own size and colour for the stack count)
 
 #### Useful Per-Bar Options Explained
 

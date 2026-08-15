@@ -136,7 +136,7 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     colour/scale overrides never apply to an auto bar, since they are read
     from `bar.barData.display`. Group-level and addon-wide visuals still
     apply; this is intended, and ADDON_GUIDE's auto-tracking section says so.
-    **Partly resolved in v2.3.1**: glow on ready, pulse on ready and linger
+    **Partly resolved in v2.4.0**: glow on ready, pulse on ready and linger
     now have a group-level equivalent (`ns:GetBarGlowOnReady` /
     `ns:GetBarPulseOnReady` / `ns:GetBarLingerTime`, Conditions.lua, plus the
     Groups tab's Custom Bar Effects toggle), which an auto-tracking group can
@@ -223,7 +223,7 @@ I. **Bar Style dropdown has no `[?]` help icon.** Every other Group Settings
 
 ## Resolved (kept for the record)
 
-- **v2.3.1 drag-reorder was wrong under a sorted group.** The in-game ghost
+- **v2.4.0 drag-reorder was wrong under a sorted group.** The in-game ghost
   drag (`CalcDropIndex`, DragReorder.lua) and the Options Bars-tab list drag
   (`ComputeDropIndex`, Options_Bars.lua) both mapped the drop position onto
   `frameData.bars`, the stored order, but a group's Sort Mode

@@ -226,7 +226,7 @@ linger are always absent, and the per-bar colour/scale overrides read as
 absent too. There is also no UI path to set any of them directly, since the
 per-bar editor closes for an auto group.
 
-Since v2.3.1, Glow on Ready, Pulse on Ready and Linger Time are also
+Since v2.4.0, Glow on Ready, Pulse on Ready and Linger Time are also
 resolvable at group level (`ns:GetBarGlowOnReady` / `ns:GetBarPulseOnReady` /
 `ns:GetBarLingerTime`, Conditions.lua - see the group-overrides table below),
 so the Groups tab's Custom Bar Effects toggle is the only way to turn these
@@ -412,7 +412,7 @@ every bar/slot in the group is hidden. Precedence, most authoritative first:
    `ns:EvaluateConditions(nil, groupData.groupConditions)`, the same call
    `ScanBar`/`ns:ScanAutoGroup` already make to gate the bars, so
    `ShouldHideEmptyGroup` stays a pure decision function rather than
-   re-evaluating conditions itself. Added in v2.3.1: before this, an
+   re-evaluating conditions itself. Added in v2.4.0: before this, an
    auto-tracking group whose condition failed still passed the unlocked
    carve-out below, because "every slot hidden" read as "nothing matched
    yet" instead of "the owner said hide this".
@@ -454,7 +454,7 @@ writes/clears `stackFontSize`/`stackColor` (`display.*` for the bar) together,
 same toggle-reveals-swatch mechanism as Custom Bar Colour.
 
 `ns:GetBarGlowOnReady` / `ns:GetBarPulseOnReady` / `ns:GetBarLingerTime`
-(v2.3.1) are most-specific-wins like the stack pair, but the bar side of that
+(v2.4.0) are most-specific-wins like the stack pair, but the bar side of that
 precedence is a plain always-present checkbox/slider rather than a field
 gated behind its own per-bar "Custom" toggle, so "the bar has its own value"
 has to be read as **truthy**, not merely non-nil: `disp.glowOnReady` /
@@ -470,6 +470,38 @@ untouched bar as having its own override and the group's Linger Time would
 never be reachable. The Custom Bar Effects toggle on the Groups tab
 (`GROUP_SETTINGS_SCHEMA`) writes/clears all three group keys together, same
 mechanism as Custom Stack Text.
+
+**Bar Alerts** (v2.4.0) has no group-level override, unlike everything else
+in this section, so its two resolvers are plain bar-only helpers rather than
+entries in the table above - but they live in Conditions.lua for the same
+reason: pure arithmetic that the test harness needs to reach without loading
+BarEngine.lua's frame-heavy locals.
+
+`ns:IsBarAlerting(display, remaining, duration)` decides whether a bar is
+inside its expiry alert window. `display.sparkleAlert` is still the master
+on/off (unrenamed from the original sparkle-only feature; it is in saved
+variables and the bug report). `display.alertUnit` picks how the threshold
+is read: nil/`"SECONDS"` compares `remaining` to `display.sparkleThreshold`
+(default 5) exactly as the original inline check did; `"PERCENT"` compares
+`remaining` to `duration * display.alertPercent / 100` (default 20). A nil
+or non-positive `duration` (a permanent/static bar - see
+`ns:ActivateStaticBar`/`UpdateResourceBar`, BarEngine.lua, both of which set
+`bar.duration = nil`) returns false in percent mode rather than dividing by
+zero: that kind of bar has no "full length" to take a percentage of.
+
+`ns:GetBarAlertColor(display, remaining, duration)` resolves the alert
+colour for `ns.GetTimeBasedColor` (Bar.lua): nil unless the bar is currently
+alerting (calls `IsBarAlerting` itself, so callers never re-derive the
+window) AND `display.alertAction` is `"COLOUR"` or `"BOTH"` (nil/`"SPARKLE"`
+is sparkle-only and never returns a colour). `GetTimeBasedColor` checks this
+resolver before its own `colorByTime` gradient, so an explicit alert colour
+wins over the ambient one and - just as importantly - still works on a bar
+with Colour by Time switched off entirely, which is the common case for a
+bar that only wants one cue near the end rather than a gradient for its
+whole active life. `Bar_OnUpdate` (BarEngine.lua) gates the sparkle/pulse
+half the same way: it only flashes the alpha while `IsBarAlerting` is true
+AND the action includes Sparkle, so a Colour-only bar changes colour without
+ever flashing.
 
 Adding a new group override means: the widget in
 [Options_Bars.lua](../Options_Bars.lua) `GROUP_SETTINGS_SCHEMA` (with an
