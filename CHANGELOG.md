@@ -41,6 +41,11 @@ the same current-power-type signal the game itself uses.
   Include Always On, Skip Spells I Already Track, and the hidden-spells
   list) hide for a resources group, since none of them apply to a number
   that is not a spell.
+- **Hide Blizzard Player Frame**, a new General tab tickbox, hides the
+  default player frame for anyone who would rather not see their health and
+  power twice alongside a resource group. It stays reversible: unticking it
+  (or `/bw disable`) shows the frame again straight away, and a hide
+  requested mid-fight waits for combat to end rather than risking an error.
 
 ---
 

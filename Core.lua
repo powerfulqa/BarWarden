@@ -141,6 +141,80 @@ function ns:RefreshBarSettings()
 end
 
 -- ----------------------------------------------------------------------------
+-- Hide Blizzard's PlayerFrame (global.hidePlayerFrame, Options_General.lua)
+--
+-- Reversible by construction: never UnregisterAllEvents on the frame -
+-- undoing that means hand-re-registering every event Blizzard registered on
+-- PlayerFrame, which is long, version-specific, and easy to get subtly
+-- wrong. Instead this only ever calls Hide()/Show(), and HookScripts
+-- OnShow so any of Blizzard's own code re-showing the frame (UNIT_HEALTH,
+-- PLAYER_ENTERING_WORLD, a target change, and more, for the rest of the
+-- session) gets re-hidden on the spot while the setting is on. HookScript
+-- cannot be uninstalled, so the hook reads the live setting + combat state
+-- on every call rather than being installed only while the setting is on;
+-- unticking then just needs one more Show() and the hook stops acting.
+-- ----------------------------------------------------------------------------
+
+-- Whether the frame should be suppressed at all, ignoring combat: tied to
+-- both the tickbox and the addon's own enabled state, so /bw disable hands
+-- the frame straight back rather than stranding it hidden with only the
+-- options panel (which stays reachable either way via /bw) to fix it. A
+-- disabled BarWarden should not be suppressing any UI, Blizzard's included.
+local function WantPlayerFrameHidden()
+    local g = ns.db and ns.db.global
+    return not not (g and g.enabled and g.hidePlayerFrame)
+end
+
+local playerFrameHookInstalled = false
+
+-- Apply (or re-apply) the current PlayerFrame hide/show state. Called at
+-- login, from the options toggle, from enable/disable, and after combat
+-- ends (a hide requested mid-fight is deferred, not dropped - see
+-- ns:ResolvePlayerFrameHidden, Conditions.lua).
+function ns:ApplyPlayerFrameHidden()
+    local frame = _G.PlayerFrame
+    -- Blizzard global; guarded the same defensive way as the bundled-library
+    -- checks (see MinimapButton.lua) rather than assumed present.
+    if not frame then return end
+
+    local inCombat = InCombatLockdown and InCombatLockdown() or false
+    local wantHidden = WantPlayerFrameHidden()
+    local shouldHide = ns:ResolvePlayerFrameHidden(wantHidden, inCombat)
+
+    -- EC-TRAP: this OnShow hook looks redundant next to the Hide() call
+    -- below, as if both do the same job. They do not: Hide() only takes
+    -- effect for the instant it runs, while Blizzard's own code re-Shows
+    -- PlayerFrame on a long list of events for the rest of the session, and
+    -- HookScript cannot be removed. The hook, not the Hide() call, is what
+    -- keeps the frame down after the first time. Deleting it "as a
+    -- duplicate" brings the portrait straight back the next time Blizzard
+    -- shows it.
+    if not playerFrameHookInstalled then
+        playerFrameHookInstalled = true
+        frame:HookScript("OnShow", function(self)
+            local ic = InCombatLockdown and InCombatLockdown() or false
+            if ns:ResolvePlayerFrameHidden(WantPlayerFrameHidden(), ic) then
+                self:Hide()
+            end
+        end)
+    end
+
+    if shouldHide then
+        -- pcall belt-and-braces: PlayerFrame is not built on a secure
+        -- template in 3.3.5a, so Hide() is not expected to be combat-
+        -- protected, but this never risks erroring the addon if that
+        -- assumption is ever wrong on some client build.
+        pcall(frame.Hide, frame)
+    elseif not wantHidden then
+        -- Only force it back open when nothing wants it hidden at all (the
+        -- tickbox is off, or the addon is disabled). A hide that is still
+        -- wanted but merely deferred for combat safety must leave the frame
+        -- exactly as it is until combat ends.
+        pcall(frame.Show, frame)
+    end
+end
+
+-- ----------------------------------------------------------------------------
 -- Lifecycle (Ace3-style: Initialize once, Enable/Disable any number of times).
 -- ----------------------------------------------------------------------------
 
@@ -182,6 +256,10 @@ function ns:OnEnable()
     for _, frame in pairs(ns.groupFrames or {}) do
         if frame and frame.Show then frame:Show() end
     end
+    -- Apply the Hide Blizzard Player Frame setting: covers both login (this
+    -- runs whenever the addon comes up enabled) and /bw enable after a
+    -- disable had shown the frame back.
+    if ns.ApplyPlayerFrameHidden then ns:ApplyPlayerFrameHidden() end
     -- Version-probe the guild shortly after enabling (delayed so the guild
     -- roster has loaded). Gated + throttled inside Comms.
     if ns.Comms and ns.After then
@@ -197,6 +275,12 @@ function ns:OnDisable()
     for _, frame in pairs(ns.groupFrames or {}) do
         if frame and frame.Hide then frame:Hide() end
     end
+    -- A disabled BarWarden should not go on suppressing Blizzard's player
+    -- frame. From /bw disable, SetEnabled has already flipped global.enabled
+    -- to false by the time this runs, so WantPlayerFrameHidden reads false
+    -- and this hands the frame straight back without the user ever needing
+    -- the options panel. From PLAYER_LOGOUT this is a same-session no-op.
+    if ns.ApplyPlayerFrameHidden then ns:ApplyPlayerFrameHidden() end
 end
 
 local function OnAddonLoaded(event, loadedName)

@@ -68,7 +68,7 @@ and the rest of the per-widget-type set).
 | [MinimapButton.lua](../MinimapButton.lua) | LibDataBroker launcher + LibDBIcon-managed minimap button. |
 | [Dialogs.lua](../Dialogs.lua) | `StaticPopup` definitions (keyed `BARWARDEN_*`) + `ns:EnsurePopupsTopmost` / `ns:RaiseFrameAboveOptions` (keep popups + the colour picker above the options window). |
 | [BugReport.lua](../BugReport.lua) | Diagnostic snapshot builder + display frame (`/bw bugreport`). |
-| [Core.lua](../Core.lua) | Lifecycle (`OnInitialize`/`OnEnable`/`OnDisable`), the `/bw` slash router, `ns:Print`, and the provenance globals + watermark. |
+| [Core.lua](../Core.lua) | Lifecycle (`OnInitialize`/`OnEnable`/`OnDisable`), the `/bw` slash router, `ns:Print`, the provenance globals + watermark, and `ns:ApplyPlayerFrameHidden` (the reversible Hide Blizzard Player Frame apply/hook). |
 
 ## Boundaries (the things that must stay true)
 

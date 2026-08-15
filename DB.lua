@@ -20,6 +20,16 @@ ns.DEFAULTS = {
         -- Notify when a newer BarWarden version is seen on a peer (Comms.lua).
         -- Additive key, backfilled by MergeDefaults on existing saves.
         versionAlerts = true,
+        -- Hide Blizzard's default player frame (Options_General.lua). A pure
+        -- user preference, addon-wide rather than per-group: a resource group
+        -- duplicates what that frame already shows, but a second resource
+        -- group must not fight the first over hiding it, and the owner asked
+        -- for a plain tickbox, not an automatic rule tied to whether a
+        -- resource group exists. See ns:ApplyPlayerFrameHidden (Core.lua) for
+        -- how this is applied reversibly. Additive key, backfilled by
+        -- MergeDefaults on existing saves (no schema bump needed, same as
+        -- versionAlerts above).
+        hidePlayerFrame = false,
         -- Help-tab section collapse state: sectionKey -> true when collapsed.
         -- Seeded so Getting Started is open and the rest start collapsed.
         -- Additive key, backfilled by MergeDefaults on existing saves (no

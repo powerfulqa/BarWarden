@@ -85,6 +85,27 @@ local SCHEMA = {
         offsetX = ns.OFFSET_TOGGLE,
     },
 
+    -- Hide Blizzard's default player frame. Addon-wide, not per group: a
+    -- resource group already duplicates what that frame shows, but hiding it
+    -- is a global act and a second resource group must not fight the first
+    -- over it, so this is a plain tickbox rather than something a resource
+    -- group turns on by itself. ns:ApplyPlayerFrameHidden (Core.lua) does the
+    -- actual, reversible hide/show.
+    {
+        type    = "toggle",
+        label   = "Hide Blizzard Player Frame",
+        tooltip = "Hides the default player frame (the portrait box near "
+               .. "your character). You lose its portrait, the buffs it "
+               .. "shows, its right-click menu, and floating combat text. "
+               .. "BarWarden's own bars keep working either way.",
+        get     = function() return ns.db and ns.db.global and ns.db.global.hidePlayerFrame end,
+        set     = function(_, checked)
+            if ns.db and ns.db.global then ns.db.global.hidePlayerFrame = checked end
+            if ns.ApplyPlayerFrameHidden then ns:ApplyPlayerFrameHidden() end
+        end,
+        offsetX = ns.OFFSET_TOGGLE,
+    },
+
     -- Slash Commands section header. The runnable list is rendered below it
     -- (see BuildGeneralInto); id exposes it as the anchor for that list.
     { type = "header", text = "Slash Commands", spacing = 24, offsetX = ns.OFFSET_HEADER, id = "slashHeader" },

@@ -249,6 +249,10 @@ Unlike an aura-tracking group, there is nothing to skip by duration, filter
 to your own casts, or ban one spell from: those settings hide for a
 resources group since none of them apply.
 
+A resource group shows the same health and power the default player frame
+already does. If you'd rather not see it twice, tick Hide Blizzard Player
+Frame on the General tab.
+
 ### Aura Equivalency Groups
 
 Instead of listing every crowd-control spell by hand, you can use a single group token. These expand automatically at scan time:
@@ -279,6 +283,8 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Lock or unlock all group frames
 - Show or hide the minimap button
 - Get notified when a newer version is available
+- Hide the default player frame (handy if you use a Resource Group and don't
+  want your health and power shown twice)
 - A full list of slash commands, each with a Run button to fire it straight from the panel
 
 ### Bars / Groups

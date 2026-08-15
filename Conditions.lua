@@ -264,6 +264,24 @@ function ns:GetBarAlertColor(display, remaining, duration)
     return c.r or 1, c.g or 0, c.b or 0
 end
 
+-- Resolve whether Blizzard's PlayerFrame should be hidden right now
+-- (Options_General.lua "Hide Blizzard Player Frame"; applied by
+-- ns:ApplyPlayerFrameHidden in Core.lua). Kept here rather than in Core.lua
+-- for the same reason as the Bar Alerts pair above: pure two-boolean
+-- arithmetic the test harness can reach without touching the PlayerFrame
+-- global. `wantHidden` already folds in both the tickbox and the addon's
+-- own enabled state (see Core.lua's WantPlayerFrameHidden), so /bw disable
+-- reads as "does not want it hidden" here without this function knowing
+-- anything about enable/disable. `inCombat` defers taking the hide action
+-- at all while true: 3.3.5a's combat-protection rules for this frame are
+-- not something to gamble on, and staying visible one extra moment costs
+-- nothing while an uncaught protected-frame error would be far worse. A
+-- deferred hide is picked up again the next time this resolves with
+-- inCombat false (PLAYER_REGEN_ENABLED - see BarEngine.lua's
+-- ns:OnCombatStateChanged), so nothing is lost, only delayed.
+function ns:ResolvePlayerFrameHidden(wantHidden, inCombat)
+    return not not wantHidden and not inCombat
+end
 
 -- ----------------------------------------------------------------------------
 -- Built-in conditions.

@@ -556,6 +556,33 @@ Adding a new group override means: the widget in
 read site - `ResolveHideWhenInactive` replaced five separate
 `cond.hideWhenInactive` reads across BarEngine/Core/FrameManager.
 
+**Hide Blizzard Player Frame** (v2.5.0, `global.hidePlayerFrame`,
+[Options_General.lua](../Options_General.lua)) is addon-wide rather than a
+group override - a resource group duplicates the default player frame, but
+hiding that frame is a global act and a second resource group must not fight
+the first over it - so it has no per-group entry in the table above. Its
+resolver, `ns:ResolvePlayerFrameHidden(wantHidden, inCombat)`, lives in
+Conditions.lua for the same reason as the Bar Alerts pair: pure two-boolean
+arithmetic the test harness can reach without the frame-heavy code that
+actually touches `PlayerFrame`. `wantHidden` already folds in
+`global.enabled`, so a disabled addon never keeps the frame hidden.
+
+`ns:ApplyPlayerFrameHidden` (Core.lua) does the impure half and is
+deliberately reversible: it only ever calls `PlayerFrame:Hide()` /
+`:Show()`, never `UnregisterAllEvents()` (undoing that would mean
+hand-re-registering every event Blizzard put on the frame - long,
+version-specific, and easy to get subtly wrong). Because Blizzard's own
+code re-`Show()`s the frame constantly (`UNIT_HEALTH`, entering the world, a
+target change, and more), staying hidden needs a `HookScript("OnShow", ...)`
+that re-checks the live setting and re-hides on the spot - see the
+`EC-TRAP:` on that hook in Core.lua, since `HookScript` cannot be removed
+and the hook can look redundant next to the `Hide()` call beside it. It is
+called from `ns:OnInitialize` via `ns:OnEnable` (login), from the toggle's
+`set` (Options_General.lua), from `ns:OnEnable`/`ns:OnDisable` (`/bw
+enable`/`disable`), and from `ns:OnCombatStateChanged` (BarEngine.lua) so a
+hide requested mid-fight is picked up the moment combat ends rather than
+attempted while `InCombatLockdown()` might make it unsafe.
+
 ### Declarative options schema (`ns:BuildSettings`)
 
 [Options_Builder.lua](../Options_Builder.lua) walks a schema table and
@@ -1095,6 +1122,7 @@ Current trap sites:
 | [FrameManager.lua](../FrameManager.lua) `ns:UpdateGroupLayout` | the re-anchor sits AFTER `SetHeight`/`SetWidth` (looks like it should read the frame's edges first, so it keeps the corner the user is currently looking at) | Reading first is right only while the size is not also changing, which is every relayout of a settled group - so both orderings agree there and the wrong one never showed itself. They diverge exactly where it matters: `ns:RebuildAllFrames` lays out a frame `ns:CreateGroupFrame` stubbed at `SetHeight(30)`, and an auto-tracking group is laid out with every slot still hidden. Repinning from that geometry pinned the wrong edge by (final height minus the size it was read at) and saved it, which is the v2.2.3 bug. Resize first so the frame grows away from the corner it is already held by. The mismatch guard above it is the v2.0.2 drift fix and must stay. |
 | [Options_Bars.lua](../Options_Bars.lua) `KeepListFrameShown` | the `Show()` right after `FauxScrollFrame_Update` (looks redundant) | Blizzard's `FauxScrollFrame_Update` hides the whole scroll frame, not just its scrollbar, when the list fits without scrolling, and the rest of the column anchors to that frame. Removing the `Show()` re-breaks the Bar Control page whenever a list drops from 7 items to 6 (the dependants strand at the panel origin until something re-shows the frame). |
 | [Comms.lua](../Comms.lua) | `SetItemRef` reassigned wholesale (looks like it should be `hooksecurefunc`'d like everything else) | Replaced on purpose: the stock 3.3.5a handler passes unknown link types to `SetHyperlink`, which errors on the addon's custom `bwupdate:` link. Returning early avoids that path; every other link is forwarded to the original untouched. Do not swap this to a hook. |
+| [Core.lua](../Core.lua) `ns:ApplyPlayerFrameHidden` | the `PlayerFrame:HookScript("OnShow", ...)` looks redundant next to the `Hide()` call right above it | It is not a duplicate: `Hide()` only takes effect for the instant it runs, while Blizzard re-`Show()`s `PlayerFrame` on a long list of events for the rest of the session. `HookScript` cannot be removed, so the hook - not the `Hide()` call - is what keeps the frame down after the first time, and it re-checks the live setting on every call rather than being installed only while the setting is on. Deleting it "as a duplicate" brings the frame back the next time Blizzard shows it. |
 
 ---
 

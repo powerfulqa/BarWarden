@@ -243,7 +243,11 @@ local HELP_ENTRIES = {
           .. "It Lasts Over, Only Mine, Include Always On, Skip Spells I "
           .. "Already Track, and the hidden-spells list) hide for this "
           .. "choice, since none of them apply to a number that is not a "
-          .. "spell.",
+          .. "spell.\n\n"
+          .. "A resource group already shows your health and power on its "
+          .. "own bars, so if you would rather not see the same numbers "
+          .. "twice, tick Hide Blizzard Player Frame on the General tab to "
+          .. "hide the default player frame.",
     },
 
     -- ===================================================================

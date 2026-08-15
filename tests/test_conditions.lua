@@ -807,4 +807,33 @@ function M.test_getBarAlertColor_safeWithoutData()
     assertx.assertNil(ns:GetBarAlertColor(nil, 1, 30))
 end
 
+-- --------------------------------------------------------------------------
+-- ResolvePlayerFrameHidden (Hide Blizzard Player Frame, Core.lua)
+-- --------------------------------------------------------------------------
+
+function M.test_resolvePlayerFrameHidden_hidesWhenWantedAndOutOfCombat()
+    local ns = fresh()
+    assertx.assertTrue(ns:ResolvePlayerFrameHidden(true, false))
+end
+
+function M.test_resolvePlayerFrameHidden_deferredWhileInCombat()
+    local ns = fresh()
+    assertx.assertFalse(ns:ResolvePlayerFrameHidden(true, true))
+end
+
+function M.test_resolvePlayerFrameHidden_falseWhenNotWanted()
+    local ns = fresh()
+    assertx.assertFalse(ns:ResolvePlayerFrameHidden(false, false))
+end
+
+function M.test_resolvePlayerFrameHidden_falseWhenNeitherWantedNorInCombat()
+    local ns = fresh()
+    assertx.assertFalse(ns:ResolvePlayerFrameHidden(false, true))
+end
+
+function M.test_resolvePlayerFrameHidden_nilSafe()
+    local ns = fresh()
+    assertx.assertFalse(ns:ResolvePlayerFrameHidden(nil, nil))
+end
+
 return M
