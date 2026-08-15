@@ -338,21 +338,36 @@ local RESOURCE_COLOR_FALLBACK = {
     soulshards  = { r = 0.5,  g = 0.32, b = 0.55 },
 }
 
--- Resolve the power-type default colour for a resource bar. Reads the
--- client's own PowerBarColor table when present (so a colour patched by
--- Blizzard, or an item/skin that swaps it, is picked up rather than
--- hardcoded), falling back to RESOURCE_COLOR_FALLBACK for anything missing.
--- Returns (r, g, b), or nil for a bar with no resourceKey (not a resource
--- bar, or a resource ScanAutoResourceGroup has not stamped one onto yet).
-function ns:GetResourcePowerColor(bar)
-    local key = bar and bar.barData and bar.barData.resourceKey
+-- Resolve the power-type default colour for a resource KEY ("mana", "rage",
+-- "health", ...) directly, with no bar involved. Reads the client's own
+-- PowerBarColor table when present (so a colour patched by Blizzard, or an
+-- item/skin that swaps it, is picked up rather than hardcoded), falling back
+-- to RESOURCE_COLOR_FALLBACK for anything missing. Returns (r, g, b), or nil
+-- for a key with no known default (not a resource key at all, or one of the
+-- keys - combo points, runes - with no single conventional colour; see the
+-- comment above RESOURCE_COLOR_TOKENS).
+--
+-- Pulled out of ns:GetResourcePowerColor below so the pinned-resource colour
+-- swatch (Options_Bars.lua) can resolve the SAME starting colour the bar
+-- itself would draw without needing a live bar object to ask - the options
+-- panel builds its swatch before any bar exists for an unticked pin, and a
+-- group need not even be built yet.
+function ns:GetResourceKeyDefaultColor(key)
     if not key then return nil end
-
     local token = RESOURCE_COLOR_TOKENS[key]
     local fromClient = token and _G.PowerBarColor and _G.PowerBarColor[token]
     local c = fromClient or RESOURCE_COLOR_FALLBACK[key]
     if not c then return nil end
     return c.r or 0, c.g or 0, c.b or 0
+end
+
+-- Resolve the power-type default colour for a resource bar. Returns (r, g, b),
+-- or nil for a bar with no resourceKey (not a resource bar, or a resource
+-- ScanAutoResourceGroup has not stamped one onto yet).
+function ns:GetResourcePowerColor(bar)
+    local key = bar and bar.barData and bar.barData.resourceKey
+    if not key then return nil end
+    return ns:GetResourceKeyDefaultColor(key)
 end
 
 -- Resolve a per-pinned-resource colour override for a resource bar: the

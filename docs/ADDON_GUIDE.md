@@ -645,9 +645,8 @@ Two resolvers, both in Conditions.lua for the same reason as the Bar Alerts
 pair (pure arithmetic `GetBarColor`, Bar.lua, consults; frame-heavy code
 never touches them):
 
-- `ns:GetResourcePowerColor(bar)` reads `bar.barData.resourceKey` (stamped
-  by `ScanAutoResourceGroup`, BarEngine.lua, onto every occupied resource
-  slot) and maps it to a colour: the power-type keys (`mana`, `rage`,
+- `ns:GetResourceKeyDefaultColor(key)` maps a resource key straight to a
+  colour, with no bar involved: the power-type keys (`mana`, `rage`,
   `focus`, `energy`, `runicpower`) go through the client's own
   `PowerBarColor` table first (keyed by the same string tokens
   `UnitPowerType`'s second return uses - Blizzard's own UnitFrame.lua reads
@@ -655,11 +654,19 @@ never touches them):
   table when `PowerBarColor` is absent or missing that token. `health` and
   `soulshards` are not power types at all, so they always use the fallback
   table (health's green is the plain WoW convention, not tied to Colour
-  Mode's CLASS option). Combo points and the six DK runes have no single
-  conventional colour (combo points render as pips, not a status bar; each
-  rune has its own colour by TYPE, which `ns:CollectResources` does not
-  thread through as part of the entry) and are deliberately left out, so
-  they fall through to the addon-wide default like any other bar.
+  Mode's CLASS option). Combo points have no single conventional colour
+  (they render as pips, not a status bar) and return nil, falling through to
+  the addon-wide default like any other bar. Pulled out as its own function
+  (v2.5.0) so the pinned-resource colour swatch (Options_Bars.lua) can show
+  the SAME starting colour the bar itself would draw, with no live bar
+  object needed - see "Colour swatches default to the resource's own colour"
+  further below.
+- `ns:GetResourcePowerColor(bar)` reads `bar.barData.resourceKey` (stamped
+  by `ScanAutoResourceGroup`, BarEngine.lua, onto every occupied resource
+  slot) and, for a rune (`bar.barData.runeType` set), returns that rune's
+  TYPE colour (`RUNE_TYPE_COLORS`); otherwise delegates to
+  `ns:GetResourceKeyDefaultColor` above. See "Death Knight runes coloured by
+  type" further below for the rune half.
 - `ns:GetPinnedResourceColor(bar)` resolves the colour swatch under a
   pinned resource's own tickbox (Options_Bars.lua), reading
   `groupData.autoPinnedResources` through `ns:NormalizePinnedResources`
@@ -676,6 +683,40 @@ an auto slot, which has no per-bar editor of its own, but still honoured),
 addon-wide Colour Mode default (pre-existing). Levels (2) and (4) are the
 only two new to a resource bar; a non-resource bar reaches the same three
 pre-existing levels it always did.
+
+**Colour swatches default to the resource's own colour** (v2.5.0). Each
+pinned resource's colour swatch (`grpAutoPinManaColor` and its siblings,
+Options_Bars.lua) used to open on one fixed placeholder blue regardless of
+which resource it belonged to, so the panel did not match what the bar
+actually drew until the owner picked a colour themselves.
+`BUILDERS.color` (Options_Builder.lua) resolves a widget's initial colour
+from `entry.get()`; that `get` is `getPinnedResourceColor(g, key)`
+(Options_Bars.lua), which now falls back to
+`ns:GetResourceKeyDefaultColor(key)` (Conditions.lua) - the same by-key
+resolver `ns:GetResourcePowerColor` reads for the bar itself - instead of a
+fixed constant, whenever the entry has no colour of its own yet. A key with
+no conventional colour (`combopoints`) still falls back to the old fixed
+placeholder, since there is nothing more specific to show.
+
+**Death Knight runes coloured by type** (v2.5.0). Each rune has its own
+colour by type (blood red, frost blue, unholy green, with death runes
+distinct too), which `ns:CollectResources` did not used to thread through
+as part of the entry, so every rune bar fell all the way through to the
+addon-wide default. 3.3.5a's FrameXML (`RuneFrame.lua`) does define this
+exact palette, but as a file-local `runeColors` table with no addon-visible
+equivalent of `PowerBarColor` for rune types, so it cannot be read live the
+way the power-type colours above are; `RUNE_TYPE_COLORS` (Conditions.lua)
+hardcodes the same four values Blizzard's own client uses: Blood `{1, 0,
+0}`, Unholy `{0, 0.5, 0}`, Frost `{0, 1, 1}`, Death `{0.8, 0.1, 1}` (a
+magenta/purple, not white - matching Blizzard's own choice rather than an
+invented one). `CheckRunes` (Trackers.lua) now returns the rune's type
+(1-4, from `GetRuneType`) as a seventh value; `ns:CollectResources` carries
+it on each `rune1`..`rune6` entry as `runeType`, and
+`ScanAutoResourceGroup` (BarEngine.lua) stamps it onto `bd.runeType`
+alongside `bd.resourceKey`, clearing it when the slot empties. This sits at
+the same precedence level as the power-type default above (4): a per-bar
+override, a pinned resource colour, or the group's Custom Bar Colour all
+still win over it, exactly like any other resource bar.
 
 Adding a new group override means: the widget in
 [Options_Bars.lua](../Options_Bars.lua) `GROUP_SETTINGS_SCHEMA` (with an

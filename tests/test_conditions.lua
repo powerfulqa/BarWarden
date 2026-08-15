@@ -951,4 +951,68 @@ function M.test_getPinnedResourceColor_safeWithoutData()
     assertx.assertNil(ns:GetPinnedResourceColor({ barData = {} }))
 end
 
+-- --------------------------------------------------------------------------
+-- ns:GetResourceKeyDefaultColor (v2.5.0): the by-KEY half of
+-- ns:GetResourcePowerColor, pulled out so the pinned-resource colour swatch
+-- (Options_Bars.lua) can show the resource's own starting colour before any
+-- bar/group exists to ask through ns:GetResourcePowerColor(bar).
+-- --------------------------------------------------------------------------
+
+function M.test_getResourceKeyDefaultColor_manaIsBlue()
+    local ns = fresh()
+    _G.PowerBarColor = nil
+    local r, g, b = ns:GetResourceKeyDefaultColor("mana")
+    assertx.assertEqual(r, 0)
+    assertx.assertEqual(g, 0)
+    assertx.assertEqual(b, 1)
+end
+
+function M.test_getResourceKeyDefaultColor_rageIsRed()
+    local ns = fresh()
+    _G.PowerBarColor = nil
+    local r, g, b = ns:GetResourceKeyDefaultColor("rage")
+    assertx.assertEqual(r, 1)
+    assertx.assertEqual(g, 0)
+    assertx.assertEqual(b, 0)
+end
+
+function M.test_getResourceKeyDefaultColor_energyIsYellow()
+    local ns = fresh()
+    _G.PowerBarColor = nil
+    local r, g, b = ns:GetResourceKeyDefaultColor("energy")
+    assertx.assertEqual(r, 1)
+    assertx.assertEqual(g, 1)
+    assertx.assertEqual(b, 0)
+end
+
+function M.test_getResourceKeyDefaultColor_prefersClientPowerBarColor()
+    local ns = fresh()
+    _G.PowerBarColor = { RAGE = { r = 0.9, g = 0.1, b = 0.1 } }
+    local r, g, b = ns:GetResourceKeyDefaultColor("rage")
+    assertx.assertEqual(r, 0.9)
+    assertx.assertEqual(g, 0.1)
+    assertx.assertEqual(b, 0.1)
+    _G.PowerBarColor = nil
+end
+
+function M.test_getResourceKeyDefaultColor_nilForUnknownKey()
+    local ns = fresh()
+    -- Combo points render as pips, not a status bar, so they have no single
+    -- conventional colour - the caller falls back to its own generic default.
+    assertx.assertNil(ns:GetResourceKeyDefaultColor("combopoints"))
+    assertx.assertNil(ns:GetResourceKeyDefaultColor(nil))
+end
+
+-- ns:GetResourcePowerColor must still resolve exactly as before now that its
+-- body delegates to ns:GetResourceKeyDefaultColor - a pure passthrough
+-- refactor, not a behaviour change.
+function M.test_getResourcePowerColor_stillDelegatesCorrectly()
+    local ns = fresh()
+    _G.PowerBarColor = nil
+    local r, g, b = ns:GetResourcePowerColor(resourceBarIn(1, "energy"))
+    assertx.assertEqual(r, 1)
+    assertx.assertEqual(g, 1)
+    assertx.assertEqual(b, 0)
+end
+
 return M

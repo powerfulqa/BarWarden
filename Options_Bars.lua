@@ -507,6 +507,14 @@ local function CreateBarsTab(parent)
     -- ns:NormalizePinnedResources (Trackers.lua) so a group still holding
     -- the pre-order set shape keeps ticking/unticking correctly instead of
     -- needing its own separate read path.
+    --
+    -- Only used when a key has no conventional colour of its own (combo
+    -- points: see the comment above RESOURCE_COLOR_TOKENS, Conditions.lua) -
+    -- otherwise the swatch's own default now comes from
+    -- ns:GetResourceKeyDefaultColor below, the same resolver GetBarColor
+    -- (Bar.lua) reads for the bar itself, so the swatch shown here always
+    -- starts on the colour actually drawn on screen (mana blue, rage red,
+    -- energy yellow) instead of one fixed blue for every resource.
     local DEFAULT_PIN_SWATCH_COLOR = { r = 0.2, g = 0.6, b = 1.0 }
 
     local function isResourcePinned(g, key)
@@ -523,6 +531,8 @@ local function CreateBarsTab(parent)
                 if entry.key == key and entry.color then return entry.color end
             end
         end
+        local r, gg, b = ns:GetResourceKeyDefaultColor(key)
+        if r then return { r = r, g = gg, b = b } end
         return DEFAULT_PIN_SWATCH_COLOR
     end
 
