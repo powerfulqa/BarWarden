@@ -543,4 +543,84 @@ function M.test_legacyFocusPin_droppedWithoutError()
     assertx.assertNotNil(findEntry(entries2, "rage"), "other pins must keep working alongside a stale focus entry")
 end
 
+-- --------------------------------------------------------------------------
+-- The target's-target feed (opts.unit = "targettarget"): health and current
+-- power read off that third unit, independently of both player and target
+-- state; a target with no target of its own collects nothing; and Combo
+-- Points, unlike the target feed, do NOT appear here - see the decision
+-- recorded in its own test below.
+-- --------------------------------------------------------------------------
+
+function M.test_targetTargetFeed_collectsThatUnitsHealthAndPower()
+    local ns = fresh()
+    mock.playerClass = "MAGE"
+    -- Player, target, AND target's-target all deliberately different, so a
+    -- pass here can only mean this feed read the THIRD unit, not either of
+    -- the other two.
+    mock.playerHealth, mock.playerHealthMax = 100, 100
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 10, 20
+
+    mock.targetExists = true
+    mock.targetHealth, mock.targetHealthMax = 4200, 5100
+    mock.targetPowerType, mock.targetPowerTypeToken = 1, "RAGE"
+    mock.targetPower[1], mock.targetPowerMax[1] = 60, 100
+
+    mock.totExists = true
+    mock.totHealth, mock.totHealthMax = 777, 888
+    mock.totPowerType, mock.totPowerTypeToken = 3, "ENERGY"
+    mock.totPower[3], mock.totPowerMax[3] = 33, 100
+
+    local entries = ns:CollectResources({ unit = "targettarget" })
+
+    assertx.assertEqual(entries[1].key, "health")
+    assertx.assertEqual(entries[1].current, 777)
+    assertx.assertEqual(entries[1].max, 888)
+
+    local energy = findEntry(entries, "energy")
+    assertx.assertNotNil(energy, "the target's target's current power type (energy) should be collected")
+    assertx.assertEqual(energy.current, 33)
+    assertx.assertEqual(energy.max, 100)
+end
+
+function M.test_targetTargetFeed_absentCollectsNothing()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    -- The common case this guards: you have a target, but IT has nothing
+    -- targeted (most mobs/players much of the time).
+    mock.targetExists = true
+    mock.targetHealth, mock.targetHealthMax = 4200, 5100
+    mock.totExists = false
+    -- Left non-zero on purpose, same reasoning as the target-absent test
+    -- above: a missing/backwards guard would leak these through silently.
+    mock.totHealth, mock.totHealthMax = 999, 999
+    mock.totPowerType, mock.totPowerTypeToken = 0, "MANA"
+    mock.totPower[0], mock.totPowerMax[0] = 500, 500
+
+    local ok, entries = pcall(function() return ns:CollectResources({ unit = "targettarget" }) end)
+    assertx.assertTrue(ok, "collecting for a target with no target of its own must not error")
+    assertx.assertEqual(#entries, 0, "a target with no target of its own must collect nothing")
+end
+
+-- --------------------------------------------------------------------------
+-- Combo Points decision for the target's-target feed: GetComboPoints has no
+-- "on my target's target" reading to give - it is hardcoded to "target" -
+-- so showing them here would just repeat the target feed's own number under
+-- a label that implies it belongs to a different unit. Decision: Combo
+-- Points do NOT appear on this feed, even for a class that has them.
+-- --------------------------------------------------------------------------
+
+function M.test_comboPoints_doNotAppearOnTargetTargetFeed()
+    local ns = fresh()
+    mock.playerClass = "ROGUE"
+    mock.comboPoints = 5
+    mock.totExists = true
+    mock.totPowerType, mock.totPowerTypeToken = 0, "MANA"
+    mock.totPower[0], mock.totPowerMax[0] = 1000, 1000
+
+    local entries = ns:CollectResources({ unit = "targettarget" })
+    assertx.assertNil(findEntry(entries, "combopoints"),
+        "Combo Points must not appear on the target's-target feed even for a Rogue")
+end
+
 return M

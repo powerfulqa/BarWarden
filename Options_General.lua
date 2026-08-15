@@ -121,7 +121,8 @@ local SCHEMA = {
         tooltip = "Hides the default target frame (the portrait box above "
                .. "your target). You lose its portrait, the target's buffs "
                .. "and debuffs, its right-click menu, and the combo point "
-               .. "display. BarWarden's own bars keep working either way.",
+               .. "display. Your target's target display is not affected. "
+               .. "BarWarden's own bars keep working either way.",
         get     = function() return ns.db and ns.db.global and ns.db.global.hideTargetFrame end,
         set     = function(_, checked)
             if ns.db and ns.db.global then ns.db.global.hideTargetFrame = checked end

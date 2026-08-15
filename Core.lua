@@ -159,13 +159,19 @@ end
 --     PlayerFrame the way RuneFrame is, and the alternate power bar (druid
 --     Eclipse, etc.) is a genuine PlayerFrame child.
 --   * TargetFrame: TargetFrameToT (target-of-target) is a comparable
---     standalone satellite, but is deliberately left OUT of
---     TARGET_HIDE_FRAME_NAMES. Unlike PlayerFrame/RuneFrame and
---     TargetFrame/ComboFrame, BarWarden's resource groups offer no
---     replacement for "what is my target targeting" - hiding it would be a
---     pure information loss with nothing standing in for it, unlike the
---     frames this setting is meant to let the owner retire in favour of a
---     resource group.
+--     standalone satellite, and is STILL left OUT of TARGET_HIDE_FRAME_NAMES
+--     even now that a target's-target resource group exists (autoTrack =
+--     "totResources", Trackers.lua) to replace what it shows. The reason
+--     changed, not the answer: hiding TargetFrame is one tickbox, and
+--     building a target's-target group is a separate, opt-in action on a
+--     group the owner has to go and set up - the two are not linked, and
+--     nothing here can tell whether a matching group actually exists for
+--     this character. Folding TargetFrameToT into this tickbox would mean
+--     ticking "Hide Blizzard Target Frame" - read by anyone as "declutter
+--     the target portrait" - can silently take away target-of-target too,
+--     for someone who never built the replacement. The tooltip
+--     (Options_General.lua) says explicitly that target-of-target is NOT
+--     touched by this setting, so nobody has to guess.
 -- The two settings are independent by construction: PLAYER_HIDE_FRAME_NAMES
 -- and TARGET_HIDE_FRAME_NAMES are separate lists, each driven by its own
 -- want-function and applied by its own public entry point, so ticking one

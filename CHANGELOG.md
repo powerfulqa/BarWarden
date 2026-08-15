@@ -76,6 +76,14 @@ the same current-power-type signal the game itself uses.
   resource, not a player one (hunters use Mana until Cataclysm), so the
   tickbox could never actually show a bar. A group that still has Focus
   pinned from before simply drops it, without error.
+- **A third Auto Track choice, "Health and power (target of target)",**
+  shows whatever your target has targeted: its health, then its current
+  power. Pinning, Value Text, and Show Icon work the same as the other two
+  resource groups. Combo Points do not appear here, unlike the player and
+  target groups: they are always a reading of your points on your OWN
+  target, not on whatever your target is looking at, so showing them here
+  would just repeat the same number under the wrong label. A target with
+  nothing of its own targeted shows nothing, the same as an empty group.
 
 ---
 

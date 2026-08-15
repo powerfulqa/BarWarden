@@ -44,6 +44,18 @@ M.targetPowerMax      = {}
 M.targetPowerType      = 0
 M.targetPowerTypeToken = "MANA"
 
+-- Target's-target unit state ("targettarget", for the totResources feed),
+-- mirroring the target state above. Independent of it so a test can prove
+-- the totResources feed reads a THIRD, different unit rather than quietly
+-- falling back to "target" or "player".
+M.totExists    = true
+M.totHealth    = 100
+M.totHealthMax = 100
+M.totPower         = {}
+M.totPowerMax      = {}
+M.totPowerType      = 0
+M.totPowerTypeToken = "MANA"
+
 -- Aura lists per unit. Each entry is a table of the 11 values UnitBuff /
 -- UnitDebuff returns on 3.3.5a (name, rank, icon, count, dispelType,
 -- duration, expirationTime, caster, isStealable, shouldConsolidate, spellId).
@@ -114,6 +126,13 @@ function M.reset()
     for k in pairs(M.targetPowerMax) do M.targetPowerMax[k] = nil end
     M.targetPowerType      = 0
     M.targetPowerTypeToken = "MANA"
+    M.totExists    = true
+    M.totHealth    = 100
+    M.totHealthMax = 100
+    for k in pairs(M.totPower)    do M.totPower[k]    = nil end
+    for k in pairs(M.totPowerMax) do M.totPowerMax[k] = nil end
+    M.totPowerType      = 0
+    M.totPowerTypeToken = "MANA"
 end
 
 -- --------------------------------------------------------------------------
@@ -151,17 +170,20 @@ function M.install()
     _G.UnitExists = function(unit)
         if unit == "player" then return true end
         if unit == "target" then return M.targetExists end
+        if unit == "targettarget" then return M.totExists end
         return false
     end
 
     _G.UnitHealth = function(unit)
         if unit == "player" then return M.playerHealth end
         if unit == "target" then return M.targetExists and M.targetHealth or 0 end
+        if unit == "targettarget" then return M.totExists and M.totHealth or 0 end
         return 0
     end
     _G.UnitHealthMax = function(unit)
         if unit == "player" then return M.playerHealthMax end
         if unit == "target" then return M.targetExists and M.targetHealthMax or 0 end
+        if unit == "targettarget" then return M.totExists and M.totHealthMax or 0 end
         return 0
     end
     _G.UnitAffectingCombat = function(unit) return unit == "player" and M.playerCombat or false end
@@ -204,14 +226,17 @@ function M.install()
 
     _G.UnitPower = function(unit, t)
         if unit == "target" then return (M.targetExists and M.targetPower[t]) or 0 end
+        if unit == "targettarget" then return (M.totExists and M.totPower[t]) or 0 end
         return M.power[t] or 0
     end
     _G.UnitPowerMax = function(unit, t)
         if unit == "target" then return (M.targetExists and M.targetPowerMax[t]) or 0 end
+        if unit == "targettarget" then return (M.totExists and M.totPowerMax[t]) or 0 end
         return M.powerMax[t] or 0
     end
     _G.UnitPowerType = function(unit)
         if unit == "target" then return M.targetPowerType, M.targetPowerTypeToken end
+        if unit == "targettarget" then return M.totPowerType, M.totPowerTypeToken end
         return M.powerType, M.powerTypeToken
     end
     _G.GetComboPoints = function(unit, target) return M.comboPoints end

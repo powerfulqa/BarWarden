@@ -251,13 +251,20 @@ the player resource group, since they are always your points on your
 current target either way you look at them. A target with nothing selected
 just shows nothing, the same as an empty group.
 
+"Health and power (target of target)" does the same again for whatever your
+target has targeted. Combo Points do NOT show here: they are always your
+points on your own target, not on whatever your target is looking at, so
+showing them under this group would just repeat the other group's number
+under the wrong label. A target with nothing of its own targeted shows
+nothing.
+
 - **Always Show Mana / Rage / Energy** - pin a power you always want
   visible, even when it is not the one you are currently using. Bars appear
   in the order you tick them, top to bottom; unticking one and re-ticking it
   later moves it to the end rather than back to where it used to be. Each
   pin gets its own colour swatch, which beats both the group's Custom Bar
-  Colour and the default power colour above. Works the same on the target
-  resource group, pinning the target's power instead of yours.
+  Colour and the default power colour above. Works the same on either of
+  the target resource groups, pinning that group's own unit's power.
 - **Show Icon** - show or hide the resource icon on this group's bars.
 - **Value Text** - how each bar's number is shown: Current / Max (`4200/5100`),
   Percent (`82%`), or Both (`4200/5100 (82%)`).
@@ -306,7 +313,9 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
   want your health and power shown twice), and the Death Knight rune display
   along with it
 - Hide the default target frame the same way, independently, including the
-  combo point display
+  combo point display. Your target's target display is not part of this
+  tickbox, so it stays up unless you build a "target of target" resource
+  group to replace it yourself
 - A full list of slash commands, each with a Run button to fire it straight from the panel
 
 ### Bars / Groups
@@ -319,7 +328,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Sort Mode (Manual, Remaining Time, Alphabetical, As They Come)
 - Growth Direction (Down, Up)
 - Bar Overrides: Bar Texture, Text Format, Bar Style (Countdown, On or Off), Custom Bar Colour, Show Icons Only (a compact grid of spell icons instead of bars, sized with the Width slider), Custom Stack Text (its own size and colour for the stack count), and Custom Bar Effects (Glow on Ready, Pulse on Ready, Linger Time), all for the whole group at once - Custom Bar Effects is also the only way to turn these on for an auto-tracking group
-- Auto Track: fill the group from buffs or debuffs, or from health and power (yours or your target's), instead of adding bars by hand. Either Health and power choice adds its own Always Show Mana/Rage/Energy tickboxes (in the order you tick them, each with an optional colour swatch), a Show Icon toggle, and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings
+- Auto Track: fill the group from buffs or debuffs, or from health and power (yours, your target's, or your target's target's), instead of adding bars by hand. Any Health and power choice adds its own Always Show Mana/Rage/Energy tickboxes (in the order you tick them, each with an optional colour swatch), a Show Icon toggle, and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings
 - Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**

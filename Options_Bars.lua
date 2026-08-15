@@ -412,13 +412,14 @@ local function CreateBarsTab(parent)
 
     -- Auto-tracking feeds. Values must match the keys in ns.AUTO_TRACK_FEEDS.
     local autoTrackItems = {
-        { text = "Off",                       value = ""                 },
-        { text = "All buffs on player",       value = "playerBuffs"      },
-        { text = "All debuffs on player",     value = "playerDebuffs"    },
-        { text = "All buffs on target",       value = "targetBuffs"      },
-        { text = "All debuffs on target",     value = "targetDebuffs"    },
-        { text = "Health and power",          value = "resources"        },
-        { text = "Health and power (target)", value = "targetResources"  },
+        { text = "Off",                                  value = ""                 },
+        { text = "All buffs on player",                  value = "playerBuffs"      },
+        { text = "All debuffs on player",                value = "playerDebuffs"    },
+        { text = "All buffs on target",                  value = "targetBuffs"      },
+        { text = "All debuffs on target",                value = "targetDebuffs"    },
+        { text = "Health and power",                     value = "resources"        },
+        { text = "Health and power (target)",             value = "targetResources"  },
+        { text = "Health and power (target of target)",   value = "totResources"     },
     }
 
     -- The auto sub-settings mean nothing with no feed picked, so they hide.
@@ -473,6 +474,7 @@ local function CreateBarsTab(parent)
     local function SetAutoSubWidgetsShown(value)
         local hasFeed = value ~= nil and value ~= ""
         local isAura  = hasFeed and value ~= "resources" and value ~= "targetResources"
+                         and value ~= "totResources"
 
         local function setAll(ids, shown)
             for _, id in ipairs(ids) do
@@ -937,9 +939,9 @@ local function CreateBarsTab(parent)
         { type = "dropdown", id = "grpAutoTrackDD", label = "Track", items = autoTrackItems, width = 150,
           tooltip = "Fill this group by itself instead of adding bars one at a "
                .. "time: every buff or debuff on you or your target, or "
-               .. "health and power for you or your target. The bars you "
-               .. "added by hand are kept and come back when you set this "
-               .. "to Off.",
+               .. "health and power for you, your target, or your target's "
+               .. "target. The bars you added by hand are kept and come "
+               .. "back when you set this to Off.",
           get = function() local g = getGroup(); return g and g.autoTrack or "" end,
           set = function(_, value)
               local g = getGroup(); if not g then return end
@@ -1039,10 +1041,11 @@ local function CreateBarsTab(parent)
               ns:RefreshBarSettings()
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
-        -- Pinned resources: only shown for one of the two resource feeds,
-        -- "Health and power" (player) or "Health and power (target)" (see
-        -- AUTO_RESOURCE_ONLY_WIDGET_IDS above; both are equally "not an aura
-        -- feed" to SetAutoSubWidgetsShown). Each tickbox writes into an
+        -- Pinned resources: only shown for one of the three resource feeds,
+        -- "Health and power" (player), "Health and power (target)", or
+        -- "Health and power (target of target)" (see
+        -- AUTO_RESOURCE_ONLY_WIDGET_IDS above; all three are equally "not an
+        -- aura feed" to SetAutoSubWidgetsShown). Each tickbox writes into an
         -- ORDERED list (autoPinnedResources: v2.5.0, replacing the older
         -- plain set) via ns:TogglePinnedResource (Trackers.lua), so the
         -- resulting bars appear in the order the tickboxes were ticked, not

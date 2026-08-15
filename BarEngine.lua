@@ -1404,6 +1404,17 @@ function ns:OnTargetChanged()
     ScanBarsByMode(AURA_MODES, "target")
     if ns.hasAutoGroups then
         RunScan(ScanAutoGroups, "target")
+        -- Retargeting almost always changes who "targettarget" resolves to
+        -- as well (a different creature, or none at all), and there is no
+        -- PLAYER_TARGET_CHANGED-style event for that unit - only your OWN
+        -- target change is ever announced. Rescanning it here removes up to
+        -- one 0.25s tick of staleness on exactly the transition we already
+        -- know just happened; the case this can't help with - your target
+        -- switching who IT is attacking, with your own target unchanged -
+        -- has no event at all on this client and is left to the periodic
+        -- scan loop (see ns:OnUnitDisplayPowerChanged below for the one
+        -- event that does reach it).
+        RunScan(ScanAutoGroups, "targettarget")
     end
 end
 
@@ -1452,19 +1463,23 @@ end
 -- comment above OnComboPointsChanged): that volume in raid combat is exactly
 -- the firehose this addon avoids. UNIT_DISPLAYPOWER's rarity is what makes it
 -- safe to register outright. It IS unit-filtered the same way UNIT_AURA/
--- UNIT_HEALTH are elsewhere in this file: `unit` arrives as "target" when the
--- unit that changed form is whatever is currently targeted, matching how
--- Blizzard addresses every other UNIT_* event here. Both the player's
--- "resources" feed and the target's "targetResources" feed read their
--- current-power slot via UnitPowerType(unit) (ns:CollectResources,
--- Trackers.lua), so both unit values matter now, not just "player"; passing
--- `unit` through to ScanAutoGroups restricts the rescan to feeds on that
--- same unit rather than touching every auto group for an event that only
--- one of them can possibly care about. Without this, a form change would
--- still show correctly, just up to one 0.25s scan tick later - registering
--- the event only removes that tick of lag.
+-- UNIT_HEALTH are elsewhere in this file: `unit` arrives as "target" or
+-- "targettarget" when the unit that changed form is addressed that way from
+-- the player's perspective, matching how Blizzard addresses every other
+-- UNIT_* event here - this is the one event that DOES reach a form change
+-- on your target's target directly (there is no PLAYER_TARGET_CHANGED-style
+-- event for that unit at all; see ns:OnTargetChanged above for the other
+-- half of keeping it current). The player's "resources" feed, the target's
+-- "targetResources" feed, and the target's-target "totResources" feed all
+-- read their current-power slot via UnitPowerType(unit) (ns:CollectResources,
+-- Trackers.lua), so all three unit values matter now, not just "player";
+-- passing `unit` through to ScanAutoGroups restricts the rescan to feeds on
+-- that same unit rather than touching every auto group for an event that
+-- only one of them can possibly care about. Without this, a form change
+-- would still show correctly, just up to one 0.25s scan tick later -
+-- registering the event only removes that tick of lag.
 function ns:OnUnitDisplayPowerChanged(unit)
-    if unit ~= "player" and unit ~= "target" then return end
+    if unit ~= "player" and unit ~= "target" and unit ~= "targettarget" then return end
     if ns.hasAutoGroups then
         RunScan(ScanAutoGroups, unit)
     end

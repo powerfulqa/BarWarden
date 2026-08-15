@@ -230,12 +230,18 @@ end
 -- same unitFilter gate the aura feeds use, so a "target" event never wastes
 -- a rescan on a group that only ever reads the player.
 ns.AUTO_TRACK_FEEDS = {
-    playerBuffs     = { unit = "player", kind = "buff"     },
-    playerDebuffs   = { unit = "player", kind = "debuff"   },
-    targetBuffs     = { unit = "target", kind = "buff"     },
-    targetDebuffs   = { unit = "target", kind = "debuff"   },
-    resources       = { unit = "player", kind = "resource" },
-    targetResources = { unit = "target", kind = "resource" },
+    playerBuffs     = { unit = "player",       kind = "buff"     },
+    playerDebuffs   = { unit = "player",       kind = "debuff"   },
+    targetBuffs     = { unit = "target",       kind = "buff"     },
+    targetDebuffs   = { unit = "target",       kind = "debuff"   },
+    resources       = { unit = "player",       kind = "resource" },
+    targetResources = { unit = "target",       kind = "resource" },
+    -- "targettarget" is the standard 3.3.5a unit token for "my target's
+    -- target" (Blizzard's own TargetFrameToT reads the same token). Every
+    -- Unit* call ns:CollectResources already makes (UnitHealth, UnitPower,
+    -- UnitPowerMax, UnitPowerType, UnitExists) accepts it exactly like
+    -- "target" - no client-side special-casing needed for a third unit.
+    totResources    = { unit = "targettarget", kind = "resource" },
 }
 
 local function CompareExpiry(a, b)
@@ -960,24 +966,26 @@ end
 --             optional: a future entry with no natural icon is still valid.
 --
 -- opts = { unit, pinned }
---   unit   - which unit to read (default "player"). "player" and "target"
---            are the two feeds that exist (ns.AUTO_TRACK_FEEDS' `resources`
---            and `targetResources`); nothing stops a caller passing another
---            unit token, but only these two are wired to a group in the UI.
---            A unit that does not exist (no target selected) collects
---            nothing at all - see the UnitExists guard below - rather than
---            surfacing a row of zeroed bars.
+--   unit   - which unit to read (default "player"). "player", "target", and
+--            "targettarget" are the three feeds that exist (ns.AUTO_TRACK_FEEDS'
+--            `resources`, `targetResources`, and `totResources`); nothing
+--            stops a caller passing another unit token, but only these
+--            three are wired to a group in the UI. A unit that does not
+--            exist (no target selected, or a target with no target of its
+--            own) collects nothing at all - see the UnitExists guard below
+--            - rather than surfacing a row of zeroed bars.
 --   pinned - the resource keys ("mana", "rage", "energy") the user ticked in
 --            Group Settings to always show, even when not the character's
 --            current power type. Passed straight through
 --            ns:NormalizePinnedResources (below), so either the current
 --            ordered-list shape or the legacy set shape is accepted; see
 --            that function's own comment for the two shapes and why both
---            still work. Applies to either unit the same way: the zero-max
+--            still work. Applies to every unit the same way: the zero-max
 --            guard in addEntry below already makes pinning a power the
---            character/target does not have a no-op (a Mage pinning Rage
---            shows nothing today), so a target feed needs no extra guard to
---            keep "pin Rage" harmless against a target that has none.
+--            unit does not have a no-op (a Mage pinning Rage shows nothing
+--            today), so neither the target feed nor the target's-target
+--            feed needs an extra guard to keep "pin Rage" harmless against
+--            a unit that has none.
 --
 -- Class-resource applicability splits three ways, not one UnitClass(unit)
 -- call generalised naively:
@@ -997,15 +1005,24 @@ end
 --     inapplicable one; UnitClass is the only honest signal available here.
 --   * Combo Points are different: GetComboPoints("player", "target") is
 --     already, unconditionally, a "your points on your CURRENT target"
---     reading - it does not change meaning depending on which feed asks for
---     it. Blizzard's own UI agrees: ComboFrame is anchored to TargetFrame,
---     not PlayerFrame (see Core.lua's TARGET_HIDE_FRAME_NAMES), so "combo
---     points belong with the target you're building them on" is not a new
---     idea here. They are offered on BOTH feeds - unlike Runes/Runic
---     Power/Soul Shards, showing them via the target feed is never a
---     mislabelled read of your own data, it is the same reading either way -
---     still gated on the PLAYER's own class (only a Rogue or Druid has combo
---     points at all, whatever is targeted).
+--     reading - it does not change meaning depending on whether the player
+--     or target feed asks for it. Blizzard's own UI agrees: ComboFrame is
+--     anchored to TargetFrame, not PlayerFrame (see Core.lua's
+--     TARGET_HIDE_FRAME_NAMES), so "combo points belong with the target
+--     you're building them on" is not a new idea here. They are offered on
+--     the player feed and the target feed - unlike Runes/Runic Power/Soul
+--     Shards, showing them via the target feed is never a mislabelled read
+--     of your own data, it is the same reading either way - still gated on
+--     the PLAYER's own class (only a Rogue or Druid has combo points at
+--     all, whatever is targeted). They stop there, though: the target's-
+--     target feed (unit == "targettarget") does NOT get them, because
+--     GetComboPoints has no "on my target's target" reading to offer - it
+--     is hardcoded to "target", so showing them under a targettarget group
+--     would just repeat the exact same player/target number under a label
+--     that implies it belongs to a different unit entirely. Health and the
+--     current-power-type step above are not like this: they genuinely
+--     describe whatever "targettarget" resolves to, so they generalise
+--     cleanly where Combo Points do not.
 --
 -- ----------------------------------------------------------------------------
 -- Pinned-resource ordering (v2.5.0): groupData.autoPinnedResources used to be
@@ -1171,13 +1188,21 @@ function ns:CollectResources(opts)
     addPowerType((UnitPowerType(unit)))
 
     -- Combo Points: always your own, always about your CURRENT target, so
-    -- they are meaningful on either feed without reading anything off
-    -- `unit` itself (see the file comment above for why this is not the
-    -- same reasoning as Runes/Runic Power/Soul Shards below). Gated on the
-    -- PLAYER's class regardless of which feed is asking.
+    -- they are meaningful on the player feed and the target feed without
+    -- reading anything off `unit` itself (see the file comment above for
+    -- why this is not the same reasoning as Runes/Runic Power/Soul Shards
+    -- below). They do NOT belong on the target's-target feed
+    -- (unit == "targettarget"): GetComboPoints has no notion of "points on
+    -- my target's target" to read there at all, so showing them would just
+    -- be the exact same player/target reading, mislabelled under a group
+    -- about a third, different unit - unlike Health/current-power-type
+    -- above, which genuinely describe whatever "targettarget" resolves to.
+    -- Gated on the PLAYER's class regardless of which of the two eligible
+    -- feeds is asking.
     local _, classToken = UnitClass("player")
 
-    if classToken == "ROGUE" or classToken == "DRUID" then
+    if (unit == "player" or unit == "target")
+       and (classToken == "ROGUE" or classToken == "DRUID") then
         local _, cur, mx, icon, name = CheckComboPoints({})
         addEntry("combopoints", name, cur, mx, icon)
     end
