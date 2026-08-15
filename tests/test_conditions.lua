@@ -836,4 +836,65 @@ function M.test_resolvePlayerFrameHidden_nilSafe()
     assertx.assertFalse(ns:ResolvePlayerFrameHidden(nil, nil))
 end
 
+-- --------------------------------------------------------------------------
+-- Resource bar default colours (v2.5.0): ns:GetResourcePowerColor resolves
+-- the game's own power-type colour for a resource bar. It feeds GetBarColor
+-- (Bar.lua), which is why it lives here beside the other resolvers rather
+-- than in frame code - see docs/ADDON_GUIDE.md's "Group overrides" table.
+-- --------------------------------------------------------------------------
+
+local function resourceBarIn(groupIndex, resourceKey)
+    return { frameIndex = groupIndex, isResourceBar = true,
+             barData = { resourceKey = resourceKey, display = {} } }
+end
+
+function M.test_getResourcePowerColor_usesClientPowerBarColorWhenPresent()
+    local ns = fresh()
+    _G.PowerBarColor = { MANA = { r = 0.1, g = 0.2, b = 0.9 } }
+    local r, g, b = ns:GetResourcePowerColor(resourceBarIn(1, "mana"))
+    assertx.assertEqual(r, 0.1)
+    assertx.assertEqual(g, 0.2)
+    assertx.assertEqual(b, 0.9)
+    _G.PowerBarColor = nil
+end
+
+function M.test_getResourcePowerColor_fallsBackWithoutClientTable()
+    local ns = fresh()
+    _G.PowerBarColor = nil
+    local r, g, b = ns:GetResourcePowerColor(resourceBarIn(1, "rage"))
+    assertx.assertEqual(r, 1)
+    assertx.assertEqual(g, 0)
+    assertx.assertEqual(b, 0)
+end
+
+function M.test_getResourcePowerColor_fallsBackWhenClientTableMissingKey()
+    local ns = fresh()
+    -- Client table exists but never mentions RAGE - must still fall back,
+    -- not return nil/garbage.
+    _G.PowerBarColor = { MANA = { r = 0, g = 0, b = 1 } }
+    local r, g, b = ns:GetResourcePowerColor(resourceBarIn(1, "rage"))
+    assertx.assertEqual(r, 1)
+    assertx.assertEqual(g, 0)
+    assertx.assertEqual(b, 0)
+    _G.PowerBarColor = nil
+end
+
+function M.test_getResourcePowerColor_healthNeverReadsPowerBarColor()
+    local ns = fresh()
+    -- Health is not a power type at all; PowerBarColor is never consulted
+    -- for it even if some client build happened to define a HEALTH entry.
+    _G.PowerBarColor = { HEALTH = { r = 1, g = 1, b = 1 } }
+    local r, g, b = ns:GetResourcePowerColor(resourceBarIn(1, "health"))
+    assertx.assertEqual(r, 0)
+    assertx.assertEqual(g, 1)
+    assertx.assertEqual(b, 0)
+    _G.PowerBarColor = nil
+end
+
+function M.test_getResourcePowerColor_nilForBarWithNoResourceKey()
+    local ns = fresh()
+    assertx.assertNil(ns:GetResourcePowerColor({ barData = {} }))
+    assertx.assertNil(ns:GetResourcePowerColor(nil))
+end
+
 return M

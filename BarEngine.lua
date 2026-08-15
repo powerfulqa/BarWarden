@@ -1135,9 +1135,14 @@ local function ScanAutoResourceGroup(group, groupData)
         local e  = entries[i]
         local bd = bar.barData
         if e then
-            bd.enabled   = true
-            bd.name      = e.label
-            bd.spellId   = nil
+            bd.enabled     = true
+            bd.name        = e.label
+            bd.spellId     = nil
+            -- e.key ("mana", "health", "rune3", ...) is stamped onto the bar
+            -- so GetBarColor (Bar.lua) can resolve the power-type default
+            -- colour (ns:GetResourcePowerColor, Conditions.lua) without
+            -- threading the collector's entry through the whole call chain.
+            bd.resourceKey = e.key
             -- e.trackMode is only ever "Runes" (the six DK rune slots); every
             -- other resource leaves it nil, and UpdateResourceBar treats
             -- anything other than the literal string "Runes" the same way.
@@ -1149,8 +1154,9 @@ local function ScanAutoResourceGroup(group, groupData)
             -- first sends DeactivateBar down its disabled-bar branch, which
             -- hides it instead of leaving a blank row - same as the aura
             -- branch below.
-            bd.enabled = false
-            bd.name    = ""
+            bd.enabled     = false
+            bd.name        = ""
+            bd.resourceKey = nil
             ns:DeactivateBar(bar, true)
         end
     end

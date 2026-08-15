@@ -278,6 +278,11 @@ the countdown path or a linger. The `stacks`/`trackMode` fields exist only
 for the six DK rune entries, so `UpdateResourceBar`'s `trackMode == "Runes"`
 special case (the "Ns" countdown-to-ready text) still renders correctly
 inside an auto group, not just on a hand-placed Runes bar.
+`ScanAutoResourceGroup` also stamps `bd.resourceKey = e.key` onto each
+occupied slot (nil'd again when a slot empties), which is how
+`ns:GetResourcePowerColor` (Conditions.lua, see "Resource bar default
+colours" below) knows which resource a given bar represents without
+threading the collector's entry through the whole call chain.
 
 The group's Value Text setting (`autoResourceValueText`: nil/current-max,
 `"PERCENT"`, `"BOTH"`) is read directly inside `ns:UpdateResourceBar` off
@@ -337,8 +342,8 @@ written back into `barData`; persisting a client-side lookup into
 SavedVariables would bake in whatever the client could resolve at save
 time and break if the id later resolved differently.
 
-Ten keys on a group, all nil on a normal group (the last two are resources-only,
-described further above under "The resources feed"):
+Eleven keys on a group, all nil on a normal group (the last three are
+resources-only, described further above under "The resources feed"):
 
 | Key | Effect |
 |---|---|
@@ -352,6 +357,7 @@ described further above under "The resources feed"):
 | `autoBanned` | Per-group spell bans set by alt-left-clicking a bar's icon (`bar.isAutoBar` only), keyed by lower-cased spell name: `{ [name] = { name = "Blade Flurry", id = 13877 } }`, `id` optionally nil. Nil (not `{}`) once every ban is removed, so `ns:BuildAutoSkipSet` keeps its cheap no-skip path. `ns:BuildGroupSkipSet` (Trackers.lua) folds this in unconditionally via `ns:BuildAutoSkipSet`, always returning a fresh table so the caller's own copy is never mutated, so a ban applies even with `autoSkipTracked` off. Managed from the "Hidden In This Group" list under Auto Track in Options_Bars.lua, which only shows/enables for a group with an AURA feed picked - a resource has nothing to ban, so it hides the same as no feed at all |
 | `autoPinnedResources` | Resources-feed only: a set of resource keys (`mana`, `rage`, `energy`, `focus`) the user ticked to always show even when not the character's current power type, passed as `ns:CollectResources`'s `opts.pinned` |
 | `autoResourceValueText` | Resources-feed only: nil/`""` (current/max, e.g. "3000/4500"), `"PERCENT"` ("67%"), or `"BOTH"` ("3000/4500 (67%)"). Read directly inside `ns:UpdateResourceBar` (BarEngine.lua) |
+| `autoResourceShowIcon` | Resources-feed only (v2.5.0): nil/unset defers to the addon-wide Show Icon default (so an upgrading group looks exactly as it did before this tickbox existed); `true`/`false` overrides it for every bar in this group. Read directly inside `ApplyVisualConfig` (Bar.lua), the same direct-read shape as `autoResourceValueText` above, since like it there is no per-bar equivalent to resolve against for an auto slot |
 
 `iconOnly` used to live in this table as `autoIconOnly`, gated to
 auto-tracking groups only. It is now a general Bar Overrides setting (see
@@ -424,8 +430,9 @@ takes a group override MUST be read through its resolver, never straight off
 | Hide when inactive | `ns:ResolveHideWhenInactive(bar)` ([Conditions.lua](../Conditions.lua)) | group when set, else bar (see below) |
 | Whether an empty group's frame hides | `ns:ShouldHideEmptyGroup(frameData, isAutoGroup, isLocked, conditionsFailed)` ([Conditions.lua](../Conditions.lua)) | conditionsFailed, then group when set, else lock/type default (see below) |
 | Switch mode (on/off, no countdown) | `ns:IsSwitchBar(bar)` ([Conditions.lua](../Conditions.lua)) | group (`group.barStyle`) when set, else bar (`display.switchMode`) |
-| Bar texture / colour | resolved inside [Bar.lua](../Bar.lua) `ApplyVisualConfig` | bar then group then global |
+| Bar texture / colour | resolved inside [Bar.lua](../Bar.lua) `ApplyVisualConfig` | bar then group then global; a **resource** bar additionally slots in `ns:GetResourcePowerColor` ([Conditions.lua](../Conditions.lua)) between the group colour and the global default - see "Resource bar default colours" below |
 | Icon Only (square icon grid, no bar/text) | read directly as `group.iconOnly` in `ApplyVisualConfig` (Bar.lua) and `ns:UpdateGroupLayout` (FrameManager.lua); no resolver function, no bar-level override | group only (boolean, not an Inherit tri-state) |
+| Resource bar icon shown | read directly as `group.autoResourceShowIcon` in `ApplyVisualConfig` (Bar.lua), same direct-read shape as Icon Only above | bar (`display.showIcon`, practically never set for an auto slot) then group (resources feed only) then global (`visual.showIcon`) |
 | Stack text size | `ns:GetStackFontSize(bar)` ([Conditions.lua](../Conditions.lua)) | bar (`display.stackFontSize`) then group (`group.stackFontSize`) then global (`visual.stackFontSize`) |
 | Stack text colour | `ns:GetStackColor(bar)` ([Conditions.lua](../Conditions.lua)), returns a `{ r, g, b }` table | bar (`display.stackColor`) then group (`group.stackColor`) then global (`visual.stackColor`) |
 | Glow on ready | `ns:GetBarGlowOnReady(bar)` ([Conditions.lua](../Conditions.lua)) | bar (`display.glowOnReady`, truthy) then group (`group.glowOnReady`) then off |
@@ -550,6 +557,38 @@ half the same way: it only flashes the alpha while `IsBarAlerting` is true
 AND the action includes Sparkle, so a Colour-only bar changes colour without
 ever flashing.
 
+**Resource bar default colours** (v2.5.0) give a resource bar (health, the
+current power type, a pinned extra) the game's own conventional colour - a
+blue mana bar, a yellow energy bar, a red rage bar - instead of the
+addon-wide default, without overriding anything the owner has actually set.
+`ns:GetResourcePowerColor(bar)`, in Conditions.lua for the same reason as
+the Bar Alerts pair (pure arithmetic `GetBarColor`, Bar.lua, consults;
+frame-heavy code never touches it), reads `bar.barData.resourceKey`
+(stamped by `ScanAutoResourceGroup`, BarEngine.lua, onto every occupied
+resource slot) and maps it to a colour: the power-type keys (`mana`,
+`rage`, `focus`, `energy`, `runicpower`) go through the client's own
+`PowerBarColor` table first (keyed by the same string tokens
+`UnitPowerType`'s second return uses - Blizzard's own UnitFrame.lua reads
+it the same way), falling back to a hardcoded `RESOURCE_COLOR_FALLBACK`
+table when `PowerBarColor` is absent or missing that token. `health` and
+`soulshards` are not power types at all, so they always use the fallback
+table (health's green is the plain WoW convention, not tied to Colour
+Mode's CLASS option). Combo points and the six DK runes have no single
+conventional colour (combo points render as pips, not a status bar; each
+rune has its own colour by TYPE, which `ns:CollectResources` does not
+thread through as part of the entry) and are deliberately left out, so they
+fall through to the addon-wide default like any other bar.
+
+`GetBarColor` (Bar.lua) slots this in among the pre-existing per-bar/
+per-group/global levels, gated on `bar.isResourceBar` so an ordinary bar's
+resolution is completely unchanged. Precedence, most specific first: (1)
+per-bar `display.colorOverride` (pre-existing; practically unreachable for
+an auto slot, which has no per-bar editor of its own, but still honoured),
+(2) the group's Custom Bar Colour (pre-existing `group.barColor`), (3)
+`ns:GetResourcePowerColor`, (4) the addon-wide Colour Mode default
+(pre-existing). Level (3) is the only one new to a resource bar; a
+non-resource bar reaches the same three pre-existing levels it always did.
+
 Adding a new group override means: the widget in
 [Options_Bars.lua](../Options_Bars.lua) `GROUP_SETTINGS_SCHEMA` (with an
 "Inherit (default)" entry that stores nil), a resolver, and updating **every**
@@ -567,21 +606,36 @@ arithmetic the test harness can reach without the frame-heavy code that
 actually touches `PlayerFrame`. `wantHidden` already folds in
 `global.enabled`, so a disabled addon never keeps the frame hidden.
 
+This setting reaches more than just `PlayerFrame` itself: `RuneFrame` (the
+Death Knight rune display) is its own top-level frame on 3.3.5a, not a
+child of `PlayerFrame`, so hiding `PlayerFrame` alone left it on screen.
+`HIDE_FRAME_NAMES` (Core.lua) is the short list of such standalone
+satellites the setting applies to - currently `PlayerFrame` and
+`RuneFrame`. Everything else that visually rides along with `PlayerFrame`
+(portrait, health/mana bars, group indicator, PvP icon, level text, and
+the alternate power bar some forms use) is a genuine XML child of it, and a
+hidden parent already makes WoW treat every child as invisible regardless
+of the child's own `Show()`/`Hide()` state, so none of those need an entry
+here. Checked the pet frame and the totem frame too: both are independent
+UI the player controls separately and are not anchored to `PlayerFrame`,
+so they are out of scope on purpose, not an oversight.
+
 `ns:ApplyPlayerFrameHidden` (Core.lua) does the impure half and is
-deliberately reversible: it only ever calls `PlayerFrame:Hide()` /
-`:Show()`, never `UnregisterAllEvents()` (undoing that would mean
-hand-re-registering every event Blizzard put on the frame - long,
+deliberately reversible: it only ever calls `Hide()` / `Show()` on each name
+in `HIDE_FRAME_NAMES` (never `UnregisterAllEvents()` - undoing that would
+mean hand-re-registering every event Blizzard put on the frame, long,
 version-specific, and easy to get subtly wrong). Because Blizzard's own
-code re-`Show()`s the frame constantly (`UNIT_HEALTH`, entering the world, a
-target change, and more), staying hidden needs a `HookScript("OnShow", ...)`
-that re-checks the live setting and re-hides on the spot - see the
-`EC-TRAP:` on that hook in Core.lua, since `HookScript` cannot be removed
-and the hook can look redundant next to the `Hide()` call beside it. It is
-called from `ns:OnInitialize` via `ns:OnEnable` (login), from the toggle's
-`set` (Options_General.lua), from `ns:OnEnable`/`ns:OnDisable` (`/bw
-enable`/`disable`), and from `ns:OnCombatStateChanged` (BarEngine.lua) so a
-hide requested mid-fight is picked up the moment combat ends rather than
-attempted while `InCombatLockdown()` might make it unsafe.
+code re-`Show()`s these frames constantly (`UNIT_HEALTH`, entering the
+world, a target change, and more), staying hidden needs a
+`HookScript("OnShow", ...)` per frame that re-checks the live setting and
+re-hides on the spot - see the `EC-TRAP:` on that hook in Core.lua, since
+`HookScript` cannot be removed and the hook can look redundant next to the
+`Hide()` call beside it. It is called from `ns:OnInitialize` via
+`ns:OnEnable` (login), from the toggle's `set` (Options_General.lua), from
+`ns:OnEnable`/`ns:OnDisable` (`/bw enable`/`disable`), and from
+`ns:OnCombatStateChanged` (BarEngine.lua) so a hide requested mid-fight is
+picked up the moment combat ends rather than attempted while
+`InCombatLockdown()` might make it unsafe.
 
 ### Declarative options schema (`ns:BuildSettings`)
 

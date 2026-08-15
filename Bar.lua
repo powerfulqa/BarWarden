@@ -200,6 +200,13 @@ local function GetBarColor(bar, config)
         return c.r or 1, c.g or 1, c.b or 1
     end
 
+    -- Resource bars fall back to the game's own power-type colour (mana
+    -- blue, rage red, and so on) before the addon-wide default below.
+    if bar.isResourceBar then
+        local pr, pg, pb = ns:GetResourcePowerColor(bar)
+        if pr then return pr, pg, pb end
+    end
+
     local visual = ns:GetVisual()
     local colorMode = visual.colorMode or "CLASS"
 
@@ -590,10 +597,16 @@ function ns:ApplyVisualConfig(bar, config)
         bar.border:SetVertexColor(0, 0, 0, iconOnly and 0 or 0.8)
     end
 
-    -- Per-bar display.showIcon is authoritative; fall back to global
+    -- Per-bar display.showIcon is authoritative; a resource bar's group can
+    -- override the global default next (Options_Bars.lua's Show Icon
+    -- tickbox, resources feed only - an auto slot has no per-bar display of
+    -- its own to set showIcon on, so this is the only override that ever
+    -- actually reaches a resource bar in practice); fall back to global.
     local showIcon
     if display.showIcon ~= nil then
         showIcon = display.showIcon
+    elseif bar.isResourceBar and group and group.autoResourceShowIcon ~= nil then
+        showIcon = group.autoResourceShowIcon
     else
         showIcon = visual.showIcon ~= false
     end

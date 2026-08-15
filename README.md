@@ -35,8 +35,10 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 - **Resource groups** - point a group at "Health and power" instead, and it
   shows your health, whatever power you are currently using (it follows a
   druid through every form change live), and your class resources, with
-  nothing to name by hand. Pin extra resources you always want visible, and
-  pick how the numbers are shown: amount and total, percent, or both.
+  nothing to name by hand. Bars use the game's own colours by default (blue
+  mana, red rage, yellow energy, and so on). Pin extra resources you always
+  want visible, and pick how the numbers are shown: amount and total,
+  percent, or both.
 - **LibSharedMedia support** gives access to textures and fonts from all LSM-compatible addons on your client, plus BarWarden's own 13 bar textures and 15 fonts
 - **5 duration display styles**: seconds with decimal, whole seconds, min:sec, short text, or auto-adapting
 - **Colour your bars** by class, by tracking mode, or pick your own colour (with per-bar overrides)
@@ -238,10 +240,13 @@ Set a group's Auto Track to "Health and power" and it fills itself: Health
 first, then whatever power you are currently using (this is what makes it
 follow a druid through Bear, Cat, and Caster form live), then your class
 resources if you have any (combo points, runes, runic power, soul shards),
-with nothing to name by hand.
+with nothing to name by hand. Bars use the game's own colours by default -
+a blue mana bar, a red rage bar, a yellow energy bar, and so on - the same
+convention Blizzard's own frames use.
 
 - **Always Show Mana / Rage / Energy / Focus** - pin a power you always want
   visible, even when it is not the one you are currently using.
+- **Show Icon** - show or hide the resource icon on this group's bars.
 - **Value Text** - how each bar's number is shown: Current / Max (`4200/5100`),
   Percent (`82%`), or Both (`4200/5100 (82%)`).
 
@@ -284,7 +289,8 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Show or hide the minimap button
 - Get notified when a newer version is available
 - Hide the default player frame (handy if you use a Resource Group and don't
-  want your health and power shown twice)
+  want your health and power shown twice), and the Death Knight rune display
+  along with it
 - A full list of slash commands, each with a Run button to fire it straight from the panel
 
 ### Bars / Groups
@@ -297,7 +303,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Sort Mode (Manual, Remaining Time, Alphabetical, As They Come)
 - Growth Direction (Down, Up)
 - Bar Overrides: Bar Texture, Text Format, Bar Style (Countdown, On or Off), Custom Bar Colour, Show Icons Only (a compact grid of spell icons instead of bars, sized with the Width slider), Custom Stack Text (its own size and colour for the stack count), and Custom Bar Effects (Glow on Ready, Pulse on Ready, Linger Time), all for the whole group at once - Custom Bar Effects is also the only way to turn these on for an auto-tracking group
-- Auto Track: fill the group from buffs or debuffs, or from your health and power, instead of adding bars by hand. The Health and power choice adds its own Always Show Mana/Rage/Energy/Focus tickboxes and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings
+- Auto Track: fill the group from buffs or debuffs, or from your health and power, instead of adding bars by hand. The Health and power choice adds its own Always Show Mana/Rage/Energy/Focus tickboxes, a Show Icon toggle, and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings
 - Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**

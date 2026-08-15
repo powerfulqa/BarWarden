@@ -442,7 +442,8 @@ local function CreateBarsTab(parent)
         "grpAutoMaxDuration", "grpAutoIncludePermanent", "grpAutoOnlyMine", "grpAutoSkipTracked",
     }
     local AUTO_RESOURCE_ONLY_WIDGET_IDS = {
-        "grpAutoPinMana", "grpAutoPinRage", "grpAutoPinEnergy", "grpAutoPinFocus", "grpAutoValueTextDD",
+        "grpAutoPinMana", "grpAutoPinRage", "grpAutoPinEnergy", "grpAutoPinFocus",
+        "grpAutoValueTextDD", "grpAutoShowIcon",
     }
 
     -- Whether the selected group has an AURA feed picked (not "resources").
@@ -1057,6 +1058,21 @@ local function CreateBarsTab(parent)
               ns:RefreshBarSettings()
           end,
           offsetX = ns.OFFSET_DROPDOWN, spacing = 16 },
+        -- Icon on each resource bar (v2.5.0). Defaults to shown (nil reads
+        -- as true) so an upgrading group's bars look exactly as they did
+        -- before this tickbox existed - the collector already supplies a
+        -- meaningful icon per resource (a class-resource spell icon, or the
+        -- character-stat icons in Trackers.lua), so hiding it is the opt-out,
+        -- not the default.
+        { type = "toggle", id = "grpAutoShowIcon", label = "Show Icon",
+          tooltip = "Show the resource icon on each bar in this group.",
+          get = function() local g = getGroup(); return g and g.autoResourceShowIcon ~= false end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoResourceShowIcon = v and true or false
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
         -- Invisible sentinel (no visible content, so no canonical column
         -- applies); offsetX is picked so the externally-anchored ban-list
         -- header below (Options_Bars.lua's "Hidden In This Group" block,

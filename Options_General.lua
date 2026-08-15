@@ -95,9 +95,10 @@ local SCHEMA = {
         type    = "toggle",
         label   = "Hide Blizzard Player Frame",
         tooltip = "Hides the default player frame (the portrait box near "
-               .. "your character). You lose its portrait, the buffs it "
-               .. "shows, its right-click menu, and floating combat text. "
-               .. "BarWarden's own bars keep working either way.",
+               .. "your character), and the Death Knight rune display with "
+               .. "it. You lose its portrait, the buffs it shows, its "
+               .. "right-click menu, and floating combat text. BarWarden's "
+               .. "own bars keep working either way.",
         get     = function() return ns.db and ns.db.global and ns.db.global.hidePlayerFrame end,
         set     = function(_, checked)
             if ns.db and ns.db.global then ns.db.global.hidePlayerFrame = checked end

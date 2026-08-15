@@ -284,6 +284,77 @@ function ns:ResolvePlayerFrameHidden(wantHidden, inCombat)
 end
 
 -- ----------------------------------------------------------------------------
+-- Resource bar default colours (v2.5.0): a resource bar (health, the
+-- character's current power, a pinned extra) should read in the game's own
+-- conventional colours - a blue mana bar, a yellow energy bar, a red rage
+-- bar - rather than the addon-wide default. Both resolvers below are pure
+-- (bar in, colour out) for the same reason as the Bar Alerts pair above:
+-- GetBarColor (Bar.lua) is where they get consulted, but the arithmetic
+-- itself belongs beside the other resolvers, not in frame code.
+--
+-- Precedence for a resource bar's colour, most specific first (see
+-- GetBarColor, Bar.lua, for where each level slots in among the pre-existing
+-- per-bar/per-group/global levels):
+--   1. per-bar colorOverride (pre-existing; practically unreachable for an
+--      auto-tracking slot, which has no per-bar editor, but still honoured)
+--   2. the group's Custom Bar Colour (pre-existing group.barColor)
+--   3. the power-type default below (ns:GetResourcePowerColor)
+--   4. the addon-wide Colour Mode default (pre-existing)
+-- ----------------------------------------------------------------------------
+
+-- ns:CollectResources' resource keys (Trackers.lua) that ARE power types,
+-- mapped to the string token PowerBarColor is keyed by on 3.3.5a - the same
+-- token UnitPowerType's second return uses, since Blizzard's own UnitFrame.lua
+-- reads PowerBarColor that way. Health and the class resources with no
+-- single conventional colour (combo points render as pips, not a status
+-- bar; each of the six runes has its own colour by TYPE, which
+-- ns:CollectResources does not thread through as part of the entry) are not
+-- in this table at all - they either use RESOURCE_COLOR_FALLBACK directly
+-- (health, soul shards) or fall through to the addon-wide default (combo
+-- points, runes).
+local RESOURCE_COLOR_TOKENS = {
+    mana       = "MANA",
+    rage       = "RAGE",
+    focus      = "FOCUS",
+    energy     = "ENERGY",
+    runicpower = "RUNIC_POWER",
+}
+
+-- Used when PowerBarColor is absent (a client build that does not define
+-- it) or missing a specific token, and for the two keys above that are not
+-- power types (health has never been one; soul shards' Blizzard purple, in
+-- case some build's PowerBarColor lacks the entry). Health's green is the
+-- conventional "healthy" colour used across WoW's own UI and virtually every
+-- unit-frame addon; picked over class-colouring since the addon-wide Colour
+-- Mode (which can already be CLASS) is what a user wants for that look.
+local RESOURCE_COLOR_FALLBACK = {
+    health      = { r = 0,    g = 1,    b = 0    },
+    mana        = { r = 0,    g = 0,    b = 1    },
+    rage        = { r = 1,    g = 0,    b = 0    },
+    focus       = { r = 1,    g = 0.5,  b = 0.25 },
+    energy      = { r = 1,    g = 1,    b = 0    },
+    runicpower  = { r = 0,    g = 0.82, b = 1    },
+    soulshards  = { r = 0.5,  g = 0.32, b = 0.55 },
+}
+
+-- Resolve the power-type default colour for a resource bar. Reads the
+-- client's own PowerBarColor table when present (so a colour patched by
+-- Blizzard, or an item/skin that swaps it, is picked up rather than
+-- hardcoded), falling back to RESOURCE_COLOR_FALLBACK for anything missing.
+-- Returns (r, g, b), or nil for a bar with no resourceKey (not a resource
+-- bar, or a resource ScanAutoResourceGroup has not stamped one onto yet).
+function ns:GetResourcePowerColor(bar)
+    local key = bar and bar.barData and bar.barData.resourceKey
+    if not key then return nil end
+
+    local token = RESOURCE_COLOR_TOKENS[key]
+    local fromClient = token and _G.PowerBarColor and _G.PowerBarColor[token]
+    local c = fromClient or RESOURCE_COLOR_FALLBACK[key]
+    if not c then return nil end
+    return c.r or 0, c.g or 0, c.b or 0
+end
+
+-- ----------------------------------------------------------------------------
 -- Built-in conditions.
 --
 -- requireClass goes first. Class never changes during a session so the check

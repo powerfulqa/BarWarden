@@ -46,6 +46,15 @@ the same current-power-type signal the game itself uses.
   power twice alongside a resource group. It stays reversible: unticking it
   (or `/bw disable`) shows the frame again straight away, and a hide
   requested mid-fight waits for combat to end rather than risking an error.
+  It now also hides the Death Knight rune display, which used to stay on
+  screen after ticking the box.
+- **Resource bars now use the game's own colours by default** - a blue mana
+  bar, a yellow energy bar, a red rage bar, and so on - instead of the
+  addon-wide default colour. A group's own Custom Bar Colour still overrides
+  it.
+- **A new Show Icon tickbox** on a resource group lets you hide the bar
+  icons for a plainer look. On by default, matching how resource bars have
+  always looked.
 
 ---
 

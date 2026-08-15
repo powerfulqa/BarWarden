@@ -233,11 +233,14 @@ local HELP_ENTRIES = {
           .. "are currently using, which is why it follows you through Bear, "
           .. "Cat, and Caster form live if you play a druid. Your class "
           .. "resources come after: combo points, runes, runic power, or "
-          .. "soul shards, whichever apply.\n\n"
+          .. "soul shards, whichever apply. Bars use the game's own colours "
+          .. "by default: a blue mana bar, a red rage bar, a yellow energy "
+          .. "bar, and so on.\n\n"
           .. "Always Show Mana, Rage, Energy, and Focus tick boxes let you "
           .. "pin a power you always want visible, even when it is not the "
-          .. "one you are currently using. Value Text picks how each number "
-          .. "is shown: the amount and the total, just the percent, or "
+          .. "one you are currently using. Show Icon turns the bar icons on "
+          .. "or off for this group. Value Text picks how each number is "
+          .. "shown: the amount and the total, just the percent, or "
           .. "both.\n\n"
           .. "The settings for limiting or filtering a spell list (Skip If "
           .. "It Lasts Over, Only Mine, Include Always On, Skip Spells I "
@@ -247,7 +250,8 @@ local HELP_ENTRIES = {
           .. "A resource group already shows your health and power on its "
           .. "own bars, so if you would rather not see the same numbers "
           .. "twice, tick Hide Blizzard Player Frame on the General tab to "
-          .. "hide the default player frame.",
+          .. "hide the default player frame. That also hides the Death "
+          .. "Knight rune display, which used to stay on screen.",
     },
 
     -- ===================================================================

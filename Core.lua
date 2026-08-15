@@ -141,19 +141,38 @@ function ns:RefreshBarSettings()
 end
 
 -- ----------------------------------------------------------------------------
--- Hide Blizzard's PlayerFrame (global.hidePlayerFrame, Options_General.lua)
+-- Hide Blizzard's PlayerFrame and its satellites (global.hidePlayerFrame,
+-- Options_General.lua)
 --
--- Reversible by construction: never UnregisterAllEvents on the frame -
+-- PlayerFrame's own children - portrait, health/mana bars, group indicator,
+-- PvP icon, level text and the rest - hide the instant PlayerFrame itself
+-- hides: WoW's frame hierarchy makes a child invisible whenever an ancestor
+-- is hidden, regardless of the child's own Show()/Hide() state, so none of
+-- those need separate handling here. RuneFrame is different: on 3.3.5a it
+-- is its own top-level frame (parented to UIParent, merely anchored to sit
+-- under PlayerFrame), so hiding PlayerFrame leaves a Death Knight's rune
+-- display on screen unless RuneFrame gets the exact same treatment. Checked
+-- for other such satellites (pet frame, totem frame, the alternate power
+-- bar some forms use) and found none: the pet/totem frames are independent
+-- UI the player controls separately and are not visually anchored to
+-- PlayerFrame the way RuneFrame is, and the alternate power bar (druid
+-- Eclipse, etc.) is a genuine PlayerFrame child. HIDE_FRAME_NAMES is the
+-- deliberately short list of standalone frames this setting reaches; add to
+-- it if a future client build introduces another.
+--
+-- Reversible by construction: never UnregisterAllEvents on any of these -
 -- undoing that means hand-re-registering every event Blizzard registered on
--- PlayerFrame, which is long, version-specific, and easy to get subtly
--- wrong. Instead this only ever calls Hide()/Show(), and HookScripts
--- OnShow so any of Blizzard's own code re-showing the frame (UNIT_HEALTH,
+-- them, which is long, version-specific, and easy to get subtly wrong.
+-- Instead this only ever calls Hide()/Show(), and HookScripts OnShow so any
+-- of Blizzard's own code re-showing a frame (UNIT_HEALTH,
 -- PLAYER_ENTERING_WORLD, a target change, and more, for the rest of the
 -- session) gets re-hidden on the spot while the setting is on. HookScript
 -- cannot be uninstalled, so the hook reads the live setting + combat state
 -- on every call rather than being installed only while the setting is on;
 -- unticking then just needs one more Show() and the hook stops acting.
 -- ----------------------------------------------------------------------------
+
+local HIDE_FRAME_NAMES = { "PlayerFrame", "RuneFrame" }
 
 -- Whether the frame should be suppressed at all, ignoring combat: tied to
 -- both the tickbox and the addon's own enabled state, so /bw disable hands
@@ -165,16 +184,18 @@ local function WantPlayerFrameHidden()
     return not not (g and g.enabled and g.hidePlayerFrame)
 end
 
-local playerFrameHookInstalled = false
+local hideHookInstalled = {}
 
--- Apply (or re-apply) the current PlayerFrame hide/show state. Called at
--- login, from the options toggle, from enable/disable, and after combat
--- ends (a hide requested mid-fight is deferred, not dropped - see
--- ns:ResolvePlayerFrameHidden, Conditions.lua).
-function ns:ApplyPlayerFrameHidden()
-    local frame = _G.PlayerFrame
+-- Apply (or re-apply) the hide/show state to one satellite frame by global
+-- name. Shared body for every entry in HIDE_FRAME_NAMES so the reversible
+-- Hide()/HookScript treatment is defined exactly once.
+local function ApplyFrameHidden(name)
+    local frame = _G[name]
     -- Blizzard global; guarded the same defensive way as the bundled-library
-    -- checks (see MinimapButton.lua) rather than assumed present.
+    -- checks (see MinimapButton.lua) rather than assumed present. RuneFrame
+    -- in particular is worth guarding defensively even though retail
+    -- 3.3.5a FrameXML always defines it: some private-server clients trim
+    -- unused class frames.
     if not frame then return end
 
     local inCombat = InCombatLockdown and InCombatLockdown() or false
@@ -184,13 +205,13 @@ function ns:ApplyPlayerFrameHidden()
     -- EC-TRAP: this OnShow hook looks redundant next to the Hide() call
     -- below, as if both do the same job. They do not: Hide() only takes
     -- effect for the instant it runs, while Blizzard's own code re-Shows
-    -- PlayerFrame on a long list of events for the rest of the session, and
-    -- HookScript cannot be removed. The hook, not the Hide() call, is what
-    -- keeps the frame down after the first time. Deleting it "as a
-    -- duplicate" brings the portrait straight back the next time Blizzard
-    -- shows it.
-    if not playerFrameHookInstalled then
-        playerFrameHookInstalled = true
+    -- these frames on a long list of events for the rest of the session,
+    -- and HookScript cannot be removed. The hook, not the Hide() call, is
+    -- what keeps a frame down after the first time. Deleting it "as a
+    -- duplicate" brings the portrait (or the rune display) straight back
+    -- the next time Blizzard shows it.
+    if not hideHookInstalled[name] then
+        hideHookInstalled[name] = true
         frame:HookScript("OnShow", function(self)
             local ic = InCombatLockdown and InCombatLockdown() or false
             if ns:ResolvePlayerFrameHidden(WantPlayerFrameHidden(), ic) then
@@ -200,7 +221,7 @@ function ns:ApplyPlayerFrameHidden()
     end
 
     if shouldHide then
-        -- pcall belt-and-braces: PlayerFrame is not built on a secure
+        -- pcall belt-and-braces: neither frame is built on a secure
         -- template in 3.3.5a, so Hide() is not expected to be combat-
         -- protected, but this never risks erroring the addon if that
         -- assumption is ever wrong on some client build.
@@ -211,6 +232,16 @@ function ns:ApplyPlayerFrameHidden()
         -- wanted but merely deferred for combat safety must leave the frame
         -- exactly as it is until combat ends.
         pcall(frame.Show, frame)
+    end
+end
+
+-- Apply (or re-apply) the current hide/show state to PlayerFrame and its
+-- satellites. Called at login, from the options toggle, from enable/disable,
+-- and after combat ends (a hide requested mid-fight is deferred, not dropped
+-- - see ns:ResolvePlayerFrameHidden, Conditions.lua).
+function ns:ApplyPlayerFrameHidden()
+    for _, name in ipairs(HIDE_FRAME_NAMES) do
+        ApplyFrameHidden(name)
     end
 end
 
