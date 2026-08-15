@@ -252,21 +252,48 @@ reads auras". Both the event dispatcher and the duplicate filter
 (`ns:GetTrackedAuraNames`, Trackers.lua) read it; they have to agree or the
 filter silently disagrees with the scanner.
 
-#### The "resources" feed
+#### The "resources" / "targetResources" feeds
 
-Unlike the four aura feeds, `autoTrack = "resources"` has no spell list at
-all: `ns:CollectResources` (Trackers.lua) returns an ordered array of
+Unlike the four aura feeds, `autoTrack = "resources"` (player) and
+`autoTrack = "targetResources"` (target, v2.5.0) have no spell list at all:
+both are driven by the same `ns:CollectResources(opts)` (Trackers.lua),
+parameterised by `opts.unit` ("player" by default, or "target"), which
+returns an ordered array of
 `{ key, label, current, max, icon, stacks?, trackMode? }` entries - Health
-first, then the character's current power type via `UnitPowerType` (this is
-what makes the group follow a druid through form changes live), then the
-class resources layered on top (combo points, runes, runic power, soul
-shards, gated by `UnitClass` since none of those checkers encode class
-applicability themselves - see the file comment above the function), then
-any pinned extras from `groupData.autoPinnedResources`. A resource that
-would otherwise appear twice (a Death Knight's Runic Power, once as their
-current power type and once as an explicit class resource) is de-duplicated
-by `key`, and anything with `max <= 0` is skipped (how a resource the
-character does not have reports).
+first (read off `opts.unit`), then that unit's current power type via
+`UnitPowerType(unit)` (this is what makes the group follow a druid through
+form changes live, on either unit), then class resources layered on top,
+then any pinned extras from `groupData.autoPinnedResources`. A resource
+that would otherwise appear twice (a Death Knight's Runic Power, once as
+their current power type and once as an explicit class resource) is
+de-duplicated by `key`, and anything with `max <= 0` is skipped (how a
+resource the unit does not have reports). A `unit` that does not exist (no
+target selected) collects nothing at all - guarded by `UnitExists` up
+front, rather than relying on `UnitHealth`/`UnitPowerMax` to degrade to 0 on
+their own - which flows into the same "every slot empty" path
+`ScanAutoResourceGroup` already uses to hide an idle group.
+
+Class-resource applicability is NOT one `UnitClass(unit)` call generalised
+across both feeds; it splits by what the resource actually is:
+  * Runes, Runic Power, and Soul Shards are the PLAYER's own resource pools
+    - the checkers behind them (`GetRuneCooldown`, `UnitPower("player", 6)`,
+      `GetItemCount`) always read the player's own runes/bags regardless of
+      what `unit` names, so they are only ever collected for
+      `unit == "player"`, still gated on `UnitClass("player")` (the same
+      signal Conditions.lua's `requireClass` condition uses).
+  * Combo Points are different: `GetComboPoints("player", "target")` is
+    already, unconditionally, a "your points on your CURRENT target"
+    reading - it never changes meaning depending on which feed asks for it.
+    They are offered on BOTH feeds for that reason (matching how Blizzard
+    itself anchors its own combo-point display to the target frame, not the
+    player frame), still gated on the player's own class.
+
+Pinning applies identically to both feeds: `opts.pinned` reads off `unit`
+too (via the same `addPowerType` helper the current-power-type step uses),
+so "Always Show Rage" on a target-resources group pins the TARGET's rage,
+not the player's. The existing zero-max guard in `addEntry` already makes
+pinning a power the unit does not have a no-op, so a target feed needs no
+extra carve-out to keep that safe.
 
 **Pinned-resource order (v2.5.0).** `autoPinnedResources` used to be a plain
 set (`{ mana = true }`); it is now an ordered list of `{ key, color? }`
@@ -365,7 +392,7 @@ resources-only, described further above under "The resources feed"):
 
 | Key | Effect |
 |---|---|
-| `autoTrack` | Feed name (`playerBuffs`, `playerDebuffs`, `targetBuffs`, `targetDebuffs`, `resources`), or nil for a normal group |
+| `autoTrack` | Feed name (`playerBuffs`, `playerDebuffs`, `targetBuffs`, `targetDebuffs`, `resources`, `targetResources`), or nil for a normal group |
 | `autoMaxBars` | Pre-allocated slots, capped at `MAX_BARS_PER_FRAME` |
 | `autoMaxDuration` | Skip auras whose full duration exceeds this (the Groups tab's Skip If It Lasts Over slider, seconds, 0-3600). Tests full duration, not time left, on purpose - see `ns:CollectAutoAuras` above. 0 = no limit |
 | `autoIncludePermanent` | Keep auras with no duration instead of dropping them. Off by default. `ns:CollectAutoAuras` marks each entry `permanent`; permanent entries sort into a stable block above every timed entry (tied broken by name, since they all share expiry 0) and `ns:ScanAutoGroup` routes them through `ns:ActivateStaticBar` instead of `ns:ActivateBar`, the same no-countdown path a switch-mode bar takes |
@@ -373,7 +400,7 @@ resources-only, described further above under "The resources feed"):
 | `autoSkipTracked` | Skip spells a bar in another group already tracks (matched by name via `ns:GetTrackedAuraNames`) |
 | `autoStableOrder` | Keep Bars In Place: an aura stays in the slot it first appeared in for as long as it lasts, instead of the soonest-expiring sort reshuffling every slot on each tick or refresh. Only a fade frees a slot. `ns:ScanAutoGroup` builds the held-name list from the live slots and hands it to `ns:PlaceAutoAuras` (Trackers.lua), the tested half that decides the new placement; the untested half is just reading `bar.barData` to build that list |
 | `autoBanned` | Per-group spell bans set by alt-left-clicking a bar's icon (`bar.isAutoBar` only), keyed by lower-cased spell name: `{ [name] = { name = "Blade Flurry", id = 13877 } }`, `id` optionally nil. Nil (not `{}`) once every ban is removed, so `ns:BuildAutoSkipSet` keeps its cheap no-skip path. `ns:BuildGroupSkipSet` (Trackers.lua) folds this in unconditionally via `ns:BuildAutoSkipSet`, always returning a fresh table so the caller's own copy is never mutated, so a ban applies even with `autoSkipTracked` off. Managed from the "Hidden In This Group" list under Auto Track in Options_Bars.lua, which only shows/enables for a group with an AURA feed picked - a resource has nothing to ban, so it hides the same as no feed at all |
-| `autoPinnedResources` | Resources-feed only (v2.5.0: now an ORDERED list, `{ { key = "mana", color = {r,g,b}? }, ... }`, in tick order; a group saved before this existed still carries the legacy set, `{ mana = true }` - `ns:NormalizePinnedResources` (Trackers.lua) accepts either shape, so no migration was needed). Resources the user ticked to always show even when not the character's current power type, passed as `ns:CollectResources`'s `opts.pinned`. Each entry's optional `color` is the most specific level `ns:GetPinnedResourceColor` (Conditions.lua) resolves - see "Resource bar default colours" below |
+| `autoPinnedResources` | Either resources feed only (v2.5.0: now an ORDERED list, `{ { key = "mana", color = {r,g,b}? }, ... }`, in tick order; a group saved before this existed still carries the legacy set, `{ mana = true }` - `ns:NormalizePinnedResources` (Trackers.lua) accepts either shape, so no migration was needed). Resources the user ticked to always show even when not the unit's current power type, passed as `ns:CollectResources`'s `opts.pinned` and read against `opts.unit` (player or target). Each entry's optional `color` is the most specific level `ns:GetPinnedResourceColor` (Conditions.lua) resolves - see "Resource bar default colours" below |
 | `autoResourceValueText` | Resources-feed only: nil/`""` (current/max, e.g. "3000/4500"), `"PERCENT"` ("67%"), or `"BOTH"` ("3000/4500 (67%)"). Read directly inside `ns:UpdateResourceBar` (BarEngine.lua) |
 | `autoResourceShowIcon` | Resources-feed only (v2.5.0): nil/unset defers to the addon-wide Show Icon default (so an upgrading group looks exactly as it did before this tickbox existed); `true`/`false` overrides it for every bar in this group. Read directly inside `ApplyVisualConfig` (Bar.lua), the same direct-read shape as `autoResourceValueText` above, since like it there is no per-bar equivalent to resolve against for an auto slot |
 

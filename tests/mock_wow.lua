@@ -30,6 +30,20 @@ M.partyMembers   = 0
 M.raidMembers    = 0
 M.playerGUID     = "Player-Test"
 
+-- Target unit state, for the target-resources feed. UnitExists gates every
+-- Unit* read below the same way a real 3.3.5a client does for an absent
+-- target: M.targetExists = false makes UnitHealth/UnitPower/UnitPowerMax
+-- read back 0 for "target" regardless of the values below, so a test can
+-- prove "no target selected collects nothing" without also having to zero
+-- every field by hand.
+M.targetExists    = true
+M.targetHealth    = 100
+M.targetHealthMax = 100
+M.targetPower         = {}
+M.targetPowerMax      = {}
+M.targetPowerType      = 0
+M.targetPowerTypeToken = "MANA"
+
 -- Aura lists per unit. Each entry is a table of the 11 values UnitBuff /
 -- UnitDebuff returns on 3.3.5a (name, rank, icon, count, dispelType,
 -- duration, expirationTime, caster, isStealable, shouldConsolidate, spellId).
@@ -93,6 +107,13 @@ function M.reset()
     M.comboPoints    = 0
     M.powerType      = 0
     M.powerTypeToken = "MANA"
+    M.targetExists    = true
+    M.targetHealth    = 100
+    M.targetHealthMax = 100
+    for k in pairs(M.targetPower)    do M.targetPower[k]    = nil end
+    for k in pairs(M.targetPowerMax) do M.targetPowerMax[k] = nil end
+    M.targetPowerType      = 0
+    M.targetPowerTypeToken = "MANA"
 end
 
 -- --------------------------------------------------------------------------
@@ -127,8 +148,22 @@ function M.install()
         return nil
     end
 
-    _G.UnitHealth      = function(unit) return unit == "player" and M.playerHealth    or 0 end
-    _G.UnitHealthMax   = function(unit) return unit == "player" and M.playerHealthMax or 0 end
+    _G.UnitExists = function(unit)
+        if unit == "player" then return true end
+        if unit == "target" then return M.targetExists end
+        return false
+    end
+
+    _G.UnitHealth = function(unit)
+        if unit == "player" then return M.playerHealth end
+        if unit == "target" then return M.targetExists and M.targetHealth or 0 end
+        return 0
+    end
+    _G.UnitHealthMax = function(unit)
+        if unit == "player" then return M.playerHealthMax end
+        if unit == "target" then return M.targetExists and M.targetHealthMax or 0 end
+        return 0
+    end
     _G.UnitAffectingCombat = function(unit) return unit == "player" and M.playerCombat or false end
     _G.IsMounted       = function() return M.playerMounted end
     _G.IsResting       = function() return M.playerResting end
@@ -167,9 +202,18 @@ function M.install()
     _G.GetItemIcon  = function(id) return M.itemIcon[id] end
     _G.GetItemCount = function(id) return M.itemCount[id] or 0 end
 
-    _G.UnitPower    = function(unit, t) return M.power[t]    or 0 end
-    _G.UnitPowerMax = function(unit, t) return M.powerMax[t] or 0 end
-    _G.UnitPowerType = function(unit) return M.powerType, M.powerTypeToken end
+    _G.UnitPower = function(unit, t)
+        if unit == "target" then return (M.targetExists and M.targetPower[t]) or 0 end
+        return M.power[t] or 0
+    end
+    _G.UnitPowerMax = function(unit, t)
+        if unit == "target" then return (M.targetExists and M.targetPowerMax[t]) or 0 end
+        return M.powerMax[t] or 0
+    end
+    _G.UnitPowerType = function(unit)
+        if unit == "target" then return M.targetPowerType, M.targetPowerTypeToken end
+        return M.powerType, M.powerTypeToken
+    end
     _G.GetComboPoints = function(unit, target) return M.comboPoints end
 
     _G.GetRuneCooldown     = function(slot) return M.runeCooldown(slot) end

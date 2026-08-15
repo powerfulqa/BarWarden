@@ -402,4 +402,115 @@ function M.test_neverReturnsNilOrErrors()
     assertx.assertEqual(type(entries2), "table")
 end
 
+-- --------------------------------------------------------------------------
+-- The target feed (opts.unit = "target"): health and current power read off
+-- the target, not the player; a missing target collects nothing; and the
+-- player's own class resources (runes/runic power/soul shards) never leak
+-- onto an arbitrary target's reading. Combo Points are the deliberate
+-- exception - see the decision recorded in its own test below.
+-- --------------------------------------------------------------------------
+
+function M.test_targetFeed_collectsTargetHealthAndPower()
+    local ns = fresh()
+    mock.playerClass = "MAGE"
+    -- Player state deliberately different from target state, so a pass here
+    -- can only mean the target feed actually read the TARGET, not the player.
+    mock.playerHealth, mock.playerHealthMax = 100, 100
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 10, 20
+
+    mock.targetExists = true
+    mock.targetHealth, mock.targetHealthMax = 4200, 5100
+    mock.targetPowerType, mock.targetPowerTypeToken = 1, "RAGE"
+    mock.targetPower[1], mock.targetPowerMax[1] = 60, 100
+
+    local entries = ns:CollectResources({ unit = "target" })
+
+    assertx.assertEqual(entries[1].key, "health")
+    assertx.assertEqual(entries[1].current, 4200)
+    assertx.assertEqual(entries[1].max, 5100)
+
+    local rage = findEntry(entries, "rage")
+    assertx.assertNotNil(rage, "target's current power type (rage) should be collected")
+    assertx.assertEqual(rage.current, 60)
+    assertx.assertEqual(rage.max, 100)
+end
+
+function M.test_targetFeed_absentTargetCollectsNothing()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.targetExists = false
+    -- Left non-zero on purpose: if the unit-existence guard were missing or
+    -- wrong, these would leak through and this test would still pass by
+    -- accident. Non-zero values make a leak visible instead.
+    mock.targetHealth, mock.targetHealthMax = 4200, 5100
+    mock.targetPowerType, mock.targetPowerTypeToken = 1, "RAGE"
+    mock.targetPower[1], mock.targetPowerMax[1] = 60, 100
+
+    local ok, entries = pcall(function() return ns:CollectResources({ unit = "target" }) end)
+    assertx.assertTrue(ok, "collecting for an absent target must not error")
+    assertx.assertEqual(#entries, 0, "an absent target must collect nothing")
+end
+
+function M.test_targetFeed_playerOnlyClassResourcesDoNotAppear()
+    local ns = fresh()
+    -- A Death Knight and a Warlock: if the class gate were mistakenly read
+    -- from UnitClass(unit) instead of UnitClass("player") always, a target
+    -- feed would still show nothing here (UnitClass(unit) returns nil for a
+    -- non-player unit in this harness), but that would be the WRONG reason -
+    -- it would also, wrongly, show these for a player who has since
+    -- targeted a same-class ally. The real guard is `if unit == "player"`
+    -- around the Runes/Runic Power/Soul Shards block in CollectResources
+    -- (Trackers.lua), which this proves by using the PLAYER's own
+    -- DEATHKNIGHT class while asking for the TARGET feed.
+    mock.playerClass = "DEATHKNIGHT"
+    mock.powerType, mock.powerTypeToken = 6, "RUNIC_POWER"
+    mock.power[6], mock.powerMax[6] = 55, 100
+    mock.runeCooldown = function(slot) return 0, 10, true end
+
+    mock.targetExists = true
+    mock.targetPowerType, mock.targetPowerTypeToken = 0, "MANA"
+    mock.targetPower[0], mock.targetPowerMax[0] = 100, 100
+
+    local entries = ns:CollectResources({ unit = "target" })
+    assertx.assertNil(findEntry(entries, "runicpower"), "the player's own Runic Power must not appear on a target feed")
+    assertx.assertNil(findEntry(entries, "rune1"), "the player's own Runes must not appear on a target feed")
+end
+
+-- --------------------------------------------------------------------------
+-- Combo Points decision: they are the player's own resource, but they are
+-- ALWAYS a reading of "my points on my current target" (GetComboPoints
+-- hard-codes "player", "target" regardless of which feed asks), so unlike
+-- Runes/Runic Power/Soul Shards, offering them on the target feed is never a
+-- mislabelled read of someone else's data - it is the exact same reading
+-- either feed would give. Decision: show Combo Points on BOTH feeds, still
+-- gated on the player's own class.
+-- --------------------------------------------------------------------------
+
+function M.test_comboPoints_appearOnTargetFeedToo()
+    local ns = fresh()
+    mock.playerClass = "ROGUE"
+    mock.comboPoints = 3
+    mock.targetExists = true
+    mock.targetPowerType, mock.targetPowerTypeToken = 0, "MANA"
+    mock.targetPower[0], mock.targetPowerMax[0] = 1000, 1000
+
+    local entries = ns:CollectResources({ unit = "target" })
+    local cp = findEntry(entries, "combopoints")
+    assertx.assertNotNil(cp, "Combo Points must appear on the target feed")
+    assertx.assertEqual(cp.current, 3)
+end
+
+function M.test_comboPoints_stillGatedOnPlayerClassForTargetFeed()
+    local ns = fresh()
+    mock.playerClass = "MAGE"
+    mock.comboPoints = 3
+    mock.targetExists = true
+    mock.targetPowerType, mock.targetPowerTypeToken = 0, "MANA"
+    mock.targetPower[0], mock.targetPowerMax[0] = 1000, 1000
+
+    local entries = ns:CollectResources({ unit = "target" })
+    assertx.assertNil(findEntry(entries, "combopoints"), "a Mage has no Combo Points on either feed")
+end
+
 return M

@@ -412,12 +412,13 @@ local function CreateBarsTab(parent)
 
     -- Auto-tracking feeds. Values must match the keys in ns.AUTO_TRACK_FEEDS.
     local autoTrackItems = {
-        { text = "Off",                   value = ""              },
-        { text = "All buffs on player",   value = "playerBuffs"   },
-        { text = "All debuffs on player", value = "playerDebuffs" },
-        { text = "All buffs on target",   value = "targetBuffs"   },
-        { text = "All debuffs on target", value = "targetDebuffs" },
-        { text = "Health and power",      value = "resources"     },
+        { text = "Off",                       value = ""                 },
+        { text = "All buffs on player",       value = "playerBuffs"      },
+        { text = "All debuffs on player",     value = "playerDebuffs"    },
+        { text = "All buffs on target",       value = "targetBuffs"      },
+        { text = "All debuffs on target",     value = "targetDebuffs"    },
+        { text = "Health and power",          value = "resources"        },
+        { text = "Health and power (target)", value = "targetResources"  },
     }
 
     -- The auto sub-settings mean nothing with no feed picked, so they hide.
@@ -472,7 +473,7 @@ local function CreateBarsTab(parent)
     -- aura feed keys, or "resources".
     local function SetAutoSubWidgetsShown(value)
         local hasFeed = value ~= nil and value ~= ""
-        local isAura  = hasFeed and value ~= "resources"
+        local isAura  = hasFeed and value ~= "resources" and value ~= "targetResources"
 
         local function setAll(ids, shown)
             for _, id in ipairs(ids) do
@@ -936,9 +937,10 @@ local function CreateBarsTab(parent)
         { type = "header", text = "Auto Track", spacing = 16, offsetX = ns.OFFSET_HEADER, id = "grpAutoHeader", large = true },
         { type = "dropdown", id = "grpAutoTrackDD", label = "Track", items = autoTrackItems, width = 150,
           tooltip = "Fill this group by itself instead of adding bars one at a "
-               .. "time: every buff or debuff on you or your target, or your "
-               .. "health and power. The bars you added by hand are kept and "
-               .. "come back when you set this to Off.",
+               .. "time: every buff or debuff on you or your target, or "
+               .. "health and power for you or your target. The bars you "
+               .. "added by hand are kept and come back when you set this "
+               .. "to Off.",
           get = function() local g = getGroup(); return g and g.autoTrack or "" end,
           set = function(_, value)
               local g = getGroup(); if not g then return end
@@ -1038,13 +1040,21 @@ local function CreateBarsTab(parent)
               ns:RefreshBarSettings()
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
-        -- Pinned resources: only shown for the "Health and power" feed (see
-        -- AUTO_RESOURCE_ONLY_WIDGET_IDS above). Each tickbox writes into an
+        -- Pinned resources: only shown for one of the two resource feeds,
+        -- "Health and power" (player) or "Health and power (target)" (see
+        -- AUTO_RESOURCE_ONLY_WIDGET_IDS above; both are equally "not an aura
+        -- feed" to SetAutoSubWidgetsShown). Each tickbox writes into an
         -- ORDERED list (autoPinnedResources: v2.5.0, replacing the older
         -- plain set) via ns:TogglePinnedResource (Trackers.lua), so the
         -- resulting bars appear in the order the tickboxes were ticked, not
         -- this fixed panel order; unticking then re-ticking moves a resource
-        -- to the end rather than back to wherever it used to sit.
+        -- to the end rather than back to wherever it used to sit. Pinning
+        -- reads off whichever unit the group's own feed names
+        -- (ns:CollectResources' `opts.unit`), so "Always Show Rage" pins the
+        -- TARGET's rage bar in a target-resources group, not the player's -
+        -- the zero-max guard in CollectResources already makes it a no-op
+        -- against a unit with no rage pool, same as it always has for the
+        -- player feed.
         -- ns:NormalizePinnedResources tolerates a group still holding the
         -- pre-order set shape, so nothing here needed a migration.
         --

@@ -245,12 +245,19 @@ with nothing to name by hand. Bars use the game's own colours by default -
 a blue mana bar, a red rage bar, a yellow energy bar, and so on - the same
 convention Blizzard's own frames use.
 
+"Health and power (target)" does the same for whatever you have targeted:
+its health, then its current power. Combo Points show here too, alongside
+the player resource group, since they are always your points on your
+current target either way you look at them. A target with nothing selected
+just shows nothing, the same as an empty group.
+
 - **Always Show Mana / Rage / Energy / Focus** - pin a power you always want
   visible, even when it is not the one you are currently using. Bars appear
   in the order you tick them, top to bottom; unticking one and re-ticking it
   later moves it to the end rather than back to where it used to be. Each
   pin gets its own colour swatch, which beats both the group's Custom Bar
-  Colour and the default power colour above.
+  Colour and the default power colour above. Works the same on the target
+  resource group, pinning the target's power instead of yours.
 - **Show Icon** - show or hide the resource icon on this group's bars.
 - **Value Text** - how each bar's number is shown: Current / Max (`4200/5100`),
   Percent (`82%`), or Both (`4200/5100 (82%)`).
@@ -260,7 +267,8 @@ to your own casts, or ban one spell from: those settings hide for a
 resources group since none of them apply.
 
 A resource group shows the same health and power the default player frame
-already does. If you'd rather not see it twice, tick Hide Blizzard Player
+already does, and a target resource group shows the same thing the default
+target frame does. If you'd rather not see it twice, tick Hide Blizzard Player
 Frame on the General tab.
 
 ### Aura Equivalency Groups
@@ -308,7 +316,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Sort Mode (Manual, Remaining Time, Alphabetical, As They Come)
 - Growth Direction (Down, Up)
 - Bar Overrides: Bar Texture, Text Format, Bar Style (Countdown, On or Off), Custom Bar Colour, Show Icons Only (a compact grid of spell icons instead of bars, sized with the Width slider), Custom Stack Text (its own size and colour for the stack count), and Custom Bar Effects (Glow on Ready, Pulse on Ready, Linger Time), all for the whole group at once - Custom Bar Effects is also the only way to turn these on for an auto-tracking group
-- Auto Track: fill the group from buffs or debuffs, or from your health and power, instead of adding bars by hand. The Health and power choice adds its own Always Show Mana/Rage/Energy/Focus tickboxes (in the order you tick them, each with an optional colour swatch), a Show Icon toggle, and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings
+- Auto Track: fill the group from buffs or debuffs, or from health and power (yours or your target's), instead of adding bars by hand. Either Health and power choice adds its own Always Show Mana/Rage/Energy/Focus tickboxes (in the order you tick them, each with an optional colour swatch), a Show Icon toggle, and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings
 - Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**

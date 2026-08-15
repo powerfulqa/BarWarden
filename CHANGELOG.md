@@ -60,6 +60,14 @@ the same current-power-type signal the game itself uses.
   than a fixed panel order. Unticking one and re-ticking it later moves it
   to the end. Each pin also gets its own colour swatch, ahead of the
   group's Custom Bar Colour and the power-type default above.
+- **A new Auto Track choice, "Health and power (target)", does the same for
+  your target** as the player resource group above: your target's health,
+  then whatever power it is currently using. Combo Points now show here
+  too, alongside the player resource group, since they are always a
+  reading of your points on your current target either way. Pinning, Value
+  Text, and Show Icon all work the same as the player resource group, and
+  read off the target when pinning applies to it. A target with nothing
+  selected shows nothing, same as an empty aura group.
 
 ---
 

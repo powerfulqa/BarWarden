@@ -230,11 +230,12 @@ end
 -- same unitFilter gate the aura feeds use, so a "target" event never wastes
 -- a rescan on a group that only ever reads the player.
 ns.AUTO_TRACK_FEEDS = {
-    playerBuffs   = { unit = "player", kind = "buff"     },
-    playerDebuffs = { unit = "player", kind = "debuff"   },
-    targetBuffs   = { unit = "target", kind = "buff"     },
-    targetDebuffs = { unit = "target", kind = "debuff"   },
-    resources     = { unit = "player", kind = "resource" },
+    playerBuffs     = { unit = "player", kind = "buff"     },
+    playerDebuffs   = { unit = "player", kind = "debuff"   },
+    targetBuffs     = { unit = "target", kind = "buff"     },
+    targetDebuffs   = { unit = "target", kind = "debuff"   },
+    resources       = { unit = "player", kind = "resource" },
+    targetResources = { unit = "target", kind = "resource" },
 }
 
 local function CompareExpiry(a, b)
@@ -837,33 +838,42 @@ local MANA_ICON   = "Interface\\Icons\\INV_Enchant_EssenceManaLarge"
 local RAGE_ICON   = "Interface\\Icons\\Ability_Warrior_Rampage"
 local ENERGY_ICON = "Interface\\Icons\\Ability_Rogue_Sprint"
 
+-- Health/Mana/Rage/Energy read whichever unit barConfig names, defaulting to
+-- "player" via the same getUnit helper Buff/Debuff use above - a hand-placed
+-- bar never sets barConfig.unit today, so this is a no-op for it; it exists
+-- so ns:CollectResources (below) can ask for a target's reading through the
+-- exact same checker instead of a duplicated one.
 local function CheckHealth(barConfig)
-    local current = UnitHealth("player") or 0
-    local max = UnitHealthMax("player") or 0
+    local unit = getUnit(barConfig, "player")
+    local current = UnitHealth(unit) or 0
+    local max = UnitHealthMax(unit) or 0
     if max <= 0 then max = 1 end
     return true, current, max, HEALTH_ICON, "Health", current
 end
 
 local function CheckMana(barConfig)
     -- Power type 0 is SPELL_POWER_MANA on 3.3.5a.
-    local power = UnitPower("player", 0) or 0
-    local maxPower = UnitPowerMax("player", 0) or 0
+    local unit = getUnit(barConfig, "player")
+    local power = UnitPower(unit, 0) or 0
+    local maxPower = UnitPowerMax(unit, 0) or 0
     if maxPower <= 0 then maxPower = 1 end
     return true, power, maxPower, MANA_ICON, "Mana", power
 end
 
 local function CheckRage(barConfig)
     -- Power type 1 is SPELL_POWER_RAGE on 3.3.5a.
-    local power = UnitPower("player", 1) or 0
-    local maxPower = UnitPowerMax("player", 1) or 0
+    local unit = getUnit(barConfig, "player")
+    local power = UnitPower(unit, 1) or 0
+    local maxPower = UnitPowerMax(unit, 1) or 0
     if maxPower <= 0 then maxPower = 1 end
     return true, power, maxPower, RAGE_ICON, "Rage", power
 end
 
 local function CheckEnergy(barConfig)
     -- Power type 3 is SPELL_POWER_ENERGY on 3.3.5a.
-    local power = UnitPower("player", 3) or 0
-    local maxPower = UnitPowerMax("player", 3) or 0
+    local unit = getUnit(barConfig, "player")
+    local power = UnitPower(unit, 3) or 0
+    local maxPower = UnitPowerMax(unit, 3) or 0
     if maxPower <= 0 then maxPower = 1 end
     return true, power, maxPower, ENERGY_ICON, "Energy", power
 end
@@ -949,24 +959,53 @@ end
 --             function currently emits, but callers should treat it as
 --             optional: a future entry with no natural icon is still valid.
 --
--- opts = { pinned }
+-- opts = { unit, pinned }
+--   unit   - which unit to read (default "player"). "player" and "target"
+--            are the two feeds that exist (ns.AUTO_TRACK_FEEDS' `resources`
+--            and `targetResources`); nothing stops a caller passing another
+--            unit token, but only these two are wired to a group in the UI.
+--            A unit that does not exist (no target selected) collects
+--            nothing at all - see the UnitExists guard below - rather than
+--            surfacing a row of zeroed bars.
 --   pinned - the resource keys ("mana", "rage", "energy", "focus") the user
 --            ticked in Group Settings to always show, even when not the
 --            character's current power type. Passed straight through
 --            ns:NormalizePinnedResources (below), so either the current
 --            ordered-list shape or the legacy set shape is accepted; see
 --            that function's own comment for the two shapes and why both
---            still work.
+--            still work. Applies to either unit the same way: the zero-max
+--            guard in addEntry below already makes pinning a power the
+--            character/target does not have a no-op (a Mage pinning Rage
+--            shows nothing today), so a target feed needs no extra guard to
+--            keep "pin Rage" harmless against a target that has none.
 --
--- Class-resource applicability (combo points/runes/runic power/soul shards)
--- is decided by UnitClass("player") - the same signal Conditions.lua's
--- requireClass condition already uses to keep a DK's rune bar off a Mage's
--- copied profile - rather than a new table. None of the four checkers
--- themselves encode "does this class have this resource": CheckRunicPower
--- and CheckSoulShards both force a non-zero max as a display fallback for a
--- hand-placed bar (see their own comments), so calling them alone could
--- never tell an applicable class from an inapplicable one; UnitClass is the
--- only honest signal available here.
+-- Class-resource applicability splits three ways, not one UnitClass(unit)
+-- call generalised naively:
+--   * Runes, Runic Power, and Soul Shards are the PLAYER's own resource
+--     pools - GetRuneCooldown/GetRuneType, UnitPower("player", 6) and
+--     GetItemCount(SOUL_SHARD_ITEM_ID) all read the player's own runes/bags
+--     regardless of what `unit` names, so gating them on UnitClass(unit)
+--     for a target feed would show YOUR OWN soul shards under a label that
+--     implies they belong to whatever is targeted. They are therefore only
+--     ever collected for unit == "player", still gated on UnitClass("player")
+--     - the same signal Conditions.lua's requireClass condition already uses
+--     to keep a DK's rune bar off a Mage's copied profile. None of the three
+--     checkers themselves encode "does this class have this resource":
+--     CheckRunicPower and CheckSoulShards both force a non-zero max as a
+--     display fallback for a hand-placed bar (see their own comments), so
+--     calling them alone could never tell an applicable class from an
+--     inapplicable one; UnitClass is the only honest signal available here.
+--   * Combo Points are different: GetComboPoints("player", "target") is
+--     already, unconditionally, a "your points on your CURRENT target"
+--     reading - it does not change meaning depending on which feed asks for
+--     it. Blizzard's own UI agrees: the combo-point display (ComboFrame) is
+--     anchored to the target frame, not the player frame, so "combo points
+--     belong with the target you're building them on" is not a new idea
+--     here. They are offered on BOTH feeds - unlike Runes/Runic
+--     Power/Soul Shards, showing them via the target feed is never a
+--     mislabelled read of your own data, it is the same reading either way -
+--     still gated on the PLAYER's own class (only a Rogue or Druid has combo
+--     points at all, whatever is targeted).
 --
 -- ----------------------------------------------------------------------------
 -- Pinned-resource ordering (v2.5.0): groupData.autoPinnedResources used to be
@@ -1059,6 +1098,7 @@ end
 -- Always returns a table (never nil), even with nothing to show.
 function ns:CollectResources(opts)
     opts = opts or {}
+    local unit = opts.unit or "player"
     local pinned = opts.pinned or {}
     local entries = {}
     local seen = {}
@@ -1079,19 +1119,31 @@ function ns:CollectResources(opts)
         }
     end
 
+    -- A unit that is not there right now (no target selected) has nothing to
+    -- show. UnitExists is the honest, unit-scoped question - relying on
+    -- UnitHealth/UnitPowerMax to degrade to 0 on their own would work on a
+    -- real 3.3.5a client, but leaves an absent target one odd private-server
+    -- API response (nil instead of 0) away from surfacing a row of
+    -- meaningless zeroed bars instead of no bars at all. "player" always
+    -- exists, so this only ever actually bails for "target".
+    if unit ~= "player" and not (UnitExists and UnitExists(unit)) then
+        return entries
+    end
+
     -- Health first, always: it is the one everybody wants at the top.
-    local _, hCur, hMax, hIcon, hName = CheckHealth({})
+    local _, hCur, hMax, hIcon, hName = CheckHealth({ unit = unit })
     addEntry("health", hName, hCur, hMax, hIcon)
 
-    -- The character's CURRENT power type, via UnitPowerType - this is what
-    -- makes the bar follow a druid through Bear/Cat/Caster form changes live.
+    -- The unit's CURRENT power type, via UnitPowerType - this is what makes
+    -- the bar follow a druid through Bear/Cat/Caster form changes live, on
+    -- either feed (a druid can be targeted just as easily as played).
     --
     -- Deliberately NOT routed through CheckMana/CheckRage/CheckEnergy/
     -- CheckRunicPower: each of those forces a non-zero max as a display
     -- fallback for a bar the user placed by hand (see their own comments),
     -- which would defeat the zero-max "doesn't apply" skip below for a
-    -- PINNED power type the character genuinely does not have (a Mage
-    -- pinning Rage). Calling UnitPower/UnitPowerMax directly - the same
+    -- PINNED power type the character/target genuinely does not have (a
+    -- Mage pinning Rage). Calling UnitPower/UnitPowerMax directly - the same
     -- globals those checkers call internally, just without the masking - is
     -- honest for both the current-power step and the pinned step alike.
     -- Focus has no dedicated track mode/checker (out of scope: only
@@ -1108,19 +1160,17 @@ function ns:CollectResources(opts)
     local function addPowerType(powerType)
         local info = powerType and POWER_TYPE_INFO[powerType]
         if not info then return end
-        addEntry(info.key, info.label, UnitPower("player", powerType) or 0,
-                 UnitPowerMax("player", powerType) or 0, info.icon)
+        addEntry(info.key, info.label, UnitPower(unit, powerType) or 0,
+                 UnitPowerMax(unit, powerType) or 0, info.icon)
     end
 
-    addPowerType((UnitPowerType("player")))
+    addPowerType((UnitPowerType(unit)))
 
-    -- Class resources that layer on top of a power pool. Gated by class,
-    -- not by calling the checkers speculatively (see the file comment
-    -- above): a Rogue or cat-form Druid gets Combo Points, a Death Knight
-    -- gets Runes plus Runic Power (already added above for a DK via their
-    -- current power type; addEntry's `seen` guard makes the explicit add
-    -- below a harmless no-op rather than a duplicate bar), a Warlock gets
-    -- Soul Shards.
+    -- Combo Points: always your own, always about your CURRENT target, so
+    -- they are meaningful on either feed without reading anything off
+    -- `unit` itself (see the file comment above for why this is not the
+    -- same reasoning as Runes/Runic Power/Soul Shards below). Gated on the
+    -- PLAYER's class regardless of which feed is asking.
     local _, classToken = UnitClass("player")
 
     if classToken == "ROGUE" or classToken == "DRUID" then
@@ -1128,18 +1178,26 @@ function ns:CollectResources(opts)
         addEntry("combopoints", name, cur, mx, icon)
     end
 
-    if classToken == "DEATHKNIGHT" then
-        local _, rpCur, rpMax, rpIcon, rpName = CheckRunicPower({})
-        addEntry("runicpower", rpName, rpCur, rpMax, rpIcon)
-        for slot = 1, 6 do
-            local _, cur, mx, icon, name, stacks = CheckRunes({ spellId = slot })
-            addEntry("rune" .. slot, name, cur, mx, icon, stacks, "Runes")
+    -- Runes, Runic Power, and Soul Shards are the PLAYER's own resource
+    -- pools (see the file comment above): only ever collected for the
+    -- player's own feed, gated the same way as before. A Death Knight gets
+    -- Runes plus Runic Power (already added above via their current power
+    -- type; addEntry's `seen` guard makes the explicit add below a harmless
+    -- no-op rather than a duplicate bar), a Warlock gets Soul Shards.
+    if unit == "player" then
+        if classToken == "DEATHKNIGHT" then
+            local _, rpCur, rpMax, rpIcon, rpName = CheckRunicPower({})
+            addEntry("runicpower", rpName, rpCur, rpMax, rpIcon)
+            for slot = 1, 6 do
+                local _, cur, mx, icon, name, stacks = CheckRunes({ spellId = slot })
+                addEntry("rune" .. slot, name, cur, mx, icon, stacks, "Runes")
+            end
         end
-    end
 
-    if classToken == "WARLOCK" then
-        local _, cur, mx, icon, name = CheckSoulShards({})
-        addEntry("soulshards", name, cur, mx, icon)
+        if classToken == "WARLOCK" then
+            local _, cur, mx, icon, name = CheckSoulShards({})
+            addEntry("soulshards", name, cur, mx, icon)
+        end
     end
 
     -- Pinned extras: resources the user always wants visible even when not
@@ -1147,7 +1205,8 @@ function ns:CollectResources(opts)
     -- they were ticked (ns:NormalizePinnedResources also accepts the legacy
     -- unordered set, falling back to a deterministic alphabetical order for
     -- it). addEntry's zero-max guard still applies, so pinning a power the
-    -- character truly cannot have (a Mage pinning Rage) shows nothing.
+    -- unit truly cannot have (a Mage pinning Rage) shows nothing - on
+    -- either feed, which is why pinning needs no unit-specific carve-out.
     local PINNABLE_POWER_TYPES = { mana = 0, rage = 1, focus = 2, energy = 3 }
     for _, entry in ipairs(ns:NormalizePinnedResources(pinned)) do
         local powerType = PINNABLE_POWER_TYPES[entry.key]

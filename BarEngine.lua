@@ -1128,8 +1128,8 @@ end
 -- pick up a linger (mirrors how ScanBar branches on ns:IsResourceTrackMode
 -- for an ordinary hand-placed resource bar, just applied per-slot instead of
 -- per-bar).
-local function ScanAutoResourceGroup(group, groupData)
-    local entries = ns:CollectResources({ pinned = groupData.autoPinnedResources })
+local function ScanAutoResourceGroup(group, groupData, unit)
+    local entries = ns:CollectResources({ pinned = groupData.autoPinnedResources, unit = unit })
 
     for i, bar in ipairs(group.bars) do
         local e  = entries[i]
@@ -1183,7 +1183,7 @@ function ns:ScanAutoGroup(frameIndex, unitFilter)
     end
 
     if def.kind == "resource" then
-        ScanAutoResourceGroup(group, groupData)
+        ScanAutoResourceGroup(group, groupData, def.unit)
         return
     end
 
@@ -1451,14 +1451,22 @@ end
 -- every tick of every power bar and is deliberately NOT registered (see the
 -- comment above OnComboPointsChanged): that volume in raid combat is exactly
 -- the firehose this addon avoids. UNIT_DISPLAYPOWER's rarity is what makes it
--- safe to register outright. Only a resources auto-track group's "current
--- power" slot (ns:CollectResources, via UnitPowerType) actually depends on
--- this; without it, a form change would still show correctly, just up to one
--- 0.25s scan tick later - registering the event only removes that tick of lag.
+-- safe to register outright. It IS unit-filtered the same way UNIT_AURA/
+-- UNIT_HEALTH are elsewhere in this file: `unit` arrives as "target" when the
+-- unit that changed form is whatever is currently targeted, matching how
+-- Blizzard addresses every other UNIT_* event here. Both the player's
+-- "resources" feed and the target's "targetResources" feed read their
+-- current-power slot via UnitPowerType(unit) (ns:CollectResources,
+-- Trackers.lua), so both unit values matter now, not just "player"; passing
+-- `unit` through to ScanAutoGroups restricts the rescan to feeds on that
+-- same unit rather than touching every auto group for an event that only
+-- one of them can possibly care about. Without this, a form change would
+-- still show correctly, just up to one 0.25s scan tick later - registering
+-- the event only removes that tick of lag.
 function ns:OnUnitDisplayPowerChanged(unit)
-    if unit and unit ~= "player" then return end
+    if unit ~= "player" and unit ~= "target" then return end
     if ns.hasAutoGroups then
-        RunScan(ScanAutoGroups)
+        RunScan(ScanAutoGroups, unit)
     end
 end
 
