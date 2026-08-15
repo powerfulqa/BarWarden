@@ -13,6 +13,37 @@ exhaustive notes.
 
 ---
 
+### v2.5.0
+
+**A group can now show your health and power automatically, following you
+through form changes.** Four new track modes, Health, Mana, Energy and Rage,
+join the existing Combo Points, Runes, Runic Power and Soul Shards as
+value-based resource bars. A new "Health and power" choice on Auto Track
+builds on them: the group fills itself with Health, whichever power you are
+currently using, and your class resources, with nothing to name by hand. A
+druid's power slot follows Bear, Cat and Caster form live because it reads
+the same current-power-type signal the game itself uses.
+
+- **Health, Mana, Energy and Rage join the Track Mode dropdown**, alongside
+  the existing class resources. Pick one for a bar the same way as any other
+  track mode; each fills rather than counts down, exactly like Combo Points
+  and the rest.
+- **A new Auto Track choice, "Health and power", fills a group by itself**
+  with Health first, then your current power, then your class resources
+  (combo points, runes, runic power, or soul shards, whichever apply) - no
+  spell to name, and no bar list to keep up to date as you level or respec.
+- **Always Show Mana / Rage / Energy / Focus** pin a power you always want
+  visible in a resource group, even when it is not the one you are currently
+  using.
+- **Value Text** picks how a resource group's bars show their number:
+  Current / Max (`4200/5100`), Percent (`82%`), or Both (`4200/5100 (82%)`).
+- The buff/debuff-only Auto Track settings (Skip If It Lasts Over, Only Mine,
+  Include Always On, Skip Spells I Already Track, and the hidden-spells
+  list) hide for a resources group, since none of them apply to a number
+  that is not a spell.
+
+---
+
 ### v2.4.0
 
 **Combat Only and the other group conditions now hide a group outright, even

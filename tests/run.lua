@@ -13,6 +13,7 @@ local TEST_FILES = {
     "test_conditions",
     "test_trackers_logic",
     "test_auto_track",
+    "test_resources",
     "test_activity_tracker",
     "test_stack_badge",
     "test_aura_groups",

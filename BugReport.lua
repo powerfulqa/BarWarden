@@ -185,6 +185,23 @@ function ns:GenerateBugReport()
                     tostring(frameData.autoIncludePermanent == true)))
             end
 
+            -- The resources feed's own settings have no equivalent above (an
+            -- aura-only field like maxDuration/onlyMine means nothing for it),
+            -- so they get their own line rather than padding out the generic
+            -- one with fields that would always read as defaults.
+            if frameData.autoTrack == "resources" then
+                local pins = {}
+                if frameData.autoPinnedResources then
+                    for key, on in pairs(frameData.autoPinnedResources) do
+                        if on then pins[#pins + 1] = key end
+                    end
+                    table.sort(pins)
+                end
+                add(string.format("    autoTrack: pinned=%s, valueText=%s",
+                    #pins > 0 and table.concat(pins, ",") or "none",
+                    frameData.autoResourceValueText or "default"))
+            end
+
             -- Alt-click ban list (Bar.lua's alt-click handler on an auto bar).
             -- A count is enough diagnostically; listing every banned spell
             -- would bloat the report. Kept independent of the autoTrack

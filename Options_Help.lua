@@ -180,8 +180,8 @@ local HELP_ENTRIES = {
         id = "auto-track",
         q = "Can a group fill itself?",
         a = "Yes. On the Groups tab of Bar Control, set Auto Track to one of "
-          .. "the four choices: all buffs or all debuffs, on you or on your "
-          .. "target.\n\n"
+          .. "the five choices: all buffs or all debuffs on you or your "
+          .. "target, or your health and power.\n\n"
           .. "The group then shows whatever is there, without you naming a "
           .. "single spell, which is how you catch a boss debuff or an "
           .. "unfamiliar proc. Bars you added by hand are kept and come back "
@@ -224,6 +224,26 @@ local HELP_ENTRIES = {
           .. "Spells I Already Track on, a spell tracked only in a Combat "
           .. "Only group will not appear here while you are out of combat "
           .. "either.",
+    },
+    {
+        id = "auto-track-resources",
+        q = "Can a group show my health and power automatically?",
+        a = "Yes. Set Auto Track to Health and power instead of a buff or "
+          .. "debuff choice. It shows Health first, then whatever power you "
+          .. "are currently using, which is why it follows you through Bear, "
+          .. "Cat, and Caster form live if you play a druid. Your class "
+          .. "resources come after: combo points, runes, runic power, or "
+          .. "soul shards, whichever apply.\n\n"
+          .. "Always Show Mana, Rage, Energy, and Focus tick boxes let you "
+          .. "pin a power you always want visible, even when it is not the "
+          .. "one you are currently using. Value Text picks how each number "
+          .. "is shown: the amount and the total, just the percent, or "
+          .. "both.\n\n"
+          .. "The settings for limiting or filtering a spell list (Skip If "
+          .. "It Lasts Over, Only Mine, Include Always On, Skip Spells I "
+          .. "Already Track, and the hidden-spells list) hide for this "
+          .. "choice, since none of them apply to a number that is not a "
+          .. "spell.",
     },
 
     -- ===================================================================

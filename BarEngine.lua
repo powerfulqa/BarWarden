@@ -636,6 +636,14 @@ function ns:UpdateResourceBar(bar, current, max, icon, name, stacks)
     -- Text. Default: "current/max" (e.g. "3/5"). Runes: "Ns" countdown while
     -- on CD, blank when ready (stacks carries ceil(cdRemaining)). Respects
     -- textFormat NONE / NAME_ONLY to suppress.
+    --
+    -- The resources auto-track group's Value Text setting (group.
+    -- autoResourceValueText: nil/"" current-max, "PERCENT", "BOTH") overrides
+    -- the default current/max rendering below. It is group-only with no
+    -- per-bar equivalent (like `iconOnly`; see docs/ADDON_GUIDE.md's group
+    -- overrides table), so it is read straight off groupData here rather
+    -- than through a dedicated resolver, and a hand-placed resource bar with
+    -- no such group setting keeps exactly its previous current/max text.
     if bar.timeText then
         local textFormat = ns:GetBarTextFormat(bar)
         local trackMode  = bar.barData and bar.barData.trackMode
@@ -649,7 +657,22 @@ function ns:UpdateResourceBar(bar, current, max, icon, name, stacks)
             end
         else
             local maxLabel = (max and max > 1) and max or 1
-            bar.timeText:SetText(string.format("%d/%d", current or 0, maxLabel))
+            local groupData = bar.frameIndex and BarWardenDB and BarWardenDB.frames
+                              and BarWardenDB.frames[bar.frameIndex]
+            local valueText = groupData and groupData.autoResourceValueText
+            if valueText == "PERCENT" or valueText == "BOTH" then
+                local percent = 0
+                if maxLabel > 0 then
+                    percent = floor(((current or 0) / maxLabel) * 100 + 0.5)
+                end
+                if valueText == "PERCENT" then
+                    bar.timeText:SetText(string.format("%d%%", percent))
+                else
+                    bar.timeText:SetText(string.format("%d/%d (%d%%)", current or 0, maxLabel, percent))
+                end
+            else
+                bar.timeText:SetText(string.format("%d/%d", current or 0, maxLabel))
+            end
         end
     end
 
@@ -1094,6 +1117,45 @@ function ns:InvalidateTrackedNames()
     if ns.InvalidateBarDisplayNameCache then ns:InvalidateBarDisplayNameCache() end
 end
 
+-- ScanAutoResourceGroup: fill a "resources" feed's slots from
+-- ns:CollectResources. Unlike the aura branch below, there is no spell list,
+-- no expiry, and no held/keepNames placement to worry about - the collector
+-- already returns a stable, deterministic order (Health, current power type,
+-- class resources, pinned extras), so a slot is just entries[i].
+--
+-- Every occupied slot goes through ns:UpdateResourceBar, never ns:ActivateBar:
+-- a resource has no expiry, so it must never take the countdown path or
+-- pick up a linger (mirrors how ScanBar branches on ns:IsResourceTrackMode
+-- for an ordinary hand-placed resource bar, just applied per-slot instead of
+-- per-bar).
+local function ScanAutoResourceGroup(group, groupData)
+    local entries = ns:CollectResources({ pinned = groupData.autoPinnedResources })
+
+    for i, bar in ipairs(group.bars) do
+        local e  = entries[i]
+        local bd = bar.barData
+        if e then
+            bd.enabled   = true
+            bd.name      = e.label
+            bd.spellId   = nil
+            -- e.trackMode is only ever "Runes" (the six DK rune slots); every
+            -- other resource leaves it nil, and UpdateResourceBar treats
+            -- anything other than the literal string "Runes" the same way.
+            bd.trackMode = e.trackMode or "Buff"
+            ns:UpdateResourceBar(bar, e.current, e.max, e.icon, e.label, e.stacks or e.current)
+        elseif bd.enabled then
+            -- Slot just emptied (e.g. a rune slot that no longer applies
+            -- after a spec/class change mid-session). Marking it unoccupied
+            -- first sends DeactivateBar down its disabled-bar branch, which
+            -- hides it instead of leaving a blank row - same as the aura
+            -- branch below.
+            bd.enabled = false
+            bd.name    = ""
+            ns:DeactivateBar(bar, true)
+        end
+    end
+end
+
 function ns:ScanAutoGroup(frameIndex, unitFilter)
     local group = ns.groupFrames and ns.groupFrames[frameIndex]
     if not group or not group.isAutoGroup or not group.bars then return end
@@ -1111,6 +1173,11 @@ function ns:ScanAutoGroup(frameIndex, unitFilter)
         for _, bar in ipairs(group.bars) do
             HideBarForConditions(bar)
         end
+        return
+    end
+
+    if def.kind == "resource" then
+        ScanAutoResourceGroup(group, groupData)
         return
     end
 
@@ -1370,6 +1437,23 @@ end
 -- RUNE_TYPE_UPDATE (death rune conversion swapped slot's type).
 function ns:OnRuneUpdate()
     ScanBarsByMode(RUNE_MODES, nil)
+end
+
+-- UNIT_DISPLAYPOWER fires when the unit's CURRENT power type changes (a
+-- druid shifting Bear/Cat/Caster form, a shaman's Ghost Wolf, and so on) -
+-- a handful of times per fight at most, unlike UNIT_POWER which fires on
+-- every tick of every power bar and is deliberately NOT registered (see the
+-- comment above OnComboPointsChanged): that volume in raid combat is exactly
+-- the firehose this addon avoids. UNIT_DISPLAYPOWER's rarity is what makes it
+-- safe to register outright. Only a resources auto-track group's "current
+-- power" slot (ns:CollectResources, via UnitPowerType) actually depends on
+-- this; without it, a form change would still show correctly, just up to one
+-- 0.25s scan tick later - registering the event only removes that tick of lag.
+function ns:OnUnitDisplayPowerChanged(unit)
+    if unit and unit ~= "player" then return end
+    if ns.hasAutoGroups then
+        RunScan(ScanAutoGroups)
+    end
 end
 
 function ns:OnPlayerEnteringWorld()

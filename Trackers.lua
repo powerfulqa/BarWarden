@@ -223,11 +223,18 @@ end
 -- what gets stored on the group, so it must stay stable.
 -- ----------------------------------------------------------------------------
 
+-- The "resources" feed is unlike the four aura feeds above: it has no spell
+-- list to scan at all, so it is driven by ns:CollectResources (bottom of this
+-- file, after the resource checkers it calls) rather than ns:CollectAutoAuras.
+-- unit = "player" still matters here: ns:ScanAutoGroup passes it through the
+-- same unitFilter gate the aura feeds use, so a "target" event never wastes
+-- a rescan on a group that only ever reads the player.
 ns.AUTO_TRACK_FEEDS = {
-    playerBuffs   = { unit = "player", kind = "buff"   },
-    playerDebuffs = { unit = "player", kind = "debuff" },
-    targetBuffs   = { unit = "target", kind = "buff"   },
-    targetDebuffs = { unit = "target", kind = "debuff" },
+    playerBuffs   = { unit = "player", kind = "buff"     },
+    playerDebuffs = { unit = "player", kind = "debuff"   },
+    targetBuffs   = { unit = "target", kind = "buff"     },
+    targetDebuffs = { unit = "target", kind = "debuff"   },
+    resources     = { unit = "player", kind = "resource" },
 }
 
 local function CompareExpiry(a, b)
@@ -919,4 +926,148 @@ function ns:CheckTracker(barConfig)
     end
 
     return checker(barConfig)
+end
+
+-- ----------------------------------------------------------------------------
+-- ns:CollectResources - pure collector for the "resources" auto-track feed.
+--
+-- Unlike ns:CollectAutoAuras, a resource group has no spell list to scan: it
+-- always shows Health, then whatever power the character is currently using
+-- (UnitPowerType follows a druid live through every form change), then the
+-- class resources layered on top of a power pool (combo points, runes,
+-- runic power, soul shards), then any pinned extras from opts.pinned.
+--
+-- Entry shape: { key, label, current, max, icon }
+--   key     - stable identifier. Used to de-duplicate (a Death Knight's
+--             Runic Power would otherwise arrive twice: once as their
+--             current power type, once as a class resource) and gives
+--             ns:ScanAutoGroup something to match against if it ever needs
+--             to hold a slot across a rescan the way PlaceAutoAuras does.
+--   label   - display name; becomes barData.name (feeds ns.GetBarDisplayName).
+--   current/max - fed straight to ns:UpdateResourceBar.
+--   icon    - spell/ability icon. Always present for every resource this
+--             function currently emits, but callers should treat it as
+--             optional: a future entry with no natural icon is still valid.
+--
+-- opts = { pinned }
+--   pinned - a set (or nil) of resource keys ("mana", "rage", "energy",
+--            "focus") the user ticked in Group Settings to always show,
+--            even when not the character's current power type. Iterated in
+--            alphabetical (not pairs()) order so slot assignment is stable
+--            from one login to the next.
+--
+-- Class-resource applicability (combo points/runes/runic power/soul shards)
+-- is decided by UnitClass("player") - the same signal Conditions.lua's
+-- requireClass condition already uses to keep a DK's rune bar off a Mage's
+-- copied profile - rather than a new table. None of the four checkers
+-- themselves encode "does this class have this resource": CheckRunicPower
+-- and CheckSoulShards both force a non-zero max as a display fallback for a
+-- hand-placed bar (see their own comments), so calling them alone could
+-- never tell an applicable class from an inapplicable one; UnitClass is the
+-- only honest signal available here.
+--
+-- Always returns a table (never nil), even with nothing to show.
+function ns:CollectResources(opts)
+    opts = opts or {}
+    local pinned = opts.pinned or {}
+    local entries = {}
+    local seen = {}
+
+    -- stacks/trackMode are optional and only carried for Runes: UpdateResourceBar
+    -- (BarEngine.lua) special-cases trackMode == "Runes" to show the "Ns"
+    -- countdown-to-ready text instead of a plain current/max fraction, and
+    -- reads that countdown from `stacks` (CheckRunes' ceil(cdRemaining)).
+    -- Every other entry leaves both nil, so ns:ScanAutoGroup's resource
+    -- branch falls back to current for stacks and a non-Runes trackMode.
+    local function addEntry(key, label, current, max, icon, stacks, trackMode)
+        if not key or seen[key] then return end
+        if not max or max <= 0 then return end
+        seen[key] = true
+        entries[#entries + 1] = {
+            key = key, label = label, current = current or 0, max = max,
+            icon = icon, stacks = stacks, trackMode = trackMode,
+        }
+    end
+
+    -- Health first, always: it is the one everybody wants at the top.
+    local _, hCur, hMax, hIcon, hName = CheckHealth({})
+    addEntry("health", hName, hCur, hMax, hIcon)
+
+    -- The character's CURRENT power type, via UnitPowerType - this is what
+    -- makes the bar follow a druid through Bear/Cat/Caster form changes live.
+    --
+    -- Deliberately NOT routed through CheckMana/CheckRage/CheckEnergy/
+    -- CheckRunicPower: each of those forces a non-zero max as a display
+    -- fallback for a bar the user placed by hand (see their own comments),
+    -- which would defeat the zero-max "doesn't apply" skip below for a
+    -- PINNED power type the character genuinely does not have (a Mage
+    -- pinning Rage). Calling UnitPower/UnitPowerMax directly - the same
+    -- globals those checkers call internally, just without the masking - is
+    -- honest for both the current-power step and the pinned step alike.
+    -- Focus has no dedicated track mode/checker (out of scope: only
+    -- Health/Mana/Energy/Rage were added in v2.5.0), so it is listed here
+    -- with its own icon/label instead of borrowing one from a checker.
+    local POWER_TYPE_INFO = {
+        [0] = { key = "mana",       label = "Mana",        icon = MANA_ICON },
+        [1] = { key = "rage",       label = "Rage",        icon = RAGE_ICON },
+        [2] = { key = "focus",      label = "Focus",       icon = "Interface\\Icons\\Ability_Hunter_FocusedAim" },
+        [3] = { key = "energy",     label = "Energy",      icon = ENERGY_ICON },
+        [6] = { key = "runicpower", label = "Runic Power", icon = RUNIC_POWER_ICON },
+    }
+
+    local function addPowerType(powerType)
+        local info = powerType and POWER_TYPE_INFO[powerType]
+        if not info then return end
+        addEntry(info.key, info.label, UnitPower("player", powerType) or 0,
+                 UnitPowerMax("player", powerType) or 0, info.icon)
+    end
+
+    addPowerType((UnitPowerType("player")))
+
+    -- Class resources that layer on top of a power pool. Gated by class,
+    -- not by calling the checkers speculatively (see the file comment
+    -- above): a Rogue or cat-form Druid gets Combo Points, a Death Knight
+    -- gets Runes plus Runic Power (already added above for a DK via their
+    -- current power type; addEntry's `seen` guard makes the explicit add
+    -- below a harmless no-op rather than a duplicate bar), a Warlock gets
+    -- Soul Shards.
+    local _, classToken = UnitClass("player")
+
+    if classToken == "ROGUE" or classToken == "DRUID" then
+        local _, cur, mx, icon, name = CheckComboPoints({})
+        addEntry("combopoints", name, cur, mx, icon)
+    end
+
+    if classToken == "DEATHKNIGHT" then
+        local _, rpCur, rpMax, rpIcon, rpName = CheckRunicPower({})
+        addEntry("runicpower", rpName, rpCur, rpMax, rpIcon)
+        for slot = 1, 6 do
+            local _, cur, mx, icon, name, stacks = CheckRunes({ spellId = slot })
+            addEntry("rune" .. slot, name, cur, mx, icon, stacks, "Runes")
+        end
+    end
+
+    if classToken == "WARLOCK" then
+        local _, cur, mx, icon, name = CheckSoulShards({})
+        addEntry("soulshards", name, cur, mx, icon)
+    end
+
+    -- Pinned extras: resources the user always wants visible even when not
+    -- currently in use (e.g. a caster Druid pinning Energy). Sorted so the
+    -- order is deterministic across logins, not whatever pairs() happens to
+    -- yield. addEntry's zero-max guard still applies, so pinning a power the
+    -- character truly cannot have (a Mage pinning Rage) shows nothing.
+    local pinnedKeys = {}
+    for key, on in pairs(pinned) do
+        if on then pinnedKeys[#pinnedKeys + 1] = key end
+    end
+    table.sort(pinnedKeys)
+
+    local PINNABLE_POWER_TYPES = { mana = 0, rage = 1, focus = 2, energy = 3 }
+    for _, key in ipairs(pinnedKeys) do
+        local powerType = PINNABLE_POWER_TYPES[key]
+        if powerType then addPowerType(powerType) end
+    end
+
+    return entries
 end

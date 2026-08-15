@@ -150,6 +150,12 @@ local GAMEPLAY_EVENTS = {
     { "UNIT_COMBO_POINTS",         DispatchUnit("OnComboPointsChanged") },
     { "RUNE_POWER_UPDATE",         Dispatch("OnRuneUpdate") },
     { "RUNE_TYPE_UPDATE",          Dispatch("OnRuneUpdate") },
+    -- UNIT_DISPLAYPOWER: the unit's CURRENT power type changed (form/stance
+    -- change). Rare - a handful of times per fight - unlike UNIT_POWER
+    -- (every power tick), which stays unregistered for the same firehose
+    -- reason as above. Only the resources auto-track group cares; see
+    -- ns:OnUnitDisplayPowerChanged (BarEngine.lua).
+    { "UNIT_DISPLAYPOWER",         DispatchUnit("OnUnitDisplayPowerChanged") },
 }
 
 function ns:EnableEvents()

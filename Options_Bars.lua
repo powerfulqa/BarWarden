@@ -351,7 +351,7 @@ local function CreateBarsTab(parent)
             local cw = math.min(w, ns.SETTINGS_MAX_WIDTH or 300)
             groupSettingsContent:SetWidth(cw)
             local ddW = math.max(120, cw - 60)
-            for _, id in ipairs({ "grpSortDD", "grpGrowthDD", "grpTextureDD", "grpTextFormatDD", "grpBarStyleDD", "grpAutoTrackDD" }) do
+            for _, id in ipairs({ "grpSortDD", "grpGrowthDD", "grpTextureDD", "grpTextFormatDD", "grpBarStyleDD", "grpAutoTrackDD", "grpAutoValueTextDD" }) do
                 local dd = groupSettingsWidgets[id]
                 if dd then UIDropDownMenu_SetWidth(dd, ddW) end
             end
@@ -417,6 +417,7 @@ local function CreateBarsTab(parent)
         { text = "All debuffs on player", value = "playerDebuffs" },
         { text = "All buffs on target",   value = "targetBuffs"   },
         { text = "All debuffs on target", value = "targetDebuffs" },
+        { text = "Health and power",      value = "resources"     },
     }
 
     -- The auto sub-settings mean nothing with no feed picked, so they hide.
@@ -429,19 +430,29 @@ local function CreateBarsTab(parent)
     -- directly below this section's last widget; moving Auto Track without
     -- also moving that list would split one feature across two places in the
     -- panel for no benefit.
+    --
+    -- Split three ways rather than one flat list: some sub-settings apply to
+    -- ANY feed, some only make sense for an aura feed (a resource group has
+    -- no spell list to limit, filter, or ban), and some only make sense for
+    -- the resource feed (there is nothing to "pin" on a buff/debuff group).
     local AUTO_SUB_WIDGET_IDS = {
-        "grpAutoMaxBars", "grpAutoMaxDuration", "grpAutoIncludePermanent", "grpAutoOnlyMine",
-        "grpAutoStableOrder", "grpAutoSkipTracked",
+        "grpAutoMaxBars", "grpAutoStableOrder",
+    }
+    local AUTO_AURA_ONLY_WIDGET_IDS = {
+        "grpAutoMaxDuration", "grpAutoIncludePermanent", "grpAutoOnlyMine", "grpAutoSkipTracked",
+    }
+    local AUTO_RESOURCE_ONLY_WIDGET_IDS = {
+        "grpAutoPinMana", "grpAutoPinRage", "grpAutoPinEnergy", "grpAutoPinFocus", "grpAutoValueTextDD",
     }
 
-    -- Whether the selected group has a feed picked at all. The banned-spells
-    -- section (built further down) means as little as the sliders/toggles
-    -- above without a feed - Bar.lua's alt-click handler returns early on
-    -- anything that is not bar.isAutoBar - so it shares this same gate.
-    -- UpdateBanList is forward-declared here (not where it is assigned,
-    -- further down) so SetAutoSubWidgetsShown, defined above that point,
-    -- can still call it: an upvalue is only visible to functions defined
-    -- after its `local`, not before.
+    -- Whether the selected group has an AURA feed picked (not "resources").
+    -- The banned-spells section (built further down) is keyed off this too:
+    -- alt-click-to-hide-one-spell (Bar.lua) only ever means anything for a
+    -- spell list, so it hides for the resource feed the same as for no feed
+    -- at all. UpdateBanList is forward-declared here (not where it is
+    -- assigned, further down) so SetAutoSubWidgetsShown, defined above that
+    -- point, can still call it: an upvalue is only visible to functions
+    -- defined after its `local`, not before.
     local autoFeedShown = false
     local UpdateBanList
 
@@ -453,14 +464,26 @@ local function CreateBarsTab(parent)
     local reflowGroupSettings
     local fitGroupHeight
 
-    local function SetAutoSubWidgetsShown(shown)
-        for _, id in ipairs(AUTO_SUB_WIDGET_IDS) do
-            local w = groupSettingsWidgets[id]
-            if w then
-                if shown then w:Show() else w:Hide() end
+    -- value is the Track dropdown's raw value: "" (off), one of the four
+    -- aura feed keys, or "resources".
+    local function SetAutoSubWidgetsShown(value)
+        local hasFeed = value ~= nil and value ~= ""
+        local isAura  = hasFeed and value ~= "resources"
+
+        local function setAll(ids, shown)
+            for _, id in ipairs(ids) do
+                local w = groupSettingsWidgets[id]
+                if w then
+                    if shown then w:Show() else w:Hide() end
+                end
             end
         end
-        autoFeedShown = shown
+
+        setAll(AUTO_SUB_WIDGET_IDS, hasFeed)
+        setAll(AUTO_AURA_ONLY_WIDGET_IDS, isAura)
+        setAll(AUTO_RESOURCE_ONLY_WIDGET_IDS, hasFeed and not isAura)
+
+        autoFeedShown = isAura
         if UpdateBanList then UpdateBanList() end
         if reflowGroupSettings then reflowGroupSettings() end
         -- Re-measure once the Show/Hide above has actually taken effect (see
@@ -872,10 +895,10 @@ local function CreateBarsTab(parent)
         -- hiding them punches a hole through the middle of the panel.
         { type = "header", text = "Auto Track", spacing = 16, offsetX = ns.OFFSET_HEADER, id = "grpAutoHeader", large = true },
         { type = "dropdown", id = "grpAutoTrackDD", label = "Track", items = autoTrackItems, width = 150,
-          tooltip = "Fill this group by itself with every buff or debuff on you "
-               .. "or your target, instead of adding bars one spell at a time. "
-               .. "The bars you added by hand are kept and come back when you "
-               .. "set this to Off.",
+          tooltip = "Fill this group by itself instead of adding bars one at a "
+               .. "time: every buff or debuff on you or your target, or your "
+               .. "health and power. The bars you added by hand are kept and "
+               .. "come back when you set this to Off.",
           get = function() local g = getGroup(); return g and g.autoTrack or "" end,
           set = function(_, value)
               local g = getGroup(); if not g then return end
@@ -893,7 +916,7 @@ local function CreateBarsTab(parent)
               ns:RebuildAllFrames()
               frame:Refresh()
           end,
-          onChange = function(value) SetAutoSubWidgetsShown(value ~= nil and value ~= "") end,
+          onChange = function(value) SetAutoSubWidgetsShown(value) end,
           offsetX = ns.OFFSET_DROPDOWN, spacing = 28 },
         { type = "slider", id = "grpAutoMaxBars", label = "Max Bars", min = 1, max = 30, step = 1,
           width = 150, stretch = true,
@@ -975,6 +998,65 @@ local function CreateBarsTab(parent)
               ns:RefreshBarSettings()
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
+        -- Pinned resources: only shown for the "Health and power" feed (see
+        -- AUTO_RESOURCE_ONLY_WIDGET_IDS above). Each writes into a per-group
+        -- set, nil by default like every other auto key, so an untouched
+        -- group carries none of these keys at all.
+        { type = "toggle", id = "grpAutoPinMana", label = "Always Show Mana",
+          tooltip = "Keep a mana bar in this group even when mana is not "
+               .. "your current power.",
+          get = function() local g = getGroup(); return g and g.autoPinnedResources and g.autoPinnedResources.mana end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = g.autoPinnedResources or {}
+              g.autoPinnedResources.mana = v and true or false
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
+        { type = "toggle", id = "grpAutoPinRage", label = "Always Show Rage",
+          tooltip = "Keep a rage bar in this group even when rage is not "
+               .. "your current power.",
+          get = function() local g = getGroup(); return g and g.autoPinnedResources and g.autoPinnedResources.rage end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = g.autoPinnedResources or {}
+              g.autoPinnedResources.rage = v and true or false
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
+        { type = "toggle", id = "grpAutoPinEnergy", label = "Always Show Energy",
+          tooltip = "Keep an energy bar in this group even when energy is "
+               .. "not your current power.",
+          get = function() local g = getGroup(); return g and g.autoPinnedResources and g.autoPinnedResources.energy end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = g.autoPinnedResources or {}
+              g.autoPinnedResources.energy = v and true or false
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
+        { type = "toggle", id = "grpAutoPinFocus", label = "Always Show Focus",
+          tooltip = "Keep a focus bar in this group even when focus is not "
+               .. "your current power.",
+          get = function() local g = getGroup(); return g and g.autoPinnedResources and g.autoPinnedResources.focus end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = g.autoPinnedResources or {}
+              g.autoPinnedResources.focus = v and true or false
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
+        { type = "dropdown", id = "grpAutoValueTextDD", label = "Value Text",
+          items = {
+              { text = "Current / Max", value = ""        },
+              { text = "Percent",       value = "PERCENT" },
+              { text = "Both",          value = "BOTH"    },
+          }, width = 150,
+          tooltip = "How each bar's number is shown: the amount and the "
+               .. "total, just the percent, or both together.",
+          get = function() local g = getGroup(); return g and g.autoResourceValueText or "" end,
+          set = function(_, value)
+              local g = getGroup(); if not g then return end
+              g.autoResourceValueText = (value ~= "" and value) or nil
+              ns:RefreshBarSettings()
+          end,
+          offsetX = ns.OFFSET_DROPDOWN, spacing = 16 },
         -- Invisible sentinel (no visible content, so no canonical column
         -- applies); offsetX is picked so the externally-anchored ban-list
         -- header below (Options_Bars.lua's "Hidden In This Group" block,

@@ -32,6 +32,11 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
   letting them reorder as timers count down. Alt-click a bar's icon to hide
   just that spell from that group, with a list to bring one back or clear
   them all.
+- **Resource groups** - point a group at "Health and power" instead, and it
+  shows your health, whatever power you are currently using (it follows a
+  druid through every form change live), and your class resources, with
+  nothing to name by hand. Pin extra resources you always want visible, and
+  pick how the numbers are shown: amount and total, percent, or both.
 - **LibSharedMedia support** gives access to textures and fonts from all LSM-compatible addons on your client, plus BarWarden's own 13 bar textures and 15 fonts
 - **5 duration display styles**: seconds with decimal, whole seconds, min:sec, short text, or auto-adapting
 - **Colour your bars** by class, by tracking mode, or pick your own colour (with per-bar overrides)
@@ -225,7 +230,24 @@ Four more resource trackers, this time for the plain stats every character has. 
 **Example:** Track your own health.
 - Track Mode: `Health`
 
-See **Resource Groups** under Bars / Groups for a group that shows these (and your class resources) automatically, without adding any bars by hand.
+See **Resource Groups** below for a group that shows these (and your class resources) automatically, without adding any bars by hand.
+
+### Resource Groups
+
+Set a group's Auto Track to "Health and power" and it fills itself: Health
+first, then whatever power you are currently using (this is what makes it
+follow a druid through Bear, Cat, and Caster form live), then your class
+resources if you have any (combo points, runes, runic power, soul shards),
+with nothing to name by hand.
+
+- **Always Show Mana / Rage / Energy / Focus** - pin a power you always want
+  visible, even when it is not the one you are currently using.
+- **Value Text** - how each bar's number is shown: Current / Max (`4200/5100`),
+  Percent (`82%`), or Both (`4200/5100 (82%)`).
+
+Unlike an aura-tracking group, there is nothing to skip by duration, filter
+to your own casts, or ban one spell from: those settings hide for a
+resources group since none of them apply.
 
 ### Aura Equivalency Groups
 
@@ -269,7 +291,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Sort Mode (Manual, Remaining Time, Alphabetical, As They Come)
 - Growth Direction (Down, Up)
 - Bar Overrides: Bar Texture, Text Format, Bar Style (Countdown, On or Off), Custom Bar Colour, Show Icons Only (a compact grid of spell icons instead of bars, sized with the Width slider), Custom Stack Text (its own size and colour for the stack count), and Custom Bar Effects (Glow on Ready, Pulse on Ready, Linger Time), all for the whole group at once - Custom Bar Effects is also the only way to turn these on for an auto-tracking group
-- Auto Track: fill the group from buffs or debuffs instead of adding bars by hand
+- Auto Track: fill the group from buffs or debuffs, or from your health and power, instead of adding bars by hand. The Health and power choice adds its own Always Show Mana/Rage/Energy/Focus tickboxes and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings
 - Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**
