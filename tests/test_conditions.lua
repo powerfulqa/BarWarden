@@ -808,32 +808,45 @@ function M.test_getBarAlertColor_safeWithoutData()
 end
 
 -- --------------------------------------------------------------------------
--- ResolvePlayerFrameHidden (Hide Blizzard Player Frame, Core.lua)
+-- ResolvePlayerFrameHidden (Hide Blizzard Player/Target Frame, Core.lua)
+--
+-- Used to also take an `inCombat` argument and return false while in combat,
+-- deferring the hide. That combat check is gone: neither PlayerFrame nor
+-- TargetFrame is built on a secure template in 3.3.5a, so there was nothing
+-- for it to actually guard, and it caused a real bug - ticking Hide Blizzard
+-- Target Frame, then entering combat, brought the target frame straight back
+-- for the rest of the fight (the OnShow hook, Core.lua, asked this resolver
+-- too, and in combat it always said "not hidden"). The setting alone now
+-- decides the outcome.
 -- --------------------------------------------------------------------------
 
-function M.test_resolvePlayerFrameHidden_hidesWhenWantedAndOutOfCombat()
+function M.test_resolvePlayerFrameHidden_hidesWhenWanted()
     local ns = fresh()
-    assertx.assertTrue(ns:ResolvePlayerFrameHidden(true, false))
+    assertx.assertTrue(ns:ResolvePlayerFrameHidden(true))
 end
 
-function M.test_resolvePlayerFrameHidden_deferredWhileInCombat()
+-- Regression for the actual bug: the setting being on must still resolve to
+-- hidden in combat. The second argument below is deliberate: it mirrors the
+-- exact shape of the old call site (`ResolvePlayerFrameHidden(wantHidden,
+-- inCombat)` with inCombat true) so this test fails against the pre-fix
+-- two-argument function (which returned false here - the reported bug) and
+-- passes against the current one-argument function, which has nothing left
+-- to read a stale second argument as (Lua silently drops the extra actual
+-- parameter). That silence is exactly the fix: combat state cannot reach
+-- this decision any more, so it cannot cause the frame to reappear mid-fight.
+function M.test_resolvePlayerFrameHidden_stillHiddenInCombat()
     local ns = fresh()
-    assertx.assertFalse(ns:ResolvePlayerFrameHidden(true, true))
+    assertx.assertTrue(ns:ResolvePlayerFrameHidden(true, true))
 end
 
 function M.test_resolvePlayerFrameHidden_falseWhenNotWanted()
     local ns = fresh()
-    assertx.assertFalse(ns:ResolvePlayerFrameHidden(false, false))
-end
-
-function M.test_resolvePlayerFrameHidden_falseWhenNeitherWantedNorInCombat()
-    local ns = fresh()
-    assertx.assertFalse(ns:ResolvePlayerFrameHidden(false, true))
+    assertx.assertFalse(ns:ResolvePlayerFrameHidden(false))
 end
 
 function M.test_resolvePlayerFrameHidden_nilSafe()
     local ns = fresh()
-    assertx.assertFalse(ns:ResolvePlayerFrameHidden(nil, nil))
+    assertx.assertFalse(ns:ResolvePlayerFrameHidden(nil))
 end
 
 -- --------------------------------------------------------------------------

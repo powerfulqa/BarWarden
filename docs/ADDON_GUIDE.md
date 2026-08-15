@@ -776,12 +776,11 @@ mirrors, but hiding that frame is a global act and a second resource group
 must not fight the first (or the other setting) over it - so neither has a
 per-group entry in the table above. They are two entirely independent
 settings over two independent frame lists: ticking one never touches the
-other's frames. Both share one resolver, `ns:ResolvePlayerFrameHidden(wantHidden,
-inCombat)`, which lives in Conditions.lua for the same reason as the Bar
-Alerts pair: pure two-boolean arithmetic the test harness can reach without
-the frame-heavy code that actually touches `PlayerFrame`/`TargetFrame`.
-`wantHidden` already folds in `global.enabled`, so a disabled addon never
-keeps either frame hidden.
+other's frames. Both share one resolver, `ns:ResolvePlayerFrameHidden(wantHidden)`,
+which lives in Conditions.lua for the same reason as the Bar Alerts pair:
+pure arithmetic the test harness can reach without the frame-heavy code that
+actually touches `PlayerFrame`/`TargetFrame`. `wantHidden` already folds in
+`global.enabled`, so a disabled addon never keeps either frame hidden.
 
 Each setting reaches more than just the frame named in its label:
 `PLAYER_HIDE_FRAME_NAMES` (Core.lua) is `{ "PlayerFrame", "RuneFrame" }` and
@@ -827,10 +826,24 @@ live setting and re-hides on the spot - see the `EC-TRAP:` on that hook in
 Core.lua, since `HookScript` cannot be removed and the hook can look
 redundant next to the `Hide()` call beside it. Both apply functions are
 called together from `ns:OnInitialize` via `ns:OnEnable` (login), from each
-toggle's own `set` (Options_General.lua), from `ns:OnEnable`/`ns:OnDisable`
-(`/bw enable`/`disable`), and from `ns:OnCombatStateChanged` (BarEngine.lua)
-so a hide requested mid-fight is picked up the moment combat ends rather
-than attempted while `InCombatLockdown()` might make it unsafe.
+toggle's own `set` (Options_General.lua), and from `ns:OnEnable`/
+`ns:OnDisable` (`/bw enable`/`disable`).
+
+Neither frame is built on a secure template in 3.3.5a, so `Hide()`/`Show()`
+take effect immediately regardless of combat state - there is no deferral,
+and `ns:ResolvePlayerFrameHidden` (Conditions.lua) takes only `wantHidden`,
+not an `inCombat` argument. An earlier version DID gate on
+`InCombatLockdown()` and defer the hide, on the theory that a secure frame
+might make `Hide()` unsafe mid-fight; it did not, since neither frame is
+secure (the `pcall` around `Hide()`/`Show()` in `ApplyFrameHidden` is the
+genuine safety net for that assumption), and the gate instead made the
+`OnShow` hook decline to re-hide the frame on every `Show()` Blizzard fired
+while in combat, which is most of what combat does to these frames: ticking
+Hide Blizzard Target Frame and then entering combat brought the frame
+straight back for the rest of the fight. Because of this,
+`ns:OnCombatStateChanged` (BarEngine.lua) no longer re-applies either hide
+on `PLAYER_REGEN_ENABLED`: with nothing ever deferred, that call had
+nothing left to pick up.
 
 ### Declarative options schema (`ns:BuildSettings`)
 

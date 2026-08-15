@@ -44,10 +44,10 @@ the same current-power-type signal the game itself uses.
 - **Hide Blizzard Player Frame**, a new General tab tickbox, hides the
   default player frame for anyone who would rather not see their health and
   power twice alongside a resource group. It stays reversible: unticking it
-  (or `/bw disable`) shows the frame again straight away, and a hide
-  requested mid-fight waits for combat to end rather than risking an error.
-  It now also hides the Death Knight rune display, which used to stay on
-  screen after ticking the box.
+  (or `/bw disable`) shows the frame again straight away, and it hides again
+  straight away too, whether you tick it while in combat or step into
+  combat with it already ticked. It now also hides the Death Knight rune
+  display, which used to stay on screen after ticking the box.
 - **Resource bars now use the game's own colours by default** - a blue mana
   bar, a yellow energy bar, a red rage bar, and so on - instead of the
   addon-wide default colour. A group's own Custom Bar Colour still overrides
@@ -108,6 +108,13 @@ the same current-power-type signal the game itself uses.
   default colour** - mana blue, rage red, energy yellow - instead of the
   same placeholder blue for every one, so the panel matches what the bar
   actually draws before you ever touch the swatch.
+- **Fix: Hide Blizzard Target Frame (and Hide Blizzard Player Frame) no
+  longer reappear the moment you enter combat.** Both tickboxes used to
+  defer the hide while `InCombatLockdown()` was true as an extra safety
+  precaution, but neither frame actually needs that precaution on 3.3.5a,
+  and the deferral meant Blizzard's own code could re-show the frame the
+  instant a fight started and it would stay up for the rest of it. Both
+  settings now apply straight away regardless of combat state.
 
 ---
 

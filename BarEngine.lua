@@ -1532,12 +1532,14 @@ end
 function ns:OnCombatStateChanged(inCombat)
     -- Re-evaluate conditions for combat-gated bars
     ns:ScanAllBars()
-    -- A Hide Blizzard Player/Target Frame request made mid-fight was
-    -- deferred (see ns:ResolvePlayerFrameHidden, Conditions.lua);
-    -- PLAYER_REGEN_ENABLED is exactly when it becomes safe to act on it, so
-    -- re-apply both here too.
-    if ns.ApplyPlayerFrameHidden then ns:ApplyPlayerFrameHidden() end
-    if ns.ApplyTargetFrameHidden then ns:ApplyTargetFrameHidden() end
+    -- This used to also re-apply Hide Blizzard Player/Target Frame here, to
+    -- pick up a hide that ns:ResolvePlayerFrameHidden (Conditions.lua) had
+    -- deferred mid-fight. That deferral is gone (neither frame is built on
+    -- a secure template in 3.3.5a, so there was never anything to defer,
+    -- and the deferral itself was the bug: see the EC-TRAP on the OnShow
+    -- hook, Core.lua), so ApplyFrameHidden already keeps both frames in the
+    -- right state throughout combat and there is nothing left for
+    -- PLAYER_REGEN_ENABLED to pick up here.
 end
 
 function ns:OnGroupChanged()

@@ -264,23 +264,33 @@ function ns:GetBarAlertColor(display, remaining, duration)
     return c.r or 1, c.g or 0, c.b or 0
 end
 
--- Resolve whether Blizzard's PlayerFrame should be hidden right now
--- (Options_General.lua "Hide Blizzard Player Frame"; applied by
--- ns:ApplyPlayerFrameHidden in Core.lua). Kept here rather than in Core.lua
--- for the same reason as the Bar Alerts pair above: pure two-boolean
--- arithmetic the test harness can reach without touching the PlayerFrame
--- global. `wantHidden` already folds in both the tickbox and the addon's
--- own enabled state (see Core.lua's WantPlayerFrameHidden), so /bw disable
--- reads as "does not want it hidden" here without this function knowing
--- anything about enable/disable. `inCombat` defers taking the hide action
--- at all while true: 3.3.5a's combat-protection rules for this frame are
--- not something to gamble on, and staying visible one extra moment costs
--- nothing while an uncaught protected-frame error would be far worse. A
--- deferred hide is picked up again the next time this resolves with
--- inCombat false (PLAYER_REGEN_ENABLED - see BarEngine.lua's
--- ns:OnCombatStateChanged), so nothing is lost, only delayed.
-function ns:ResolvePlayerFrameHidden(wantHidden, inCombat)
-    return not not wantHidden and not inCombat
+-- Resolve whether Blizzard's PlayerFrame (or TargetFrame) should be hidden
+-- right now (Options_General.lua's "Hide Blizzard Player/Target Frame";
+-- applied by ApplyFrameHidden, Core.lua). Kept here rather than in Core.lua
+-- for the same reason as the Bar Alerts pair above: pure arithmetic the test
+-- harness can reach without touching the PlayerFrame/TargetFrame globals.
+-- `wantHidden` already folds in both the tickbox and the addon's own
+-- enabled state (see Core.lua's WantPlayerFrameHidden/WantTargetFrameHidden),
+-- so /bw disable reads as "does not want it hidden" here without this
+-- function knowing anything about enable/disable.
+--
+-- This used to also take an `inCombat` argument and return false while it
+-- was true, deferring the hide until combat ended: the idea was that
+-- Hide() might not be safe on a secure frame mid-fight, so staying visible
+-- one extra moment was worth it to avoid gambling on that. Neither
+-- PlayerFrame nor TargetFrame is built on a secure template in 3.3.5a
+-- though (ApplyFrameHidden's pcall around Hide()/Show() is the genuine
+-- safety net for that, in case this assumption is ever wrong on some client
+-- build), so the combat check was never protecting anything real. What it
+-- DID do, in the OnShow hook (ApplyFrameHidden, Core.lua) that keeps these
+-- frames down between calls, was make the hook decline to re-hide the frame
+-- on every Show() Blizzard fired while in combat, which is most of what
+-- combat does to these frames: ticking Hide Blizzard Target Frame and then
+-- entering combat brought the target frame straight back for the rest of
+-- the fight. Do not reintroduce an inCombat parameter (or any other combat
+-- check) here.
+function ns:ResolvePlayerFrameHidden(wantHidden)
+    return not not wantHidden
 end
 
 -- ----------------------------------------------------------------------------
