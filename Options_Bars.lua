@@ -1052,7 +1052,7 @@ local function CreateBarsTab(parent)
         -- this fixed panel order; unticking then re-ticking moves a resource
         -- to the end rather than back to wherever it used to sit. Pinning
         -- reads off whichever unit the group's own feed names
-        -- (ns:CollectResources' `opts.unit`), so "Always Show Rage" pins the
+        -- (ns:CollectResources' `opts.unit`), so "Keep Rage Visible" pins the
         -- TARGET's rage bar in a target-resources group, not the player's -
         -- the zero-max guard in CollectResources already makes it a no-op
         -- against a unit with no rage pool, same as it always has for the
@@ -1067,9 +1067,10 @@ local function CreateBarsTab(parent)
         -- group's own Custom Bar Colour and the power-type default. Shown
         -- only while its tickbox is ticked, same toggle-reveals-swatch
         -- mechanism as Custom Bar Colour above.
-        { type = "toggle", id = "grpAutoPinMana", label = "Always Show Mana",
-          tooltip = "Keep a mana bar in this group even when mana is not "
-               .. "your current power.",
+        { type = "toggle", id = "grpAutoPinMana", label = "Keep Mana Visible",
+          tooltip = "Mana already shows here on its own whenever it is the "
+               .. "unit's current power. Tick this to keep the bar up the "
+               .. "rest of the time too.",
           get = function() return isResourcePinned(getGroup(), "mana") end,
           set = function(_, v)
               local g = getGroup(); if not g then return end
@@ -1086,9 +1087,10 @@ local function CreateBarsTab(parent)
               ns:RefreshAllBars()
           end,
           offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
-        { type = "toggle", id = "grpAutoPinRage", label = "Always Show Rage",
-          tooltip = "Keep a rage bar in this group even when rage is not "
-               .. "your current power.",
+        { type = "toggle", id = "grpAutoPinRage", label = "Keep Rage Visible",
+          tooltip = "Rage already shows here on its own whenever it is the "
+               .. "unit's current power. Tick this to keep the bar up the "
+               .. "rest of the time too.",
           get = function() return isResourcePinned(getGroup(), "rage") end,
           set = function(_, v)
               local g = getGroup(); if not g then return end
@@ -1105,9 +1107,10 @@ local function CreateBarsTab(parent)
               ns:RefreshAllBars()
           end,
           offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
-        { type = "toggle", id = "grpAutoPinEnergy", label = "Always Show Energy",
-          tooltip = "Keep an energy bar in this group even when energy is "
-               .. "not your current power.",
+        { type = "toggle", id = "grpAutoPinEnergy", label = "Keep Energy Visible",
+          tooltip = "Energy already shows here on its own whenever it is the "
+               .. "unit's current power. Tick this to keep the bar up the "
+               .. "rest of the time too.",
           get = function() return isResourcePinned(getGroup(), "energy") end,
           set = function(_, v)
               local g = getGroup(); if not g then return end
