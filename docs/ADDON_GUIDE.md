@@ -528,10 +528,13 @@ local SCHEMA = {
 frame.Refresh, frame.Reflow = ns:BuildSettings(frame, SCHEMA)
 ```
 
-Used by [Options_General.lua](../Options_General.lua),
-[Options_Visuals.lua](../Options_Visuals.lua), and (both return values, for
-the reveal-pattern settings on its Group Settings and bar editor panels)
-[Options_Bars.lua](../Options_Bars.lua).
+Used by [Options_General.lua](../Options_General.lua) (its schema has no
+reveal pattern, so it only keeps Refresh), and, capturing both return
+values for their reveal-pattern settings (a master toggle or dropdown that
+shows/hides sub-settings),
+[Options_Visuals.lua](../Options_Visuals.lua) (Color Mode and Bar Texture)
+and [Options_Bars.lua](../Options_Bars.lua) (Group Settings and the bar
+editor).
 
 The vertical chain is reflowable, not fixed at build time: a widget hidden
 via `widget:Hide()` (a master toggle or dropdown revealing sub-settings via

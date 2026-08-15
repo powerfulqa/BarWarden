@@ -214,6 +214,16 @@ local function CreateVisualsTab(parent)
                   if value == "CUSTOM" then widgets.colorSwatch:Show()
                   else                      widgets.colorSwatch:Hide() end
               end
+              -- Live click bypasses Refresh (this fires from the dropdown's
+              -- own set callback, not the schema walk), so reflow directly
+              -- rather than waiting for the next full Refresh pass. `frame`
+              -- is already in scope; frame.Reflow/frame.TrimVisualsHeight
+              -- are read at call time, so they do not need forward
+              -- declaring even though they are assigned further down.
+              if frame.Reflow then frame.Reflow() end
+              if frame.TrimVisualsHeight and ns.After then
+                  ns:After(0, frame.TrimVisualsHeight)
+              end
           end },
 
         -- Deliberate sub-item: indented 20px further right than the Color
@@ -240,6 +250,12 @@ local function CreateVisualsTab(parent)
               if widgets.fallbackWarning then
                   if show then widgets.fallbackWarning:Show()
                   else         widgets.fallbackWarning:Hide() end
+              end
+              -- Live click bypasses Refresh; see the Color Mode onChange
+              -- above for why this reflows and re-trims directly.
+              if frame.Reflow then frame.Reflow() end
+              if frame.TrimVisualsHeight and ns.After then
+                  ns:After(0, frame.TrimVisualsHeight)
               end
           end },
 
@@ -378,7 +394,7 @@ local function CreateVisualsTab(parent)
           spacing = 16, offsetX = ns.OFFSET_SLIDER },
     }
 
-    frame.Refresh = ns:BuildSettings(content, SCHEMA, widgets,
+    frame.Refresh, frame.Reflow = ns:BuildSettings(content, SCHEMA, widgets,
                                      { firstX = 16, firstY = -10 })
 
     if widgets.barVisualsHeader then
@@ -408,7 +424,17 @@ local function CreateVisualsTab(parent)
     -- Trim the scroll child to the last widget so there is no empty scroll
     -- area below it. This MUST run after the widgets are laid out, or GetBottom
     -- is not yet valid and the child stays at its tall initial height (the
-    -- "dead space at the bottom" bug). We run it on show and again next frame.
+    -- "dead space at the bottom" bug). No "done" latch: inactiveAlpha (the
+    -- schema's own last entry) is an ordinary slider that is never itself
+    -- hidden, so measuring against it stays valid on every call - unlike
+    -- Options_Bars.lua's editor sentinel, nothing here reveals/hides it.
+    -- We run it on show, again next frame, and again (via ns:After, same
+    -- reason) whenever Color Mode or Bar Texture reflow the schema above it
+    -- (see their onChange handlers), since either can move it up or down.
+    -- Exposed on `frame` (not a local) so those onChange closures - defined
+    -- earlier in the schema, before this function exists - can still reach
+    -- it: a table field is read at call time, so it needs no forward
+    -- declaration the way a lexical upvalue would.
     local function trimHeight()
         local last = widgets.inactiveAlpha
         local lastBottom = last and last:GetBottom()
@@ -417,6 +443,8 @@ local function CreateVisualsTab(parent)
             content:SetHeight(contentTop - lastBottom + 20)  -- 20 px margin
         end
     end
+    frame.TrimVisualsHeight = trimHeight
+
     frame:SetScript("OnShow", function()
         local w = scrollFrame:GetWidth()
         if w and w > 100 then content:SetWidth(math.min(w, ns.SETTINGS_MAX_WIDTH or 300)) end
