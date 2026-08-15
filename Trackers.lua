@@ -793,11 +793,16 @@ end
 -- and stays full when ready, matching the intuition from Blizzard's default
 -- DK rune display. Text shows "Ns" countdown while on CD, blank when ready.
 --
--- Returns (isActive, current, max, icon, name, stacks) where:
---   current = max when ready, 0..max as the rune regenerates
---   max     = the rune's cooldown duration (10 s baseline; server may vary)
---   stacks  = ceil(cdRemaining) in seconds, 0 means ready (used by the text
---             display in UpdateResourceBar)
+-- Returns (isActive, current, max, icon, name, stacks, runeType) where:
+--   current  = max when ready, 0..max as the rune regenerates
+--   max      = the rune's cooldown duration (10 s baseline; server may vary)
+--   stacks   = ceil(cdRemaining) in seconds, 0 means ready (used by the text
+--              display in UpdateResourceBar)
+--   runeType = 1 Blood, 2 Unholy, 3 Frost, 4 Death (GetRuneType's own
+--              numbering). Returned so ns:CollectResources can carry it on
+--              the entry, letting ns:GetResourcePowerColor (Conditions.lua)
+--              colour the bar by rune type instead of falling through to the
+--              addon-wide default - see that function's own comment.
 local function CheckRunes(barConfig)
     -- Slot lives in spellId (numeric 1..6). spellName falls back for users who
     -- typed it in the text box as a string.
@@ -812,24 +817,24 @@ local function CheckRunes(barConfig)
 
     -- Never-used slot or private-server API glitch: treat as ready at baseline.
     if not duration or duration <= 0 then
-        return true, DEFAULT_RUNE_CD, DEFAULT_RUNE_CD, icon, name, 0
+        return true, DEFAULT_RUNE_CD, DEFAULT_RUNE_CD, icon, name, 0, runeType
     end
 
     -- Ready: full bar, no countdown text.
     if ready then
-        return true, duration, duration, icon, name, 0
+        return true, duration, duration, icon, name, 0, runeType
     end
 
     -- On cooldown: bar fills from 0 toward max as the rune regenerates.
     local cdRemaining = (start + duration) - GetTime()
     if cdRemaining <= 0 then
-        return true, duration, duration, icon, name, 0
+        return true, duration, duration, icon, name, 0, runeType
     end
 
     local current = duration - cdRemaining
     if current < 0 then current = 0 end
 
-    return true, current, duration, icon, name, ceil(cdRemaining)
+    return true, current, duration, icon, name, ceil(cdRemaining), runeType
 end
 
 -- Health / Mana / Energy / Rage: the plain character-stat resources, added
@@ -1126,13 +1131,17 @@ function ns:CollectResources(opts)
     -- reads that countdown from `stacks` (CheckRunes' ceil(cdRemaining)).
     -- Every other entry leaves both nil, so ns:ScanAutoGroup's resource
     -- branch falls back to current for stacks and a non-Runes trackMode.
-    local function addEntry(key, label, current, max, icon, stacks, trackMode)
+    -- runeType (1 Blood, 2 Unholy, 3 Frost, 4 Death) is likewise only ever
+    -- set for the six rune entries below; ScanAutoResourceGroup stamps it
+    -- onto bd.runeType so ns:GetResourcePowerColor (Conditions.lua) can
+    -- colour the bar by rune type instead of the addon-wide default.
+    local function addEntry(key, label, current, max, icon, stacks, trackMode, runeType)
         if not key or seen[key] then return end
         if not max or max <= 0 then return end
         seen[key] = true
         entries[#entries + 1] = {
             key = key, label = label, current = current or 0, max = max,
-            icon = icon, stacks = stacks, trackMode = trackMode,
+            icon = icon, stacks = stacks, trackMode = trackMode, runeType = runeType,
         }
     end
 
@@ -1218,8 +1227,8 @@ function ns:CollectResources(opts)
             local _, rpCur, rpMax, rpIcon, rpName = CheckRunicPower({})
             addEntry("runicpower", rpName, rpCur, rpMax, rpIcon)
             for slot = 1, 6 do
-                local _, cur, mx, icon, name, stacks = CheckRunes({ spellId = slot })
-                addEntry("rune" .. slot, name, cur, mx, icon, stacks, "Runes")
+                local _, cur, mx, icon, name, stacks, runeType = CheckRunes({ spellId = slot })
+                addEntry("rune" .. slot, name, cur, mx, icon, stacks, "Runes", runeType)
             end
         end
 

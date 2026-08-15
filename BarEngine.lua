@@ -1143,6 +1143,11 @@ local function ScanAutoResourceGroup(group, groupData, unit)
             -- colour (ns:GetResourcePowerColor, Conditions.lua) without
             -- threading the collector's entry through the whole call chain.
             bd.resourceKey = e.key
+            -- e.runeType (1 Blood, 2 Unholy, 3 Frost, 4 Death) is only ever
+            -- set for the six rune entries; ns:GetResourcePowerColor
+            -- (Conditions.lua) reads it off the bar to colour a rune by type
+            -- instead of falling through to the addon-wide default.
+            bd.runeType = e.runeType
             -- e.trackMode is only ever "Runes" (the six DK rune slots); every
             -- other resource leaves it nil, and UpdateResourceBar treats
             -- anything other than the literal string "Runes" the same way.
@@ -1157,6 +1162,7 @@ local function ScanAutoResourceGroup(group, groupData, unit)
             bd.enabled     = false
             bd.name        = ""
             bd.resourceKey = nil
+            bd.runeType    = nil
             ns:DeactivateBar(bar, true)
         end
     end

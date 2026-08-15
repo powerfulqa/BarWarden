@@ -84,6 +84,10 @@ the same current-power-type signal the game itself uses.
   target, not on whatever your target is looking at, so showing them here
   would just repeat the same number under the wrong label. A target with
   nothing of its own targeted shows nothing, the same as an empty group.
+- **Death Knight rune bars are now coloured by type** - blood red, frost
+  blue, unholy green, with death runes their own distinct colour - instead
+  of always falling through to the addon-wide default. A group's own Custom
+  Bar Colour, or a per-resource colour you picked, still overrides it.
 
 ---
 

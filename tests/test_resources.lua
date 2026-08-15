@@ -123,6 +123,29 @@ function M.test_deathKnight_getsRunicPowerOnceAndSixRunes()
     end
 end
 
+-- Rune TYPE must thread through to the entry (v2.5.0), so a rune bar can be
+-- coloured by type (Conditions.lua's ns:GetResourcePowerColor) instead of
+-- always falling through to the addon-wide default. GetRuneType returns
+-- 1=Blood, 2=Unholy, 3=Frost, 4=Death (Trackers.lua's RUNE_ICONS/RUNE_NAMES
+-- comment); mock a distinct type per slot so this cannot pass by accident
+-- (e.g. every slot happening to read the same fallback value).
+function M.test_runeEntries_carryTheirRuneType()
+    local ns = fresh()
+    mock.playerClass = "DEATHKNIGHT"
+    mock.powerType, mock.powerTypeToken = 6, "RUNIC_POWER"
+    mock.power[6], mock.powerMax[6] = 55, 100
+    mock.runeCooldown = function(slot) return 0, 10, true end
+    local slotTypes = { 1, 1, 2, 2, 3, 4 }
+    mock.runeType = function(slot) return slotTypes[slot] end
+
+    local entries = ns:CollectResources()
+    for slot = 1, 6 do
+        local rune = findEntry(entries, "rune" .. slot)
+        assertx.assertNotNil(rune, "expected rune slot " .. slot)
+        assertx.assertEqual(rune.runeType, slotTypes[slot])
+    end
+end
+
 function M.test_rogueGetsComboPoints()
     local ns = fresh()
     mock.playerClass = "ROGUE"

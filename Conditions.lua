@@ -308,11 +308,11 @@ end
 -- token UnitPowerType's second return uses, since Blizzard's own UnitFrame.lua
 -- reads PowerBarColor that way. Health and the class resources with no
 -- single conventional colour (combo points render as pips, not a status
--- bar; each of the six runes has its own colour by TYPE, which
--- ns:CollectResources does not thread through as part of the entry) are not
--- in this table at all - they either use RESOURCE_COLOR_FALLBACK directly
--- (health, soul shards) or fall through to the addon-wide default (combo
--- points, runes).
+-- bar) are not in this table at all - they either use RESOURCE_COLOR_FALLBACK
+-- directly (health, soul shards) or fall through to the addon-wide default
+-- (combo points). The six runes DO each have a colour by TYPE - see
+-- RUNE_TYPE_COLORS and ns:GetResourcePowerColor below, which is where that
+-- gets threaded in ahead of this table, not through it.
 local RESOURCE_COLOR_TOKENS = {
     mana       = "MANA",
     rage       = "RAGE",
@@ -361,12 +361,50 @@ function ns:GetResourceKeyDefaultColor(key)
     return c.r or 0, c.g or 0, c.b or 0
 end
 
+-- Death Knight rune colours by type: 1 Blood, 2 Unholy, 3 Frost, 4 Death
+-- (GetRuneType's own numbering; matches RUNE_ICONS/RUNE_NAMES, Trackers.lua).
+--
+-- 3.3.5a's FrameXML (RuneFrame.lua) defines this exact palette, but as a
+-- file-local `runeColors` table with no addon-visible equivalent of
+-- PowerBarColor for rune types, so - unlike the power-type colours above -
+-- it cannot be read live from the client at all; these four values are
+-- copied from Blizzard's own client source, not invented, so a rune bar
+-- looks the same as Blizzard's default rune display. Death is a distinct
+-- magenta/purple in Blizzard's own table, not white or a repeat of one of
+-- the three basic types - kept as-is rather than picking a "nicer" colour.
+local RUNE_TYPE_COLORS = {
+    [1] = { r = 1,   g = 0,   b = 0 },   -- Blood
+    [2] = { r = 0,   g = 0.5, b = 0 },   -- Unholy
+    [3] = { r = 0,   g = 1,   b = 1 },   -- Frost
+    [4] = { r = 0.8, g = 0.1, b = 1 },   -- Death
+}
+
 -- Resolve the power-type default colour for a resource bar. Returns (r, g, b),
 -- or nil for a bar with no resourceKey (not a resource bar, or a resource
 -- ScanAutoResourceGroup has not stamped one onto yet).
+--
+-- A rune bar (bar.barData.runeType set - ScanAutoResourceGroup stamps it
+-- alongside resourceKey, see ns:CollectResources' rune loop, Trackers.lua)
+-- is coloured by its TYPE rather than going through RESOURCE_COLOR_TOKENS/
+-- RESOURCE_COLOR_FALLBACK: "rune3" etc. are not power-type keys and have no
+-- fallback entry either, so without this branch every rune bar would return
+-- nil here and fall all the way through to the addon-wide default - the
+-- exact gap RESOURCE_COLOR_TOKENS' comment used to describe. This still
+-- sits at precedence level 4 (see the comment at the top of this section):
+-- a per-bar colorOverride, this resource's own pinned colour, or the
+-- group's Custom Bar Colour are all resolved by the caller BEFORE this
+-- function is ever consulted, so any of those still wins over a rune's type
+-- colour exactly like they win over the power-type default.
 function ns:GetResourcePowerColor(bar)
-    local key = bar and bar.barData and bar.barData.resourceKey
+    local bd = bar and bar.barData
+    local key = bd and bd.resourceKey
     if not key then return nil end
+
+    if bd.runeType then
+        local c = RUNE_TYPE_COLORS[bd.runeType]
+        if c then return c.r, c.g, c.b end
+    end
+
     return ns:GetResourceKeyDefaultColor(key)
 end
 

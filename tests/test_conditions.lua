@@ -1015,4 +1015,71 @@ function M.test_getResourcePowerColor_stillDelegatesCorrectly()
     assertx.assertEqual(b, 0)
 end
 
+-- --------------------------------------------------------------------------
+-- Rune colours by type (v2.5.0): ns:GetResourcePowerColor also colours a
+-- rune bar by TYPE (blood/frost/unholy/death) once ns:CollectResources
+-- threads bd.runeType through (Trackers.lua/BarEngine.lua) - closing the gap
+-- the comment above RESOURCE_COLOR_TOKENS used to document. GetRuneType's
+-- own numbering: 1 Blood, 2 Unholy, 3 Frost, 4 Death.
+-- --------------------------------------------------------------------------
+
+local function runeBarIn(groupIndex, runeType)
+    return { frameIndex = groupIndex, isResourceBar = true,
+             barData = { resourceKey = "rune3", runeType = runeType, display = {} } }
+end
+
+function M.test_getResourcePowerColor_bloodRuneIsRed()
+    local ns = fresh()
+    local r, g, b = ns:GetResourcePowerColor(runeBarIn(1, 1))
+    assertx.assertEqual(r, 1)
+    assertx.assertEqual(g, 0)
+    assertx.assertEqual(b, 0)
+end
+
+function M.test_getResourcePowerColor_unholyRuneIsGreen()
+    local ns = fresh()
+    local r, g, b = ns:GetResourcePowerColor(runeBarIn(1, 2))
+    assertx.assertEqual(r, 0)
+    assertx.assertEqual(g, 0.5)
+    assertx.assertEqual(b, 0)
+end
+
+function M.test_getResourcePowerColor_frostRuneIsCyan()
+    local ns = fresh()
+    local r, g, b = ns:GetResourcePowerColor(runeBarIn(1, 3))
+    assertx.assertEqual(r, 0)
+    assertx.assertEqual(g, 1)
+    assertx.assertEqual(b, 1)
+end
+
+-- Death runes need their own distinct colour, not a repeat of one of the
+-- three basic types - Blizzard's own FrameXML uses a magenta/purple here,
+-- not white, and RUNE_TYPE_COLORS follows that.
+function M.test_getResourcePowerColor_deathRuneHasItsOwnDistinctColour()
+    local ns = fresh()
+    local r, g, b = ns:GetResourcePowerColor(runeBarIn(1, 4))
+    assertx.assertEqual(r, 0.8)
+    assertx.assertEqual(g, 0.1)
+    assertx.assertEqual(b, 1)
+    assertx.assertFalse(r == 1 and g == 0 and b == 0, "must not equal Blood")
+    assertx.assertFalse(r == 0 and g == 0.5 and b == 0, "must not equal Unholy")
+    assertx.assertFalse(r == 0 and g == 1 and b == 1, "must not equal Frost")
+end
+
+-- A per-pinned-resource colour would still be read - and, via GetBarColor's
+-- precedence in Bar.lua, still win - over the rune type colour above:
+-- nothing about threading runeType through changes how
+-- ns:GetPinnedResourceColor resolves for a rune-keyed bar.
+function M.test_getPinnedResourceColor_stillWinsForARuneKeyedBar()
+    local ns = freshWithTrackers()
+    _G.BarWardenDB = { frames = { { autoPinnedResources = {
+        { key = "rune3", color = { r = 0.4, g = 0.4, b = 0.4 } },
+    } } } }
+    local r, g, b = ns:GetPinnedResourceColor(runeBarIn(1, 3))
+    assertx.assertEqual(r, 0.4)
+    assertx.assertEqual(g, 0.4)
+    assertx.assertEqual(b, 0.4)
+    _G.BarWardenDB = nil
+end
+
 return M
