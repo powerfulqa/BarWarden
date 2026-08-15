@@ -297,9 +297,105 @@ function M.test_resourceTrackModesRegistry()
     assertx.assertTrue(ns:IsResourceTrackMode("Runic Power"))
     assertx.assertTrue(ns:IsResourceTrackMode("Soul Shards"))
     assertx.assertTrue(ns:IsResourceTrackMode("Runes"))
+    assertx.assertTrue(ns:IsResourceTrackMode("Health"))
+    assertx.assertTrue(ns:IsResourceTrackMode("Mana"))
+    assertx.assertTrue(ns:IsResourceTrackMode("Energy"))
+    assertx.assertTrue(ns:IsResourceTrackMode("Rage"))
     assertx.assertFalse(ns:IsResourceTrackMode("Cooldown"))
     assertx.assertFalse(ns:IsResourceTrackMode("Buff"))
     assertx.assertFalse(ns:IsResourceTrackMode(nil))
+end
+
+-- --------------------------------------------------------------------------
+-- Health / Mana / Energy / Rage checkers
+-- --------------------------------------------------------------------------
+
+function M.test_checkHealth_returnsCurrentAndMax()
+    local ns = fresh()
+    mock.playerHealth    = 4200
+    mock.playerHealthMax = 5100
+    local active, current, max, icon, name = ns.TRACKERS["Health"]({})
+    assertx.assertTrue(active)
+    assertx.assertEqual(current, 4200)
+    assertx.assertEqual(max,     5100)
+    assertx.assertEqual(name,    "Health")
+    assertx.assertNotNil(icon)
+end
+
+function M.test_checkHealth_zeroMaxDoesNotDivideByZero()
+    local ns = fresh()
+    mock.playerHealth    = 0
+    mock.playerHealthMax = 0
+    local active, current, max = ns.TRACKERS["Health"]({})
+    assertx.assertTrue(active)
+    assertx.assertEqual(current, 0)
+    assertx.assertTrue(max > 0, "max must never be zero (divide-by-zero guard)")
+end
+
+function M.test_checkMana_returnsCurrentAndMax()
+    local ns = fresh()
+    mock.power[0]    = 3000
+    mock.powerMax[0] = 4500
+    local active, current, max, icon, name = ns.TRACKERS["Mana"]({})
+    assertx.assertTrue(active)
+    assertx.assertEqual(current, 3000)
+    assertx.assertEqual(max,     4500)
+    assertx.assertEqual(name,    "Mana")
+    assertx.assertNotNil(icon)
+end
+
+function M.test_checkMana_zeroMaxDoesNotDivideByZero()
+    local ns = fresh()
+    mock.power[0]    = 0
+    mock.powerMax[0] = 0
+    local active, current, max = ns.TRACKERS["Mana"]({})
+    assertx.assertTrue(active)
+    assertx.assertEqual(current, 0)
+    assertx.assertTrue(max > 0, "max must never be zero (divide-by-zero guard)")
+end
+
+function M.test_checkRage_returnsCurrentAndMax()
+    local ns = fresh()
+    mock.power[1]    = 40
+    mock.powerMax[1] = 100
+    local active, current, max, icon, name = ns.TRACKERS["Rage"]({})
+    assertx.assertTrue(active)
+    assertx.assertEqual(current, 40)
+    assertx.assertEqual(max,     100)
+    assertx.assertEqual(name,    "Rage")
+    assertx.assertNotNil(icon)
+end
+
+function M.test_checkRage_zeroMaxDoesNotDivideByZero()
+    local ns = fresh()
+    mock.power[1]    = 0
+    mock.powerMax[1] = 0
+    local active, current, max = ns.TRACKERS["Rage"]({})
+    assertx.assertTrue(active)
+    assertx.assertEqual(current, 0)
+    assertx.assertTrue(max > 0, "max must never be zero (divide-by-zero guard)")
+end
+
+function M.test_checkEnergy_returnsCurrentAndMax()
+    local ns = fresh()
+    mock.power[3]    = 80
+    mock.powerMax[3] = 100
+    local active, current, max, icon, name = ns.TRACKERS["Energy"]({})
+    assertx.assertTrue(active)
+    assertx.assertEqual(current, 80)
+    assertx.assertEqual(max,     100)
+    assertx.assertEqual(name,    "Energy")
+    assertx.assertNotNil(icon)
+end
+
+function M.test_checkEnergy_zeroMaxDoesNotDivideByZero()
+    local ns = fresh()
+    mock.power[3]    = 0
+    mock.powerMax[3] = 0
+    local active, current, max = ns.TRACKERS["Energy"]({})
+    assertx.assertTrue(active)
+    assertx.assertEqual(current, 0)
+    assertx.assertTrue(max > 0, "max must never be zero (divide-by-zero guard)")
 end
 
 -- --------------------------------------------------------------------------

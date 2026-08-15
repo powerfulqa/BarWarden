@@ -15,6 +15,9 @@ local TRACK_MODES = {
     -- Class resources (Combo Points/Runic Power/Soul Shards are event-driven;
     -- Runes is time-based with spellId as the slot number 1..6).
     "Combo Points", "Runes", "Runic Power", "Soul Shards",
+    -- Plain character-stat resources, same event-driven fill-not-countdown
+    -- rendering as the class resources above.
+    "Health", "Mana", "Energy", "Rage",
 }
 local TARGET_UNITS = { "player", "target", "focus", "pet", "mouseover" }
 local GROUP_LIST_HEIGHT = 16

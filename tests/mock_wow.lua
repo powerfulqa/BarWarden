@@ -49,6 +49,11 @@ M.itemCount     = {}   -- [id] = integer
 M.power         = {}   -- [powerType] = value (runic power = 6)
 M.powerMax      = {}   -- [powerType] = max
 M.comboPoints   = 0
+-- Current power type, as UnitPowerType("player") reports it: a number and a
+-- token string (0 Mana, 1 Rage, 2 Focus, 3 Energy, 6 Runic Power). This is
+-- the one that changes when a druid shape-shifts form.
+M.powerType      = 0
+M.powerTypeToken = "MANA"
 
 -- Rune / totem / enchant fallbacks (mostly irrelevant for the logic we test,
 -- but stubs must exist so Trackers.lua loads without erroring).
@@ -85,7 +90,9 @@ function M.reset()
     for k in pairs(M.itemCount)     do M.itemCount[k]     = nil end
     for k in pairs(M.power)         do M.power[k]         = nil end
     for k in pairs(M.powerMax)      do M.powerMax[k]      = nil end
-    M.comboPoints = 0
+    M.comboPoints    = 0
+    M.powerType      = 0
+    M.powerTypeToken = "MANA"
 end
 
 -- --------------------------------------------------------------------------
@@ -162,6 +169,7 @@ function M.install()
 
     _G.UnitPower    = function(unit, t) return M.power[t]    or 0 end
     _G.UnitPowerMax = function(unit, t) return M.powerMax[t] or 0 end
+    _G.UnitPowerType = function(unit) return M.powerType, M.powerTypeToken end
     _G.GetComboPoints = function(unit, target) return M.comboPoints end
 
     _G.GetRuneCooldown     = function(slot) return M.runeCooldown(slot) end

@@ -236,6 +236,10 @@ function M.test_trackers_exactSet()
         ["Runic Power"]  = 1,
         ["Soul Shards"]  = 1,
         ["Runes"]        = 1,
+        ["Health"]       = 1,
+        ["Mana"]         = 1,
+        ["Energy"]       = 1,
+        ["Rage"]         = 1,
     }
     assertx.assertSameKeys(ns.TRACKERS, expected, "TRACKERS registry")
 end
@@ -247,6 +251,10 @@ function M.test_resourceTrackers_exactSet()
         ["Runic Power"]  = 1,
         ["Soul Shards"]  = 1,
         ["Runes"]        = 1,
+        ["Health"]       = 1,
+        ["Mana"]         = 1,
+        ["Energy"]       = 1,
+        ["Rage"]         = 1,
     }
     assertx.assertSameKeys(ns.RESOURCE_TRACK_MODES, expected, "RESOURCE_TRACK_MODES")
 end

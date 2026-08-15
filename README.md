@@ -10,7 +10,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
 
 ## What Can It Do?
 
-- **Track your abilities** with 12 different modes: Cooldown, Buff, Debuff, Proc, Item, Enchant MH, Enchant OH, Totem, Combo Points, Runes, Runic Power, and Soul Shards
+- **Track your abilities** with 16 different modes: Cooldown, Buff, Debuff, Proc, Item, Enchant MH, Enchant OH, Totem, Combo Points, Runes, Runic Power, Soul Shards, Health, Mana, Energy, and Rage
 - **Spec-aware starter profiles** for all 30 WotLK talent specs - one-click load of curated cooldowns, procs, and resources tailored to your active spec (falls back to class-level if no talents are spent)
 - **Class resource trackers** for Combo Points (rogue/druid), Runes (DK), Runic Power (DK), and Soul Shards (warlock) that fill as the resource builds rather than counting down
 - **Organise bars into groups** like "Cooldowns", "Target Debuffs", or "Buffs" (up to 20 groups, 30 bars each)
@@ -214,6 +214,18 @@ Four resource trackers for class-specific mechanics. Unlike time-based trackers,
 - Track Mode: `Combo Points`
 
 Class resource bars are pre-populated by the class starter profiles - see the Profiles tab.
+
+### Character Resources
+
+Four more resource trackers, this time for the plain stats every character has. Same fill-not-countdown rendering as Class Resources above; the Spell/Target fields are not used.
+
+- **Health** - fills with your current health.
+- **Mana**, **Energy**, **Rage** - fill with the matching power pool, whether or not it is the one you are currently using.
+
+**Example:** Track your own health.
+- Track Mode: `Health`
+
+See **Resource Groups** under Bars / Groups for a group that shows these (and your class resources) automatically, without adding any bars by hand.
 
 ### Aura Equivalency Groups
 

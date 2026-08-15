@@ -160,12 +160,16 @@ every **0.25s** (there is no `C_Timer`). Each tick runs the scan pass in
 4. **Time-based** trackers (Cooldown, Buff, Debuff, Proc, Item, Enchant,
    Totem) go through `ActivateBar`, which attaches `Bar_OnUpdate` so the
    bar depletes as time passes.
-5. **Resource** trackers (Combo Points, Runic Power, Soul Shards, Runes)
-   are registered in `ns.RESOURCE_TRACK_MODES` and go through
-   `ns:UpdateResourceBar(bar, current, max, icon, name, stacks)` instead.
-   No `Bar_OnUpdate` is attached; the bar holds its fill level until the
-   next scan or event refreshes it. Resource bars reinterpret the tuple:
-   `remaining` becomes "current value", `duration` becomes "max value".
+5. **Resource** trackers (Combo Points, Runic Power, Soul Shards, Runes,
+   Health, Mana, Energy, Rage) are registered in `ns.RESOURCE_TRACK_MODES`
+   and go through `ns:UpdateResourceBar(bar, current, max, icon, name,
+   stacks)` instead. No `Bar_OnUpdate` is attached; the bar holds its fill
+   level until the next scan or event refreshes it. Resource bars
+   reinterpret the tuple: `remaining` becomes "current value", `duration`
+   becomes "max value". Health/Mana/Energy/Rage guard against a zero max
+   the same way `CheckRunicPower` always has (forced to 1, never 0), even
+   though a real client never actually reports zero for the player's own
+   pool - the guard only ever fires against a degenerate/mocked read.
 
 Group relayouts are batched during a scan pass via `MarkGroupDirty` in
 BarEngine. Call that; do not relayout per bar.

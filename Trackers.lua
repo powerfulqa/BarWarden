@@ -818,6 +818,49 @@ local function CheckRunes(barConfig)
     return true, current, duration, icon, name, ceil(cdRemaining)
 end
 
+-- Health / Mana / Energy / Rage: the plain character-stat resources, added
+-- alongside the class resources above. Same value-not-timer reasoning: a
+-- health bar does not count down, it just reflects UnitHealth right now.
+-- Zero-max is guarded the same way CheckRunicPower guards it (a real client
+-- never actually returns 0 for the player's own health/power pool, but the
+-- fallback keeps a mocked or otherwise degenerate read from dividing by
+-- zero in UpdateResourceBar's current/max fill calculation).
+local HEALTH_ICON = "Interface\\Icons\\Spell_Holy_FlashHeal"
+local MANA_ICON   = "Interface\\Icons\\INV_Enchant_EssenceManaLarge"
+local RAGE_ICON   = "Interface\\Icons\\Ability_Warrior_Rampage"
+local ENERGY_ICON = "Interface\\Icons\\Ability_Rogue_Sprint"
+
+local function CheckHealth(barConfig)
+    local current = UnitHealth("player") or 0
+    local max = UnitHealthMax("player") or 0
+    if max <= 0 then max = 1 end
+    return true, current, max, HEALTH_ICON, "Health", current
+end
+
+local function CheckMana(barConfig)
+    -- Power type 0 is SPELL_POWER_MANA on 3.3.5a.
+    local power = UnitPower("player", 0) or 0
+    local maxPower = UnitPowerMax("player", 0) or 0
+    if maxPower <= 0 then maxPower = 1 end
+    return true, power, maxPower, MANA_ICON, "Mana", power
+end
+
+local function CheckRage(barConfig)
+    -- Power type 1 is SPELL_POWER_RAGE on 3.3.5a.
+    local power = UnitPower("player", 1) or 0
+    local maxPower = UnitPowerMax("player", 1) or 0
+    if maxPower <= 0 then maxPower = 1 end
+    return true, power, maxPower, RAGE_ICON, "Rage", power
+end
+
+local function CheckEnergy(barConfig)
+    -- Power type 3 is SPELL_POWER_ENERGY on 3.3.5a.
+    local power = UnitPower("player", 3) or 0
+    local maxPower = UnitPowerMax("player", 3) or 0
+    if maxPower <= 0 then maxPower = 1 end
+    return true, power, maxPower, ENERGY_ICON, "Energy", power
+end
+
 -- Event-driven resource modes. BarEngine's ScanBar checks this set to pick
 -- the static (UpdateResourceBar) path instead of time-based ActivateBar.
 -- Runes are here even though their data is a cooldown countdown, because we
@@ -829,6 +872,10 @@ ns.RESOURCE_TRACK_MODES = {
     ["Runic Power"]  = true,
     ["Soul Shards"]  = true,
     ["Runes"]        = true,
+    ["Health"]       = true,
+    ["Mana"]         = true,
+    ["Energy"]       = true,
+    ["Rage"]         = true,
 }
 
 function ns:IsResourceTrackMode(mode)
@@ -852,6 +899,10 @@ ns.TRACKERS = {
     ["Runic Power"]  = CheckRunicPower,
     ["Soul Shards"]  = CheckSoulShards,
     ["Runes"]        = CheckRunes,
+    ["Health"]       = CheckHealth,
+    ["Mana"]         = CheckMana,
+    ["Energy"]       = CheckEnergy,
+    ["Rage"]         = CheckRage,
 }
 
 -- Check tracking state for `barConfig` by dispatching on its trackMode.

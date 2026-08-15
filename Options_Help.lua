@@ -136,6 +136,19 @@ local HELP_ENTRIES = {
           .. "The class starter profiles pre-fill these for you.",
     },
     {
+        id = "track-character-resources",
+        q = "Health, Mana, Energy, and Rage",
+        a = "These fill with your current health or power instead of "
+          .. "counting down, the same as the class resources above. The "
+          .. "Spell and Target fields are not used.\n\n"
+          .. "Mana, Energy, and Rage each show that pool whether or not it "
+          .. "is the one you are currently using, which is handy if you "
+          .. "want to watch one on its own bar.\n\n"
+          .. "For a group that shows your health and whichever power you "
+          .. "are currently using without adding any of these by hand, see "
+          .. "Resource Groups under Auto Tracking Groups.",
+    },
+    {
         id = "multiple-spells",
         q = "Can one bar track more than one spell?",
         a = "Yes. Separate the names with commas, for example "

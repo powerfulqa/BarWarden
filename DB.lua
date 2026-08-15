@@ -86,6 +86,11 @@ ns.DEFAULTS = {
             ["Runic Power"]  = { r = 0.4, g = 0.2, b = 0.8 },
             ["Soul Shards"]  = { r = 0.8, g = 0.2, b = 0.8 },
             ["Runes"]        = { r = 0.7, g = 0.2, b = 0.2 },
+            -- Character-stat resources
+            ["Health"]       = { r = 0.1, g = 0.9, b = 0.1 },
+            ["Mana"]         = { r = 0.2, g = 0.4, b = 0.9 },
+            ["Energy"]       = { r = 1.0, g = 0.9, b = 0.2 },
+            ["Rage"]         = { r = 0.9, g = 0.1, b = 0.1 },
         },
         activeAlpha = 1.0,
         inactiveAlpha = 0.3,
