@@ -96,6 +96,7 @@ function M.test_defaults_globalExact()
         locked  = true,
         versionAlerts = true,
         hidePlayerFrame = false,
+        hideTargetFrame = false,
         -- Help-tab section collapse seed (added with the Help tab). Getting
         -- Started ships open, so it has no key here; the rest start collapsed.
         helpCollapsed = {

@@ -224,23 +224,25 @@ function M.test_pinnedOrder_newShapeFollowsListOrder()
     mock.playerClass = "MAGE"
     mock.powerType, mock.powerTypeToken = 0, "MANA"
     mock.power[0], mock.powerMax[0] = 3000, 4500
-    -- Pin Energy before Focus: reversed from both the panel's own tickbox
-    -- order (Mana, Rage, Energy, Focus) and alphabetical order, so only the
-    -- list's own sequence could explain the result below.
+    -- Pin Energy before Rage: opposes the panel's own tickbox order (Mana,
+    -- Rage, Energy), while happening to agree with alphabetical order, so
+    -- this alone cannot prove the list's sequence rules; paired with the
+    -- reversed test below (which opposes alphabetical instead), only the
+    -- list's own order explains both results together.
     mock.power[3], mock.powerMax[3] = 50, 100
-    mock.power[2], mock.powerMax[2] = 20, 100
+    mock.power[1], mock.powerMax[1] = 20, 100
 
-    local pinned = { { key = "energy" }, { key = "focus" } }
+    local pinned = { { key = "energy" }, { key = "rage" } }
     local entries = ns:CollectResources({ pinned = pinned })
 
-    local energyIdx, focusIdx
+    local energyIdx, rageIdx
     for i, e in ipairs(entries) do
         if e.key == "energy" then energyIdx = i end
-        if e.key == "focus" then focusIdx = i end
+        if e.key == "rage" then rageIdx = i end
     end
     assertx.assertNotNil(energyIdx, "expected energy to be collected")
-    assertx.assertNotNil(focusIdx, "expected focus to be collected")
-    assertx.assertTrue(energyIdx < focusIdx, "energy was pinned first, so it must appear first")
+    assertx.assertNotNil(rageIdx, "expected rage to be collected")
+    assertx.assertTrue(energyIdx < rageIdx, "energy was pinned first, so it must appear first")
 end
 
 function M.test_pinnedOrder_reversedListReversesOutput()
@@ -249,18 +251,19 @@ function M.test_pinnedOrder_reversedListReversesOutput()
     mock.powerType, mock.powerTypeToken = 0, "MANA"
     mock.power[0], mock.powerMax[0] = 3000, 4500
     mock.power[3], mock.powerMax[3] = 50, 100
-    mock.power[2], mock.powerMax[2] = 20, 100
+    mock.power[1], mock.powerMax[1] = 20, 100
 
-    -- Same two resources as above, ticked in the opposite order.
-    local pinned = { { key = "focus" }, { key = "energy" } }
+    -- Same two resources as above, ticked in the opposite order (this time
+    -- agreeing with the panel order and opposing alphabetical order).
+    local pinned = { { key = "rage" }, { key = "energy" } }
     local entries = ns:CollectResources({ pinned = pinned })
 
-    local energyIdx, focusIdx
+    local energyIdx, rageIdx
     for i, e in ipairs(entries) do
         if e.key == "energy" then energyIdx = i end
-        if e.key == "focus" then focusIdx = i end
+        if e.key == "rage" then rageIdx = i end
     end
-    assertx.assertTrue(focusIdx < energyIdx, "focus was pinned first this time, so it must appear first")
+    assertx.assertTrue(rageIdx < energyIdx, "rage was pinned first this time, so it must appear first")
 end
 
 function M.test_pinnedOrder_orderedShapeDoesNotDuplicateActiveResource()
@@ -511,6 +514,33 @@ function M.test_comboPoints_stillGatedOnPlayerClassForTargetFeed()
 
     local entries = ns:CollectResources({ unit = "target" })
     assertx.assertNil(findEntry(entries, "combopoints"), "a Mage has no Combo Points on either feed")
+end
+
+-- --------------------------------------------------------------------------
+-- Always Show Focus was removed (v2.5.0): a legacy pinned "focus" must be
+-- dropped silently, not error or produce a stale entry.
+-- --------------------------------------------------------------------------
+
+function M.test_legacyFocusPin_droppedWithoutError()
+    local ns = fresh()
+    mock.playerClass = "MAGE"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 3000, 4500
+    mock.power[1], mock.powerMax[1] = 10, 100
+
+    -- Legacy plain-set shape.
+    local legacySet = { focus = true, rage = true }
+    local ok, entries = pcall(function() return ns:CollectResources({ pinned = legacySet }) end)
+    assertx.assertTrue(ok, "a legacy focus pin must not error")
+    assertx.assertNil(findEntry(entries, "focus"), "focus must be dropped, not shown, from the legacy set shape")
+    assertx.assertNotNil(findEntry(entries, "rage"), "other legacy pins must keep working")
+
+    -- Current ordered-list shape.
+    local orderedList = { { key = "focus" }, { key = "rage" } }
+    local ok2, entries2 = pcall(function() return ns:CollectResources({ pinned = orderedList }) end)
+    assertx.assertTrue(ok2, "a legacy focus pin must not error in the ordered shape either")
+    assertx.assertNil(findEntry(entries2, "focus"), "focus must be dropped, not shown, from the ordered shape")
+    assertx.assertNotNil(findEntry(entries2, "rage"), "other pins must keep working alongside a stale focus entry")
 end
 
 return M

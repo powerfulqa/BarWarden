@@ -1489,10 +1489,12 @@ end
 function ns:OnCombatStateChanged(inCombat)
     -- Re-evaluate conditions for combat-gated bars
     ns:ScanAllBars()
-    -- A Hide Blizzard Player Frame request made mid-fight was deferred (see
-    -- ns:ResolvePlayerFrameHidden, Conditions.lua); PLAYER_REGEN_ENABLED is
-    -- exactly when it becomes safe to act on it, so re-apply here too.
+    -- A Hide Blizzard Player/Target Frame request made mid-fight was
+    -- deferred (see ns:ResolvePlayerFrameHidden, Conditions.lua);
+    -- PLAYER_REGEN_ENABLED is exactly when it becomes safe to act on it, so
+    -- re-apply both here too.
     if ns.ApplyPlayerFrameHidden then ns:ApplyPlayerFrameHidden() end
+    if ns.ApplyTargetFrameHidden then ns:ApplyTargetFrameHidden() end
 end
 
 function ns:OnGroupChanged()

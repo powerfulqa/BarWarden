@@ -141,24 +141,35 @@ function ns:RefreshBarSettings()
 end
 
 -- ----------------------------------------------------------------------------
--- Hide Blizzard's PlayerFrame and its satellites (global.hidePlayerFrame,
--- Options_General.lua)
+-- Hide Blizzard's PlayerFrame/TargetFrame and their satellites
+-- (global.hidePlayerFrame / global.hideTargetFrame, Options_General.lua)
 --
--- PlayerFrame's own children - portrait, health/mana bars, group indicator,
--- PvP icon, level text and the rest - hide the instant PlayerFrame itself
--- hides: WoW's frame hierarchy makes a child invisible whenever an ancestor
--- is hidden, regardless of the child's own Show()/Hide() state, so none of
--- those need separate handling here. RuneFrame is different: on 3.3.5a it
--- is its own top-level frame (parented to UIParent, merely anchored to sit
--- under PlayerFrame), so hiding PlayerFrame leaves a Death Knight's rune
--- display on screen unless RuneFrame gets the exact same treatment. Checked
--- for other such satellites (pet frame, totem frame, the alternate power
--- bar some forms use) and found none: the pet/totem frames are independent
--- UI the player controls separately and are not visually anchored to
--- PlayerFrame the way RuneFrame is, and the alternate power bar (druid
--- Eclipse, etc.) is a genuine PlayerFrame child. HIDE_FRAME_NAMES is the
--- deliberately short list of standalone frames this setting reaches; add to
--- it if a future client build introduces another.
+-- A frame's own children - portrait, health/mana bars, group indicator, PvP
+-- icon, level text and the rest - hide the instant the frame itself hides:
+-- WoW's frame hierarchy makes a child invisible whenever an ancestor is
+-- hidden, regardless of the child's own Show()/Hide() state, so none of
+-- those need separate handling here. RuneFrame and ComboFrame are
+-- different: on 3.3.5a both are their own top-level frames (parented to
+-- UIParent, merely anchored to sit under PlayerFrame/TargetFrame
+-- respectively), so hiding the parent leaves them on screen unless they get
+-- the exact same treatment. Checked for other such satellites:
+--   * PlayerFrame: pet frame, totem frame, the alternate power bar some
+--     forms use - found none. The pet/totem frames are independent UI the
+--     player controls separately and are not visually anchored to
+--     PlayerFrame the way RuneFrame is, and the alternate power bar (druid
+--     Eclipse, etc.) is a genuine PlayerFrame child.
+--   * TargetFrame: TargetFrameToT (target-of-target) is a comparable
+--     standalone satellite, but is deliberately left OUT of
+--     TARGET_HIDE_FRAME_NAMES. Unlike PlayerFrame/RuneFrame and
+--     TargetFrame/ComboFrame, BarWarden's resource groups offer no
+--     replacement for "what is my target targeting" - hiding it would be a
+--     pure information loss with nothing standing in for it, unlike the
+--     frames this setting is meant to let the owner retire in favour of a
+--     resource group.
+-- The two settings are independent by construction: PLAYER_HIDE_FRAME_NAMES
+-- and TARGET_HIDE_FRAME_NAMES are separate lists, each driven by its own
+-- want-function and applied by its own public entry point, so ticking one
+-- can never touch the other's frames.
 --
 -- Reversible by construction: never UnregisterAllEvents on any of these -
 -- undoing that means hand-re-registering every event Blizzard registered on
@@ -172,34 +183,44 @@ end
 -- unticking then just needs one more Show() and the hook stops acting.
 -- ----------------------------------------------------------------------------
 
-local HIDE_FRAME_NAMES = { "PlayerFrame", "RuneFrame" }
+local PLAYER_HIDE_FRAME_NAMES = { "PlayerFrame", "RuneFrame" }
+local TARGET_HIDE_FRAME_NAMES = { "TargetFrame", "ComboFrame" }
 
--- Whether the frame should be suppressed at all, ignoring combat: tied to
--- both the tickbox and the addon's own enabled state, so /bw disable hands
--- the frame straight back rather than stranding it hidden with only the
--- options panel (which stays reachable either way via /bw) to fix it. A
+-- Whether a frame group should be suppressed at all, ignoring combat: tied
+-- to both its own tickbox and the addon's own enabled state, so /bw disable
+-- hands every frame straight back rather than stranding it hidden with only
+-- the options panel (which stays reachable either way via /bw) to fix it. A
 -- disabled BarWarden should not be suppressing any UI, Blizzard's included.
 local function WantPlayerFrameHidden()
     local g = ns.db and ns.db.global
     return not not (g and g.enabled and g.hidePlayerFrame)
 end
 
+local function WantTargetFrameHidden()
+    local g = ns.db and ns.db.global
+    return not not (g and g.enabled and g.hideTargetFrame)
+end
+
 local hideHookInstalled = {}
 
 -- Apply (or re-apply) the hide/show state to one satellite frame by global
--- name. Shared body for every entry in HIDE_FRAME_NAMES so the reversible
--- Hide()/HookScript treatment is defined exactly once.
-local function ApplyFrameHidden(name)
+-- name. Shared body for every entry in PLAYER_HIDE_FRAME_NAMES/
+-- TARGET_HIDE_FRAME_NAMES so the reversible Hide()/HookScript treatment is
+-- defined exactly once. `wantFn` is whichever want-function owns this frame
+-- (WantPlayerFrameHidden or WantTargetFrameHidden), captured by the OnShow
+-- hook below so a frame keeps reading the RIGHT setting for its own group
+-- for the life of the hook, not whichever setting last called this function.
+local function ApplyFrameHidden(name, wantFn)
     local frame = _G[name]
     -- Blizzard global; guarded the same defensive way as the bundled-library
     -- checks (see MinimapButton.lua) rather than assumed present. RuneFrame
-    -- in particular is worth guarding defensively even though retail
-    -- 3.3.5a FrameXML always defines it: some private-server clients trim
-    -- unused class frames.
+    -- and ComboFrame in particular are worth guarding defensively even
+    -- though retail 3.3.5a FrameXML always defines them: some private-server
+    -- clients trim unused class frames.
     if not frame then return end
 
     local inCombat = InCombatLockdown and InCombatLockdown() or false
-    local wantHidden = WantPlayerFrameHidden()
+    local wantHidden = wantFn()
     local shouldHide = ns:ResolvePlayerFrameHidden(wantHidden, inCombat)
 
     -- EC-TRAP: this OnShow hook looks redundant next to the Hide() call
@@ -208,13 +229,13 @@ local function ApplyFrameHidden(name)
     -- these frames on a long list of events for the rest of the session,
     -- and HookScript cannot be removed. The hook, not the Hide() call, is
     -- what keeps a frame down after the first time. Deleting it "as a
-    -- duplicate" brings the portrait (or the rune display) straight back
-    -- the next time Blizzard shows it.
+    -- duplicate" brings the portrait (or the rune display, or the target's
+    -- combo points) straight back the next time Blizzard shows it.
     if not hideHookInstalled[name] then
         hideHookInstalled[name] = true
         frame:HookScript("OnShow", function(self)
             local ic = InCombatLockdown and InCombatLockdown() or false
-            if ns:ResolvePlayerFrameHidden(WantPlayerFrameHidden(), ic) then
+            if ns:ResolvePlayerFrameHidden(wantFn(), ic) then
                 self:Hide()
             end
         end)
@@ -240,8 +261,17 @@ end
 -- and after combat ends (a hide requested mid-fight is deferred, not dropped
 -- - see ns:ResolvePlayerFrameHidden, Conditions.lua).
 function ns:ApplyPlayerFrameHidden()
-    for _, name in ipairs(HIDE_FRAME_NAMES) do
-        ApplyFrameHidden(name)
+    for _, name in ipairs(PLAYER_HIDE_FRAME_NAMES) do
+        ApplyFrameHidden(name, WantPlayerFrameHidden)
+    end
+end
+
+-- Same as ns:ApplyPlayerFrameHidden, for TargetFrame and its satellites.
+-- Independent setting, independent frame list: ticking this never touches
+-- PlayerFrame/RuneFrame, and vice versa.
+function ns:ApplyTargetFrameHidden()
+    for _, name in ipairs(TARGET_HIDE_FRAME_NAMES) do
+        ApplyFrameHidden(name, WantTargetFrameHidden)
     end
 end
 
@@ -287,10 +317,11 @@ function ns:OnEnable()
     for _, frame in pairs(ns.groupFrames or {}) do
         if frame and frame.Show then frame:Show() end
     end
-    -- Apply the Hide Blizzard Player Frame setting: covers both login (this
-    -- runs whenever the addon comes up enabled) and /bw enable after a
-    -- disable had shown the frame back.
+    -- Apply the Hide Blizzard Player/Target Frame settings: covers both
+    -- login (this runs whenever the addon comes up enabled) and /bw enable
+    -- after a disable had shown the frames back.
     if ns.ApplyPlayerFrameHidden then ns:ApplyPlayerFrameHidden() end
+    if ns.ApplyTargetFrameHidden then ns:ApplyTargetFrameHidden() end
     -- Version-probe the guild shortly after enabling (delayed so the guild
     -- roster has loaded). Gated + throttled inside Comms.
     if ns.Comms and ns.After then
@@ -306,12 +337,14 @@ function ns:OnDisable()
     for _, frame in pairs(ns.groupFrames or {}) do
         if frame and frame.Hide then frame:Hide() end
     end
-    -- A disabled BarWarden should not go on suppressing Blizzard's player
-    -- frame. From /bw disable, SetEnabled has already flipped global.enabled
-    -- to false by the time this runs, so WantPlayerFrameHidden reads false
-    -- and this hands the frame straight back without the user ever needing
-    -- the options panel. From PLAYER_LOGOUT this is a same-session no-op.
+    -- A disabled BarWarden should not go on suppressing Blizzard's player or
+    -- target frame. From /bw disable, SetEnabled has already flipped
+    -- global.enabled to false by the time this runs, so WantPlayerFrameHidden/
+    -- WantTargetFrameHidden read false and this hands both frames straight
+    -- back without the user ever needing the options panel. From
+    -- PLAYER_LOGOUT this is a same-session no-op.
     if ns.ApplyPlayerFrameHidden then ns:ApplyPlayerFrameHidden() end
+    if ns.ApplyTargetFrameHidden then ns:ApplyTargetFrameHidden() end
 end
 
 local function OnAddonLoaded(event, loadedName)

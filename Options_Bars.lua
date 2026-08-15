@@ -446,7 +446,6 @@ local function CreateBarsTab(parent)
         "grpAutoPinMana", "grpAutoPinManaColor",
         "grpAutoPinRage", "grpAutoPinRageColor",
         "grpAutoPinEnergy", "grpAutoPinEnergyColor",
-        "grpAutoPinFocus", "grpAutoPinFocusColor",
         "grpAutoValueTextDD", "grpAutoShowIcon",
     }
 
@@ -1122,25 +1121,14 @@ local function CreateBarsTab(parent)
               ns:RefreshAllBars()
           end,
           offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
-        { type = "toggle", id = "grpAutoPinFocus", label = "Always Show Focus",
-          tooltip = "Keep a focus bar in this group even when focus is not "
-               .. "your current power.",
-          get = function() return isResourcePinned(getGroup(), "focus") end,
-          set = function(_, v)
-              local g = getGroup(); if not g then return end
-              g.autoPinnedResources = ns:TogglePinnedResource(g.autoPinnedResources, "focus", v and true or false)
-          end,
-          onChange = function(value) onPinToggleChanged("grpAutoPinFocusColor", value) end,
-          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
-        { type = "color", id = "grpAutoPinFocusColor", label = "Focus Colour",
-          get = function() return getPinnedResourceColor(getGroup(), "focus") end,
-          set = function(_, color)
-              local g = getGroup(); if not g then return end
-              g.autoPinnedResources = ns:SetPinnedResourceColor(g.autoPinnedResources, "focus",
-                  { r = color.r, g = color.g, b = color.b })
-              ns:RefreshAllBars()
-          end,
-          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
+        -- Always Show Focus (and its colour swatch) was removed in v2.5.0:
+        -- on 3.3.5a Focus is a hunter PET resource, never a player one
+        -- (hunters use Mana until Cataclysm), so UnitPowerMax("player", 2)
+        -- is always 0 and the pin could never produce a bar - see
+        -- CHANGELOG. "focus" stays out of PINNABLE_POWER_TYPES
+        -- (Trackers.lua); a legacy save that still has it pinned just finds
+        -- no matching entry there and is silently dropped, no migration
+        -- needed.
         { type = "dropdown", id = "grpAutoValueTextDD", label = "Value Text",
           items = {
               { text = "Current / Max", value = ""        },

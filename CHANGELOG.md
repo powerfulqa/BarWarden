@@ -55,7 +55,7 @@ the same current-power-type signal the game itself uses.
 - **A new Show Icon tickbox** on a resource group lets you hide the bar
   icons for a plainer look. On by default, matching how resource bars have
   always looked.
-- **Always Show Mana / Rage / Energy / Focus now remember the order you
+- **Always Show Mana / Rage / Energy now remember the order you
   ticked them in**, so the bars appear top-to-bottom in that order rather
   than a fixed panel order. Unticking one and re-ticking it later moves it
   to the end. Each pin also gets its own colour swatch, ahead of the
@@ -68,6 +68,14 @@ the same current-power-type signal the game itself uses.
   Text, and Show Icon all work the same as the player resource group, and
   read off the target when pinning applies to it. A target with nothing
   selected shows nothing, same as an empty aura group.
+- **A new General tab tickbox, Hide Blizzard Target Frame**, hides the
+  default target frame the same way Hide Blizzard Player Frame already
+  does for the player frame: an independent setting that also hides the
+  combo point display, reversible the same way.
+- **Always Show Focus has been removed.** On 3.3.5a, Focus is a hunter PET
+  resource, not a player one (hunters use Mana until Cataclysm), so the
+  tickbox could never actually show a bar. A group that still has Focus
+  pinned from before simply drops it, without error.
 
 ---
 

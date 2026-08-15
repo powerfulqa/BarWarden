@@ -30,6 +30,13 @@ ns.DEFAULTS = {
         -- MergeDefaults on existing saves (no schema bump needed, same as
         -- versionAlerts above).
         hidePlayerFrame = false,
+        -- Hide Blizzard's default target frame (Options_General.lua),
+        -- mirroring hidePlayerFrame above: also addon-wide, also a plain
+        -- user preference independent of whether a target resource group
+        -- exists. See ns:ApplyTargetFrameHidden (Core.lua). Additive key,
+        -- backfilled by MergeDefaults on existing saves (no schema bump
+        -- needed, same as hidePlayerFrame).
+        hideTargetFrame = false,
         -- Help-tab section collapse state: sectionKey -> true when collapsed.
         -- Seeded so Getting Started is open and the rest start collapsed.
         -- Additive key, backfilled by MergeDefaults on existing saves (no

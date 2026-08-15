@@ -107,6 +107,29 @@ local SCHEMA = {
         offsetX = ns.OFFSET_TOGGLE,
     },
 
+    -- Hide Blizzard's default target frame. Mirrors Hide Blizzard Player
+    -- Frame above (own tickbox, own addon-wide setting, independent of the
+    -- player one): a target resource group already duplicates what this
+    -- frame shows, but hiding it is a global act and must not fight the
+    -- player-frame tickbox over anything. ns:ApplyTargetFrameHidden
+    -- (Core.lua) does the actual, reversible hide/show for TargetFrame and
+    -- ComboFrame (the combo-point display, its own top-level frame on
+    -- 3.3.5a - see Core.lua's TARGET_HIDE_FRAME_NAMES).
+    {
+        type    = "toggle",
+        label   = "Hide Blizzard Target Frame",
+        tooltip = "Hides the default target frame (the portrait box above "
+               .. "your target). You lose its portrait, the target's buffs "
+               .. "and debuffs, its right-click menu, and the combo point "
+               .. "display. BarWarden's own bars keep working either way.",
+        get     = function() return ns.db and ns.db.global and ns.db.global.hideTargetFrame end,
+        set     = function(_, checked)
+            if ns.db and ns.db.global then ns.db.global.hideTargetFrame = checked end
+            if ns.ApplyTargetFrameHidden then ns:ApplyTargetFrameHidden() end
+        end,
+        offsetX = ns.OFFSET_TOGGLE,
+    },
+
     -- Slash Commands section header. The runnable list is rendered below it
     -- (see BuildGeneralInto); id exposes it as the anchor for that list.
     { type = "header", text = "Slash Commands", spacing = 24, offsetX = ns.OFFSET_HEADER, id = "slashHeader" },

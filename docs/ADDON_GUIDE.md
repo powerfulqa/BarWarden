@@ -285,8 +285,9 @@ across both feeds; it splits by what the resource actually is:
     already, unconditionally, a "your points on your CURRENT target"
     reading - it never changes meaning depending on which feed asks for it.
     They are offered on BOTH feeds for that reason (matching how Blizzard
-    itself anchors its own combo-point display to the target frame, not the
-    player frame), still gated on the player's own class.
+    itself anchors `ComboFrame` to `TargetFrame`, not `PlayerFrame` - see
+    "Hide Blizzard Player/Target Frame" below), still gated on the player's
+    own class.
 
 Pinning applies identically to both feeds: `opts.pinned` reads off `unit`
 too (via the same `addPowerType` helper the current-power-type step uses),
@@ -400,7 +401,7 @@ resources-only, described further above under "The resources feed"):
 | `autoSkipTracked` | Skip spells a bar in another group already tracks (matched by name via `ns:GetTrackedAuraNames`) |
 | `autoStableOrder` | Keep Bars In Place: an aura stays in the slot it first appeared in for as long as it lasts, instead of the soonest-expiring sort reshuffling every slot on each tick or refresh. Only a fade frees a slot. `ns:ScanAutoGroup` builds the held-name list from the live slots and hands it to `ns:PlaceAutoAuras` (Trackers.lua), the tested half that decides the new placement; the untested half is just reading `bar.barData` to build that list |
 | `autoBanned` | Per-group spell bans set by alt-left-clicking a bar's icon (`bar.isAutoBar` only), keyed by lower-cased spell name: `{ [name] = { name = "Blade Flurry", id = 13877 } }`, `id` optionally nil. Nil (not `{}`) once every ban is removed, so `ns:BuildAutoSkipSet` keeps its cheap no-skip path. `ns:BuildGroupSkipSet` (Trackers.lua) folds this in unconditionally via `ns:BuildAutoSkipSet`, always returning a fresh table so the caller's own copy is never mutated, so a ban applies even with `autoSkipTracked` off. Managed from the "Hidden In This Group" list under Auto Track in Options_Bars.lua, which only shows/enables for a group with an AURA feed picked - a resource has nothing to ban, so it hides the same as no feed at all |
-| `autoPinnedResources` | Either resources feed only (v2.5.0: now an ORDERED list, `{ { key = "mana", color = {r,g,b}? }, ... }`, in tick order; a group saved before this existed still carries the legacy set, `{ mana = true }` - `ns:NormalizePinnedResources` (Trackers.lua) accepts either shape, so no migration was needed). Resources the user ticked to always show even when not the unit's current power type, passed as `ns:CollectResources`'s `opts.pinned` and read against `opts.unit` (player or target). Each entry's optional `color` is the most specific level `ns:GetPinnedResourceColor` (Conditions.lua) resolves - see "Resource bar default colours" below |
+| `autoPinnedResources` | Either resources feed only (v2.5.0: now an ORDERED list, `{ { key = "mana", color = {r,g,b}? }, ... }`, in tick order; a group saved before this existed still carries the legacy set, `{ mana = true }` - `ns:NormalizePinnedResources` (Trackers.lua) accepts either shape, so no migration was needed). Resources the user ticked to always show even when not the unit's current power type, passed as `ns:CollectResources`'s `opts.pinned` and read against `opts.unit` (player or target). Each entry's optional `color` is the most specific level `ns:GetPinnedResourceColor` (Conditions.lua) resolves - see "Resource bar default colours" below. `mana`/`rage`/`energy` are the only pinnable keys (`PINNABLE_POWER_TYPES`, Trackers.lua); `focus` was removed in v2.5.0 (see CHANGELOG) - a legacy save with `focus` still pinned just finds no match there and is silently dropped, no migration needed |
 | `autoResourceValueText` | Resources-feed only: nil/`""` (current/max, e.g. "3000/4500"), `"PERCENT"` ("67%"), or `"BOTH"` ("3000/4500 (67%)"). Read directly inside `ns:UpdateResourceBar` (BarEngine.lua) |
 | `autoResourceShowIcon` | Resources-feed only (v2.5.0): nil/unset defers to the addon-wide Show Icon default (so an upgrading group looks exactly as it did before this tickbox existed); `true`/`false` overrides it for every bar in this group. Read directly inside `ApplyVisualConfig` (Bar.lua), the same direct-read shape as `autoResourceValueText` above, since like it there is no per-bar equivalent to resolve against for an auto slot |
 
@@ -649,46 +650,62 @@ read site - `ResolveHideWhenInactive` replaced five separate
 `cond.hideWhenInactive` reads across BarEngine/Core/FrameManager.
 
 **Hide Blizzard Player Frame** (v2.5.0, `global.hidePlayerFrame`,
-[Options_General.lua](../Options_General.lua)) is addon-wide rather than a
-group override - a resource group duplicates the default player frame, but
-hiding that frame is a global act and a second resource group must not fight
-the first over it - so it has no per-group entry in the table above. Its
-resolver, `ns:ResolvePlayerFrameHidden(wantHidden, inCombat)`, lives in
-Conditions.lua for the same reason as the Bar Alerts pair: pure two-boolean
-arithmetic the test harness can reach without the frame-heavy code that
-actually touches `PlayerFrame`. `wantHidden` already folds in
-`global.enabled`, so a disabled addon never keeps the frame hidden.
+[Options_General.lua](../Options_General.lua)) and **Hide Blizzard Target
+Frame** (v2.5.0, `global.hideTargetFrame`, same file) are addon-wide rather
+than group overrides - a resource group duplicates the default unit frame it
+mirrors, but hiding that frame is a global act and a second resource group
+must not fight the first (or the other setting) over it - so neither has a
+per-group entry in the table above. They are two entirely independent
+settings over two independent frame lists: ticking one never touches the
+other's frames. Both share one resolver, `ns:ResolvePlayerFrameHidden(wantHidden,
+inCombat)`, which lives in Conditions.lua for the same reason as the Bar
+Alerts pair: pure two-boolean arithmetic the test harness can reach without
+the frame-heavy code that actually touches `PlayerFrame`/`TargetFrame`.
+`wantHidden` already folds in `global.enabled`, so a disabled addon never
+keeps either frame hidden.
 
-This setting reaches more than just `PlayerFrame` itself: `RuneFrame` (the
-Death Knight rune display) is its own top-level frame on 3.3.5a, not a
-child of `PlayerFrame`, so hiding `PlayerFrame` alone left it on screen.
-`HIDE_FRAME_NAMES` (Core.lua) is the short list of such standalone
-satellites the setting applies to - currently `PlayerFrame` and
-`RuneFrame`. Everything else that visually rides along with `PlayerFrame`
-(portrait, health/mana bars, group indicator, PvP icon, level text, and
-the alternate power bar some forms use) is a genuine XML child of it, and a
-hidden parent already makes WoW treat every child as invisible regardless
-of the child's own `Show()`/`Hide()` state, so none of those need an entry
-here. Checked the pet frame and the totem frame too: both are independent
-UI the player controls separately and are not anchored to `PlayerFrame`,
-so they are out of scope on purpose, not an oversight.
+Each setting reaches more than just the frame named in its label:
+`PLAYER_HIDE_FRAME_NAMES` (Core.lua) is `{ "PlayerFrame", "RuneFrame" }` and
+`TARGET_HIDE_FRAME_NAMES` is `{ "TargetFrame", "ComboFrame" }` - the short
+lists of standalone satellites each setting applies to. `RuneFrame` (the
+Death Knight rune display) and `ComboFrame` (the combo-point display) are
+each their own top-level frame on 3.3.5a, not a child of `PlayerFrame`/
+`TargetFrame` respectively, so hiding the parent alone left them on screen.
+Everything else that visually rides along with either frame (portrait,
+health/mana bars, group indicator, PvP icon, level text, the alternate
+power bar some forms use, the target's cast bar) is a genuine XML child of
+it, and a hidden parent already makes WoW treat every child as invisible
+regardless of the child's own `Show()`/`Hide()` state, so none of those
+need an entry here. Checked further for each:
+  * PlayerFrame: the pet frame and the totem frame are independent UI the
+    player controls separately and are not anchored to `PlayerFrame`, so
+    they are out of scope on purpose, not an oversight.
+  * TargetFrame: `TargetFrameToT` (target-of-target) is a comparable
+    standalone satellite, but is deliberately left OUT of
+    `TARGET_HIDE_FRAME_NAMES`. Unlike the frames this setting is meant to
+    let the owner retire in favour of a resource group, BarWarden offers no
+    replacement for "what is my target targeting" - hiding it would be a
+    pure information loss with nothing standing in for it.
 
-`ns:ApplyPlayerFrameHidden` (Core.lua) does the impure half and is
-deliberately reversible: it only ever calls `Hide()` / `Show()` on each name
-in `HIDE_FRAME_NAMES` (never `UnregisterAllEvents()` - undoing that would
-mean hand-re-registering every event Blizzard put on the frame, long,
-version-specific, and easy to get subtly wrong). Because Blizzard's own
-code re-`Show()`s these frames constantly (`UNIT_HEALTH`, entering the
-world, a target change, and more), staying hidden needs a
-`HookScript("OnShow", ...)` per frame that re-checks the live setting and
-re-hides on the spot - see the `EC-TRAP:` on that hook in Core.lua, since
-`HookScript` cannot be removed and the hook can look redundant next to the
-`Hide()` call beside it. It is called from `ns:OnInitialize` via
-`ns:OnEnable` (login), from the toggle's `set` (Options_General.lua), from
-`ns:OnEnable`/`ns:OnDisable` (`/bw enable`/`disable`), and from
-`ns:OnCombatStateChanged` (BarEngine.lua) so a hide requested mid-fight is
-picked up the moment combat ends rather than attempted while
-`InCombatLockdown()` might make it unsafe.
+`ns:ApplyPlayerFrameHidden` / `ns:ApplyTargetFrameHidden` (Core.lua) do the
+impure half and are deliberately reversible: each only ever calls `Hide()` /
+`Show()` on the names in its own list (never `UnregisterAllEvents()` -
+undoing that would mean hand-re-registering every event Blizzard put on the
+frame, long, version-specific, and easy to get subtly wrong). Both share
+one `ApplyFrameHidden(name, wantFn)` helper, `wantFn` being whichever
+want-function owns that frame, so the shared code stays a single
+implementation without the two settings' frames ever being able to cross
+over. Because Blizzard's own code re-`Show()`s these frames constantly
+(`UNIT_HEALTH`, entering the world, a target change, and more), staying
+hidden needs a `HookScript("OnShow", ...)` per frame that re-checks the
+live setting and re-hides on the spot - see the `EC-TRAP:` on that hook in
+Core.lua, since `HookScript` cannot be removed and the hook can look
+redundant next to the `Hide()` call beside it. Both apply functions are
+called together from `ns:OnInitialize` via `ns:OnEnable` (login), from each
+toggle's own `set` (Options_General.lua), from `ns:OnEnable`/`ns:OnDisable`
+(`/bw enable`/`disable`), and from `ns:OnCombatStateChanged` (BarEngine.lua)
+so a hide requested mid-fight is picked up the moment combat ends rather
+than attempted while `InCombatLockdown()` might make it unsafe.
 
 ### Declarative options schema (`ns:BuildSettings`)
 

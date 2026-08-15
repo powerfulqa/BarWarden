@@ -967,9 +967,9 @@ end
 --            A unit that does not exist (no target selected) collects
 --            nothing at all - see the UnitExists guard below - rather than
 --            surfacing a row of zeroed bars.
---   pinned - the resource keys ("mana", "rage", "energy", "focus") the user
---            ticked in Group Settings to always show, even when not the
---            character's current power type. Passed straight through
+--   pinned - the resource keys ("mana", "rage", "energy") the user ticked in
+--            Group Settings to always show, even when not the character's
+--            current power type. Passed straight through
 --            ns:NormalizePinnedResources (below), so either the current
 --            ordered-list shape or the legacy set shape is accepted; see
 --            that function's own comment for the two shapes and why both
@@ -998,10 +998,10 @@ end
 --   * Combo Points are different: GetComboPoints("player", "target") is
 --     already, unconditionally, a "your points on your CURRENT target"
 --     reading - it does not change meaning depending on which feed asks for
---     it. Blizzard's own UI agrees: the combo-point display (ComboFrame) is
---     anchored to the target frame, not the player frame, so "combo points
---     belong with the target you're building them on" is not a new idea
---     here. They are offered on BOTH feeds - unlike Runes/Runic
+--     it. Blizzard's own UI agrees: ComboFrame is anchored to TargetFrame,
+--     not PlayerFrame (see Core.lua's TARGET_HIDE_FRAME_NAMES), so "combo
+--     points belong with the target you're building them on" is not a new
+--     idea here. They are offered on BOTH feeds - unlike Runes/Runic
 --     Power/Soul Shards, showing them via the target feed is never a
 --     mislabelled read of your own data, it is the same reading either way -
 --     still gated on the PLAYER's own class (only a Rogue or Druid has combo
@@ -1147,8 +1147,12 @@ function ns:CollectResources(opts)
     -- globals those checkers call internally, just without the masking - is
     -- honest for both the current-power step and the pinned step alike.
     -- Focus has no dedicated track mode/checker (out of scope: only
-    -- Health/Mana/Energy/Rage were added in v2.5.0), so it is listed here
-    -- with its own icon/label instead of borrowing one from a checker.
+    -- Health/Mana/Energy/Rage were added in v2.5.0) and is no longer
+    -- pinnable (Always Show Focus was removed - see PINNABLE_POWER_TYPES
+    -- below), but it stays listed here: a hunter pet targeted through the
+    -- target feed genuinely uses Focus as its current power type, and this
+    -- table is a true description of the game's power types, not of what a
+    -- player character can have.
     local POWER_TYPE_INFO = {
         [0] = { key = "mana",       label = "Mana",        icon = MANA_ICON },
         [1] = { key = "rage",       label = "Rage",        icon = RAGE_ICON },
@@ -1207,7 +1211,12 @@ function ns:CollectResources(opts)
     -- it). addEntry's zero-max guard still applies, so pinning a power the
     -- unit truly cannot have (a Mage pinning Rage) shows nothing - on
     -- either feed, which is why pinning needs no unit-specific carve-out.
-    local PINNABLE_POWER_TYPES = { mana = 0, rage = 1, focus = 2, energy = 3 }
+    -- "focus" is deliberately absent (Always Show Focus was removed: 3.3.5a
+    -- players never have a Focus pool, so the tickbox could never do
+    -- anything - see CHANGELOG). A legacy save that still has `focus`
+    -- pinned/ticked just finds no entry here and is silently dropped; see
+    -- ns:NormalizePinnedResources, which does not itself filter by key.
+    local PINNABLE_POWER_TYPES = { mana = 0, rage = 1, energy = 3 }
     for _, entry in ipairs(ns:NormalizePinnedResources(pinned)) do
         local powerType = PINNABLE_POWER_TYPES[entry.key]
         if powerType then addPowerType(powerType) end
