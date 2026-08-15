@@ -1304,9 +1304,20 @@ function ns:CollectResources(opts)
     -- `cur > 0` half of this condition IS the capability probe, since
     -- GetComboPoints already reads back a genuine 0 for a character that
     -- cannot generate any.
-    if unit == "player" or unit == "target" then
+    --
+    -- Pinned Combo Points are deliberately NOT added here (v2.5.0 fix):
+    -- addEntry's `seen` guard means whichever add runs first wins the slot,
+    -- and this block runs well before the pinned-extras loop below that
+    -- honours tick order, so a pinned Combo Points entry used to always land
+    -- right after Health/current-power regardless of when it was ticked
+    -- relative to another pinned resource (e.g. always above Rage, even when
+    -- Rage was pinned first). The pinned-extras loop now adds Combo Points
+    -- itself when pinned, in its rightful ordered slot; this block only
+    -- handles the UNpinned "currently in use" case, so an active-but-unpinned
+    -- count still shows immediately without waiting on pin order.
+    if (unit == "player" or unit == "target") and not pinnedKeys.combopoints then
         local _, cur, mx, icon, name = CheckComboPoints({})
-        if (cur and cur > 0) or pinnedKeys.combopoints then
+        if cur and cur > 0 then
             addEntry("combopoints", name, cur, mx, icon)
         end
     end
@@ -1354,10 +1365,27 @@ function ns:CollectResources(opts)
     -- anything - see CHANGELOG). A legacy save that still has `focus`
     -- pinned/ticked just finds no entry here and is silently dropped; see
     -- ns:NormalizePinnedResources, which does not itself filter by key.
+    --
+    -- Combo Points are handled here too, alongside mana/rage/energy, so a
+    -- pinned entry takes its slot in tick order like everything else (see
+    -- the comment above the Combo Points block above for why the early add
+    -- there deliberately steps aside while pinned). Still gated on unit ==
+    -- player/target: GetComboPoints has no target's-target reading, so
+    -- pinning it must not conjure one on that feed either (see the file
+    -- comment's Combo Points section). Runic Power/Runes/Soul Shards have no
+    -- pin tickbox at all yet (Options_Bars.lua), so they are not listed
+    -- here; if one is ever added for them it needs the same treatment - stop
+    -- claiming the slot early, and add them here instead - since they too
+    -- are currently added in a fixed spot ahead of this loop.
     local PINNABLE_POWER_TYPES = { mana = 0, rage = 1, energy = 3 }
     for _, entry in ipairs(normalizedPinned) do
         local powerType = PINNABLE_POWER_TYPES[entry.key]
-        if powerType then addPowerType(powerType) end
+        if powerType then
+            addPowerType(powerType)
+        elseif entry.key == "combopoints" and (unit == "player" or unit == "target") then
+            local _, cur, mx, icon, name = CheckComboPoints({})
+            addEntry("combopoints", name, cur, mx, icon)
+        end
     end
 
     return entries

@@ -124,6 +124,11 @@ the same current-power-type signal the game itself uses.
   shards in your bags, so they work correctly whatever your class shows as.
   Combo Points work the same way now too, showing once you have any,
   whatever your class.
+- **Fix: a pinned "Keep Combo Points Visible" now respects tick order.**
+  It used to always land right after Health and your current power,
+  whatever order you ticked the pins in, because it was added before the
+  ordered pinned-resources step ran. It now takes its place among Mana,
+  Rage and Energy in the order you pinned them.
 
 ---
 

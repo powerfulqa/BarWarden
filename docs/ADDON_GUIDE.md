@@ -340,6 +340,19 @@ the resource actually is:
     opt-in cosmetic case, and the only way to let a classless server's
     non-Rogue/Druid characters pin Combo Points they can genuinely generate.
 
+    Ordering fix: when pinned, Combo Points are added by the pinned-extras
+    loop below, not by the "currently in use" check above - `addEntry`'s
+    `seen` guard means whichever add runs first claims the slot, so adding
+    Combo Points early unconditionally (whether pinned or just active) used
+    to always plant them right after Health/current-power, ignoring
+    whatever order the owner ticked the pins in. The "in use" check above
+    now skips entirely while `combopoints` is pinned, leaving the ordered
+    loop to place it. Runic Power, Runes and Soul Shards have the same
+    shape (added in a fixed spot ahead of the ordered loop) but no pin
+    tickbox exists for them yet, so the bug cannot surface for them today;
+    a future pin for any of them needs the same treatment, not a bare
+    addition to `PINNABLE_POWER_TYPES`.
+
 Pinning applies identically to all three feeds: `opts.pinned` reads off
 `unit` too (via the same `addPowerType` helper the current-power-type step
 uses), so "Keep Rage Visible" on a target-resources group pins the TARGET's

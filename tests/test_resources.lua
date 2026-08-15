@@ -849,4 +849,71 @@ function M.test_comboPoints_pinnedStillDoesNotAppearOnTargetTargetFeed()
         "GetComboPoints has no target's-target reading, so the pin must not surface one")
 end
 
+-- --------------------------------------------------------------------------
+-- Pinned Combo Points must follow tick order (v2.5.0 fix): Combo Points used
+-- to be added in the class-resource block, ahead of the pinned-extras loop
+-- that honours ns:NormalizePinnedResources' order, so a pinned Combo Points
+-- entry always landed right after Health/current-power regardless of when it
+-- was ticked relative to another pinned resource. addEntry's `seen` guard
+-- means whichever add runs FIRST silently wins the slot, so the fix is not
+-- just "let the pinned loop add Combo Points too" but also "stop the early
+-- add from claiming the slot while pinned".
+-- --------------------------------------------------------------------------
+
+function M.test_comboPoints_pinned_landsAfterAResourcePinnedBeforeIt()
+    local ns = fresh()
+    mock.playerClass = "ROGUE"
+    mock.comboPoints = 0
+    mock.power[1], mock.powerMax[1] = 20, 100 -- give Rage a real pool to pin
+
+    local pinned = { { key = "rage" }, { key = "combopoints" } }
+    local entries = ns:CollectResources({ pinned = pinned })
+
+    local rageIdx, comboIdx
+    for i, e in ipairs(entries) do
+        if e.key == "rage" then rageIdx = i end
+        if e.key == "combopoints" then comboIdx = i end
+    end
+    assertx.assertNotNil(rageIdx, "expected rage to be collected")
+    assertx.assertNotNil(comboIdx, "expected combopoints to be collected")
+    assertx.assertTrue(rageIdx < comboIdx, "rage was pinned first, so it must appear first")
+end
+
+function M.test_comboPoints_pinned_landsBeforeAResourcePinnedAfterIt()
+    local ns = fresh()
+    mock.playerClass = "ROGUE"
+    mock.comboPoints = 0
+    mock.power[1], mock.powerMax[1] = 20, 100
+
+    -- Same two resources, ticked in the opposite order.
+    local pinned = { { key = "combopoints" }, { key = "rage" } }
+    local entries = ns:CollectResources({ pinned = pinned })
+
+    local rageIdx, comboIdx
+    for i, e in ipairs(entries) do
+        if e.key == "rage" then rageIdx = i end
+        if e.key == "combopoints" then comboIdx = i end
+    end
+    assertx.assertTrue(comboIdx < rageIdx, "combo points was pinned first this time, so it must appear first")
+end
+
+-- Also active (cur > 0) as well as pinned: the pin still governs position,
+-- not the "already in use" early path.
+function M.test_comboPoints_pinnedAndActive_stillFollowsTickOrder()
+    local ns = fresh()
+    mock.playerClass = "ROGUE"
+    mock.comboPoints = 3
+    mock.power[1], mock.powerMax[1] = 20, 100
+
+    local pinned = { { key = "rage" }, { key = "combopoints" } }
+    local entries = ns:CollectResources({ pinned = pinned })
+
+    local rageIdx, comboIdx
+    for i, e in ipairs(entries) do
+        if e.key == "rage" then rageIdx = i end
+        if e.key == "combopoints" then comboIdx = i end
+    end
+    assertx.assertTrue(rageIdx < comboIdx, "rage was pinned first, so an active combo count must still fall in behind it")
+end
+
 return M
