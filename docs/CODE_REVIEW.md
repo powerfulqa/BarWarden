@@ -220,6 +220,23 @@ I. **Bar Style dropdown has no `[?]` help icon.** Every other Group Settings
    the wide `UIDropDownMenuTemplate` box itself, which would put the icon in
    the wrong place. Adding one needs `ns:CreateDropdown` to expose the label
    frame first. Deferred, not forgotten.
+J. **`UnitClass("player")` is not a trustworthy signal in `ns:CollectResources`
+   (v2.5.0 fix).** The owner plays on Grimfall, a classless private server
+   where every character reports the same class token while genuinely having
+   any combination of runes/rage/energy/mana/soul shards at once. Gating
+   Runes/Runic Power/Soul Shards on a class token made them permanently
+   uncollectable there. `HasRunes`/`HasRunicPower` (Trackers.lua, `EC-TRAP`
+   marked) now probe the actual API instead, and Soul Shards/Combo Points
+   read their own values directly. Standing constraint: any future
+   auto-detected resource in `ns:CollectResources` must be gated on a
+   capability probe, never on `UnitClass`. The one accepted cosmetic
+   trade-off: pinning "Keep Combo Points Visible" for a character that
+   structurally cannot generate any still shows a static 0/5 bar, since
+   `GetComboPoints` has no zero-max signal the way a power pool does. This
+   does not touch `Conditions.lua`'s `requireClass` bar condition or
+   `ClassPresets.lua`'s per-bar `requireClass` stamping, which are explicit,
+   opt-in, user-facing class checks rather than automatic resource
+   detection, and remain unaffected.
 
 ## Resolved (kept for the record)
 

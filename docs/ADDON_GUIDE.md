@@ -279,40 +279,66 @@ hide an idle group. Health and current-power-type generalise to all three
 units for free: neither reads anything that depends on which specific unit
 token was passed in, so no per-unit code exists for either step.
 
-Class-resource applicability is NOT one `UnitClass(unit)` call generalised
-across all three feeds; it splits by what the resource actually is:
-  * Runes, Runic Power, and Soul Shards are the PLAYER's own resource pools
-    - the checkers behind them (`GetRuneCooldown`, `UnitPower("player", 6)`,
-      `GetItemCount`) always read the player's own runes/bags regardless of
-      what `unit` names, so they are only ever collected for
-      `unit == "player"`, still gated on `UnitClass("player")` (the same
-      signal Conditions.lua's `requireClass` condition uses).
+Class-resource applicability is CAPABILITY-PROBED, not `UnitClass(unit)`-
+gated (v2.5.0 fix). It used to be: `UnitClass("player")` matched against
+`"DEATHKNIGHT"` (Runes, Runic Power), `"WARLOCK"` (Soul Shards), or
+`"ROGUE"`/`"DRUID"` (Combo Points). That broke down completely on Grimfall,
+the classless private server BarWarden's owner plays on: `UnitClass("player")`
+reports the SAME class token (DRUID) for every character there, while a
+character can genuinely have mana, energy, rage AND six live runes at once.
+Gating on the class token made Runes and Soul Shards permanently
+uncollectable for anyone on that server, since the token they needed to
+match never appeared. `HasRunes()`/`HasRunicPower()` (Trackers.lua, marked
+`EC-TRAP` - do not reintroduce a class check) probe the actual API instead,
+which is also more correct on a normal Blizzard server: it no longer depends
+on `UnitClass` returning anything meaningful at all. It still splits by what
+the resource actually is:
+  * Runes and Runic Power are the PLAYER's own resource pools - the
+    checkers behind them (`GetRuneCooldown`, `UnitPower("player", 6)`) always
+    read the player's own runes/pool regardless of what `unit` names, so
+    they are only ever collected for `unit == "player"`. `HasRunes()` treats
+    `GetRuneCooldown`'s `duration` as the capability signal: a slot with no
+    real rune data reads back duration 0, while a genuine rune - ready or on
+    cooldown - always carries its real cooldown length. `GetRuneType` is not
+    used as a signal; it returns a plausible-looking type even for a slot
+    that does not exist. `HasRunicPower()` reads `UnitPowerMax("player", 6)`
+    directly (not through `CheckRunicPower`, which forces a non-zero max as
+    a display fallback for a hand-placed bar and so would report "has Runic
+    Power" for everyone).
+  * Soul Shards have no capability API at all - `GetItemCount` is a plain bag
+    count, as truthful for "never picked one up" as for "cannot hold one".
+    Showing "0 Soul Shards" to everyone would be noise, so the entry is
+    gated on `GetItemCount(SOUL_SHARD_ITEM_ID) > 0`: it appears once a real
+    shard is held and disappears once the last one is spent. There is no pin
+    for this yet.
   * Combo Points sit in between: `GetComboPoints("player", "target")` is
     already, unconditionally, a "your points on your CURRENT target"
     reading - it never changes meaning depending on whether the player or
     target feed asks for it, so they are offered on BOTH (matching how
     Blizzard itself anchors `ComboFrame` to `TargetFrame`, not
-    `PlayerFrame` - see "Hide Blizzard Player/Target Frame" below), still
-    gated on the player's own class. They stop there: the `totResources`
-    feed (`unit == "targettarget"`) does NOT get them, because
-    `GetComboPoints` has no "on my target's target" reading to give at all
-    - showing them there would just repeat the exact same player/target
-    number under a label that implies it belongs to a third, different
-    unit. This is the opposite generalisation problem from Runes/Runic
-    Power/Soul Shards above (which fail on `unit == "target"` because they
+    `PlayerFrame` - see "Hide Blizzard Player/Target Frame" below). They
+    stop there: the `totResources` feed (`unit == "targettarget"`) does NOT
+    get them, because `GetComboPoints` has no "on my target's target"
+    reading to give at all - showing them there would just repeat the exact
+    same player/target number under a label that implies it belongs to a
+    third, different unit. This is the opposite generalisation problem from
+    Runes/Runic Power above (which fail on `unit == "target"` because they
     read the PLAYER's own data): Combo Points fail on
     `unit == "targettarget"` because the API itself has nothing to say
     about that unit at all.
 
-    Visibility (v2.5.0): unlike Runic Power/Soul Shards (always shown for
-    their class, zero included), Combo Points behave like a pinnable power
-    type - shown while "in use" (`cur > 0`), or unconditionally once the
-    owner ticks "Keep Combo Points Visible" (the `combopoints` key in
-    `autoPinnedResources`). The class gate above still wraps both halves:
-    `GetComboPoints` returns a plain number with no notion of "this class
-    cannot have any", so the pin only ever takes effect for a Rogue or
-    Druid - ticking it for any other class still shows nothing, exactly
-    like pinning Rage for a Mage.
+    Visibility (v2.5.0): shown while "in use" (`cur > 0`), or
+    unconditionally once the owner ticks "Keep Combo Points Visible" (the
+    `combopoints` key in `autoPinnedResources`). There is no class gate any
+    more: `GetComboPoints` already reads back a genuine 0 for a character
+    that cannot generate any, so `cur > 0` alone is the capability signal.
+    The one residual imperfection this accepts: pinning "Keep Combo Points
+    Visible" for a character that structurally never generates any still
+    shows a static 0/5 bar, because Combo Points have no zero-max signal the
+    way a power pool does (`UnitPowerMax(unit, powerType) <= 0` is what
+    makes pinning Rage for a Mage a no-op). That is accepted as a harmless,
+    opt-in cosmetic case, and the only way to let a classless server's
+    non-Rogue/Druid characters pin Combo Points they can genuinely generate.
 
 Pinning applies identically to all three feeds: `opts.pinned` reads off
 `unit` too (via the same `addPowerType` helper the current-power-type step
@@ -1382,6 +1408,7 @@ Current trap sites:
 | [Conditions.lua](../Conditions.lua) | `GetNumPartyMembers()` / `GetNumRaidMembers()` (looks like it should be `GetNumGroupMembers`) | Those are the 3.3.5a group queries; `GetNumGroupMembers` is Cataclysm+, absent here. |
 | [FrameManager.lua](../FrameManager.lua) `IsGroupEmptyForBackdrop` | the auto-group branch looks redundant with the `#frameData.bars == 0` check below it | `frameData.bars` is always the dormant hand-bar list for a pure auto-tracking group (kept for when Auto Track is switched off), so that check is permanently true and tells us nothing. Collapsing the two branches back into one reintroduces the v2.2.1 bug: Background Opacity ignored, stuck at solid black on any populated auto-tracking group. |
 | [FrameManager.lua](../FrameManager.lua) `ns:UpdateGroupLayout` | the re-anchor sits AFTER `SetHeight`/`SetWidth` (looks like it should read the frame's edges first, so it keeps the corner the user is currently looking at) | Reading first is right only while the size is not also changing, which is every relayout of a settled group - so both orderings agree there and the wrong one never showed itself. They diverge exactly where it matters: `ns:RebuildAllFrames` lays out a frame `ns:CreateGroupFrame` stubbed at `SetHeight(30)`, and an auto-tracking group is laid out with every slot still hidden. Repinning from that geometry pinned the wrong edge by (final height minus the size it was read at) and saved it, which is the v2.2.3 bug. Resize first so the frame grows away from the corner it is already held by. The mismatch guard above it is the v2.0.2 drift fix and must stay. |
+| [Trackers.lua](../Trackers.lua) `ns:CollectResources` / `HasRunes` / `HasRunicPower` | no `UnitClass("player")` check gates Runes/Runic Power/Soul Shards/Combo Points (looks like the class check was simply forgotten) | v2.5.0 classless-server fix. The owner plays on Grimfall, where `UnitClass("player")` reports the SAME class token for every character while a character can genuinely have any combination of resources at once; gating on the token made Runes/Soul Shards permanently uncollectable for anyone there. Each resource is now gated on whether the game reports it as actually present (`GetRuneCooldown` duration, `UnitPowerMax("player", 6)`, `GetItemCount`, `GetComboPoints`'s own value), not on the class token. Do not reintroduce a `UnitClass` gate here. |
 | [Options_Bars.lua](../Options_Bars.lua) `KeepListFrameShown` | the `Show()` right after `FauxScrollFrame_Update` (looks redundant) | Blizzard's `FauxScrollFrame_Update` hides the whole scroll frame, not just its scrollbar, when the list fits without scrolling, and the rest of the column anchors to that frame. Removing the `Show()` re-breaks the Bar Control page whenever a list drops from 7 items to 6 (the dependants strand at the panel origin until something re-shows the frame). |
 | [Comms.lua](../Comms.lua) | `SetItemRef` reassigned wholesale (looks like it should be `hooksecurefunc`'d like everything else) | Replaced on purpose: the stock 3.3.5a handler passes unknown link types to `SetHyperlink`, which errors on the addon's custom `bwupdate:` link. Returning early avoids that path; every other link is forwarded to the original untouched. Do not swap this to a hook. |
 | [Core.lua](../Core.lua) `ns:ApplyPlayerFrameHidden` | the `PlayerFrame:HookScript("OnShow", ...)` looks redundant next to the `Hide()` call right above it | It is not a duplicate: `Hide()` only takes effect for the instant it runs, while Blizzard re-`Show()`s `PlayerFrame` on a long list of events for the rest of the session. `HookScript` cannot be removed, so the hook - not the `Hide()` call - is what keeps the frame down after the first time, and it re-checks the live setting on every call rather than being installed only while the setting is on. Deleting it "as a duplicate" brings the frame back the next time Blizzard shows it. |

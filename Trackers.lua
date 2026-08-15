@@ -837,6 +837,44 @@ local function CheckRunes(barConfig)
     return true, current, duration, icon, name, ceil(cdRemaining), runeType
 end
 
+-- ----------------------------------------------------------------------------
+-- Capability probes for the PLAYER's own DK/Warlock-flavoured pools, used by
+-- ns:CollectResources below INSTEAD OF UnitClass("player") - see the long
+-- comment above that function for the full reasoning.
+-- ----------------------------------------------------------------------------
+
+-- EC-TRAP: this reads GetRuneCooldown's raw `duration` across all six slots
+-- rather than trusting UnitClass - it looks like the class check that used
+-- to gate Runes is simply missing. Do NOT reintroduce
+-- `UnitClass("player") == "DEATHKNIGHT"` here: on a classless private server
+-- every character can report the same class token while some genuinely have
+-- runes and some do not, so the class token is not evidence either way (see
+-- the CollectResources comment below). `duration > 0` is: a slot that was
+-- never granted real rune data reads back duration 0 (tests/mock_wow.lua's
+-- default stub models exactly that "no data" case), while a genuine rune -
+-- ready or on cooldown - always carries its real cooldown length. GetRuneType
+-- is deliberately NOT probed here: unlike duration, it returns a
+-- plausible-looking type (see its own default mock stub) even for a slot
+-- that does not exist at all, so it cannot tell "has runes" from "has none".
+local function HasRunes()
+    for slot = 1, 6 do
+        local _, duration = GetRuneCooldown(slot)
+        if duration and duration > 0 then return true end
+    end
+    return false
+end
+
+-- Power type 6 (Runic Power): UnitPowerMax("player", 6) > 0 is a direct
+-- capability read, the same raw global the current-power-type step further
+-- below already calls unmasked. CheckRunicPower is NOT usable as a probe: it
+-- deliberately forces a non-zero max as a display fallback for a hand-placed
+-- bar (see its own comment above), so calling it would report "has Runic
+-- Power" for every character regardless of whether the pool is real.
+local function HasRunicPower()
+    local maxPower = UnitPowerMax("player", 6)
+    return maxPower ~= nil and maxPower > 0
+end
+
 -- Health / Mana / Energy / Rage: the plain character-stat resources, added
 -- alongside the class resources above. Same value-not-timer reasoning: a
 -- health bar does not count down, it just reflects UnitHealth right now.
@@ -992,42 +1030,82 @@ end
 --            feed needs an extra guard to keep "pin Rage" harmless against
 --            a unit that has none.
 --
--- Class-resource applicability splits three ways, not one UnitClass(unit)
--- call generalised naively:
---   * Runes, Runic Power, and Soul Shards are the PLAYER's own resource
---     pools - GetRuneCooldown/GetRuneType, UnitPower("player", 6) and
---     GetItemCount(SOUL_SHARD_ITEM_ID) all read the player's own runes/bags
---     regardless of what `unit` names, so gating them on UnitClass(unit)
---     for a target feed would show YOUR OWN soul shards under a label that
+-- Class-resource applicability is CAPABILITY-PROBED, not UnitClass-gated.
+--
+-- EC-TRAP: there is no `UnitClass("player") == "DEATHKNIGHT"` (or ROGUE,
+-- DRUID, WARLOCK) check anywhere in this function, which looks like a
+-- missing guard - a future reader tidying this up might reach for UnitClass
+-- again "to make it simpler". Do NOT: BarWarden's owner plays on Grimfall, a
+-- classless private server where UnitClass("player") reports the SAME class
+-- token (DRUID) for every character regardless of what that character can
+-- actually do - a character there can genuinely have mana, energy, rage AND
+-- six live runes all at once. Gating Runes/Runic Power/Soul Shards on a
+-- class token made them permanently uncollectable for ANYONE on that
+-- server, because the token they would need to match never appears. The
+-- fix is to ask the game whether the resource is really there
+-- (`HasRunes`/`HasRunicPower` above, `GetItemCount` for Soul Shards,
+-- `GetComboPoints`'s own value for Combo Points) instead of inferring it
+-- from a class name - which is also more correct on a normal Blizzard
+-- server, since it no longer depends on UnitClass returning anything
+-- meaningful at all.
+--
+--   * Runes and Runic Power are the PLAYER's own resource pools -
+--     GetRuneCooldown/GetRuneType and UnitPower("player", 6) always read the
+--     player's own runes/pool regardless of what `unit` names, so gating
+--     them on a target's data (or a target's class - which does not even
+--     exist; UnitClass(unit) returns nil for a non-player unit on this
+--     client) would show YOUR OWN runes/runic power under a label that
 --     implies they belong to whatever is targeted. They are therefore only
---     ever collected for unit == "player", still gated on UnitClass("player")
---     - the same signal Conditions.lua's requireClass condition already uses
---     to keep a DK's rune bar off a Mage's copied profile. None of the three
---     checkers themselves encode "does this class have this resource":
---     CheckRunicPower and CheckSoulShards both force a non-zero max as a
---     display fallback for a hand-placed bar (see their own comments), so
---     calling them alone could never tell an applicable class from an
---     inapplicable one; UnitClass is the only honest signal available here.
---   * Combo Points are different: GetComboPoints("player", "target") is
---     already, unconditionally, a "your points on your CURRENT target"
+--     ever collected for unit == "player", gated on `HasRunes()`/
+--     `HasRunicPower()` (above) instead of a class token.
+--   * Soul Shards have no capability API at all: `GetItemCount` is a plain
+--     bag count, exactly as truthful for a character that has simply never
+--     picked one up as for one that structurally never can hold one.
+--     Showing "0 Soul Shards" to every character would be noise (worse on a
+--     classless server, where every character's class token is identical,
+--     but true on a normal one too, for every class that never carries
+--     one), so the shown-only-when-real rule Combo Points already use below
+--     is reused here: a Soul Shard entry appears only once `GetItemCount`
+--     reports at least one, and disappears again once the last one is
+--     spent. There is no pin for this yet (Options_Bars.lua has no "Keep
+--     Soul Shards Visible" tickbox); if one is ever added it should gate the
+--     same way the Combo Points pin does, not by resurrecting a class check.
+--   * Combo Points are different again: GetComboPoints("player", "target")
+--     is already, unconditionally, a "your points on your CURRENT target"
 --     reading - it does not change meaning depending on whether the player
---     or target feed asks for it. Blizzard's own UI agrees: ComboFrame is
---     anchored to TargetFrame, not PlayerFrame (see Core.lua's
---     TARGET_HIDE_FRAME_NAMES), so "combo points belong with the target
---     you're building them on" is not a new idea here. They are offered on
---     the player feed and the target feed - unlike Runes/Runic Power/Soul
+--     or target feed asks for it, and (unlike Runes/Runic Power/Soul
+--     Shards) it carries its own honest zero: a character that cannot
+--     generate combo points reads back 0 the exact same way as one that
+--     simply has none banked right now, so there is nothing further to
+--     probe. Blizzard's own UI agrees that they travel with the target, not
+--     the player: ComboFrame is anchored to TargetFrame, not PlayerFrame
+--     (see Core.lua's TARGET_HIDE_FRAME_NAMES). They are offered on the
+--     player feed and the target feed - unlike Runes/Runic Power/Soul
 --     Shards, showing them via the target feed is never a mislabelled read
---     of your own data, it is the same reading either way - still gated on
---     the PLAYER's own class (only a Rogue or Druid has combo points at
---     all, whatever is targeted). They stop there, though: the target's-
---     target feed (unit == "targettarget") does NOT get them, because
---     GetComboPoints has no "on my target's target" reading to offer - it
---     is hardcoded to "target", so showing them under a targettarget group
---     would just repeat the exact same player/target number under a label
---     that implies it belongs to a different unit entirely. Health and the
---     current-power-type step above are not like this: they genuinely
---     describe whatever "targettarget" resolves to, so they generalise
---     cleanly where Combo Points do not.
+--     of your own data, it is the same reading either way. They stop at the
+--     target's-target feed (unit == "targettarget"), because GetComboPoints
+--     has no "on my target's target" reading to offer - it is hardcoded to
+--     "target", so showing them under a targettarget group would just
+--     repeat the exact same player/target number under a label that implies
+--     it belongs to a different unit entirely. Health and the current-
+--     power-type step above are not like this: they genuinely describe
+--     whatever "targettarget" resolves to, so they generalise cleanly where
+--     Combo Points do not.
+--
+--     Visibility follows the same "shown while genuinely in use" rule as a
+--     pinnable power type: `cur > 0`, or the owner has ticked "Keep Combo
+--     Points Visible" (the pinned-extras block near the end of this
+--     function). That inner condition is now the ONLY gate - there is no
+--     outer class check any more - which is sufficient for every case except
+--     one: pinning "Keep Combo Points Visible" for a character that
+--     structurally never generates any still shows a static 0/5 bar, since
+--     Combo Points have no zero-max signal the way a power pool does
+--     (`UnitPowerMax(unit, powerType) <= 0` is what makes pinning Rage for a
+--     Mage a no-op elsewhere in this function). That is accepted: it is a
+--     harmless, opt-in cosmetic case - the owner has to tick the box
+--     themselves, nothing appears on its own - and it is the only way to let
+--     a classless server's non-Rogue/Druid characters pin real Combo Points
+--     they can genuinely generate.
 --
 -- ----------------------------------------------------------------------------
 -- Pinned-resource ordering (v2.5.0): groupData.autoPinnedResources used to be
@@ -1216,22 +1294,17 @@ function ns:CollectResources(opts)
     -- be the exact same player/target reading, mislabelled under a group
     -- about a third, different unit - unlike Health/current-power-type
     -- above, which genuinely describe whatever "targettarget" resolves to.
-    -- Gated on the PLAYER's class regardless of which of the two eligible
-    -- feeds is asking.
     --
     -- Visibility (v2.5.0): shown while "in use" (cur > 0), same as a power
     -- type is shown while it is the current one, OR when the owner has
     -- ticked "Keep Combo Points Visible" (autoPinnedResources' "combopoints"
     -- key) - matching how a pinned power type stays up even when it is not
-    -- the current one. The class gate above still applies REGARDLESS of the
-    -- pin: GetComboPoints returns a plain number with no notion of "this
-    -- class cannot have any", so without the outer `if` here, pinning would
-    -- conjure a 0/5 bar for a class - a Mage, say - that can never generate
-    -- one at all.
-    local _, classToken = UnitClass("player")
-
-    if (unit == "player" or unit == "target")
-       and (classToken == "ROGUE" or classToken == "DRUID") then
+    -- the current one. No class check wraps this any more (see the file
+    -- comment above for why, and for the one cosmetic case it accepts): the
+    -- `cur > 0` half of this condition IS the capability probe, since
+    -- GetComboPoints already reads back a genuine 0 for a character that
+    -- cannot generate any.
+    if unit == "player" or unit == "target" then
         local _, cur, mx, icon, name = CheckComboPoints({})
         if (cur and cur > 0) or pinnedKeys.combopoints then
             addEntry("combopoints", name, cur, mx, icon)
@@ -1240,21 +1313,30 @@ function ns:CollectResources(opts)
 
     -- Runes, Runic Power, and Soul Shards are the PLAYER's own resource
     -- pools (see the file comment above): only ever collected for the
-    -- player's own feed, gated the same way as before. A Death Knight gets
-    -- Runes plus Runic Power (already added above via their current power
-    -- type; addEntry's `seen` guard makes the explicit add below a harmless
-    -- no-op rather than a duplicate bar), a Warlock gets Soul Shards.
+    -- player's own feed, gated on capability (HasRunicPower/HasRunes/
+    -- GetItemCount), never on UnitClass. A character with Runic Power gets
+    -- it here too, even though it is usually already added above via the
+    -- current-power-type step; addEntry's `seen` guard makes the explicit
+    -- add below a harmless no-op rather than a duplicate bar.
     if unit == "player" then
-        if classToken == "DEATHKNIGHT" then
+        if HasRunicPower() then
             local _, rpCur, rpMax, rpIcon, rpName = CheckRunicPower({})
             addEntry("runicpower", rpName, rpCur, rpMax, rpIcon)
+        end
+
+        if HasRunes() then
             for slot = 1, 6 do
                 local _, cur, mx, icon, name, stacks, runeType = CheckRunes({ spellId = slot })
                 addEntry("rune" .. slot, name, cur, mx, icon, stacks, "Runes", runeType)
             end
         end
 
-        if classToken == "WARLOCK" then
+        -- No capability API exists for Soul Shards (see the file comment
+        -- above): GetItemCount > 0 is the only honest "has one right now"
+        -- signal, so the bar appears with the count already in hand rather
+        -- than a class-inferred, possibly-empty one.
+        local shardCount = GetItemCount(SOUL_SHARD_ITEM_ID) or 0
+        if shardCount > 0 then
             local _, cur, mx, icon, name = CheckSoulShards({})
             addEntry("soulshards", name, cur, mx, icon)
         end

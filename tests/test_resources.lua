@@ -146,6 +146,82 @@ function M.test_runeEntries_carryTheirRuneType()
     end
 end
 
+-- --------------------------------------------------------------------------
+-- Capability probing, not class gating (v2.5.0 classless-server fix).
+--
+-- BarWarden's owner plays on Grimfall, a classless private server where
+-- UnitClass("player") reports the SAME class token (DRUID) for every
+-- character while a character can genuinely have mana, energy, rage AND six
+-- live runes at once. Gating Runes/Runic Power on classToken ==
+-- "DEATHKNIGHT" made them permanently uncollectable there, since that token
+-- never appears. HasRunes()/HasRunicPower() (Trackers.lua) probe the actual
+-- API instead - these tests are the regression coverage for that bug.
+-- --------------------------------------------------------------------------
+
+-- The owner's exact case: a character UnitClass reports as DRUID, but who
+-- genuinely has runes because the server does not gate resources by class.
+function M.test_druidClassToken_withRunesGetsRuneEntries()
+    local ns = fresh()
+    mock.playerClass = "DRUID"
+    mock.powerType, mock.powerTypeToken = 3, "ENERGY"
+    mock.power[3], mock.powerMax[3] = 100, 100
+    mock.runeCooldown = function(slot) return 0, 10, true end -- all six ready
+
+    local entries = ns:CollectResources()
+    for slot = 1, 6 do
+        assertx.assertNotNil(findEntry(entries, "rune" .. slot),
+            "a DRUID-flagged character with real rune data must still get rune slot " .. slot)
+    end
+end
+
+-- The flip side of the regression test above: removing the class gate must
+-- not spray six empty rune bars at every character. A DRUID-flagged
+-- character with no real rune data (the mock's default GetRuneCooldown,
+-- duration 0 on every slot) must see none at all.
+function M.test_druidClassToken_withNoRunesGetsNoRuneEntries()
+    local ns = fresh()
+    mock.playerClass = "DRUID"
+    mock.powerType, mock.powerTypeToken = 3, "ENERGY"
+    mock.power[3], mock.powerMax[3] = 100, 100
+
+    local entries = ns:CollectResources()
+    for slot = 1, 6 do
+        assertx.assertNil(findEntry(entries, "rune" .. slot),
+            "a character with no real rune data must not get an empty rune " .. slot .. " bar")
+    end
+end
+
+-- Runic Power follows UnitPowerMax("player", 6), not classToken ==
+-- "DEATHKNIGHT": a non-DK-flagged character with a real Runic Power pool
+-- (as any character can have on a classless server) must still see it.
+function M.test_nonDeathKnightClassToken_withRunicPowerCapabilityGetsIt()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.powerType, mock.powerTypeToken = 1, "RAGE"
+    mock.power[1], mock.powerMax[1] = 20, 100
+    mock.power[6], mock.powerMax[6] = 40, 100
+
+    local entries = ns:CollectResources()
+    local rp = findEntry(entries, "runicpower")
+    assertx.assertNotNil(rp, "a real Runic Power pool must show regardless of the class token")
+    assertx.assertEqual(rp.current, 40)
+end
+
+-- The converse: a DEATHKNIGHT-flagged character with no real Runic Power
+-- pool (UnitPowerMax returning 0) must not get a fabricated bar just because
+-- the class token used to be the trigger.
+function M.test_deathKnightClassToken_withoutRunicPowerCapabilityGetsNone()
+    local ns = fresh()
+    mock.playerClass = "DEATHKNIGHT"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 100, 100
+    mock.powerMax[6] = 0
+
+    local entries = ns:CollectResources()
+    assertx.assertNil(findEntry(entries, "runicpower"),
+        "the class token alone must not conjure a Runic Power bar with no real pool behind it")
+end
+
 function M.test_rogueGetsComboPoints()
     local ns = fresh()
     mock.playerClass = "ROGUE"
@@ -182,6 +258,39 @@ function M.test_warlockGetsSoulShards()
     local shards = findEntry(entries, "soulshards")
     assertx.assertNotNil(shards)
     assertx.assertEqual(shards.current, 3)
+end
+
+-- Soul Shards decision: GetItemCount has no capability signal at all (it is
+-- a plain bag count, honest for "never picked one up" and "structurally
+-- cannot hold one" alike), so the entry is gated on count > 0, not on
+-- classToken == "WARLOCK" - a DRUID-flagged character actually carrying
+-- shards (as is possible on a classless server) must see them.
+function M.test_nonWarlockClassToken_withShardsGetsSoulShards()
+    local ns = fresh()
+    mock.playerClass = "DRUID"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 1000, 2000
+    mock.itemCount[6265] = 2
+
+    local entries = ns:CollectResources()
+    local shards = findEntry(entries, "soulshards")
+    assertx.assertNotNil(shards, "a real Soul Shard count must show regardless of the class token")
+    assertx.assertEqual(shards.current, 2)
+end
+
+-- The converse: showing "0 Soul Shards" to a WARLOCK-flagged character with
+-- none in their bags would be noise (and, on a classless server, noise for
+-- everyone) - GetItemCount reporting 0 must hide the bar even for the class
+-- that used to trigger it unconditionally.
+function M.test_warlockClassToken_withNoShardsGetsNoSoulShards()
+    local ns = fresh()
+    mock.playerClass = "WARLOCK"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 1000, 2000
+
+    local entries = ns:CollectResources()
+    assertx.assertNil(findEntry(entries, "soulshards"),
+        "zero Soul Shards must not show, even for a Warlock-flagged character")
 end
 
 function M.test_mageGetsNoClassResources()
@@ -509,8 +618,10 @@ end
 -- hard-codes "player", "target" regardless of which feed asks), so unlike
 -- Runes/Runic Power/Soul Shards, offering them on the target feed is never a
 -- mislabelled read of someone else's data - it is the exact same reading
--- either feed would give. Decision: show Combo Points on BOTH feeds, still
--- gated on the player's own class.
+-- either feed would give. Decision: show Combo Points on BOTH feeds, gated
+-- on GetComboPoints' own value (cur > 0), not on UnitClass("player") - see
+-- the CollectResources file comment (Trackers.lua) for why a class token was
+-- dropped as a signal here too.
 -- --------------------------------------------------------------------------
 
 function M.test_comboPoints_appearOnTargetFeedToo()
@@ -527,7 +638,11 @@ function M.test_comboPoints_appearOnTargetFeedToo()
     assertx.assertEqual(cp.current, 3)
 end
 
-function M.test_comboPoints_stillGatedOnPlayerClassForTargetFeed()
+-- Was "test_comboPoints_stillGatedOnPlayerClassForTargetFeed" (asserted the
+-- opposite): on a classless server UnitClass("player") reporting "MAGE" is
+-- not proof the character cannot generate combo points - GetComboPoints'
+-- own non-zero value is what proves it, whatever the class token says.
+function M.test_comboPoints_appearRegardlessOfClassTokenOnTargetFeed()
     local ns = fresh()
     mock.playerClass = "MAGE"
     mock.comboPoints = 3
@@ -536,7 +651,9 @@ function M.test_comboPoints_stillGatedOnPlayerClassForTargetFeed()
     mock.targetPower[0], mock.targetPowerMax[0] = 1000, 1000
 
     local entries = ns:CollectResources({ unit = "target" })
-    assertx.assertNil(findEntry(entries, "combopoints"), "a Mage has no Combo Points on either feed")
+    local cp = findEntry(entries, "combopoints")
+    assertx.assertNotNil(cp, "GetComboPoints reporting a real value must surface it regardless of the class token")
+    assertx.assertEqual(cp.current, 3)
 end
 
 -- --------------------------------------------------------------------------
@@ -650,8 +767,12 @@ end
 -- Combo Points pin (v2.5.0): at zero, Combo Points behave like the other
 -- pinnable resources - shown while "in use" (here, while you have at least
 -- one), hidden at zero unless the owner has ticked "Keep Combo Points
--- Visible". Pinning must still respect the class gate: it cannot make them
--- appear for a class that has no Combo Points pool at all.
+-- Visible". There is no class gate any more (see the CollectResources file
+-- comment, Trackers.lua): pinning at zero shows the bar for ANY class token,
+-- including one that (on a normal Blizzard server) could never generate a
+-- combo point at all - that residual static-0/5-bar case is the accepted
+-- cost of not inferring capability from UnitClass, since the class token is
+-- not trustworthy on a classless server.
 -- --------------------------------------------------------------------------
 
 function M.test_comboPoints_hiddenAtZeroWhenUnpinned()
@@ -685,14 +806,21 @@ function M.test_comboPoints_nonZeroShowsEvenUnpinned()
         "an already-active combo point count keeps showing without needing the pin")
 end
 
-function M.test_comboPoints_pinDoesNotShowForClassThatCannotGenerateThem()
+-- Was "test_comboPoints_pinDoesNotShowForClassThatCannotGenerateThem"
+-- (asserted the opposite): that behaviour depended on UnitClass("player"),
+-- which is exactly the signal this fix removes. Pinning now shows the bar
+-- regardless of the class token - see the pin's own comment above for why
+-- that is the accepted trade-off, not a regression.
+function M.test_comboPoints_pinShowsRegardlessOfClassToken()
     local ns = fresh()
     mock.playerClass = "MAGE"
     mock.comboPoints = 0
 
     local entries = ns:CollectResources({ pinned = { { key = "combopoints" } } })
-    assertx.assertNil(findEntry(entries, "combopoints"),
-        "a Mage cannot generate Combo Points, so pinning them must not conjure a bar")
+    local cp = findEntry(entries, "combopoints")
+    assertx.assertNotNil(cp,
+        "pinning must not depend on the class token, which is not trustworthy on a classless server")
+    assertx.assertEqual(cp.current, 0)
 end
 
 function M.test_comboPoints_pinnedShowsAtZeroOnTargetFeedToo()

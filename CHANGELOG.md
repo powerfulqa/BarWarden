@@ -91,8 +91,7 @@ the same current-power-type signal the game itself uses.
 - **A new "Keep Combo Points Visible" pin**, with its own colour swatch,
   alongside Mana / Rage / Energy. Combo points now show once you have at
   least one, the same as any other resource; ticking the pin keeps the bar
-  up at zero too. It only ever does anything for a Rogue or Druid - ticking
-  it for a class with no combo point pool still shows nothing.
+  up at zero too.
 - **A new Group Name Follows Target tickbox**, on the target and
   target-of-target resource groups, shows the unit's own name as the
   group's title instead of the name you gave the group. Off by default; a
@@ -115,6 +114,16 @@ the same current-power-type signal the game itself uses.
   and the deferral meant Blizzard's own code could re-show the frame the
   instant a fight started and it would stay up for the rest of it. Both
   settings now apply straight away regardless of combat state.
+- **Fix: your resources now show based on what you actually have, not what
+  class you are.** Runes, Runic Power and Soul Shards used to only appear if
+  your class matched (Death Knight for Runes/Runic Power, Warlock for Soul
+  Shards). On servers where every character reports the same class, such as
+  classless private servers, that meant Runes and Soul Shards could never
+  show for anyone, even characters who genuinely had them. They are now
+  detected directly: do you actually have runes, a Runic Power pool, or
+  shards in your bags, so they work correctly whatever your class shows as.
+  Combo Points work the same way now too, showing once you have any,
+  whatever your class.
 
 ---
 

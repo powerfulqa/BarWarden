@@ -83,11 +83,24 @@ M.powerTypeToken = "MANA"
 
 -- Rune / totem / enchant fallbacks (mostly irrelevant for the logic we test,
 -- but stubs must exist so Trackers.lua loads without erroring).
-M.runeCooldown  = function(slot) return 0, 0, true end
-M.runeType      = function(slot) return 1 end
+--
+-- These defaults model "no real rune/enchant/totem data" (duration 0 = the
+-- HasRunes() capability probe in Trackers.lua reads this as "does not have
+-- runes"), so M.reset() below restores them between tests: since
+-- ns:CollectResources v2.5.0 stopped gating class resources on UnitClass and
+-- started probing capability instead, a leftover override from an earlier
+-- test (e.g. a Death Knight test's non-zero rune duration) would leak a real
+-- capability signal into an unrelated later test instead of a harmless no-op.
+local DEFAULT_RUNE_COOLDOWN = function(slot) return 0, 0, true end
+local DEFAULT_RUNE_TYPE     = function(slot) return 1 end
+local DEFAULT_TOTEM         = function(slot) return false, "", 0, 0, nil end
+local DEFAULT_INV_TEXTURE   = function(unit, slot) return nil end
+
+M.runeCooldown  = DEFAULT_RUNE_COOLDOWN
+M.runeType      = DEFAULT_RUNE_TYPE
 M.weaponEnchant = { false, 0, 0, false, 0, 0 }  -- mh, mhExpire, mhCharges, oh, ohExpire, ohCharges
-M.totem         = function(slot) return false, "", 0, 0, nil end
-M.invTexture    = function(unit, slot) return nil end
+M.totem         = DEFAULT_TOTEM
+M.invTexture    = DEFAULT_INV_TEXTURE
 
 -- --------------------------------------------------------------------------
 -- Reset helper
@@ -133,6 +146,11 @@ function M.reset()
     for k in pairs(M.totPowerMax) do M.totPowerMax[k] = nil end
     M.totPowerType      = 0
     M.totPowerTypeToken = "MANA"
+    M.runeCooldown  = DEFAULT_RUNE_COOLDOWN
+    M.runeType      = DEFAULT_RUNE_TYPE
+    M.weaponEnchant = { false, 0, 0, false, 0, 0 }
+    M.totem         = DEFAULT_TOTEM
+    M.invTexture    = DEFAULT_INV_TEXTURE
 end
 
 -- --------------------------------------------------------------------------
