@@ -1234,8 +1234,21 @@ local function CreateBarsTab(parent)
         end)
 
         -- Drag-to-reorder bars within the selected group (click still selects).
+        -- Refused for a sorted group: its bar order comes from Sort Mode, not
+        -- this array, so a drop would land in an unrelated slot and even a
+        -- "successful" one has no visible effect (CODE_REVIEW.md's Resolved
+        -- section, "drag-reorder was wrong under a sorted group"). The
+        -- in-game ghost drag (DragReorder.lua) is refused the same way and
+        -- shares this wording via ns:ExplainSortedDragRefusal.
         row:RegisterForDrag("LeftButton")
-        row:SetScript("OnDragStart", function(self) frame._dragBar = self.index end)
+        row:SetScript("OnDragStart", function(self)
+            local g = selectedGroupIndex and BarWardenDB and BarWardenDB.frames[selectedGroupIndex]
+            if g and g.sortMode and g.sortMode ~= "manual" then
+                if ns.ExplainSortedDragRefusal then ns:ExplainSortedDragRefusal() end
+                return
+            end
+            frame._dragBar = self.index
+        end)
         row:SetScript("OnDragStop", function()
             local from = frame._dragBar
             frame._dragBar = nil

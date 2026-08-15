@@ -79,6 +79,30 @@ local function GroupGrowsUp(groupFrame)
     return fd and fd.growDirection == "UP" or false
 end
 
+-- Is this group's Sort Mode "manual"? Anything else (remaining time,
+-- alphabetical, as-they-come) re-derives the on-screen bar order on every
+-- ns:UpdateGroupLayout, so a drop here would land in an unrelated slot and
+-- even a "successful" reorder would have no visible effect - see
+-- CODE_REVIEW.md's Resolved section, "drag-reorder was wrong under a
+-- sorted group". Checked live by frame index (not cached at
+-- ns:EnableDragReorder time) because the Sort Mode dropdown only calls
+-- ns:UpdateGroupLayout when changed, not ns:EnableDragReorderAll, so a
+-- group can flip sorted while already unlocked.
+local function IsManualSort(frameIndex)
+    local fd = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex]
+    return not fd or not fd.sortMode or fd.sortMode == "manual"
+end
+
+-- Shared wording so the in-game ghost drag and the Options Bars-tab list
+-- drag (Options_Bars.lua) explain a refused reorder identically.
+local SORTED_DRAG_MESSAGE =
+    "This group is sorted, so its bar order is set by the Sort Mode. " ..
+    "Switch Sort Mode to Manual to drag bars into your own order."
+
+function ns:ExplainSortedDragRefusal()
+    ns:Print(SORTED_DRAG_MESSAGE)
+end
+
 local function CalcDropIndex(groupFrame)
     local cx, cy = GetCursorPosition()
     local scale = groupFrame:GetEffectiveScale()
@@ -202,6 +226,13 @@ end
 local dragUpdater = CreateFrame("Frame", "BarWardenDragUpdater", UIParent)
 dragUpdater:Hide()
 
+-- Forward-declared: the OnUpdate closure below needs to call ClearDrag on a
+-- refused sorted-group drag, but ClearDrag itself hides dragUpdater and is
+-- defined afterwards for readability (kept next to Bar_OnMouseUp, its other
+-- caller). Declaring the local here lets the closure capture the right
+-- upvalue instead of resolving a stray global.
+local ClearDrag
+
 dragUpdater:SetScript("OnUpdate", function()
     local bar = dragState.bar
     if not bar or not dragState.frameIndex then return end
@@ -214,6 +245,18 @@ dragUpdater:SetScript("OnUpdate", function()
         if math.abs(cursorY - dragState.startY) < DRAG_THRESHOLD then
             return
         end
+
+        -- The threshold just crossed: this is a genuine drag attempt, not a
+        -- click. Refuse it here, once, rather than run the ghost through
+        -- motions that can never stick against a sorted group (see
+        -- IsManualSort above). ClearDrag hides dragUpdater, so this can't
+        -- repeat on later OnUpdate ticks for the same mouse-down.
+        if not IsManualSort(dragState.frameIndex) then
+            ns:ExplainSortedDragRefusal()
+            ClearDrag()
+            return
+        end
+
         dragState.active = true
 
         local ghost = GetGhost()
@@ -238,8 +281,10 @@ dragUpdater:SetScript("OnUpdate", function()
 end)
 
 -- Reset drag state and hide all drag visuals. Called from OnMouseUp and
--- from DisableDragReorder on lock / teardown.
-local function ClearDrag()
+-- from DisableDragReorder on lock / teardown. Assigned (not `local
+-- function`) because it was forward-declared above so the OnUpdate
+-- closure's early-out can call it.
+ClearDrag = function()
     dragState.active = false
     dragState.bar = nil
     dragState.frameIndex = nil
@@ -317,6 +362,16 @@ function ns:EnableDragReorder(groupFrame)
     -- A dropped ghost would reorder bars they cannot see.
     if groupFrame.isAutoGroup then return end
 
+    -- A sorted (non-Manual) group gets the same refusal, but it is not a
+    -- third early-return here: Sort Mode can change while a group is
+    -- already unlocked (its dropdown only calls ns:UpdateGroupLayout, not
+    -- this function), so baking the check in at wiring time would go stale.
+    -- Bars stay wired; IsManualSort/ExplainSortedDragRefusal above gate the
+    -- actual drag attempt live, in the dragUpdater OnUpdate threshold check.
+    -- Every auto group the owner runs also uses a sort, but that never
+    -- reaches this second guard: the isAutoGroup return above already left
+    -- its bars unwired, so there is nothing for a sorted-group drag attempt
+    -- to fire on and no risk of the two guards double-printing.
     for _, bar in ipairs(groupFrame.bars) do
         bar:EnableMouse(true)
         bar:SetScript("OnMouseDown", Bar_OnMouseDown)

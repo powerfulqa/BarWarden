@@ -285,6 +285,18 @@ Drag-reorder is gated off for auto groups in `ns:EnableDragReorder`
 clears drag handlers so a pooled bar cannot carry them into a slot it is
 recycled into.
 
+A group whose Sort Mode is not Manual gets its bars wired the same as any
+other (unlike an auto group), but a reorder attempt is refused live, at the
+moment the drag threshold is crossed (`IsManualSort`, DragReorder.lua) or in
+the Options Bars-tab list drag's `OnDragStart` (Options_Bars.lua): a sorted
+group re-derives its on-screen order on every layout, so a drop there would
+land in an unrelated slot and even a "successful" reorder would have no
+visible effect. Both paths explain the refusal once per attempt through
+`ns:ExplainSortedDragRefusal`, rather than letting the gesture do nothing
+with no feedback. Checked live rather than baked in once at
+`ns:EnableDragReorder` time because the Sort Mode dropdown does not call it
+back; a group can flip sorted while already unlocked.
+
 ---
 
 ## Required patterns
@@ -862,7 +874,8 @@ yet; keep those out of scope until that stub layer is built.
 - Cast a tracked spell: cooldown bar appears, ticks, expires.
 - Apply a tracked buff/debuff/enchant/totem: matching tracker activates.
 - `/bw test`: fake 30s timers appear; entering combat auto-exits test mode.
-- Drag-reorder bars: ghost + drop indicator behave.
+- Drag-reorder bars: ghost + drop indicator behave in a Manual-sort group;
+  a sorted group refuses the drag and prints the explanation once.
 - `/reload`: state persists.
 
 ### Static cross-checks

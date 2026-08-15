@@ -30,6 +30,11 @@ back, same as before.
   groups, its tracking setup, plus several addon-wide display toggles it had
   been leaving out. This only affects what a bug report shows, not anything
   you see in game.
+- **Dragging a bar to reorder it now tells you why it's refused in a sorted
+  group.** A group sorted by remaining time, alphabetically, or As They Come
+  decides its own bar order, so dragging couldn't do anything useful there;
+  it now says so instead of the drag silently going nowhere. Switch that
+  group's Sort Mode to Manual to drag bars by hand.
 
 ---
 

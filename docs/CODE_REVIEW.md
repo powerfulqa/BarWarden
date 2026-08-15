@@ -60,29 +60,24 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     `PLAYER_TOTEM_UPDATE`; neither reliably fires when the effect merely expires,
     so the Activity tab under-reports their uptime (proc counts are correct).
     Needs an expiry poll like `CheckCooldownExpiry`. Low-med.
-11. **Drag-reorder is wrong under a sorted group.** `CalcDropIndex` maps screen
-    position onto `frameData.bars` order, which is not the on-screen order when
-    `sortMode` is `remaining`/`alpha`, so a drop lands in an unrelated slot (and
-    manual order has no visible effect there anyway). Consider suppressing the
-    ghost when sorting is not manual. Extends item 5. Low.
-12. **Per-bar `scaleOverride` shifts row offsets.** `UpdateGroupLayout` applies
+11. **Per-bar `scaleOverride` shifts row offsets.** `UpdateGroupLayout` applies
     `bar:SetScale` after `SetPoint`, so a scaled bar's row offset scales too -
     the same coordinate-space class as the v2.0.2 group drift. The editor tooltip
     warns about column overlap but not vertical drift. Low.
-13. **Three divergent "new bar" constructors.** `NewBar` (Options_Bars),
+12. **Three divergent "new bar" constructors.** `NewBar` (Options_Bars),
     `Options_Stats`'s Create Bar, and `MakeFullBar` (ClassPresets) write
     different subsets of `conditions`/`display`. This divergence is what made the
     v2.1.1 stale-toggle bug bite hardest on starter-profile bars. Unify. Low.
-14. **The text-format option list is duplicated** in `Options_Visuals.lua` and
+13. **The text-format option list is duplicated** in `Options_Visuals.lua` and
     `Options_Bars.lua` (byte-identical today, the latter plus an "Inherit" row).
     A seventh format added to Visuals will silently not appear as a group
     override. Low.
-15. **`schemaVersion` is hand-synced twice** (`ns.DEFAULTS.schemaVersion` and
+14. **`schemaVersion` is hand-synced twice** (`ns.DEFAULTS.schemaVersion` and
     `CURRENT_SCHEMA` in DB.lua) with nothing enforcing agreement; and
     `starterPrompted` / `v1ImportPrompted` / `backups` live in SavedVariables
     without being declared in `ns.DEFAULTS`, even though `ns:DBSet` treats the
     schema as authoritative. Low.
-16. **Auto-track duplicate matching still misses aura groups.** Matching is by
+15. **Auto-track duplicate matching still misses aura groups.** Matching is by
     resolved spell name: `ns:GetTrackedAuraNames` reads both `spellName` and
     `spellId` and resolves ids through `GetSpellInfo`, so a curated bar
     configured by name or by bare spell id suppresses correctly either way,
@@ -97,7 +92,7 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     per group (`trackedNamesCache`, BarEngine.lua) and only recomputed on a
     bar edit, so the earlier "not safe on a 4 Hz path" objection to calling
     `GetSpellInfo` here does not apply.
-17. **Auto groups with nothing to show still hide while frames are locked, by
+16. **Auto groups with nothing to show still hide while frames are locked, by
     default.** An auto group holds slots rather than configured bars, so with
     nothing on the unit every slot is hidden and `AreAllBarsHidden`
     (BarEngine.lua) hides the whole group, same as it does for any other group
@@ -110,14 +105,14 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     and empty, tick it to hide the group whether locked or unlocked. If
     positioning an empty auto group still proves awkward with that available,
     filling the slots with dummy bars while unlocked is the natural follow-up.
-18. **Switching an auto group straight from a target feed to a player feed
+17. **Switching an auto group straight from a target feed to a player feed
     leaves Only Mine ticked.** `autoOnlyMine` is only seeded the first time
     Auto Track is set (while it is still nil); the seeding guard cannot tell a
     value it seeded from one the player deliberately chose, so it never
     re-seeds on a later feed change. Real but cosmetic - the player unticks it
     once - and re-seeding on every feed change would clobber a deliberate
     choice instead.
-19. **Options shell differs structurally from EbonClearance.** BarWarden creates
+18. **Options shell differs structurally from EbonClearance.** BarWarden creates
     each category frame parented to `UIParent` and gives it a body via
     `content:SetAllPoints(child)`; EC parents category frames to
     `InterfaceOptionsFramePanelContainer` and applies **no** addon-owned
@@ -127,7 +122,7 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     would remove a whole class of layout bug (see the v2.1.1 detach entry
     below), but it touches all five panels, so it is a deliberate refactor
     rather than a patch. Med effort, low risk, good payoff.
-20. **Test mode has no guard in `ScanAutoGroup`.** `ScanBar` early-returns on
+19. **Test mode has no guard in `ScanAutoGroup`.** `ScanBar` early-returns on
     `ns.testMode and bar.isTestBar`, but `ns:ScanAutoGroup` (BarEngine.lua) has
     no equivalent check. `ns:ActivateTestMode` activates any bar that passes
     `ns:IsBarEnabled`, which an occupied auto slot does, so it can briefly show
@@ -135,20 +130,20 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     nothing persists, but the Help "Can a group fill itself?" answer's claim
     that test bars do not appear in an auto group is only strictly true while
     the group is empty. Low, cosmetic.
-21. **Per-bar display settings never reach an auto slot.** `NewAutoBarData`
+20. **Per-bar display settings never reach an auto slot.** `NewAutoBarData`
     (FrameManager.lua) supplies `display = { lingerTime = 0 }` only, so glow on
     ready, pulse on ready, linger, and the per-bar colour/scale overrides never
     apply to an auto bar, since they are read from `bar.barData.display`.
     Group-level and addon-wide visuals still apply; this is intended, and
     ADDON_GUIDE's auto-tracking section now says so. Low.
 
-22. **Nothing calls `ns:DeleteFrame`.** The Bars tab's Delete button deletes a
+21. **Nothing calls `ns:DeleteFrame`.** The Bars tab's Delete button deletes a
     group inline (`table.remove` + `frame:Refresh()` + `ns:RebuildAllFrames()`,
     Options_Bars.lua), so `ns:DeleteFrame` (FrameManager.lua) is unreachable.
     It is not wrong, just a second way to do the same thing that no longer
     matches the one in use - the same drift that got `ns:CreateFrame` removed in
     v2.1.1. Either route the button through it or delete it. Low.
-23. **`frame:Refresh()` runs before `ns:RebuildAllFrames()` on the delete path.**
+22. **`frame:Refresh()` runs before `ns:RebuildAllFrames()` on the delete path.**
     In that window `BarWardenDB.frames` has been renumbered but `ns.groupFrames`
     still holds the old frames at their old indices, so anything index-keyed
     that ran there would read one group's frame against another's data - and
@@ -157,7 +152,7 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     behind `ns.suppressCallbacks`, and the two `ns:ScanAutoGroup` calls are
     click handlers), so this is latent, not live. Swapping the two calls closes
     it. Verified during the v2.2.3 investigation. Low, but sharp.
-24. **`ns:RebuildAllFrames` leaks a frame per group per rebuild.** 3.3.5a cannot
+23. **`ns:RebuildAllFrames` leaks a frame per group per rebuild.** 3.3.5a cannot
     destroy a frame, so `DestroyGroupFrame` hides it, clears its points and
     drops the reference, and the next `ns:CreateGroupFrame` builds a fresh frame
     reusing the same global name. The orphans are inert (hidden, unanchored, no
@@ -220,6 +215,27 @@ I. **Bar Style dropdown has no `[?]` help icon.** Every other Group Settings
    frame first. Deferred, not forgotten.
 
 ## Resolved (kept for the record)
+
+- **v2.3.1 drag-reorder was wrong under a sorted group.** The in-game ghost
+  drag (`CalcDropIndex`, DragReorder.lua) and the Options Bars-tab list drag
+  (`ComputeDropIndex`, Options_Bars.lua) both mapped the drop position onto
+  `frameData.bars`, the stored order, but a group's Sort Mode
+  (`remaining`/`alpha`/`appearance`) re-derives the on-screen order on every
+  layout, so a drop landed in an unrelated slot, and even a "successful"
+  manual reorder had no visible effect there anyway. Fixed by refusing the
+  reorder for a non-Manual group instead of letting the gesture fail
+  silently: `IsManualSort` (DragReorder.lua) is checked live, at the moment
+  the drag threshold is actually crossed, rather than baked in once at
+  `ns:EnableDragReorder` wiring time, because the Sort Mode dropdown only
+  calls `ns:UpdateGroupLayout` and can flip a group sorted while it is
+  already unlocked. Both paths explain the refusal once per attempt through
+  the shared `ns:ExplainSortedDragRefusal`. An auto-tracking group already
+  left its bars unwired for a different, older reason (`isAutoGroup`, its
+  stored `bars` are dormant while it fills itself), so the two guards never
+  fight: an auto group's bars never reach the sorted check because they
+  never get mouse handlers at all. Frame-only fix with no automated
+  surface; verified in-game per the smoke-test checklist. Was backlog
+  item 11.
 
 - **v2.2.4 Background/Border Opacity 0 stuck solid black on an empty group
   forever.** `ns:UpdateGroupLayout` (FrameManager.lua) forced the backdrop to
@@ -305,7 +321,7 @@ I. **Bar Style dropdown has no `[?]` help icon.** Every other Group Settings
   bodies are either the category frame itself or a ScrollFrame's scroll child
   (never `SetAllPoints` between panel and body), and its auto-hide hides the
   scrollbar only. Worth copying that shape if the options shell is ever
-  reworked; see also backlog item 19.
+  reworked; see also backlog item 18.
 
 - **v2.1.1 whole-addon audit.** Three parallel subsystem passes (engine, data,
   UI) plus a cross-cutting sweep, every finding re-verified against source.
