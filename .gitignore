@@ -17,6 +17,11 @@ docs/superpowers/
 # used for curation lookups. Never ship; never commit.
 3.3.5.a/
 
-# Local reference copy of a third-party addon (separately licensed under
-# its own Source-Available Attribution License). Must never be committed.
-Xperl-Grimfall-main/
+# Local reference copies of third-party addons (each separately licensed
+# under its own terms). Never ship; never commit. Matched by pattern rather
+# than named one at a time: every one seen so far is a GitHub codeload-style
+# checkout folder ending in "-main" of a "<AddonName>-Grimfall" repo (e.g.
+# Xperl-Grimfall-main/, DragonUI-Grimfall-main/), and the owner keeps adding
+# these for curation lookups, so a class-covering pattern catches the next
+# one on arrival instead of needing a .gitignore edit every time.
+*-Grimfall-main/
