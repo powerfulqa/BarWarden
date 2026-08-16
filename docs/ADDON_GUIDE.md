@@ -1318,18 +1318,39 @@ column on the right showing both the raw numbers and a percentage.
 equally-supported options; the owner picks whichever reads better for a
 given group.
 
-This first slice builds the widget and the player frame only. Target,
-target's target, pet, focus, and party frames are later slices; the whole
-file is keyed by a unit token rather than hardcoding `"player"` so adding
-one is a new key in `UNIT_TOKENS`/`UNIT_FRAME_KEYS` plus a
-`ns.DEFAULTS.unitFrames` entry and a toggle in
-[Options_Frames.lua](../Options_Frames.lua) (the Frames tab), not a new
-widget.
+Nine frames ship: player, target, target's target, pet, focus, and four
+party slots. There is one widget - the file is keyed by a unit token rather
+than hardcoding `"player"`, so adding another is a row in
+`UNIT_TOKENS`/`UNIT_FRAME_KEYS`/`UNIT_FRAME_DEFAULT_POSITIONS`/
+`UNIT_FRAME_SLOT_COUNTS` plus a `ns.DEFAULTS.unitFrames` entry and a row in
+`FRAME_SECTIONS` ([Options_Frames.lua](../Options_Frames.lua)), which builds
+its settings block and its bottom tab.
+
+**Two keyings, deliberately.** A FRAME key (`"party2"`) names one on-screen
+frame; a CONFIG key (`"party"`) names the settings block it reads. They are
+the same for every frame except the four party slots, which share one set of
+settings while each keeps its own position (`UNIT_FRAME_CONFIG`,
+`ns:UnitFramePosition`). Anything indexing `ns.db.unitFrames` directly needs
+to go through `ConfigKeyFor` first.
+
+**Row hierarchy is what makes it read as a unit frame**, not the borrowed
+artwork. `ns:PlanUnitFrameRows` sorts resources into PRIMARY (health and
+power, a full-width bar each), SEGMENT (runes, all sharing one row) and
+SPLIT (combo points and soul shards, one row divided into lit segments - the
+only case where one collected entry becomes several drawn slots). Secondary
+rows draw shorter. `minRows` pads with empty rows so a frame keeps its size
+as its unit changes. The first version gave every resource an identical
+full-width bar and no amount of texture fixed it.
 
 **Data.** `BarWardenDB.unitFrames` is its own top-level table (`frames` was
-already taken by bar groups), keyed by unit (`unitFrames.player` for now),
-each holding `enabled`, `scale`, `showPortrait`, `showLevel`, `showValues`.
-No schema bump was needed to add it: like `global.hidePlayerFrame`/
+already taken by bar groups), keyed by CONFIG key (`unitFrames.player`,
+`unitFrames.target`, `unitFrames.party`, ...), each holding the same
+cosmetic settings: `enabled`, `scale`, portrait, name, level, values and
+their placement, fonts and sizes, bar look and heights, `minRows`, and four
+opacities. Only `unitFrames.player` additionally carries `hiddenResources`,
+`pairRunes` and `pinPowerTypes` - see CODE_REVIEW item 25 before adding
+those anywhere else, and note `test_defaults_unitFramesExact` asserts their
+absence. No schema bump was needed to add it: like `global.hidePlayerFrame`/
 `versionAlerts`/`helpCollapsed` before it, `ns:InitDB` (DB.lua) creates or
 `ns:MergeDefaults`-backfills the whole table unconditionally, the same
 treatment `minimap` already gets - there is no legacy shape to migrate

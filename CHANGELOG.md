@@ -139,6 +139,29 @@ Fixed in the same pass:
 
 ---
 
+**Also in this release, if you are coming from v2.4.0.** Versions 2.5.0 and
+2.6.0 were never published on their own, so their changes arrive here too:
+
+- **A group can fill itself with your health and power**, following a druid
+  through Bear, Cat and Caster form live. Health, Mana, Energy and Rage join
+  the Track Mode list, and a new "Health and power" choice on Auto Track
+  builds a whole group with nothing to name by hand.
+- **Always Show Mana / Rage / Energy** keeps a pool visible even when it is
+  not the one you are using, each with its own colour.
+- **Resource bars use the game's own colours** by default - blue mana,
+  yellow energy, red rage - rather than the addon-wide default.
+- **Value Text** picks how a resource group shows its numbers: amount,
+  percent, or both.
+- **Hide Blizzard Player Frame and Hide Blizzard Target Frame** arrived on
+  the General tab, both fully reversible.
+- **The first unit frame**, which this release then rebuilt around X-Perl's
+  artwork and layout.
+
+Full detail for both is in [CHANGELOG.md](CHANGELOG.md) under their own
+headings.
+
+---
+
 ### v2.6.0
 
 **A conventional unit frame joins resource groups as a second way to show

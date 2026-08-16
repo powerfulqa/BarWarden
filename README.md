@@ -6,6 +6,8 @@ BarWarden is a bar tracking addon for World of Warcraft 3.3.5a (Wrath of the Lic
 
 When a spell goes on cooldown or a buff is applied, the matching bar fills up and counts down so you always know exactly when something is ready or about to expire.
 
+It also replaces the default unit frames. On the **Frames** tab you can turn on a portrait frame for yourself, your target, your target's target, your pet, your focus, and everyone in your party. Turning one on hides Blizzard's equivalent, so you never end up with two frames showing the same unit. Use as much or as little of it as you like.
+
 ---
 
 ## What Can It Do?
@@ -352,8 +354,9 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
   along with it
 - Hide the default target frame the same way, independently, including the
   combo point display. Your target's target display is not part of this
-  tickbox, so it stays up unless you build a "target of target" resource
-  group to replace it yourself
+  tickbox, so it stays up unless you replace it yourself
+- Both of these are only needed if you are **not** running BarWarden's own
+  unit frames. Turning one of those on hides Blizzard's equivalent by itself
 - A full list of slash commands, each with a Run button to fire it straight from the panel
 
 ### Bars / Groups
@@ -474,9 +477,25 @@ Passive monitoring of everything happening on your character. BarWarden automati
 - Also available via `/bw stats` in chat
 - Stores up to 200 unique spells; oldest entries are automatically evicted
 
+### Frames
+
+Portrait unit frames that replace the default ones. Each has its own tab along the bottom of the page: **Player**, **Target**, **Party**, **Target's Target**, **Pet** and **Focus**.
+
+- **Turning one on hides Blizzard's equivalent**, so you never get two frames showing the same unit. Turn it back off and the default returns
+- **Portrait** as a picture or a live 3D model. The model falls back to the picture for anyone out of sight
+- **Health and power get a full-width bar each**; runes and combo points draw as a compact strip of segments so the pools you actually watch stand out
+- **Numbers on the bars or in a column beside them**, or off entirely
+- **Click the portrait or the name to target that unit**, right-click for the full unit menu (leave party, promote, set focus, raid icon, whisper). Works whether frames are locked or not
+- **Pick exactly which resources appear** on your own frame: health, mana, rage, energy, runic power, runes, combo points, soul shards. Mana, rage and energy stay visible while ticked even when they are not the pool you are currently using. Other frames show what that unit actually has
+- **Combine Runes by Type** turns six rune bars into three
+- **Minimum Bars** keeps the frame a steady size as its unit changes, so a mob with no mana does not make it shrink
+- **Opacity per part**: the panel, the portrait, the bars and the border each fade on their own, down to fully see-through
+- **Fonts and sizes** for the name and the numbers, each able to follow your Visuals settings
+- Frames only show when there is somebody to show, and each is dragged into place separately
+
 ### Help
 
-A built-in FAQ covering Getting Started, Tracking Modes, Conditions, Visuals, Profiles, the Activity Tracker, and Troubleshooting. Click a section to expand it. The `[?]` icons next to the main settings jump straight to the matching answer.
+A built-in FAQ covering Getting Started, Tracking Modes, Auto Tracking, Unit Frames, Conditions, Visuals, Profiles, the Activity Tracker, and Troubleshooting. Click a section to expand it. The `[?]` icons next to the main settings jump straight to the matching answer.
 
 ---
 
@@ -497,6 +516,8 @@ A built-in FAQ covering Getting Started, Tracking Modes, Conditions, Visuals, Pr
 | Glow | Soft gradient glow |
 | Metal | Metal plate |
 | Leather | Earthy leather texture |
+| XP Perl v2 | X-Perl's own bar skin, the default for unit frames |
+| XP Perl 2 - 10 | X-Perl's alternate bar skins |
 
 ---
 

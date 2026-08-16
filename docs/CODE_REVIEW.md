@@ -167,21 +167,25 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     the cost is memory in a long session with many settings changes, not
     behaviour. Fixing it means pooling group frames the way bars are pooled. Low.
 
-24. **Unit frames (v2.6.0) ship player-only, with no conditions, cap slider,
-    or profile export.** `UnitFrames.lua` builds the widget and the Frames
-    tab for `unit = "player"` only; target/target's-target/pet/focus/party
-    frames need only a new `UNIT_TOKENS`/`UNIT_FRAME_KEYS` entry, a
-    `ns.DEFAULTS.unitFrames` entry, and a Frames-tab toggle, since the
-    widget itself is already unit-token-driven. Also deferred: per-bar
-    visibility conditions on a unit frame (bar groups' `conditions` table has
-    no equivalent here yet) and a user-facing cap on `MAX_UNIT_FRAME_SLOTS`
-    (the fixed value already has ample headroom for every feed
-    `ns:CollectResources` can produce). **Profile export/import is now
-    done**: `ns:CaptureProfileData` / `ns:ApplyProfileData` (DB.lua) drive
-    every call site from one `PROFILE_SECTIONS` list, which is what stops the
-    next added section going missing the way `unitFrames` did. None of these block the current slice;
-    listed so a later session extending unit frames does not have to
-    rediscover the boundary. Low priority, low-med effort per item.
+24. **Unit frames: two deferred items.** All nine frames (player, target,
+    target's target, pet, focus, four party slots) shipped in v2.7.0, and
+    profile export/import is done - `ns:CaptureProfileData` /
+    `ns:ApplyProfileData` (DB.lua) drive save, load and import from one
+    `PROFILE_SECTIONS` list, which is what stops the next added section
+    going missing the way `unitFrames` itself did.
+
+    Still open:
+
+    * **Per-bar visibility conditions on a unit frame.** Bar groups'
+      `conditions` table has no equivalent here; a unit frame shows what the
+      unit has and hides when the unit is absent, with no per-row rules.
+    * **A user-facing cap on `MAX_UNIT_FRAME_SLOTS`.** Slots are now
+      reserved per frame (`UNIT_FRAME_SLOT_COUNTS`, sized from what
+      `ns:CollectResources` can emit per unit) and the planner enforces the
+      budget at a row boundary, so overflow is visible rather than silent.
+      A slider would only matter for a feed that does not exist yet.
+
+    Neither blocks anything. Low priority, low-med effort each.
 
 25. **Target frame: do NOT copy the player frame's resource controls.**
     **Shipped** for `target` and `targettarget`; kept here because the rule
