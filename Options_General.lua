@@ -97,6 +97,7 @@ local SCHEMA = {
     -- BarWarden player frame is still up.
     {
         type    = "toggle",
+        id      = "hidePlayerFrameToggle",
         label   = "Hide Blizzard Player Frame",
         tooltip = "Hides the default player frame (the portrait box near "
                .. "your character), and the Death Knight rune display with "
@@ -170,6 +171,15 @@ function ns:BuildGeneralInto(content)
     local widgetRefs = {}
     local refresh = ns:BuildSettings(content, SCHEMA, widgetRefs,
                                      { firstX = 16, firstY = -10 })
+
+    -- [?] beside the frame-hiding toggles. "Where did my player frame go" is
+    -- the question these settings actually raise, and the answer also covers
+    -- the automatic hiding a BarWarden unit frame does - which someone who
+    -- never touched this tickbox will still hit.
+    if widgetRefs.hidePlayerFrameToggle and ns.CreateHelpIcon then
+        ns:CreateHelpIcon(content, widgetRefs.hidePlayerFrameToggle,
+            "LEFT", "RIGHT", 6, 0, "unit-frames-blizzard")
+    end
 
     -- Render the runnable command rows below the Slash Commands header. Each
     -- label is its own FontString; the Run button sits in a fixed left column

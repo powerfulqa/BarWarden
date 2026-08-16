@@ -26,7 +26,14 @@ local DEEPLINK_IDS = {
     "class-starters",
     "activity-overview",
     "auto-track",
+    -- Frames tab: one per section heading, plus the two sub-headings that
+    -- raise their own questions. Options_General.lua's frame-hiding toggle
+    -- points at unit-frames-blizzard too.
     "unit-frames-overview",
+    "unit-frames-blizzard",
+    "unit-frames-clicking",
+    "unit-frames-resources",
+    "unit-frames-appearance",
 }
 
 local function fresh()

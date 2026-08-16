@@ -154,7 +154,8 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
           db = P .. "secondaryBarHeight", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
-        { type = "header", text = "Opacity", spacing = 24, offsetX = ns.OFFSET_HEADER },
+        { type = "header", text = "Opacity", id = id("OpacityHeader"),
+          spacing = 24, offsetX = ns.OFFSET_HEADER },
 
         { type = "slider", label = "Panel", min = 0, max = 1, step = 0.05,
           width = 200, format = PercentLabel,
@@ -247,6 +248,7 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
     -- offer bars the target cannot have.
     if opts.resourceTickList then
         schema[#schema + 1] = { type = "header", text = "Resources Shown",
+                                id = id("ResourcesHeader"),
                                 spacing = 24, offsetX = ns.OFFSET_HEADER }
         schema[#schema + 1] = { type = "note",
                                 text = "Untick anything you do not want on the frame.",
@@ -455,9 +457,29 @@ local function CreateFramesTab(parent)
         if frame.Reflow then frame.Reflow() end
     end
 
-    if widgets.playerHeader and ns.CreateHelpIcon then
-        ns:CreateHelpIcon(content, widgets.playerHeader, "LEFT", "RIGHT", 6, 0,
-            "unit-frames-overview")
+    -- [?] deep links. One per section heading rather than only on the player
+    -- frame: with six sections on this tab, a single icon at the very top is
+    -- unreachable by the time anyone has scrolled to the question they
+    -- actually have. Every id here is asserted to resolve by
+    -- tests/test_help.lua, so a renamed help entry fails the suite rather
+    -- than leaving a dead icon.
+    local HELP_LINKS = {
+        { widget = "playerHeader",       topic = "unit-frames-overview" },
+        { widget = "targetHeader",       topic = "unit-frames-blizzard" },
+        { widget = "partyHeader",        topic = "unit-frames-clicking" },
+        { widget = "targettargetHeader", topic = "unit-frames-blizzard" },
+        { widget = "petHeader",          topic = "unit-frames-blizzard" },
+        { widget = "focusHeader",        topic = "unit-frames-blizzard" },
+        { widget = "playerResourcesHeader",  topic = "unit-frames-resources" },
+        { widget = "playerOpacityHeader",    topic = "unit-frames-appearance" },
+    }
+    if ns.CreateHelpIcon then
+        for _, link in ipairs(HELP_LINKS) do
+            local w = widgets[link.widget]
+            if w then
+                ns:CreateHelpIcon(content, w, "LEFT", "RIGHT", 6, 0, link.topic)
+            end
+        end
     end
 
     -- Trim the scroll child to the last widget so there is no empty scroll

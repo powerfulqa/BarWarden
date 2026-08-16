@@ -30,7 +30,11 @@ local HELP_ENTRIES = {
           .. "and class resources.\n\n"
           .. "When something goes on cooldown or a buff is applied, the "
           .. "matching bar fills and counts down, so you always know when it "
-          .. "is ready or about to expire.",
+          .. "is ready or about to expire.\n\n"
+          .. "It also replaces the default unit frames. On the Frames tab you "
+          .. "can turn on a portrait frame for yourself, your target, your "
+          .. "target's target, your pet, your focus, and everyone in your "
+          .. "party. Use as much or as little of it as you like.",
     },
     {
         id = "getting-started",
@@ -39,7 +43,10 @@ local HELP_ENTRIES = {
           .. "Profiles tab: Load Class Starter gives you a curated set of "
           .. "bars for your class and spec in one click.\n\n"
           .. "To build your own instead, go to the Bars / Groups tab, click "
-          .. "Add to make a group, then Add a bar inside it.",
+          .. "Add to make a group, then Add a bar inside it.\n\n"
+          .. "If you also want new unit frames, the Frames tab is separate "
+          .. "and needs nothing set up first: tick Show Player Frame and it "
+          .. "appears straight away.",
     },
     {
         id = "open-settings",
@@ -72,7 +79,10 @@ local HELP_ENTRIES = {
         q = "How do I move my groups around the screen?",
         a = "Groups are locked by default so you do not move them by accident. "
           .. "Type /bw lock to unlock everything, drag the groups where you "
-          .. "want them, then /bw lock again to lock them back in place.",
+          .. "want them, then /bw lock again to lock them back in place.\n\n"
+          .. "Unit frames move the same way, and each one is dragged "
+          .. "separately - including the four party frames, even though they "
+          .. "share one set of settings.",
     },
 
     -- ===================================================================
@@ -156,11 +166,17 @@ local HELP_ENTRIES = {
     },
     {
         id = "aura-groups",
-        q = "What are aura groups like @Stunned?",
-        a = "Instead of listing every crowd-control spell by hand, use a group "
-          .. "token: @Stunned, @Bleeding, @Silenced, @Incapacitated, @Feared, "
-          .. "@Rooted, @MovementSlowed, @Disarmed. One bar then tracks any "
-          .. "spell in that group. You can mix tokens and names: @Stunned, Blind.",
+        -- The id stays "aura-groups" on purpose: it is the internal name of
+        -- the feature (AuraGroups.lua) and a [?] link target, and ids are not
+        -- shown to anyone. Only the wording changed, to keep "aura" out of
+        -- player-facing text - this was the last place it appeared.
+        id = "aura-groups",
+        q = "What are shortcuts like @Stunned?",
+        a = "Instead of listing every crowd-control spell by hand, use one "
+          .. "shortcut: @Stunned, @Bleeding, @Silenced, @Incapacitated, "
+          .. "@Feared, @Rooted, @MovementSlowed, @Disarmed. One bar then "
+          .. "tracks any spell of that kind. You can mix shortcuts and names: "
+          .. "@Stunned, Blind.",
     },
 
     -- ===================================================================
@@ -337,6 +353,65 @@ local HELP_ENTRIES = {
           .. "They start near the middle of the screen; unlock your frames "
           .. "(/bw lock) to drag each into place, then lock them again.",
     },
+    {
+        id = "unit-frames-blizzard",
+        q = "My normal player frame disappeared. Where did it go?",
+        a = "Turning on a BarWarden frame hides the default one it replaces, "
+          .. "because two frames showing the same character in the same place "
+          .. "is rarely what anyone wants. This happens for the player, "
+          .. "target, target's target, pet, focus and party frames.\n\n"
+          .. "Turn the BarWarden frame back off and the default one returns. "
+          .. "The General tab also has Hide Blizzard Player Frame and Hide "
+          .. "Blizzard Target Frame if you want the default gone without "
+          .. "running a BarWarden frame at all.\n\n"
+          .. "If you ever want everything back at once, /bw disable hands "
+          .. "every default frame straight back.",
+    },
+    {
+        id = "unit-frames-clicking",
+        q = "Can I click a unit frame to target someone?",
+        a = "Yes. Left-click the portrait or the name to target that unit, so "
+          .. "clicking a party frame targets that party member. Right-click "
+          .. "either one for the usual menu: leave party, promote, set focus, "
+          .. "raid target icon, whisper, inspect, and the rest.\n\n"
+          .. "This works whether your frames are locked or not. Locking only "
+          .. "stops you dragging them by accident. While unlocked you can "
+          .. "still drag a frame by its portrait or its name.",
+    },
+    {
+        id = "unit-frames-resources",
+        q = "How do I choose what my frame shows?",
+        a = "Under Resources Shown on the player frame, untick anything you do "
+          .. "not want: health, mana, rage, energy, runic power, runes, combo "
+          .. "points, soul shards.\n\n"
+          .. "Mana, rage and energy behave a little differently from the "
+          .. "rest. Ticking one keeps it on your frame even when it is not the "
+          .. "pool you are currently using, which matters if your character "
+          .. "has more than one. It still never appears if your character does "
+          .. "not have it at all.\n\n"
+          .. "Combine Runes by Type turns six rune bars into three, one per "
+          .. "type. Runes and combo points draw as a compact strip of segments "
+          .. "rather than a bar each, so health and power stand out; Strip "
+          .. "Height sets how tall those are.\n\n"
+          .. "Target and party frames have no such list. They show what that "
+          .. "unit actually has, the way the default frames do.",
+    },
+    {
+        id = "unit-frames-appearance",
+        q = "How do I change how a frame looks?",
+        a = "Portrait Style picks a picture or a live 3D model of the "
+          .. "character. The model falls back to the picture for anyone out of "
+          .. "sight, since it cannot draw what the game cannot see.\n\n"
+          .. "The Opacity sliders fade each part on its own. Panel is every "
+          .. "dark surface: the background, the strip behind the name, and the "
+          .. "box behind the portrait. Portrait fades the picture itself. Bars "
+          .. "fades the bars and any numbers sitting on them. Border is the "
+          .. "edge. Any of them will go to fully see-through.\n\n"
+          .. "Name Font, Name Size, Values Font and Values Size set the text. "
+          .. "Leave a size on Auto to follow your Visuals settings, so "
+          .. "changing the font there changes the frame too. The frame grows "
+          .. "to fit whatever size you pick.",
+    },
 
     -- ===================================================================
     { section = "conditions", title = "Conditions & Visibility" },
@@ -481,7 +556,10 @@ local HELP_ENTRIES = {
         q = "Can I share a profile with someone else?",
         a = "Yes. Export turns a profile into a text string you can copy; the "
           .. "other person uses Import and pastes it in. This is also how you "
-          .. "move a setup between accounts.",
+          .. "move a setup between accounts.\n\n"
+          .. "A profile carries your groups and bars, your Visuals settings, "
+          .. "and everything on the Frames tab, so a shared setup arrives "
+          .. "looking the way it did for the person who sent it.",
     },
 
     -- ===================================================================
@@ -533,6 +611,19 @@ local HELP_ENTRIES = {
           .. "on (/bw enable), and that the bar has a valid spell name.\n\n"
           .. "If a group has been dragged off screen, /bw reset puts them all "
           .. "back where you can see them.",
+    },
+    {
+        id = "trouble-frame-not-showing",
+        q = "A unit frame is not showing.",
+        a = "A frame hides itself when there is nobody to show. The target "
+          .. "frame is not there until you have a target, the pet frame until "
+          .. "you have a pet, and a party frame until someone is in that "
+          .. "slot. Your own frame is the only one always present.\n\n"
+          .. "If it should be there, check it is ticked on the Frames tab, "
+          .. "that the addon is on (/bw enable), and that the Opacity sliders "
+          .. "are not turned down to nothing.\n\n"
+          .. "If it has been dragged off screen, /bw reset puts everything "
+          .. "back where you can see it.",
     },
     {
         id = "trouble-spell-not-tracked",
