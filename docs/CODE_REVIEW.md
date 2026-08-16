@@ -182,6 +182,31 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     listed so a later session extending unit frames does not have to
     rediscover the boundary. Low priority, low-med effort per item.
 
+25. **Target frame: do NOT copy the player frame's resource controls.**
+    Planned next, and the owner has been explicit that it is not a
+    duplicate. The player frame exposes a per-resource tick list because a
+    player on a classless server has several pools at once and wants to
+    choose between them. A target frame should behave like Blizzard's own:
+    show what the target actually has, which is health plus its current
+    power type, and nothing else.
+
+    Concretely, that means the target's config should NOT carry
+    `hiddenResources`, `pairRunes`, or a pin list, and `ScanUnitFrame` must
+    not pass pins for it. `ns:CollectResources` already does the right
+    thing unasked: runes, runic power and soul shards are gated on
+    `unit == "player"` (they are the player's own pools, see that
+    function's comment), and combo points are deliberately excluded for
+    `targettarget`. So a target frame that passes no pins and no hidden set
+    gets exactly the Blizzard-standard health-plus-power shape for free.
+
+    The temptation when adding the frame will be to lift the whole player
+    config block for symmetry. Resist it: the extra controls would each be
+    a setting that either does nothing or shows a bar the target cannot
+    have. Everything else - portrait, name, level, fonts, opacity, bar look
+    and height - SHOULD be shared, and the widget is already unit-token
+    driven, so this is about which config keys exist, not about a second
+    widget. Medium effort, and it blocks nothing today.
+
 ## Audit decisions (intentional - do not "fix")
 
 A. **Bundled libraries stay.** LibStub, LibSharedMedia-3.0, LibDataBroker-1.1,

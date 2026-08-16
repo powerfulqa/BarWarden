@@ -50,11 +50,15 @@ a model cannot draw a unit the game cannot see.
 Fixed in the same pass:
 
 - **The frame background is black rather than washed-out grey**, matching
-  X-Perl's own setting, and a Background Opacity slider goes all the way to
-  see-through. This is also what made a 3D portrait look like it sat on a
-  grey square.
+  X-Perl's own setting. This is also what made a 3D portrait look like it
+  sat on a grey square. An *Opacity* section fades the panel, the portrait,
+  the bars and the border independently, each down to fully see-through.
 - **The font and size settings now actually apply.** They were being given
-  a font's name where a file path was needed, so nothing happened.
+  a font's name where a file path was needed, so nothing happened. The
+  values font and size also had no effect while the numbers were on the
+  bars, where the bar's own text was being re-styled every tick.
+- **Name Size works past 12.** The header band was a fixed height, so
+  bigger text was clipped rather than the frame growing to fit it.
 - **The Bar Look dropdown no longer overlaps the Scale slider.** A
   dropdown sitting under a slider needed more room than the usual gap.
 - **The portrait fills its frame** instead of sitting as a small circle in

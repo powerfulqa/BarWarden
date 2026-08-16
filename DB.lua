@@ -170,10 +170,17 @@ ns.DEFAULTS = {
             -- them. showValues == false hides them either way.
             valuePlacement = "COLUMN",
             barHeight    = 16,
-            -- Backdrop opacity. 1.0 is X-Perl's own solid black panel; drop
-            -- it for a translucent frame. The border stays fully opaque at
-            -- any value so the frame still reads as a frame.
-            backdropOpacity = 1.0,
+            -- Opacity, one per part of the frame so each can be faded on its
+            -- own. 1.0 is X-Perl's solid black panel. Kept as four keys
+            -- rather than one because they genuinely want different values:
+            -- a see-through panel still wants a solid portrait box (a 3D
+            -- model is transparent around the character, so a faded box
+            -- shows the world through its head) and usually a solid border,
+            -- or the frame stops reading as a frame at all.
+            frameOpacity    = 1.0,
+            portraitOpacity = 1.0,
+            barOpacity      = 1.0,
+            borderOpacity   = 1.0,
             -- Runes as three ready-count rows rather than six. Defaulted ON
             -- here and OFF for resource groups on purpose: a group predates
             -- this and must keep its six-bar view, a frame is new and six

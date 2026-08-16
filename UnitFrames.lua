@@ -70,6 +70,11 @@ local UF_BAR_SPACING  = 1
 local UF_HEADER_HEIGHT = 14
 local UF_PADDING       = 4
 
+-- Breathing room above and below the name inside the header band. Outlined
+-- text needs a little more than its nominal point size or the outline itself
+-- clips against the band edges.
+local UF_HEADER_TEXT_PADDING = 4
+
 -- Bounds for the Bar Height setting. The floor is the point below which the
 -- value text stops fitting on a bar at all; the ceiling just stops a typo or
 -- a hand-edited profile producing a frame taller than the screen.
@@ -113,19 +118,25 @@ local UNIT_FRAME_BACKDROP = {
 -- transparent around the character, so the untinted tile showed through it.
 local UF_BORDER_COLOR = { r = 0.5, g = 0.5, b = 0.5 }
 
--- Apply the backdrop tint to a frame or its portrait box. Opacity is a
--- setting because the owner asked for the choice between a solid black
--- panel and a translucent one; the colour itself is not, since anything
--- other than black stops looking like the addon this artwork came from.
-local function ApplyUnitFrameBackdropColor(f, cfg)
-    local alpha = cfg and cfg.backdropOpacity
-    if type(alpha) ~= "number" then alpha = 1.0 end
-    if alpha < 0 then alpha = 0 elseif alpha > 1 then alpha = 1 end
-    f:SetBackdropColor(0, 0, 0, alpha)
-    -- The border keeps full opacity even at zero background alpha, so a
-    -- see-through frame still reads as a frame rather than as loose bars
-    -- floating over the world.
-    f:SetBackdropBorderColor(UF_BORDER_COLOR.r, UF_BORDER_COLOR.g, UF_BORDER_COLOR.b, 1)
+-- Read one opacity setting, clamped to 0-1, defaulting to fully opaque for
+-- anything unset or non-numeric (a hand-edited or imported profile). Every
+-- part of the frame gets its own, so the panel, the portrait, the bars and
+-- the border can each be faded independently.
+function ns:GetUnitFrameOpacity(cfg, key)
+    local alpha = cfg and cfg[key]
+    if type(alpha) ~= "number" then return 1.0 end
+    if alpha < 0 then return 0 end
+    if alpha > 1 then return 1 end
+    return alpha
+end
+
+-- Apply the backdrop tint to a frame or its portrait box. The colour is not
+-- a setting, only the opacity: anything other than black stops looking like
+-- the addon this artwork came from.
+local function ApplyUnitFrameBackdropColor(f, cfg, opacityKey)
+    f:SetBackdropColor(0, 0, 0, ns:GetUnitFrameOpacity(cfg, opacityKey))
+    f:SetBackdropBorderColor(UF_BORDER_COLOR.r, UF_BORDER_COLOR.g, UF_BORDER_COLOR.b,
+                             ns:GetUnitFrameOpacity(cfg, "borderOpacity"))
 end
 
 -- Inset from the portrait's own border to the portrait art, matching
@@ -238,7 +249,19 @@ function ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
     -- `elements.header` is nil for a caller that predates the name toggle
     -- (and for the tests' minimal element tables), so nil reads as "there is
     -- a header", matching every frame built before it became optional.
-    local headerHeight = (elements.header == false) and 0 or UF_HEADER_HEIGHT
+    --
+    -- The band grows with the name font. It used to be a flat 14px, which
+    -- silently capped the Name Size slider: anything past about 12 drew
+    -- taller than the band and was clipped, so the slider appeared to stop
+    -- working rather than being visibly limited.
+    local headerHeight = 0
+    if elements.header ~= false then
+        headerHeight = UF_HEADER_HEIGHT
+        local nameSize = elements.nameFontSize
+        if nameSize and nameSize + UF_HEADER_TEXT_PADDING > headerHeight then
+            headerHeight = nameSize + UF_HEADER_TEXT_PADDING
+        end
+    end
 
     local barsHeight = barCount * barHeight + (barCount - 1) * UF_BAR_SPACING
     local bodyHeight = headerHeight + barsHeight
@@ -435,7 +458,7 @@ local function BuildUnitFrame(key)
     frame.unitKey = key
 
     frame:SetBackdrop(UNIT_FRAME_BACKDROP)
-    ApplyUnitFrameBackdropColor(frame, cfg)
+    ApplyUnitFrameBackdropColor(frame, cfg, "frameOpacity")
     frame:SetWidth(160)
     frame:SetHeight(40)  -- placeholder; the first ScanUnitFrame pass resizes it
 
@@ -470,12 +493,12 @@ local function BuildUnitFrame(key)
     -- that ring the portrait art just bled into the backdrop with no edge.
     local portraitFrame = CreateFrame("Frame", nil, frame)
     portraitFrame:SetBackdrop(UNIT_FRAME_BACKDROP)
-    -- Always fully opaque, regardless of the frame's own opacity setting: a
-    -- 3D model is transparent around the character, so a see-through
-    -- portrait box would show the game world through the model's head.
-    portraitFrame:SetBackdropColor(0, 0, 0, 1)
-    portraitFrame:SetBackdropBorderColor(UF_BORDER_COLOR.r, UF_BORDER_COLOR.g,
-                                         UF_BORDER_COLOR.b, 1)
+    -- Its own opacity, separate from the panel's: a 3D model is transparent
+    -- around the character, so fading the portrait box shows the game world
+    -- through the model's head. That is now the owner's call to make rather
+    -- than something this file decides for them, but it is why the two are
+    -- not one setting.
+    ApplyUnitFrameBackdropColor(portraitFrame, cfg, "portraitOpacity")
     frame.portraitFrame = portraitFrame
 
     local portrait = portraitFrame:CreateTexture(nil, "ARTWORK")
@@ -532,6 +555,9 @@ local function BuildUnitFrame(key)
     if nameFontPath then
         nameText:SetFont(nameFontPath, nameFontSize, "OUTLINE")
     end
+    -- Fed into the layout so the header band grows with the font instead of
+    -- clipping it (see ns:ComputeUnitFrameLayout).
+    frame.nameFontSize = nameFontSize
     frame.nameText = nameText
     frame.lastHeaderText = nil
 
@@ -539,6 +565,18 @@ local function BuildUnitFrame(key)
     -- values fontstring uses the same font, and ResolveUnitFrameFont reads
     -- ns:GetVisual() each call.
     local valueFontPath, valueFontSize = ResolveUnitFrameFont(cfg.valueFont, cfg.valueFontSize, 0)
+    -- Stashed on the frame because the on-bar placement has to re-apply them
+    -- on every scan (see the note in ScanUnitFrame), not just at build time.
+    frame.valueFontPath = valueFontPath
+    frame.valueFontSize = valueFontSize
+
+    -- Bar opacity is applied in two places for one reason: the unfilled
+    -- background is a plain texture set once here, but the bar itself is
+    -- re-alphaed by ns:UpdateResourceBar (visual.activeAlpha) on every scan,
+    -- so the live bar has to be re-set in ScanUnitFrame instead. Stored on
+    -- the frame so that pass does not re-read the config four times a second.
+    local barOpacity = ns:GetUnitFrameOpacity(cfg, "barOpacity")
+    frame.barOpacity = barOpacity
 
     frame.bars = {}
     frame.valueTexts = {}
@@ -549,7 +587,7 @@ local function BuildUnitFrame(key)
         local bg = frame:CreateTexture(nil, "BACKGROUND")
         bg:SetTexture(ns.ResolveTextureName and ns:ResolveTextureName(barTexture)
             or "Interface\\Buttons\\WHITE8x8")
-        bg:SetVertexColor(0.15, 0.15, 0.15, 0.9)
+        bg:SetVertexColor(0.15, 0.15, 0.15, 0.9 * barOpacity)
         bg:Hide()
         frame.barBackdrops[i] = bg
 
@@ -626,6 +664,10 @@ local function ScanUnitFrame(key)
     if not unit then return end
 
     local elements = ns:ResolveUnitFrameElements(cfg)
+    -- The resolved (not configured) name size: cfg.nameFontSize is 0 for
+    -- "inherit", and the header has to size itself to what was actually
+    -- applied, which only BuildUnitFrame knows.
+    elements.nameFontSize = frame.nameFontSize
     -- pairRunes collapses six rune rows to three ready-count rows. Reused
     -- from the resource-group feature rather than reimplemented, and defaulted
     -- ON for unit frames (unlike groups, where it stays off so an existing
@@ -738,6 +780,18 @@ local function ScanUnitFrame(key)
                         bar.timeText.lastUFText = text
                         bar.timeText:SetText(text)
                     end
+                    -- Re-apply the frame's own Values Font/Size every pass.
+                    -- This is NOT redundant with the build-time setup the
+                    -- values COLUMN gets: ns:UpdateResourceBar above runs
+                    -- ns:ApplyVisualConfig, which re-fonts timeText from the
+                    -- addon-wide Visuals settings on every tick, so a font
+                    -- applied once at build time would be overwritten four
+                    -- times a second. Until this existed, Values Font and
+                    -- Values Size did nothing whatsoever in on-bar mode
+                    -- while working normally in column mode.
+                    if frame.valueFontPath then
+                        bar.timeText:SetFont(frame.valueFontPath, frame.valueFontSize, "OUTLINE")
+                    end
                     bar.timeText:Show()
                 else
                     bar.timeText.lastUFText = nil
@@ -745,6 +799,9 @@ local function ScanUnitFrame(key)
                 end
             end
 
+            -- After UpdateResourceBar, which sets its own alpha from
+            -- visual.activeAlpha and would otherwise win.
+            if frame.barOpacity then bar:SetAlpha(frame.barOpacity) end
             bar:Show()
             barBackdrop:Show()
 

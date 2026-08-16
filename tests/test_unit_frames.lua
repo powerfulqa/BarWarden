@@ -289,6 +289,61 @@ function M.test_header_absentKeyIsTreatedAsPresent()
     assertx.assertTrue(l.headerHeight > 0, "a missing header flag must not collapse the header")
 end
 
+-- The header band grows with the name font. A flat height silently capped
+-- the Name Size slider: past about 12 the text drew taller than the band and
+-- was clipped, so the slider looked broken rather than limited.
+function M.test_header_growsWithTheNameFont()
+    local ns = fresh()
+    local small = ns:ComputeUnitFrameLayout({ header = true, nameFontSize = 10 }, 2)
+    local big   = ns:ComputeUnitFrameLayout({ header = true, nameFontSize = 22 }, 2)
+
+    assertx.assertTrue(big.headerHeight > small.headerHeight,
+        "a bigger name font must get a taller header band")
+    assertx.assertTrue(big.headerHeight >= 22,
+        "the band must be at least as tall as the font in it")
+    assertx.assertTrue(big.barsTop > small.barsTop,
+        "a taller band must push the bars down rather than overlap them")
+end
+
+-- A small font must not SHRINK the band below its floor, or the header would
+-- look cramped at the default size.
+function M.test_header_neverShrinksBelowItsFloor()
+    local ns = fresh()
+    local tiny = ns:ComputeUnitFrameLayout({ header = true, nameFontSize = 4 }, 2)
+    local none = ns:ComputeUnitFrameLayout({ header = true }, 2)
+    assertx.assertEqual(tiny.headerHeight, none.headerHeight,
+        "a tiny font must fall back to the standard band height")
+end
+
+-- --------------------------------------------------------------------------
+-- Opacity (ns:GetUnitFrameOpacity)
+-- --------------------------------------------------------------------------
+
+function M.test_opacity_defaultsToFullyOpaque()
+    local ns = fresh()
+    assertx.assertEqual(ns:GetUnitFrameOpacity(nil, "barOpacity"), 1.0)
+    assertx.assertEqual(ns:GetUnitFrameOpacity({}, "barOpacity"), 1.0)
+    -- A hand-edited or imported profile can carry anything at all here.
+    assertx.assertEqual(ns:GetUnitFrameOpacity({ barOpacity = "half" }, "barOpacity"), 1.0)
+end
+
+function M.test_opacity_clampsToRange()
+    local ns = fresh()
+    assertx.assertEqual(ns:GetUnitFrameOpacity({ x = -3 }, "x"), 0)
+    assertx.assertEqual(ns:GetUnitFrameOpacity({ x = 47 }, "x"), 1)
+    assertx.assertEqual(ns:GetUnitFrameOpacity({ x = 0.4 }, "x"), 0.4)
+end
+
+-- Each part reads its OWN key, so fading one never drags another with it.
+function M.test_opacity_partsAreIndependent()
+    local ns = fresh()
+    local cfg = { frameOpacity = 0.2, portraitOpacity = 1.0, barOpacity = 0.6, borderOpacity = 0.8 }
+    assertx.assertEqual(ns:GetUnitFrameOpacity(cfg, "frameOpacity"), 0.2)
+    assertx.assertEqual(ns:GetUnitFrameOpacity(cfg, "portraitOpacity"), 1.0)
+    assertx.assertEqual(ns:GetUnitFrameOpacity(cfg, "barOpacity"), 0.6)
+    assertx.assertEqual(ns:GetUnitFrameOpacity(cfg, "borderOpacity"), 0.8)
+end
+
 -- --------------------------------------------------------------------------
 -- Portrait style (ns:ResolveUnitFrameElements)
 -- --------------------------------------------------------------------------

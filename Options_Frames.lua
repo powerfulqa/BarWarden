@@ -52,6 +52,13 @@ local ufFontItems = (ns.LSMDropdownItems and ns:LSMDropdownItems("font"))
                     or BUILTIN_UF_FONT_ITEMS
 table.insert(ufFontItems, 1, { text = "Same as Visuals", value = "" })
 
+-- Shared by every opacity slider. ns:CreateSlider uses the same function for
+-- the minimum and maximum labels under the track, so this has to read
+-- sensibly as "0%" and "100%" as well as for the live value.
+local function PercentLabel(v)
+    return string.format("%d%%", (v or 0) * 100)
+end
+
 local function CreateFramesTab(parent)
     local frame = CreateFrame("Frame", "BarWardenFramesTab", parent)
     frame:SetAllPoints(parent)
@@ -120,12 +127,35 @@ local function CreateFramesTab(parent)
           db = "unitFrames.player.barHeight", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
-        { type = "slider", label = "Background Opacity", min = 0, max = 1, step = 0.05,
-          width = 200,
-          format = function(v) return string.format("%d%%", (v or 0) * 100) end,
-          tooltip = "How solid the frame's background is. Slide to zero for "
-                 .. "a see-through frame.",
-          db = "unitFrames.player.backdropOpacity", refresh = "RebuildUnitFrames",
+        { type = "header", text = "Opacity", spacing = 24, offsetX = ns.OFFSET_HEADER },
+
+        { type = "note",
+          text = "Each part of the frame fades on its own.",
+          offsetX = ns.OFFSET_HEADER, spacing = 10 },
+
+        { type = "slider", label = "Panel", min = 0, max = 1, step = 0.05,
+          width = 200, format = PercentLabel,
+          tooltip = "The background behind the bars.",
+          db = "unitFrames.player.frameOpacity", refresh = "RebuildUnitFrames",
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
+
+        { type = "slider", label = "Portrait", min = 0, max = 1, step = 0.05,
+          width = 200, format = PercentLabel,
+          tooltip = "The box behind the portrait. A 3D model shows the world "
+                 .. "through it once this is lowered.",
+          db = "unitFrames.player.portraitOpacity", refresh = "RebuildUnitFrames",
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
+
+        { type = "slider", label = "Bars", min = 0, max = 1, step = 0.05,
+          width = 200, format = PercentLabel,
+          tooltip = "The resource bars themselves.",
+          db = "unitFrames.player.barOpacity", refresh = "RebuildUnitFrames",
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
+
+        { type = "slider", label = "Border", min = 0, max = 1, step = 0.05,
+          width = 200, format = PercentLabel,
+          tooltip = "The edge around the frame and the portrait.",
+          db = "unitFrames.player.borderOpacity", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
         { type = "header", text = "Elements", spacing = 24, offsetX = ns.OFFSET_HEADER },
