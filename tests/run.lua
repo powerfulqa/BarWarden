@@ -20,6 +20,7 @@ local TEST_FILES = {
     "test_class_presets",
     "test_settings_schema",
     "test_frame_manager",
+    "test_unit_frames",
     "test_help",
     "test_hygiene",
     "test_comms_version",

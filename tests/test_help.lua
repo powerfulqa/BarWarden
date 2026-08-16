@@ -26,6 +26,7 @@ local DEEPLINK_IDS = {
     "class-starters",
     "activity-overview",
     "auto-track",
+    "unit-frames-overview",
 }
 
 local function fresh()

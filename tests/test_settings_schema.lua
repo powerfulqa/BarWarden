@@ -52,6 +52,7 @@ function M.test_defaults_topLevelKeys()
         visual        = true,
         minimap       = true,
         frames        = true,
+        unitFrames    = true,
         activity      = true,
         activeProfile = true,
     }
@@ -107,6 +108,7 @@ function M.test_defaults_globalExact()
             profiles        = true,
             activity        = true,
             troubleshooting = true,
+            unitFrames      = true,
         },
     }, "DEFAULTS.global drift - see the file header for what to do")
 end
@@ -120,6 +122,21 @@ function M.test_defaults_minimapExact()
         hide       = false,
         minimapPos = 220,
     }, "DEFAULTS.minimap drift")
+end
+
+-- Unit frames (UnitFrames.lua): its own top-level table, mirroring minimap
+-- above - see the comment in DB.lua for why this needed no schema bump.
+function M.test_defaults_unitFramesExact()
+    local ns = freshDB()
+    assertx.assertDeepEqual(ns.DEFAULTS.unitFrames, {
+        player = {
+            enabled      = false,
+            scale        = 1.0,
+            showPortrait = true,
+            showLevel    = true,
+            showValues   = true,
+        },
+    }, "DEFAULTS.unitFrames drift")
 end
 
 -- --------------------------------------------------------------------------
