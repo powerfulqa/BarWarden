@@ -478,7 +478,7 @@ local function CreateBarsTab(parent)
     -- display shows the player's own auras, so a target group replaces
     -- nothing of it.
     local AUTO_PLAYER_AURA_ONLY_WIDGET_IDS = {
-        "grpAutoHideBlizzardAuras",
+        "grpAutoHideBlizzardAuras", "grpAutoHideBlizzardAurasNote",
     }
 
     -- Whether the selected group has an AURA feed picked (not "resources").
@@ -1035,6 +1035,20 @@ local function CreateBarsTab(parent)
               if ns.ApplyBlizzardFrameHiding then ns:ApplyBlizzardFrameHiding() end
           end,
           offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
+
+        -- The caveat, in small grey text under the tick rather than only in
+        -- the tooltip: both halves of it are things someone finds out the
+        -- hard way otherwise. Buffs and debuffs cannot be separated (3.3.5a
+        -- draws them as one frame - see BLIZZARD_FRAME_GROUPS, Core.lua),
+        -- and the setting is addon-wide despite living in a group's
+        -- settings, so ticking it here changes what another group's copy of
+        -- this tickbox shows.
+        { type = "note", style = "disabled",
+          text = "Hides both together - the game draws them as one. Weapon "
+              .. "enchants stay. Applies to the whole addon, not just this "
+              .. "group.",
+          id = "grpAutoHideBlizzardAurasNote",
+          offsetX = ns.OFFSET_TOGGLE + 4, spacing = 4 },
         { type = "slider", id = "grpAutoMaxBars", label = "Max Bars", min = 1, max = 30, step = 1,
           width = 150, stretch = true,
           tooltip = "How many bars this group can show at once.",
