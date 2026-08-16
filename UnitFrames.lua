@@ -75,6 +75,9 @@ local UF_PADDING       = 4
 -- clips against the band edges.
 local UF_HEADER_TEXT_PADDING = 4
 
+-- The same allowance for the numbers inside a bar row.
+local UF_ROW_TEXT_PADDING = 4
+
 -- Bounds for the Bar Height setting. The floor is the point below which the
 -- value text stops fitting on a bar at all; the ceiling just stops a typo or
 -- a hand-edited profile producing a frame taller than the screen.
@@ -138,10 +141,6 @@ local function ApplyUnitFrameBackdropColor(f, cfg, opacityKey)
     f:SetBackdropBorderColor(UF_BORDER_COLOR.r, UF_BORDER_COLOR.g, UF_BORDER_COLOR.b,
                              ns:GetUnitFrameOpacity(cfg, "borderOpacity"))
 end
-
--- Inset from the portrait's own border to the portrait art, matching
--- XPerl_Portrait_Template (a 60x62 bordered frame around a 50x50 portrait).
-local UF_PORTRAIT_INSET = 5
 
 -- How much of each edge of a unit portrait to crop away. Blizzard's portrait
 -- images carry a transparent margin around a circular subject; this is the
@@ -246,6 +245,17 @@ function ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
     if barHeight < UF_MIN_BAR_HEIGHT then barHeight = UF_MIN_BAR_HEIGHT end
     if barHeight > UF_MAX_BAR_HEIGHT then barHeight = UF_MAX_BAR_HEIGHT end
 
+    -- A bar must be at least as tall as the numbers it carries, exactly as
+    -- the header band must fit the name. Without this the Values Size slider
+    -- silently capped out around 12 for the same reason Name Size did: the
+    -- text drew taller than its row and was clipped, so the slider looked
+    -- broken rather than limited. This raises the FLOOR only, so an explicit
+    -- Bar Height above it is still honoured.
+    local valueSize = elements.valueFontSize
+    if valueSize and valueSize + UF_ROW_TEXT_PADDING > barHeight then
+        barHeight = valueSize + UF_ROW_TEXT_PADDING
+    end
+
     -- `elements.header` is nil for a caller that predates the name toggle
     -- (and for the tests' minimal element tables), so nil reads as "there is
     -- a header", matching every frame built before it became optional.
@@ -282,7 +292,6 @@ function ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
         width        = valuesX + valuesWidth + UF_PADDING,
         height       = bodyHeight + UF_PADDING * 2,
         portraitSize = portraitSize,
-        portraitInset = UF_PORTRAIT_INSET,
         bodyX        = bodyX,
         barsX        = barsX,
         headerHeight = headerHeight,
@@ -492,18 +501,26 @@ local function BuildUnitFrame(key)
     -- portrait is ringed by the same border as the frame body, and without
     -- that ring the portrait art just bled into the backdrop with no edge.
     local portraitFrame = CreateFrame("Frame", nil, frame)
-    portraitFrame:SetBackdrop(UNIT_FRAME_BACKDROP)
-    -- Its own opacity, separate from the panel's: a 3D model is transparent
-    -- around the character, so fading the portrait box shows the game world
-    -- through the model's head. That is now the owner's call to make rather
-    -- than something this file decides for them, but it is why the two are
-    -- not one setting.
-    ApplyUnitFrameBackdropColor(portraitFrame, cfg, "portraitOpacity")
+    -- No backdrop of its own. It used to carry the full bordered panel, which
+    -- meant the portrait art sat inside two borders (its own and the frame's)
+    -- and could not line up with the bars beside it: the art started 5px
+    -- inside a box whose own edge was already inset from the panel. Dropping
+    -- the border lets the portrait occupy exactly the same vertical span as
+    -- the header plus the bar stack, so the two columns align at top and
+    -- bottom whether or not the borders are visible.
+    --
+    -- A plain black fill stays behind it, which is what the Portrait opacity
+    -- slider controls: a 3D model is transparent around the character, so
+    -- without a backing the game world shows through its head.
+    local portraitBG = portraitFrame:CreateTexture(nil, "BACKGROUND")
+    portraitBG:SetAllPoints(portraitFrame)
+    portraitBG:SetTexture("Interface\\Buttons\\WHITE8x8")
+    portraitBG:SetVertexColor(0, 0, 0, ns:GetUnitFrameOpacity(cfg, "portraitOpacity"))
+    frame.portraitBG = portraitBG
     frame.portraitFrame = portraitFrame
 
     local portrait = portraitFrame:CreateTexture(nil, "ARTWORK")
-    portrait:SetPoint("TOPLEFT", portraitFrame, "TOPLEFT", UF_PORTRAIT_INSET, -UF_PORTRAIT_INSET)
-    portrait:SetPoint("BOTTOMRIGHT", portraitFrame, "BOTTOMRIGHT", -UF_PORTRAIT_INSET, UF_PORTRAIT_INSET)
+    portrait:SetAllPoints(portraitFrame)
     -- SetPortraitTexture hands back a square image whose subject is a circle
     -- with transparent corners - drawn raw it reads as a small head floating
     -- in a black box, which is exactly how it looked. Cropping past the
@@ -525,9 +542,7 @@ local function BuildUnitFrame(key)
     -- degrade to the flat portrait rather than error on a 4 Hz path.
     local ok, model = pcall(CreateFrame, "PlayerModel", nil, portraitFrame)
     if ok and model then
-        model:SetPoint("TOPLEFT", portraitFrame, "TOPLEFT", UF_PORTRAIT_INSET, -UF_PORTRAIT_INSET)
-        model:SetPoint("BOTTOMRIGHT", portraitFrame, "BOTTOMRIGHT",
-                       -UF_PORTRAIT_INSET, UF_PORTRAIT_INSET)
+        model:SetAllPoints(portraitFrame)
         model:Hide()
         frame.portrait3D = model
     end
@@ -570,13 +585,11 @@ local function BuildUnitFrame(key)
     frame.valueFontPath = valueFontPath
     frame.valueFontSize = valueFontSize
 
-    -- Bar opacity is applied in two places for one reason: the unfilled
-    -- background is a plain texture set once here, but the bar itself is
-    -- re-alphaed by ns:UpdateResourceBar (visual.activeAlpha) on every scan,
-    -- so the live bar has to be re-set in ScanUnitFrame instead. Stored on
-    -- the frame so that pass does not re-read the config four times a second.
+    -- Applies to the unfilled BACKGROUND behind each bar only, never to the
+    -- bar's own fill. Fading the fill made a bar hard to read at exactly the
+    -- moment it matters, and the point of this setting is to let the black
+    -- behind the bars recede, not to dim the data.
     local barOpacity = ns:GetUnitFrameOpacity(cfg, "barOpacity")
-    frame.barOpacity = barOpacity
 
     frame.bars = {}
     frame.valueTexts = {}
@@ -668,6 +681,7 @@ local function ScanUnitFrame(key)
     -- "inherit", and the header has to size itself to what was actually
     -- applied, which only BuildUnitFrame knows.
     elements.nameFontSize = frame.nameFontSize
+    elements.valueFontSize = frame.valueFontSize
     -- pairRunes collapses six rune rows to three ready-count rows. Reused
     -- from the resource-group feature rather than reimplemented, and defaulted
     -- ON for unit frames (unlike groups, where it stays off so an existing
@@ -799,9 +813,6 @@ local function ScanUnitFrame(key)
                 end
             end
 
-            -- After UpdateResourceBar, which sets its own alpha from
-            -- visual.activeAlpha and would otherwise win.
-            if frame.barOpacity then bar:SetAlpha(frame.barOpacity) end
             bar:Show()
             barBackdrop:Show()
 

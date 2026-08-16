@@ -57,8 +57,19 @@ Fixed in the same pass:
   a font's name where a file path was needed, so nothing happened. The
   values font and size also had no effect while the numbers were on the
   bars, where the bar's own text was being re-styled every tick.
-- **Name Size works past 12.** The header band was a fixed height, so
-  bigger text was clipped rather than the frame growing to fit it.
+- **Name Size and Values Size work past 12.** The header band and the bar
+  rows were fixed heights, so bigger text was clipped rather than the frame
+  growing to fit it.
+- **The portrait lines up with the bars.** It had its own border inside the
+  frame's, so it could never sit level with the bar stack; that border is
+  gone and the portrait now spans exactly the same height as the bars
+  beside it.
+- **Bar Background opacity no longer fades the bars themselves**, only the
+  empty part behind them, so a bar stays readable however far it is
+  turned down.
+- **Focus is no longer offered** in Resources Shown. On this client focus
+  belongs to hunter pets, not player characters, so the tickbox could
+  never change anything.
 - **The Bar Look dropdown no longer overlaps the Scale slider.** A
   dropdown sitting under a slider needed more room than the usual gap.
 - **The portrait fills its frame** instead of sitting as a small circle in

@@ -379,4 +379,39 @@ function M.test_barHeight_isHonouredAndClamped()
         "taller bars must make a taller frame")
 end
 
+-- The same clipping trap the header had: numbers taller than their row were
+-- cut off, so the Values Size slider appeared to stop working past about 12.
+function M.test_barHeight_growsToFitTheValuesFont()
+    local ns = fresh()
+    local l = ns:ComputeUnitFrameLayout({ barHeight = 10, valueFontSize = 20 }, 2)
+    assertx.assertTrue(l.barHeight >= 20,
+        "a row must be at least as tall as the numbers in it")
+end
+
+-- Raising the floor must not become a ceiling: an explicit Bar Height above
+-- what the font needs is still the owner's choice and must be honoured.
+function M.test_barHeight_valuesFontOnlyRaisesTheFloor()
+    local ns = fresh()
+    local l = ns:ComputeUnitFrameLayout({ barHeight = 30, valueFontSize = 10 }, 2)
+    assertx.assertEqual(l.barHeight, 30,
+        "a small font must not shrink an explicitly tall bar")
+end
+
+-- The portrait spans exactly the header plus the bar stack, so the two
+-- columns line up top and bottom. This is what removing the portrait's own
+-- border was for; if the arithmetic drifts they stop aligning and the fix
+-- silently regresses.
+function M.test_portrait_spansExactlyTheBodyHeight()
+    local ns = fresh()
+    for _, barCount in ipairs({ 1, 3, 7 }) do
+        local l = ns:ComputeUnitFrameLayout({ portrait = true, header = true }, barCount)
+        local barsBottom = l.barsTop + barCount * l.barHeight + (barCount - 1) * l.barSpacing
+        -- The portrait starts at the same y the header does (UF_PADDING down
+        -- from the top), so its bottom edge is padding + portraitSize.
+        local portraitBottom = (l.barsTop - l.headerHeight) + l.portraitSize
+        assertx.assertEqual(portraitBottom, barsBottom,
+            barCount .. " bars: portrait and bar stack must end level")
+    end
+end
+
 return M

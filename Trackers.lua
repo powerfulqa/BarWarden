@@ -1265,7 +1265,14 @@ ns.RESOURCE_FAMILIES = {
     { key = "mana",        label = "Mana",   power = true },
     { key = "rage",        label = "Rage",   power = true },
     { key = "energy",      label = "Energy", power = true },
-    { key = "focus",       label = "Focus"       },
+    -- Focus is deliberately NOT offered. On 3.3.5a it is a hunter PET's
+    -- power type, never a player character's, so on a player frame the
+    -- tickbox could never change anything: CollectResources only emits focus
+    -- when it is the unit's current power type, and it is not one of the
+    -- three types that can be pinned either (PINNABLE_POWER_TYPES). It was
+    -- listed once and did nothing, which is worse than not listing it.
+    -- `focus` still maps to a family below so a pet or target frame showing
+    -- one filters correctly; only the tick list drops it.
     { key = "runicpower",  label = "Runic Power" },
     { key = "runes",       label = "Runes"       },
     { key = "combopoints", label = "Combo Points"},

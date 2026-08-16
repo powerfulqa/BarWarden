@@ -146,9 +146,10 @@ local function CreateFramesTab(parent)
           db = "unitFrames.player.portraitOpacity", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
-        { type = "slider", label = "Bars", min = 0, max = 1, step = 0.05,
+        { type = "slider", label = "Bar Background", min = 0, max = 1, step = 0.05,
           width = 200, format = PercentLabel,
-          tooltip = "The resource bars themselves.",
+          tooltip = "The empty part of each bar. The filled part is not "
+                 .. "faded, so a bar stays readable.",
           db = "unitFrames.player.barOpacity", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
