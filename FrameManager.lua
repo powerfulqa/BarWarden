@@ -19,6 +19,10 @@ ns.MAX_FRAMES = MAX_FRAMES
 ns.MAX_BARS_PER_FRAME = MAX_BARS_PER_FRAME
 local MIN_SCALE = 0.5
 local MAX_SCALE = 3.0
+-- Exposed so UnitFrames.lua's own scale slider can clamp to the identical
+-- range without a second pair of magic numbers to keep in sync.
+ns.MIN_FRAME_SCALE = MIN_SCALE
+ns.MAX_FRAME_SCALE = MAX_SCALE
 
 -- Pre-allocated sort comparators (avoids closure allocation on every layout)
 local sortNow = 0
@@ -127,13 +131,18 @@ local function NewAutoBarData()
     }
 end
 
--- Backdrop table for group frames
+-- Backdrop table for group frames. Exposed on `ns` so UnitFrames.lua draws
+-- its own panel with the exact same primitives (a plain white texture tinted
+-- by SetBackdropColor, and Blizzard's own tooltip border) rather than a new
+-- texture asset - there is nothing about a unit frame's backdrop that needs
+-- to look different from a bar group's.
 local GROUP_BACKDROP = {
     bgFile = "Interface\\Buttons\\WHITE8x8",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
     tile = true, tileSize = 16, edgeSize = 12,
     insets = { left = 2, right = 2, top = 2, bottom = 2 },
 }
+ns.GROUP_BACKDROP = GROUP_BACKDROP
 
 
 -- ----------------------------------------------------------------------------
@@ -153,20 +162,33 @@ local function RepinGroup(group, growUp)
     return pos
 end
 
-local function SaveFramePosition(frame)
-    if not frame.frameIndex then return end
-    local db = BarWardenDB and BarWardenDB.frames
-    if not db or not db[frame.frameIndex] then return end
+-- ----------------------------------------------------------------------------
+-- Shared movable-frame positioning.
+--
+-- A unit frame (UnitFrames.lua) needs the identical "apply a saved anchor,
+-- drag while unlocked, repin and persist on drop, rescale without drifting"
+-- behaviour a bar group frame already has - the owner asked for this to be
+-- reused rather than given a second positioning system. The three pieces
+-- below are the ones that generalise cleanly: the anchor-apply-or-fallback
+-- (ns:ApplySavedFramePosition), the drag-stop repin+persist body
+-- (ns:OnFrameDragStop, replacing the old SaveFramePosition), and the
+-- position-preserving rescale (ns:RescaleFrame, replacing the inline maths
+-- ns:SetFrameScale used to do just for itself). OnDragStart needed no
+-- generalising at all: it already has zero group-specific state, so it is
+-- exposed as-is (ns.OnFrameDragStart) rather than duplicated.
+-- ----------------------------------------------------------------------------
 
-    -- Save against the edge the frame grows from, so a height change (bars
-    -- appearing/disappearing with Hide When Inactive) never moves it: DOWN
-    -- pins the top, UP pins the bottom. Saving everything as TOPLEFT used to
-    -- pin a grow-up group by the wrong edge.
-    local growUp = (db[frame.frameIndex].growDirection == "UP")
-    local pos = RepinGroup(frame, growUp)
-    if pos then
-        db[frame.frameIndex].position = pos
+-- Apply `pos` (a saved { point, relativePoint, x, y } anchor) to `frame`, or
+-- `fallback` (same shape) when there is nothing saved yet - e.g. a group's
+-- CENTER creation placeholder, or a unit frame's first-ever build.
+function ns:ApplySavedFramePosition(frame, pos, fallback)
+    if pos and pos.point then
+        frame:SetPoint(pos.point, UIParent, pos.relativePoint or pos.point, pos.x or 0, pos.y or 0)
+        return
     end
+    fallback = fallback or { point = "TOPLEFT", relativePoint = "TOPLEFT", x = 100, y = -200 }
+    frame:SetPoint(fallback.point, UIParent, fallback.relativePoint or fallback.point,
+                    fallback.x or 0, fallback.y or 0)
 end
 
 -- ----------------------------------------------------------------------------
@@ -177,12 +199,75 @@ local function OnDragStart(self)
     self:StartMoving()
     self.isMoving = true
 end
+ns.OnFrameDragStart = OnDragStart
+
+-- Generic drag-stop body: stop moving, repin to the fixed edge for `growUp`,
+-- and hand the recomputed anchor to `savePosition` so the caller can persist
+-- it wherever its own config lives (BarWardenDB.frames[i] for a group,
+-- BarWardenDB.unitFrames[key] for a unit frame).
+function ns:OnFrameDragStop(frame, growUp, savePosition)
+    if not frame.isMoving then return end
+    frame:StopMovingOrSizing()
+    frame.isMoving = false
+    local pos = RepinGroup(frame, growUp)
+    if pos and savePosition then savePosition(pos) end
+end
 
 local function OnDragStop(self)
-    if not self.isMoving then return end
-    self:StopMovingOrSizing()
-    self.isMoving = false
-    SaveFramePosition(self)
+    if not self.frameIndex then return end
+    local db = BarWardenDB and BarWardenDB.frames
+    if not db or not db[self.frameIndex] then return end
+    -- Save against the edge the frame grows from, so a height change (bars
+    -- appearing/disappearing with Hide When Inactive) never moves it: DOWN
+    -- pins the top, UP pins the bottom. Read fresh on every drop (not
+    -- captured once) so a growth-direction flip mid-session is honoured on
+    -- the very next drag without recreating the frame.
+    local growUp = (db[self.frameIndex].growDirection == "UP")
+    ns:OnFrameDragStop(self, growUp, function(pos)
+        db[self.frameIndex].position = pos
+    end)
+end
+
+-- Rescale `frame` in place while preserving its on-screen position: anchor
+-- offsets are measured in the frame's OWN scaled space, so changing scale
+-- alone would move it (2x scale sends x=500 to screen-x 1000). Shared by
+-- ns:SetFrameScale below and UnitFrames.lua's own scale slider so there is
+-- exactly one "convert the offsets, reapply the anchor" implementation
+-- rather than a second one that could drift out of step with the v2.0.2
+-- anti-drift fix this same maths already protects (see the EC-TRAP on
+-- ns:UpdateGroupLayout below). Returns the clamped scale actually applied.
+function ns:RescaleFrame(frame, newScale, growUp, onAnchorChanged)
+    newScale = math.max(MIN_SCALE, math.min(MAX_SCALE, newScale))
+    if not frame then return newScale end
+
+    local oldScale = frame:GetScale() or 1
+    local left, top, bottom = frame:GetLeft(), frame:GetTop(), frame:GetBottom()
+
+    frame:SetScale(newScale)
+
+    if left and oldScale > 0 and newScale > 0 then
+        local k = oldScale / newScale
+        local pos = ns:NormalizeGroupAnchor(growUp, left * k, top * k, bottom * k)
+        frame:ClearAllPoints()
+        frame:SetPoint(pos.point, UIParent, pos.relativePoint, pos.x, pos.y)
+        if onAnchorChanged then onAnchorChanged(pos) end
+    end
+
+    return newScale
+end
+
+-- Release every bar a group or unit frame is holding back to the shared
+-- pool. Pulled out of DestroyGroupFrame/BuildBarsForFrame (which both used
+-- to inline this same three-call loop) so DestroyUnitFrame (UnitFrames.lua)
+-- has one place to call rather than a fourth copy of it.
+function ns:ReleaseFrameBars(frame)
+    if not frame or not frame.bars then return end
+    for i = #frame.bars, 1, -1 do
+        ns:DeactivateBar(frame.bars[i], true)
+        ns:CancelBarGlow(frame.bars[i])
+        ns:ReleaseBar(frame.bars[i])
+        frame.bars[i] = nil
+    end
 end
 
 -- Elite/boss units are conventionally marked with a trailing "+" (matching
@@ -359,12 +444,7 @@ function ns:CreateGroupFrame(groupData, frameIndex)
     -- and on a growth-direction change (ns:NormalizeGroupAnchor pins TOPLEFT for
     -- downward growth, BOTTOMLEFT for upward), but this must honour whatever
     -- shape is saved so older layouts still land where the user left them.
-    local pos = groupData.position
-    if pos and pos.point then
-        frame:SetPoint(pos.point, UIParent, pos.relativePoint or pos.point, pos.x or 0, pos.y or 0)
-    else
-        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100, -200)
-    end
+    ns:ApplySavedFramePosition(frame, groupData.position)
 
     -- Scale
     local scale = groupData.scale or 1.0
@@ -413,6 +493,19 @@ end
 -- ----------------------------------------------------------------------------
 function ns:UpdateGroupLayout(group)
     if not group then return end
+    -- EC-TRAP: this early-return looks pointless (every caller already only
+    -- ever hands this a real bar-group frame from ns.groupFrames). It is not:
+    -- a unit frame (UnitFrames.lua) shares the bar pool and therefore shares
+    -- DeactivateBar/UpdateResourceBar's MarkGroupDirty(bar:GetParent()) call
+    -- on every activate/deactivate, regardless of what kind of frame the
+    -- bar's parent is. A unit frame owns a completely different layout
+    -- (portrait, header, values column) and is never in BarWardenDB.frames,
+    -- so running the bar-group algorithm against it here would silently
+    -- overwrite its own ns:LayoutUnitFrame positions on the very next scan.
+    -- Removing this guard reintroduces exactly that: a unit frame's bars
+    -- snapping into a top-to-bottom stack ignoring the portrait/values
+    -- column the moment any resource bar activates or deactivates.
+    if group.isUnitFrame then return end
 
     local visual = ns:GetVisual()
     local spacing = visual.barSpacing or 2
@@ -567,37 +660,21 @@ end
 -- SetFrameScale: Set scale on a group frame with clamping
 -- ----------------------------------------------------------------------------
 function ns:SetFrameScale(frameIndex, scale)
-    scale = math.max(MIN_SCALE, math.min(MAX_SCALE, scale))
     local frame = ns.groupFrames[frameIndex]
     local frameData = BarWardenDB and BarWardenDB.frames and BarWardenDB.frames[frameIndex]
+    local applied
 
     if frame then
-        -- A frame's anchor offsets are measured in its OWN scaled space, so its
-        -- screen position is offset * scale. Changing the scale alone therefore
-        -- moves the group (2x scale sends x=500 to screen-x 1000). Convert the
-        -- offsets into the new space so the group stays where the user put it:
-        --   offset_new = offset_old * scale_old / scale_new
-        -- (UIParent's own scale cancels, and offsets are relative to its
-        -- BOTTOMLEFT, the screen origin, which is 0 in every space.)
-        -- This is a one-off conversion on an explicit scale change, NOT the
-        -- per-relayout re-derivation that caused the v2.0.2 drift.
-        local oldScale = frame:GetScale() or 1
-        local left, top, bottom = frame:GetLeft(), frame:GetTop(), frame:GetBottom()
-
-        frame:SetScale(scale)
-
-        if left and oldScale > 0 and scale > 0 then
-            local k = oldScale / scale
-            local growUp = (frameData and frameData.growDirection == "UP")
-            local pos = ns:NormalizeGroupAnchor(growUp, left * k, top * k, bottom * k)
-            frame:ClearAllPoints()
-            frame:SetPoint(pos.point, UIParent, pos.relativePoint, pos.x, pos.y)
+        local growUp = (frameData and frameData.growDirection == "UP")
+        applied = ns:RescaleFrame(frame, scale, growUp, function(pos)
             if frameData then frameData.position = pos end
-        end
+        end)
+    else
+        applied = math.max(MIN_SCALE, math.min(MAX_SCALE, scale))
     end
 
     if frameData then
-        frameData.scale = scale
+        frameData.scale = applied
     end
 end
 
@@ -649,6 +726,18 @@ function ns:LockAllFrames()
             ns:DisableDragReorder(frame)
         end
     end
+    -- Unit frames (UnitFrames.lua) are movable/draggable the same way a group
+    -- is, but live in their own tracking table (not ns.groupFrames, since
+    -- they are keyed by unit rather than by a BarWardenDB.frames index) - so
+    -- the lock toggle has to reach them separately. No drag-reorder to
+    -- disable: a unit frame has one bar per resource, not a reorderable list.
+    for _, frame in pairs(ns.unitFrames or {}) do
+        frame:EnableMouse(false)
+        if frame.isMoving then
+            frame:StopMovingOrSizing()
+            frame.isMoving = false
+        end
+    end
 end
 
 function ns:UnlockAllFrames()
@@ -657,6 +746,9 @@ function ns:UnlockAllFrames()
         if ns.EnableDragReorder then
             ns:EnableDragReorder(frame)
         end
+    end
+    for _, frame in pairs(ns.unitFrames or {}) do
+        frame:EnableMouse(true)
     end
 end
 
@@ -704,18 +796,11 @@ local function DestroyGroupFrame(frameIndex)
     local frame = ns.groupFrames[frameIndex]
     if not frame then return end
 
-    -- Deactivate then release all bars back to pool.
-    -- skipGlow=true prevents glow-on-ready from firing during teardown.
-    -- CancelBarGlow clears any pre-existing glow so the pool doesn't
-    -- recycle a bar that the glow timer is still animating.
-    if frame.bars then
-        for i = #frame.bars, 1, -1 do
-            ns:DeactivateBar(frame.bars[i], true)
-            ns:CancelBarGlow(frame.bars[i])
-            ns:ReleaseBar(frame.bars[i])
-            frame.bars[i] = nil
-        end
-    end
+    -- Deactivate then release all bars back to pool. skipGlow=true (inside
+    -- ns:ReleaseFrameBars) prevents glow-on-ready from firing during
+    -- teardown; CancelBarGlow clears any pre-existing glow so the pool
+    -- doesn't recycle a bar the glow timer is still animating.
+    ns:ReleaseFrameBars(frame)
 
     frame:Hide()
     frame:ClearAllPoints()
@@ -783,15 +868,9 @@ function ns:BuildBarsForFrame(frameIndex)
     if not frameData or not frameData.bars then return end
 
     -- Deactivate then release existing bars back to pool.
-    -- skipGlow=true prevents glow-on-ready from firing during rebuild.
-    if frame.bars then
-        for i = #frame.bars, 1, -1 do
-            ns:DeactivateBar(frame.bars[i], true)
-            ns:CancelBarGlow(frame.bars[i])
-            ns:ReleaseBar(frame.bars[i])
-            frame.bars[i] = nil
-        end
-    end
+    -- skipGlow=true (inside ns:ReleaseFrameBars) prevents glow-on-ready from
+    -- firing during rebuild.
+    ns:ReleaseFrameBars(frame)
     frame.bars = {}
 
     -- An auto-tracking group holds slots, not configured bars: ScanAutoGroup
