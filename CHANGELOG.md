@@ -83,7 +83,8 @@ Fixed in the same pass:
   band and the portrait; *Portrait* fades the picture or model itself; and
   *Bars* fades the bars along with any numbers on them.
 - **Click a frame's portrait or its name to select that unit**, and
-  right-click for its menu. Party frames included, so you can click a party
+  right-click for the full unit menu: leave party, promote, set focus, raid
+  icon, whisper, inspect. Party frames included, so you can click a party
   member to target them. This works while your frames are locked; locking
   only stops you dragging them.
 - **The bars sit flush against the portrait**, with no gap between them.

@@ -829,7 +829,70 @@ local function LayoutUnitFrame(frame, elements, plan, measuredValuesWidth)
     return layout
 end
 
--- Build the frame for `key` (currently only ever "player"). Bars are
+-- ----------------------------------------------------------------------------
+-- Right-click unit menu.
+--
+-- One dropdown for the whole addon, retargeted before each open, exactly as
+-- X-Perl does with its single XPerl_DropDown. The menu CONTENTS come from
+-- Blizzard's own UnitPopup, so every entry the default frames offer (leave
+-- party, promote, set focus, raid target icon, whisper, inspect, trade) is
+-- present and behaves correctly, including the parts that are protected.
+--
+-- The menu type has to be resolved per open rather than fixed per frame: the
+-- same target frame shows yourself, a party member, a stranger, and a mob at
+-- different moments, and each wants a different menu. This mirrors
+-- TargetFrameDropDown_Initialize (Blizzard's own) and X-Perl's copy of it.
+-- ----------------------------------------------------------------------------
+local unitMenuDropDown
+
+local function EnsureUnitMenuDropDown()
+    if unitMenuDropDown then return unitMenuDropDown end
+    -- Everything here is Blizzard UI that a private-server client could have
+    -- trimmed, so a failure degrades to "right-click does nothing" rather
+    -- than erroring on every click.
+    local ok, dd = pcall(CreateFrame, "Frame", "BarWardenUnitMenuDropDown",
+                         UIParent, "UIDropDownMenuTemplate")
+    if not ok or not dd then return nil end
+
+    local initOk = pcall(UIDropDownMenu_Initialize, dd, function()
+        local u = dd.unit or "player"
+        if not (UnitExists and UnitExists(u)) then return end
+
+        local menu, name, id
+        if UnitIsUnit(u, "player") then
+            menu = "SELF"
+        elseif UnitIsUnit(u, "pet") then
+            menu = "PET"
+        elseif UnitIsPlayer(u) then
+            id = UnitInRaid(u)
+            if id then
+                menu = "RAID_PLAYER"
+            elseif UnitInParty(u) then
+                menu = "PARTY"
+            else
+                menu = "PLAYER"
+            end
+        else
+            -- A mob or NPC: the only useful entry is the raid target icon.
+            menu = "RAID_TARGET_ICON"
+            name = RAID_TARGET_ICON
+        end
+        UnitPopup_ShowMenu(dd, menu, u, name, id)
+    end, "MENU")
+    if not initOk then return nil end
+
+    -- Registering the dropdown lets UnitPopup refresh and close it along with
+    -- Blizzard's own menus, so right-clicking one frame closes another's menu
+    -- instead of leaving two open.
+    if UnitPopupFrames then
+        table.insert(UnitPopupFrames, "BarWardenUnitMenuDropDown")
+    end
+
+    unitMenuDropDown = dd
+    return dd
+end
+
+-- Build the frame for `key`. Bars are
 -- acquired from the shared pool exactly like an auto-tracking resource
 -- group's slots (see NewAutoBarData, FrameManager.lua): each carries a
 -- runtime-only barData, never written to SavedVariables. frameIndex is
@@ -890,7 +953,8 @@ local function BuildUnitFrame(key)
 
     -- Click-to-target. A unit frame you cannot click is a picture of a unit
     -- frame, so the portrait and the name band both select the unit they
-    -- describe, and right-click opens its unit menu.
+    -- describe, and right-click opens its unit menu (leave party, set focus,
+    -- raid icon, whisper, and the rest).
     --
     -- These are SecureUnitButtonTemplate buttons rather than plain OnMouseUp
     -- handlers because TargetUnit is protected in combat on 3.3.5a: an
@@ -933,7 +997,19 @@ local function BuildUnitFrame(key)
             -- skipped the rest.
             pcall(button.SetAttribute, button, "unit", unit)
             pcall(button.SetAttribute, button, "type1", "target")
-            pcall(button.SetAttribute, button, "type2", "togglemenu")
+            -- "menu", NOT "togglemenu" - the first version used the latter
+            -- and right-click did nothing at all. 3.3.5a's secure handler
+            -- implements "menu" by calling the button's own `.menu` field,
+            -- which is why the function below is required and an attribute
+            -- alone is not enough. Verified against X-Perl, which does
+            -- exactly this on this client.
+            pcall(button.SetAttribute, button, "type2", "menu")
+            button.menu = function()
+                local dd = EnsureUnitMenuDropDown()
+                if not dd then return end
+                dd.unit = unit
+                pcall(ToggleDropDownMenu, 1, nil, dd, "cursor", 0, 0)
+            end
         else
             -- Insecure fallback. TargetUnit is protected in combat on
             -- 3.3.5a, so this deliberately does nothing mid-fight rather

@@ -163,10 +163,15 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
           db = P .. "frameOpacity", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
-        { type = "slider", label = "Portrait", min = 0, max = 1, step = 0.05,
+        -- Hidden while the portrait is a 3D model: the client does not apply
+        -- frame alpha to a rendered model, so the slider genuinely cannot do
+        -- anything there. Showing a control that silently ignores you is
+        -- worse than not showing it.
+        { type = "slider", id = id("PortraitOpacitySlider"),
+          label = "Portrait", min = 0, max = 1, step = 0.05,
           width = 200, format = PercentLabel,
-          tooltip = "The box behind the portrait. A 3D model shows the world "
-                 .. "through it once this is lowered.",
+          tooltip = "Fades the portrait picture. The black behind it belongs "
+                 .. "to Panel.",
           db = P .. "portraitOpacity", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
@@ -199,6 +204,7 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
           width = 191,
           tooltip = "A 3D model shows the character live. It falls back to "
                  .. "the picture for anyone out of sight.",
+          onChange = reapply,
           offsetX = ns.OFFSET_DROPDOWN, spacing = 16 },
 
         { type = "toggle", label = "Show Name",
@@ -415,6 +421,16 @@ local function CreateFramesTab(parent)
                 else
                     styleDD:Show()
                 end
+            end
+
+            -- Portrait opacity is meaningless on a 3D model (the client does
+            -- not apply alpha to one) and meaningless with no portrait at
+            -- all, so it appears only when it can actually do something.
+            local portraitOpacity = widgets[key .. "PortraitOpacitySlider"]
+            if portraitOpacity then
+                local shown = ns:DBGet(P .. "showPortrait", true) ~= false
+                             and ns:DBGet(P .. "portraitStyle", "2D") ~= "3D"
+                if shown then portraitOpacity:Show() else portraitOpacity:Hide() end
             end
 
             local placementDD = widgets[key .. "ValuePlacementDD"]
