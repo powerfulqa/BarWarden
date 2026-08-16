@@ -33,12 +33,13 @@ against renaming BarWarden and its commands in a fork. Full detail in
 [LICENSE](LICENSE); exactly which files came from where is recorded in
 [NOTICE.md](NOTICE.md).
 
-**Target and target's target frames.** Both sit on the Frames tab
-alongside the player frame and share all its looks: portrait, fonts,
-opacity, bar look and height. They show what the target actually has -
-health and its power - the way the default frames do, and they disappear
-when you have no target. They start beside the player frame rather than on
-top of it, and you can drag each one where you want it.
+**Frames for everyone: you, your target, your target's target, your pet,
+your focus, and all four party slots.** They share the player frame's
+looks - portrait, fonts, opacity, bar look and height - and each is dragged
+where you want it. Every one except your own shows what that unit actually
+has, health and its power, the way the default frames do, and hides itself
+when there is nobody there. Party frames share one set of settings, so you
+size them once rather than four times.
 
 **The frame is laid out like a unit frame, not a stack of bars.** Health
 and power get a full-width bar each. Runes share a single strip, side by

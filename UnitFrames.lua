@@ -25,10 +25,22 @@ local addonName, ns = ...
 -- identical full-width bar and no amount of texture fixed it. Read that
 -- section before changing how anything is positioned.
 --
--- This first slice builds the widget and the player frame only. Everything
--- below is keyed by a unit token (UNIT_TOKENS / UNIT_FRAME_KEYS) rather than
--- hardcoding "player", so target/pet/focus/party frames in a later slice are
--- a new key plus a token mapping, not a new widget.
+-- Nine frames: player, target, target's target, pet, focus, and four party
+-- slots. There is only ONE widget - everything below is keyed by a unit
+-- token (UNIT_TOKENS / UNIT_FRAME_KEYS), so a new frame is a row in those
+-- tables plus a ns.DEFAULTS.unitFrames entry, not new code.
+--
+-- Two keyings, deliberately: a FRAME key ("party2") names one on-screen
+-- frame, a CONFIG key ("party") names the settings block it reads. They are
+-- the same for every frame except the party slots, which share one set of
+-- settings while each keeping its own position. UNIT_FRAME_CONFIG maps
+-- between them; read ConfigKeyFor / UnitFramePosition before touching
+-- anything that indexes ns.db.unitFrames directly.
+--
+-- Roster changes need no events: the 0.25s scan already asks UnitExists for
+-- every frame, and a frame whose unit is absent hides itself. Leaving and
+-- joining a party is picked up within a tick without registering
+-- PARTY_MEMBERS_CHANGED at all.
 --
 -- Positioning/dragging/rescaling is NOT a second implementation: it reuses
 -- ns:ApplySavedFramePosition, ns:OnFrameDragStart, ns:OnFrameDragStop, and
@@ -63,17 +75,77 @@ local UNIT_TOKENS = {
     player       = "player",
     target       = "target",
     targettarget = "targettarget",
+    pet          = "pet",
+    -- The FOCUS UNIT, which 3.3.5a does have (/focus, FocusFrame). Not to be
+    -- confused with focus the POWER TYPE, which is a hunter pet's energy and
+    -- is deliberately absent from ns.RESOURCE_FAMILIES because a player
+    -- character never has it. Same word, unrelated things.
+    focus        = "focus",
+    party1       = "party1",
+    party2       = "party2",
+    party3       = "party3",
+    party4       = "party4",
 }
-local UNIT_FRAME_KEYS = { "player", "target", "targettarget" }
+local UNIT_FRAME_KEYS = {
+    "player", "target", "targettarget", "pet", "focus",
+    "party1", "party2", "party3", "party4",
+}
 
--- Player-facing names, used for the Frames tab headings and nothing else.
-local UNIT_FRAME_LABELS = {
-    player       = "Player Frame",
-    target       = "Target Frame",
-    targettarget = "Target's Target Frame",
+-- Which ns.DEFAULTS.unitFrames entry each frame reads its settings from.
+--
+-- All four party frames share ONE config, because nobody wants to set the
+-- bar height four times. Everything except position is therefore shared;
+-- position cannot be, so it is stored per frame key (see UnitFramePosition
+-- below). A frame whose key is missing here configures itself, which is the
+-- normal case.
+local UNIT_FRAME_CONFIG = {
+    party1 = "party", party2 = "party", party3 = "party", party4 = "party",
 }
-ns.UNIT_FRAME_KEYS   = UNIT_FRAME_KEYS
-ns.UNIT_FRAME_LABELS = UNIT_FRAME_LABELS
+
+local function ConfigKeyFor(frameKey)
+    return UNIT_FRAME_CONFIG[frameKey] or frameKey
+end
+
+local function UnitFrameConfig(frameKey)
+    local db = ns.db and ns.db.unitFrames
+    return db and db[ConfigKeyFor(frameKey)]
+end
+
+-- Read/write one frame's saved position. Frames with their own config store
+-- it as cfg.position, which is where every existing save already has it;
+-- frames sharing a config (party) store theirs under cfg.positions[key], so
+-- four party frames can be dragged independently while sharing every other
+-- setting.
+-- Exposed on ns (rather than kept file-local like ConfigKeyFor) because the
+-- split they encode is easy to get wrong and silent when wrong: a party
+-- frame writing to cfg.position would have all four overwrite each other and
+-- pile up on one spot, which reads as "dragging does not save" rather than
+-- as a bug in position storage. Covered in tests/test_unit_frames.lua.
+function ns:UnitFramePosition(cfg, frameKey)
+    if not cfg then return nil end
+    if ConfigKeyFor(frameKey) == frameKey then return cfg.position end
+    return cfg.positions and cfg.positions[frameKey]
+end
+
+function ns:SaveUnitFramePosition(cfg, frameKey, pos)
+    if not cfg then return end
+    if ConfigKeyFor(frameKey) == frameKey then
+        cfg.position = pos
+    else
+        cfg.positions = cfg.positions or {}
+        cfg.positions[frameKey] = pos
+    end
+end
+
+local function UnitFramePosition(cfg, frameKey)
+    return ns:UnitFramePosition(cfg, frameKey)
+end
+
+local function SaveUnitFramePosition(cfg, frameKey, pos)
+    return ns:SaveUnitFramePosition(cfg, frameKey, pos)
+end
+
+ns.UNIT_FRAME_KEYS = UNIT_FRAME_KEYS
 
 -- Where each frame sits before it has ever been dragged. Loosely mirrors the
 -- default UI (player left of centre, target right of it, target's target
@@ -83,6 +155,14 @@ local UNIT_FRAME_DEFAULT_POSITIONS = {
     player       = { point = "CENTER", relativePoint = "CENTER", x = -270, y = -120 },
     target       = { point = "CENTER", relativePoint = "CENTER", x =  270, y = -120 },
     targettarget = { point = "CENTER", relativePoint = "CENTER", x =  450, y = -120 },
+    pet          = { point = "CENTER", relativePoint = "CENTER", x = -270, y = -230 },
+    focus        = { point = "CENTER", relativePoint = "CENTER", x =  450, y =   10 },
+    -- Party frames stack down the left, clear of the others. Each is still
+    -- dragged on its own; these only decide where they first appear.
+    party1       = { point = "LEFT",   relativePoint = "LEFT",   x =   20, y =  180 },
+    party2       = { point = "LEFT",   relativePoint = "LEFT",   x =   20, y =   90 },
+    party3       = { point = "LEFT",   relativePoint = "LEFT",   x =   20, y =    0 },
+    party4       = { point = "LEFT",   relativePoint = "LEFT",   x =   20, y =  -90 },
 }
 
 -- Pre-allocated resource-row slots. ns:CollectResources for the player
@@ -91,6 +171,31 @@ local UNIT_FRAME_DEFAULT_POSITIONS = {
 -- every case with room to spare, matching the headroom a resource
 -- auto-tracking group gets from its own (user-configurable) Max Bars.
 local MAX_UNIT_FRAME_SLOTS = 24
+
+-- How many pooled bars each frame reserves. Sized per frame rather than
+-- given every frame the player's allowance, because that allowance exists
+-- for the player alone: health, up to three pinned power types, runic power,
+-- six runes, five combo-point segments and soul shards. Nine frames at 24
+-- each would hold 216 bars for a UI that can never draw more than a fraction
+-- of them.
+--
+-- ns:CollectResources decides these numbers, not guesswork: runes, runic
+-- power and soul shards are gated on unit == "player", and combo points are
+-- excluded for targettarget, so only the player and the target can exceed
+-- health-plus-power at all.
+local UNIT_FRAME_SLOT_COUNTS = {
+    player = MAX_UNIT_FRAME_SLOTS,
+    -- Health, current power, and up to five combo-point segments, with room
+    -- spare.
+    target = 10,
+}
+
+-- Everything else shows health plus a power type. Six is already generous.
+local DEFAULT_UNIT_FRAME_SLOTS = 6
+
+local function SlotCountFor(frameKey)
+    return UNIT_FRAME_SLOT_COUNTS[frameKey] or DEFAULT_UNIT_FRAME_SLOTS
+end
 
 -- ----------------------------------------------------------------------------
 -- Pure layout constants + arithmetic. No frame objects are touched by
@@ -432,7 +537,14 @@ local UF_SEGMENT_GAP = 0.012
 -- column, or nil for a row that shows none. A rune row deliberately shows
 -- none: "4/6" next to six rune segments says nothing the segments have not
 -- already said, and X-Perl prints nothing there either.
-function ns:PlanUnitFrameRows(entries, barHeight, secondaryHeight)
+-- `maxSlots` caps how many drawable slots the plan may use, because a frame
+-- only reserves so many pooled bars and the draw loops stop at that number.
+-- Enforced at a ROW boundary rather than by letting the loops run out: a
+-- truncated rune strip would draw four of six segments with no hint that two
+-- were missing, which is the same silently-dropped-bar shape as a resource
+-- group overflowing its Max Bars. Dropping the whole row is at least
+-- visible. Nil means no cap.
+function ns:PlanUnitFrameRows(entries, barHeight, secondaryHeight, maxSlots)
     entries = entries or {}
     barHeight = barHeight or UF_BAR_HEIGHT
     -- 0 (the stored "work it out" value) and nil both mean derive it.
@@ -453,6 +565,13 @@ function ns:PlanUnitFrameRows(entries, barHeight, secondaryHeight)
         return #rows
     end
 
+    -- Would adding `count` more slots overrun the frame's reserved bars?
+    -- Checked BEFORE a row is opened so the row is dropped whole rather than
+    -- half-drawn.
+    local function wouldOverrun(count)
+        return maxSlots ~= nil and (#slots + count) > maxSlots
+    end
+
     for i, e in ipairs(entries) do
         local style = ns:UnitFrameRowStyle(e and e.key)
 
@@ -461,14 +580,16 @@ function ns:PlanUnitFrameRows(entries, barHeight, secondaryHeight)
             -- rather than by gathering all runes together, so the order
             -- CollectResources chose is never rearranged behind its back -
             -- its pin-ordering rules are load-bearing (see that function).
-            local rowIndex
-            if openStyle == "SEGMENT" and openKeyFamily == "runes" then
-                rowIndex = #rows
-            else
-                rowIndex = newRow(secondaryHeight, nil)
-                openStyle, openKeyFamily = "SEGMENT", "runes"
+            if not wouldOverrun(1) then
+                local rowIndex
+                if openStyle == "SEGMENT" and openKeyFamily == "runes" then
+                    rowIndex = #rows
+                else
+                    rowIndex = newRow(secondaryHeight, nil)
+                    openStyle, openKeyFamily = "SEGMENT", "runes"
+                end
+                slots[#slots + 1] = { entryIndex = i, row = rowIndex }
             end
-            slots[#slots + 1] = { entryIndex = i, row = rowIndex }
 
         elseif style == "SPLIT" then
             local segMax = e.max or 1
@@ -477,18 +598,22 @@ function ns:PlanUnitFrameRows(entries, barHeight, secondaryHeight)
             -- for hundreds of slivers, each too thin to see, and exhaust the
             -- bar pool in the process.
             if segMax > UF_MAX_SPLIT_SEGMENTS then segMax = UF_MAX_SPLIT_SEGMENTS end
-            local rowIndex = newRow(secondaryHeight, i)
-            for seg = 1, segMax do
-                slots[#slots + 1] = {
-                    entryIndex = i, row = rowIndex, segIndex = seg, segMax = segMax,
-                }
+            if not wouldOverrun(segMax) then
+                local rowIndex = newRow(secondaryHeight, i)
+                for seg = 1, segMax do
+                    slots[#slots + 1] = {
+                        entryIndex = i, row = rowIndex, segIndex = seg, segMax = segMax,
+                    }
+                end
+                openStyle, openKeyFamily = "SPLIT", nil
             end
-            openStyle, openKeyFamily = "SPLIT", nil
 
         else
-            local rowIndex = newRow(barHeight, i)
-            slots[#slots + 1] = { entryIndex = i, row = rowIndex }
-            openStyle, openKeyFamily = "PRIMARY", nil
+            if not wouldOverrun(1) then
+                local rowIndex = newRow(barHeight, i)
+                slots[#slots + 1] = { entryIndex = i, row = rowIndex }
+                openStyle, openKeyFamily = "PRIMARY", nil
+            end
         end
     end
 
@@ -621,7 +746,7 @@ local function LayoutUnitFrame(frame, elements, plan, measuredValuesWidth)
     local slots = plan and plan.slots or {}
     local rows  = plan and plan.rows  or {}
 
-    for i = 1, MAX_UNIT_FRAME_SLOTS do
+    for i = 1, frame.slotCount do
         local bar = frame.bars[i]
         local bg = frame.barBackdrops[i]
         local slot = slots[i]
@@ -651,7 +776,7 @@ local function LayoutUnitFrame(frame, elements, plan, measuredValuesWidth)
     -- One values entry per ROW, not per slot: a row of six rune segments has
     -- one set of numbers at most, and rows that show none (runes) simply have
     -- no valueEntry.
-    for i = 1, MAX_UNIT_FRAME_SLOTS do
+    for i = 1, frame.slotCount do
         local valueText = frame.valueTexts[i]
         local row = rows[i]
         valueText:ClearAllPoints()
@@ -686,7 +811,7 @@ end
 -- collision with an unrelated group.
 local function BuildUnitFrame(key)
     local unit = UNIT_TOKENS[key]
-    local cfg = ns.db and ns.db.unitFrames and ns.db.unitFrames[key]
+    local cfg = UnitFrameConfig(key)
     if not unit or not cfg then return nil end
 
     -- The bar texture this frame draws with, resolved up front because both
@@ -712,7 +837,7 @@ local function BuildUnitFrame(key)
     -- with a single shared one, enabling all three frames would stack them
     -- exactly on top of each other at dead centre and look broken until each
     -- was found and dragged apart.
-    ns:ApplySavedFramePosition(frame, cfg.position,
+    ns:ApplySavedFramePosition(frame, UnitFramePosition(cfg, key),
         UNIT_FRAME_DEFAULT_POSITIONS[key] or
         { point = "CENTER", relativePoint = "CENTER", x = 0, y = 0 })
 
@@ -726,8 +851,7 @@ local function BuildUnitFrame(key)
     frame:SetScript("OnDragStart", ns.OnFrameDragStart)
     frame:SetScript("OnDragStop", function(self)
         ns:OnFrameDragStop(self, false, function(pos)
-            local c = ns.db and ns.db.unitFrames and ns.db.unitFrames[key]
-            if c then c.position = pos end
+            SaveUnitFramePosition(UnitFrameConfig(key), key, pos)
         end)
     end)
     if BarWardenDB and BarWardenDB.global.locked then
@@ -846,10 +970,15 @@ local function BuildUnitFrame(key)
     frame.barOpacity = barOpacity
     local panelOpacity = ns:GetUnitFrameOpacity(cfg, "frameOpacity")
 
+    -- Set before the loop below, and read by every later pass over this
+    -- frame's slots (layout, scan, values measurement) so each frame walks
+    -- only the bars it actually reserved.
+    frame.slotCount = SlotCountFor(key)
+
     frame.bars = {}
     frame.valueTexts = {}
     frame.barBackdrops = {}
-    for i = 1, MAX_UNIT_FRAME_SLOTS do
+    for i = 1, frame.slotCount do
         -- Drawn before the bar is acquired so it sits behind it: the pool
         -- parents bars to this frame at a higher draw layer.
         local bg = frame:CreateTexture(nil, "BACKGROUND")
@@ -926,7 +1055,7 @@ end
 local function ScanUnitFrame(key)
     local frame = ns.unitFrames[key]
     if not frame then return end
-    local cfg = ns.db and ns.db.unitFrames and ns.db.unitFrames[key]
+    local cfg = UnitFrameConfig(key)
     if not cfg or not cfg.enabled then return end
     local unit = UNIT_TOKENS[key]
     if not unit then return end
@@ -995,7 +1124,8 @@ local function ScanUnitFrame(key)
     -- arithmetic over a list of at most a dozen entries, and because the
     -- shape genuinely changes underfoot - a combo point gained changes
     -- nothing, but a druid shifting form or a rune being converted does.
-    local plan = ns:PlanUnitFrameRows(entries, elements.barHeight, cfg.secondaryBarHeight)
+    local plan = ns:PlanUnitFrameRows(entries, elements.barHeight,
+                                      cfg.secondaryBarHeight, frame.slotCount)
 
     -- Re-layout on any change to the SHAPE (slot or row count), not just the
     -- entry count: six runes collapsing to three pairs changes the row
@@ -1063,7 +1193,7 @@ local function ScanUnitFrame(key)
 
     local slots = plan.slots
 
-    for i = 1, MAX_UNIT_FRAME_SLOTS do
+    for i = 1, frame.slotCount do
         local bar = frame.bars[i]
         local barBackdrop = frame.barBackdrops[i]
         local slot = slots[i]
@@ -1156,7 +1286,7 @@ local function ScanUnitFrame(key)
     -- because slots and rows are no longer one-to-one: six rune segments are
     -- six slots on a single row, and a row with no valueEntry (runes) shows
     -- nothing at all.
-    for i = 1, MAX_UNIT_FRAME_SLOTS do
+    for i = 1, frame.slotCount do
         local valueText = frame.valueTexts[i]
         local row = plan.rows[i]
         local e = row and row.valueEntry and entries[row.valueEntry]
@@ -1180,7 +1310,7 @@ local function ScanUnitFrame(key)
     -- nothing more. The frame is only ever re-laid-out when the numbers grow
     -- or shrink a digit.
     if valuesChanged and elements.values then
-        local needed = ns:MeasureUnitFrameValuesWidth(frame.valueTexts, MAX_UNIT_FRAME_SLOTS)
+        local needed = ns:MeasureUnitFrameValuesWidth(frame.valueTexts, frame.slotCount)
         if needed ~= frame.lastValuesMeasured then
             LayoutUnitFrame(frame, elements, plan, needed)
         end
@@ -1195,7 +1325,7 @@ end
 function ns:RebuildUnitFrames()
     for _, key in ipairs(UNIT_FRAME_KEYS) do
         DestroyUnitFrame(key)
-        local cfg = ns.db and ns.db.unitFrames and ns.db.unitFrames[key]
+        local cfg = UnitFrameConfig(key)
         if cfg and cfg.enabled then
             if BuildUnitFrame(key) then
                 ScanUnitFrame(key)
@@ -1209,16 +1339,29 @@ end
 -- a bar group, rather than a second copy of that offset-conversion maths.
 -- growUp is always false: a unit frame never grows (it always shows the
 -- same fixed header + bar stack), unlike a bar group whose bar count varies.
+-- `key` here is a CONFIG key, not a frame key: the Frames tab has one Scale
+-- slider per settings block, and the party block covers four frames. Every
+-- built frame reading that config is rescaled, or moving the party slider
+-- would resize party1 and leave the other three behind.
 function ns:SetUnitFrameScale(key, scale)
     local cfg = ns.db and ns.db.unitFrames and ns.db.unitFrames[key]
-    local frame = ns.unitFrames[key]
     local applied
 
-    if frame then
-        applied = ns:RescaleFrame(frame, scale, false, function(pos)
-            if cfg then cfg.position = pos end
-        end)
-    else
+    for _, frameKey in ipairs(UNIT_FRAME_KEYS) do
+        if ConfigKeyFor(frameKey) == key then
+            local frame = ns.unitFrames[frameKey]
+            if frame then
+                applied = ns:RescaleFrame(frame, scale, false, function(pos)
+                    SaveUnitFramePosition(cfg, frameKey, pos)
+                end)
+            end
+        end
+    end
+
+    -- No frame was built (the whole section is switched off), so there is
+    -- nothing to rescale - just clamp and store, so the value is right when
+    -- one is next built.
+    if not applied then
         applied = math.max(ns.MIN_FRAME_SCALE, math.min(ns.MAX_FRAME_SCALE, scale))
     end
 

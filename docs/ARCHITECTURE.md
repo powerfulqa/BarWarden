@@ -101,7 +101,7 @@ like dead code or a bug.
 | Add / edit a class starter preset | `ClassPresets.lua` |
 | Add a Help FAQ entry or a `[?]` icon | `Options_Help.lua` (`HELP_ENTRIES`) + `ns:CreateHelpIcon` |
 | Send an addon-to-addon message | `ns.Comms` in `Comms.lua` |
-| Add a unit frame for a new unit (pet, focus, ...) | `UnitFrames.lua` (`UNIT_TOKENS` / `UNIT_FRAME_KEYS` / `UNIT_FRAME_DEFAULT_POSITIONS`) + a `ns.DEFAULTS.unitFrames` entry (`DB.lua`) + a row in `FRAME_SECTIONS` (`Options_Frames.lua`). The settings block itself is generated - do not hand-copy one. Only the player frame gets resource tick boxes; see CODE_REVIEW item 25 |
+| Add a unit frame for a new unit | `UnitFrames.lua` (`UNIT_TOKENS` / `UNIT_FRAME_KEYS` / `UNIT_FRAME_DEFAULT_POSITIONS` / `UNIT_FRAME_SLOT_COUNTS`) + a `ns.DEFAULTS.unitFrames` entry (`DB.lua`) + a row in `FRAME_SECTIONS` (`Options_Frames.lua`). The settings block itself is generated - do not hand-copy one. Only the player frame gets resource tick boxes; see CODE_REVIEW item 25. Frames sharing one settings block (party) map through `UNIT_FRAME_CONFIG` and store positions per frame key |
 
 ## Verifying a change
 

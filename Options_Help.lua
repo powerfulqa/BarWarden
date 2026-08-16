@@ -313,9 +313,10 @@ local HELP_ENTRIES = {
           .. "the name and level, a bar each for health and power, and runes "
           .. "or combo points as a compact strip. The amounts sit beside the "
           .. "bars or on them, whichever you prefer.\n\n"
-          .. "There are frames for you, your target, and your target's "
-          .. "target. A target frame shows what that target actually has, "
-          .. "and hides itself when you have nothing targeted.\n\n"
+          .. "There are frames for you, your target, your target's target, "
+          .. "your pet, your focus, and all four party slots. Every one "
+          .. "except your own shows what that unit actually has, and hides "
+          .. "itself when there is nobody there.\n\n"
           .. "They are two separate, independent options - use whichever "
           .. "reads better. Turning one on does not change or remove the "
           .. "other.",
@@ -323,14 +324,16 @@ local HELP_ENTRIES = {
     {
         id = "unit-frames-setup",
         q = "How do I turn on my unit frame?",
-        a = "On the Frames tab, tick Show Player Frame, Show Target Frame, or "
-          .. "Show Target's Target Frame. Each has its own settings below it: "
+        a = "On the Frames tab, tick the frame you want: player, target, "
+          .. "target's target, pet, focus, or party. Each has its own "
+          .. "settings below it: "
           .. "Scale resizes without moving, Bar Look and Bar Height change the "
           .. "bars, the Opacity sliders fade each part on its own, and Show "
           .. "Portrait, Show Name, Show Level and Show Values turn parts off.\n\n"
           .. "The player frame also lets you pick exactly which resources "
-          .. "appear. Target frames show what the target has, so they need no "
-          .. "such list.\n\n"
+          .. "appear. The others show what that unit has, so they need no "
+          .. "such list. The four party frames share one set of settings but "
+          .. "are dragged separately.\n\n"
           .. "They start near the middle of the screen; unlock your frames "
           .. "(/bw lock) to drag each into place, then lock them again.",
     },

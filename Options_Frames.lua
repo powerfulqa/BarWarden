@@ -105,7 +105,17 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
     local entries = {
         { type = "header", text = label, large = true,
           id = id("Header"), spacing = 28, offsetX = ns.OFFSET_HEADER },
+    }
 
+    -- Optional one-line explanation under a section heading, for a section
+    -- that needs one (party, whose single settings block covering four
+    -- frames is not self-evident).
+    if opts.note then
+        entries[#entries + 1] = { type = "note", text = opts.note,
+                                  offsetX = ns.OFFSET_HEADER, spacing = 8 }
+    end
+
+    local rest = {
         { type = "toggle", label = "Show " .. label,
           tooltip = "Shows a portrait unit frame for " .. opts.whose .. ".",
           db = P .. "enabled", refresh = "RebuildUnitFrames",
@@ -218,6 +228,9 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
                  .. "on the bars themselves.",
           offsetX = ns.OFFSET_DROPDOWN, spacing = 16 },
     }
+    for _, entry in ipairs(rest) do
+        entries[#entries + 1] = entry
+    end
 
     for _, entry in ipairs(entries) do
         schema[#schema + 1] = entry
@@ -318,6 +331,8 @@ end
 -- in its own settings. `whose` completes "Shows a portrait unit frame for
 -- ___." so the tooltips read naturally rather than being three copies of a
 -- generic sentence.
+-- `key` here is a CONFIG key: "party" is one settings block covering all
+-- four party frames, which is why there is no party1..party4 row.
 local FRAME_SECTIONS = {
     { key = "player",       label = "Player Frame",
       whose = "your own character", resourceTickList = true },
@@ -325,6 +340,15 @@ local FRAME_SECTIONS = {
       whose = "whatever you have targeted" },
     { key = "targettarget", label = "Target's Target Frame",
       whose = "whoever your target is targeting" },
+    { key = "pet",          label = "Pet Frame",
+      whose = "your pet" },
+    { key = "focus",        label = "Focus Frame",
+      whose = "your focus target" },
+    { key = "party",        label = "Party Frames",
+      whose = "everyone in your party",
+      note = "One set of settings for all four party frames. Each is dragged "
+          .. "on its own, and a frame only shows while someone is in that "
+          .. "slot." },
 }
 
 local function CreateFramesTab(parent)

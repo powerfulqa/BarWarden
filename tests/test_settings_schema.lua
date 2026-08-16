@@ -126,91 +126,103 @@ end
 
 -- Unit frames (UnitFrames.lua): its own top-level table, mirroring minimap
 -- above - see the comment in DB.lua for why this needed no schema bump.
-function M.test_defaults_unitFramesExact()
-    local ns = freshDB()
-    assertx.assertDeepEqual(ns.DEFAULTS.unitFrames, {
-        player = {
-            enabled      = false,
-            scale        = 1.0,
-            showPortrait = true,
-            portraitStyle = "2D",
-            showName     = true,
-            showLevel    = true,
-            showValues   = true,
-            nameFont      = "",
-            nameFontSize  = 0,
-            valueFont     = "",
-            valueFontSize = 0,
-            valuePlacement  = "COLUMN",
-            barHeight       = 16,
-            secondaryBarHeight = 0,
-            frameOpacity    = 1.0,
-            portraitOpacity = 1.0,
-            barOpacity      = 1.0,
-            borderOpacity   = 1.0,
-            pairRunes       = true,
-            hiddenResources = {},
-            pinPowerTypes   = true,
-            barTexture      = "XP Perl v2",
-        },
-        -- Target and target's target deliberately carry FEWER keys: no
-        -- hiddenResources, pairRunes or pinPowerTypes. That asymmetry is the
-        -- feature, not an oversight - a target frame shows what the target
-        -- actually has, the way the default UI does (docs/CODE_REVIEW.md item
-        -- 25). This test exists partly to make "completing" these tables for
-        -- symmetry fail loudly rather than quietly adding settings that offer
-        -- bars a target cannot have.
-        target = {
-            enabled      = false,
-            scale        = 1.0,
-            showPortrait = true,
-            portraitStyle = "2D",
-            showName     = true,
-            showLevel    = true,
-            showValues   = true,
-            nameFont      = "",
-            nameFontSize  = 0,
-            valueFont     = "",
-            valueFontSize = 0,
-            valuePlacement  = "COLUMN",
-            barHeight       = 16,
-            secondaryBarHeight = 0,
-            frameOpacity    = 1.0,
-            portraitOpacity = 1.0,
-            barOpacity      = 1.0,
-            borderOpacity   = 1.0,
-            barTexture      = "XP Perl v2",
-        },
-        targettarget = {
-            enabled      = false,
-            scale        = 1.0,
-            showPortrait = true,
-            portraitStyle = "2D",
-            showName     = true,
-            showLevel    = true,
-            showValues   = true,
-            nameFont      = "",
-            nameFontSize  = 0,
-            valueFont     = "",
-            valueFontSize = 0,
-            valuePlacement  = "COLUMN",
-            barHeight       = 16,
-            secondaryBarHeight = 0,
-            frameOpacity    = 1.0,
-            portraitOpacity = 1.0,
-            barOpacity      = 1.0,
-            borderOpacity   = 1.0,
-            barTexture      = "XP Perl v2",
-        },
-    }, "DEFAULTS.unitFrames drift")
+--
+-- Asserted as RULES rather than as one big literal snapshot. There are six
+-- settings blocks now (player, target, target's target, pet, focus, party)
+-- and a hand-copied literal per block would be ~120 lines that nobody reads,
+-- while the thing actually worth protecting is the SHAPE: every frame shares
+-- the cosmetic settings, and only the player gets the resource controls.
 
-    -- Stated as its own assertion rather than left implicit in the table
-    -- above, because it is the rule most likely to be "fixed" by someone
-    -- tidying up.
-    assertx.assertEqual(ns.DEFAULTS.unitFrames.target.hiddenResources, nil,
-        "a target frame must not carry the player's resource tick list")
-    assertx.assertEqual(ns.DEFAULTS.unitFrames.target.pinPowerTypes, nil,
-        "a target frame must not pin power types")
+-- Settings every frame must have, because they are all cosmetic and there is
+-- no reason for one frame to look configurable in a way another does not.
+local SHARED_FRAME_KEYS = {
+    "enabled", "scale", "showPortrait", "portraitStyle", "showName",
+    "showLevel", "showValues", "nameFont", "nameFontSize", "valueFont",
+    "valueFontSize", "valuePlacement", "barHeight", "secondaryBarHeight",
+    "frameOpacity", "portraitOpacity", "barOpacity", "borderOpacity",
+    "barTexture",
+}
+
+-- Settings ONLY the player frame may have. A target/pet/party frame shows
+-- what that unit actually has, the way the default UI does, so these would
+-- each be a control that either does nothing or offers a bar the unit cannot
+-- have. See docs/CODE_REVIEW.md item 25.
+local PLAYER_ONLY_FRAME_KEYS = { "hiddenResources", "pairRunes", "pinPowerTypes" }
+
+function M.test_defaults_everyUnitFrameHasTheSharedSettings()
+    local ns = freshDB()
+    for key, cfg in pairs(ns.DEFAULTS.unitFrames) do
+        for _, field in ipairs(SHARED_FRAME_KEYS) do
+            assertx.assertTrue(cfg[field] ~= nil,
+                "unitFrames." .. key .. " is missing " .. field)
+        end
+    end
+end
+
+function M.test_defaults_onlyThePlayerFrameGetsResourceControls()
+    local ns = freshDB()
+    for key, cfg in pairs(ns.DEFAULTS.unitFrames) do
+        for _, field in ipairs(PLAYER_ONLY_FRAME_KEYS) do
+            if key == "player" then
+                assertx.assertTrue(cfg[field] ~= nil,
+                    "the player frame must keep " .. field)
+            else
+                assertx.assertEqual(cfg[field], nil,
+                    "unitFrames." .. key .. " must NOT carry " .. field
+                    .. " - see CODE_REVIEW item 25 before adding it")
+            end
+        end
+    end
+end
+
+-- No frame may carry a setting nobody else knows about: an unrecognised key
+-- is either a typo or a control that was added to one block and forgotten in
+-- the generator, both of which are silent failures in game.
+function M.test_defaults_noUnitFrameHasStraySettings()
+    local ns = freshDB()
+    local allowed = {}
+    for _, field in ipairs(SHARED_FRAME_KEYS) do allowed[field] = true end
+    for _, field in ipairs(PLAYER_ONLY_FRAME_KEYS) do allowed[field] = true end
+    -- Positions are written at runtime, not configured: `position` for a
+    -- normal frame, `positions` for the shared party block.
+    allowed.position = true
+    allowed.positions = true
+
+    for key, cfg in pairs(ns.DEFAULTS.unitFrames) do
+        for field in pairs(cfg) do
+            assertx.assertTrue(allowed[field],
+                "unitFrames." .. key .. " has an unrecognised setting: " .. tostring(field))
+        end
+    end
+end
+
+-- The frames the tab is expected to offer. Spelled out so removing one, or
+-- adding one without defaults, fails here rather than in game.
+function M.test_defaults_unitFramesCoverEverySection()
+    local ns = freshDB()
+    for _, key in ipairs({ "player", "target", "targettarget", "pet", "focus", "party" }) do
+        assertx.assertTrue(type(ns.DEFAULTS.unitFrames[key]) == "table",
+            "missing defaults for the " .. key .. " frame")
+    end
+end
+
+-- Values worth pinning individually, because a wrong one is a visible bug
+-- rather than a missing control.
+function M.test_defaults_unitFrameCriticalValues()
+    local ns = freshDB()
+    local player = ns.DEFAULTS.unitFrames.player
+    assertx.assertFalse(player.enabled, "unit frames must be off until asked for")
+    assertx.assertEqual(player.portraitStyle, "2D",
+        "2D is the portrait that always works; 3D cannot render an unseen unit")
+    assertx.assertEqual(player.valuePlacement, "COLUMN")
+    assertx.assertEqual(player.barTexture, "XP Perl v2")
+    assertx.assertTrue(player.pairRunes, "six rune rows are the main source of clutter")
+    assertx.assertEqual(player.secondaryBarHeight, 0, "0 means derive it from bar height")
+
+    for key, cfg in pairs(ns.DEFAULTS.unitFrames) do
+        assertx.assertFalse(cfg.enabled, key .. " must default to off")
+        assertx.assertEqual(cfg.frameOpacity, 1.0, key .. " must default to opaque")
+    end
 end
 
 -- --------------------------------------------------------------------------

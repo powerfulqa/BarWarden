@@ -268,6 +268,83 @@ ns.DEFAULTS = {
             borderOpacity   = 1.0,
             barTexture   = "XP Perl v2",
         },
+
+        pet = {
+            enabled      = false,
+            scale        = 1.0,
+            showPortrait = true,
+            portraitStyle = "2D",
+            showName     = true,
+            -- A pet's level is its owner's, so it says nothing. Off by
+            -- default rather than absent, since a hunter watching a pet's
+            -- level while levelling might still want it.
+            showLevel    = false,
+            showValues   = true,
+            nameFont      = "",
+            nameFontSize  = 0,
+            valueFont     = "",
+            valueFontSize = 0,
+            valuePlacement = "COLUMN",
+            barHeight    = 14,
+            secondaryBarHeight = 0,
+            frameOpacity    = 1.0,
+            portraitOpacity = 1.0,
+            barOpacity      = 1.0,
+            borderOpacity   = 1.0,
+            barTexture   = "XP Perl v2",
+        },
+
+        -- The FOCUS UNIT (/focus), not focus the power type. See the note on
+        -- UNIT_TOKENS in UnitFrames.lua.
+        focus = {
+            enabled      = false,
+            scale        = 1.0,
+            showPortrait = true,
+            portraitStyle = "2D",
+            showName     = true,
+            showLevel    = true,
+            showValues   = true,
+            nameFont      = "",
+            nameFontSize  = 0,
+            valueFont     = "",
+            valueFontSize = 0,
+            valuePlacement = "COLUMN",
+            barHeight    = 14,
+            secondaryBarHeight = 0,
+            frameOpacity    = 1.0,
+            portraitOpacity = 1.0,
+            barOpacity      = 1.0,
+            borderOpacity   = 1.0,
+            barTexture   = "XP Perl v2",
+        },
+
+        -- ONE settings block shared by all four party frames: nobody wants to
+        -- set the bar height four times. Position is the exception and cannot
+        -- be shared, so it lives in `positions` keyed by frame ("party1"),
+        -- letting each be dragged separately. See UnitFramePosition
+        -- (UnitFrames.lua).
+        party = {
+            enabled      = false,
+            scale        = 1.0,
+            showPortrait = true,
+            portraitStyle = "2D",
+            showName     = true,
+            showLevel    = false,
+            showValues   = true,
+            nameFont      = "",
+            nameFontSize  = 0,
+            valueFont     = "",
+            valueFontSize = 0,
+            valuePlacement = "COLUMN",
+            barHeight    = 14,
+            secondaryBarHeight = 0,
+            frameOpacity    = 1.0,
+            portraitOpacity = 1.0,
+            barOpacity      = 1.0,
+            borderOpacity   = 1.0,
+            barTexture   = "XP Perl v2",
+            positions    = {},
+        },
     },
 
     -- Activity tracker: passive spell/aura/cooldown monitoring (persistent across sessions)

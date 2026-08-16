@@ -575,6 +575,49 @@ function M.test_plan_rowsStackWithoutOverlap()
     assertx.assertEqual(plan.height, prevBottom, "reported height must match the last row's bottom")
 end
 
+-- A frame only reserves so many pooled bars, and the draw loops stop at that
+-- number. The plan must therefore respect the budget itself, at a ROW
+-- boundary: a truncated rune strip would draw four of six segments with no
+-- sign two were missing, which is the same silent drop as a resource group
+-- overflowing its Max Bars.
+function M.test_plan_respectsTheSlotBudget()
+    local ns = fresh()
+    local entries = {
+        { key = "health", current = 1, max = 1 },
+        { key = "mana",   current = 1, max = 1 },
+    }
+    for i = 1, 6 do entries[#entries + 1] = { key = "rune" .. i } end
+
+    local plan = ns:PlanUnitFrameRows(entries, 16, nil, 4)
+    assertx.assertTrue(#plan.slots <= 4, "expected the budget respected, got " .. #plan.slots)
+end
+
+function M.test_plan_dropsAnOversizedRowWholeRatherThanHalfDrawn()
+    local ns = fresh()
+    -- Two pools then five combo segments, with room for only three more
+    -- slots: the combo row does not fit, so it must not appear at all.
+    local entries = {
+        { key = "health",      current = 1, max = 1 },
+        { key = "mana",        current = 1, max = 1 },
+        { key = "combopoints", current = 2, max = 5 },
+    }
+    local plan = ns:PlanUnitFrameRows(entries, 16, nil, 5)
+
+    assertx.assertEqual(#plan.slots, 2, "only the two pools should fit")
+    assertx.assertEqual(#plan.rows, 2, "the combo row must be dropped whole, not part-drawn")
+    for _, s in ipairs(plan.slots) do
+        assertx.assertEqual(s.segIndex, nil, "no partial combo segment may survive")
+    end
+end
+
+function M.test_plan_noBudgetMeansNoCap()
+    local ns = fresh()
+    local entries = {}
+    for i = 1, 6 do entries[i] = { key = "rune" .. i } end
+    local plan = ns:PlanUnitFrameRows(entries, 16, nil, nil)
+    assertx.assertEqual(#plan.slots, 6, "nil budget must not truncate")
+end
+
 function M.test_plan_emptyEntriesPlanNothing()
     local ns = fresh()
     local plan = ns:PlanUnitFrameRows({}, 16)
@@ -603,6 +646,56 @@ function M.test_layout_acceptsAPlanAndUsesItsHeight()
 
     assertx.assertTrue(runeBox.height < flatBox.height,
         "the same eight resources must make a SHORTER frame once runes share a row")
+end
+
+-- --------------------------------------------------------------------------
+-- Position storage (ns:UnitFramePosition / ns:SaveUnitFramePosition)
+--
+-- All four party frames share ONE settings block, so that nobody sets the
+-- bar height four times - but they cannot share a position. If they did,
+-- each drag would overwrite the last and all four would pile onto one spot,
+-- which reads in game as "dragging does not save" rather than as a bug in
+-- where positions are kept.
+-- --------------------------------------------------------------------------
+
+local POS = { point = "CENTER", relativePoint = "CENTER", x = 10, y = 20 }
+
+function M.test_position_ordinaryFrameUsesTheSharedField()
+    local ns = fresh()
+    local cfg = {}
+    ns:SaveUnitFramePosition(cfg, "target", POS)
+    assertx.assertEqual(cfg.position, POS, "a frame with its own config writes cfg.position")
+    assertx.assertEqual(ns:UnitFramePosition(cfg, "target"), POS)
+end
+
+function M.test_position_partyFramesAreKeptApart()
+    local ns = fresh()
+    local cfg = {}
+    local a = { point = "LEFT", relativePoint = "LEFT", x = 1, y = 1 }
+    local b = { point = "LEFT", relativePoint = "LEFT", x = 2, y = 2 }
+
+    ns:SaveUnitFramePosition(cfg, "party1", a)
+    ns:SaveUnitFramePosition(cfg, "party2", b)
+
+    assertx.assertEqual(ns:UnitFramePosition(cfg, "party1"), a)
+    assertx.assertEqual(ns:UnitFramePosition(cfg, "party2"), b,
+        "dragging party2 must not overwrite party1")
+    assertx.assertEqual(cfg.position, nil,
+        "a shared-config frame must not write the shared position field")
+end
+
+function M.test_position_unsetPartyFrameHasNoPosition()
+    local ns = fresh()
+    assertx.assertEqual(ns:UnitFramePosition({}, "party3"), nil)
+    assertx.assertEqual(ns:UnitFramePosition({ positions = {} }, "party3"), nil)
+end
+
+function M.test_position_nilConfigIsSafe()
+    local ns = fresh()
+    assertx.assertEqual(ns:UnitFramePosition(nil, "player"), nil)
+    -- Must not error: a drag can land while the config is momentarily absent
+    -- (mid-profile-load, for instance).
+    ns:SaveUnitFramePosition(nil, "player", POS)
 end
 
 return M
