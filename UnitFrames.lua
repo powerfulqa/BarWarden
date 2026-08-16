@@ -13,9 +13,17 @@ local addonName, ns = ...
 -- (see ns:CollectResources, Trackers.lua): the owner found a resource group
 -- reads as "bars in a box" and wanted the conventional arrangement instead -
 -- portrait on the left, a name/level header, health and power bars stacked
--- tightly, and a values column on the right with both the raw numbers and a
--- percentage. Resource groups are untouched by this file; both stay as
--- separate, equally-supported options.
+-- tightly, and the numbers either beside the bars or on them. Resource
+-- groups are untouched by this file; both stay as separate, equally-supported
+-- options.
+--
+-- The thing that makes this read as a unit frame rather than as a stack of
+-- bars is NOT the borrowed artwork - it is the row hierarchy in
+-- ns:PlanUnitFrameRows: health and power take a full row each, runes share
+-- one row, combo points divide a row into lit segments, and secondary rows
+-- draw shorter than primary ones. The first version gave every resource an
+-- identical full-width bar and no amount of texture fixed it. Read that
+-- section before changing how anything is positioned.
 --
 -- This first slice builds the widget and the player frame only. Everything
 -- below is keyed by a unit token (UNIT_TOKENS / UNIT_FRAME_KEYS) rather than
@@ -57,7 +65,7 @@ local UNIT_FRAME_KEYS = { "player" }
 -- (six rune slots is the largest single feed), so this comfortably covers
 -- every case with room to spare, matching the headroom a resource
 -- auto-tracking group gets from its own (user-configurable) Max Bars.
-local MAX_UNIT_FRAME_SLOTS = 10
+local MAX_UNIT_FRAME_SLOTS = 24
 
 -- ----------------------------------------------------------------------------
 -- Pure layout constants + arithmetic. No frame objects are touched by
@@ -77,6 +85,16 @@ local UF_HEADER_TEXT_PADDING = 4
 
 -- The same allowance for the numbers inside a bar row.
 local UF_ROW_TEXT_PADDING = 4
+
+-- Floor for a segment/split row. Below this a rune strip stops reading as a
+-- bar at all.
+local UF_MIN_SEGMENT_HEIGHT = 6
+
+-- Ceiling on how many segments one SPLIT resource may divide into. Real
+-- values are five (combo points, soul shards); this only exists so a private
+-- server reporting a nonsense max cannot ask for hundreds of slivers and
+-- exhaust the bar pool.
+local UF_MAX_SPLIT_SEGMENTS = 10
 
 -- Bounds for the Bar Height setting. The floor is the point below which the
 -- value text stops fitting on a bar at all; the ceiling just stops a typo or
@@ -235,7 +253,9 @@ end
 -- starting width.
 function ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
     elements = elements or {}
-    barCount = max(barCount or 0, 1)
+    if type(barCount) ~= "table" then
+        barCount = max(barCount or 0, 1)
+    end
 
     -- Bar height is a setting (X-Perl's bars are chunkier than the 14px this
     -- started at, and a values-on-the-bar frame needs the room), clamped so
@@ -273,7 +293,16 @@ function ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
         end
     end
 
-    local barsHeight = barCount * barHeight + (barCount - 1) * UF_BAR_SPACING
+    -- `barCount` is a plan table from ns:PlanUnitFrameRows when the caller has
+    -- one, or a plain row count. The number form exists because most of this
+    -- function's arithmetic never cared how tall the stack got, only that it
+    -- had a height, and every test that predates segment rows passes a count.
+    local barsHeight
+    if type(barCount) == "table" then
+        barsHeight = barCount.height or 0
+    else
+        barsHeight = barCount * barHeight + (barCount - 1) * UF_BAR_SPACING
+    end
     local bodyHeight = headerHeight + barsHeight
     local portraitSize = elements.portrait and bodyHeight or 0
 
@@ -302,6 +331,165 @@ function ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
         barHeight    = barHeight,
         barSpacing   = UF_BAR_SPACING,
     }
+end
+
+-- ----------------------------------------------------------------------------
+-- Row planning: what actually makes this look like a unit frame.
+--
+-- The first version of this widget gave every resource its own full-width
+-- bar of equal height. That is not how a unit frame looks and no amount of
+-- borrowed artwork fixed it: a death knight showed nine identical bars and
+-- read as a stack in a box, with a rune slot given the same visual weight as
+-- health. X-Perl (and Blizzard, and every other unit-frame addon) does two
+-- things differently, and this section is both of them.
+--
+--   PRIMARY   health and whichever power the unit uses. One full-width bar
+--             each, at the full configured bar height. These are the pools
+--             you actually watch.
+--   SEGMENT   runes. Every rune shares ONE row, side by side, rather than
+--             taking a row each - six rows collapse to one.
+--   SPLIT     combo points and soul shards. One row, divided into as many
+--             segments as the resource has (five combo points, five segments),
+--             each lit or unlit. This is the one case where a single
+--             collected entry expands into several drawn slots.
+--
+-- SEGMENT and SPLIT rows draw at a reduced height, which is what actually
+-- creates the hierarchy - a lit rune should not be as loud as the health bar.
+--
+-- All of this is pure: it takes the entry list ns:CollectResources produced
+-- and returns positions, touching no frames. Widths and offsets come back as
+-- FRACTIONS of the bar width (0-1) rather than pixels, so the plan is
+-- independent of the frame's size and can be asserted on directly.
+-- ----------------------------------------------------------------------------
+
+-- How each resource is drawn. Keyed by the entry key CollectResources emits.
+-- Anything unlisted is PRIMARY, so a resource added later gets a normal bar
+-- rather than silently vanishing from the layout.
+--
+-- Rune keys are matched by prefix ("rune1".."rune6" and "runepair1".."3"),
+-- the same test ns:ResourceFamilyForKey (Trackers.lua) uses. That knowledge
+-- is deliberately duplicated rather than imported: this file's pure section
+-- is loaded on its own by tests/test_unit_frames.lua, and reaching into
+-- Trackers.lua would drag its mock requirements in for one string compare.
+local ROW_STYLE = {
+    combopoints = "SPLIT",
+    soulshards  = "SPLIT",
+}
+
+function ns:UnitFrameRowStyle(key)
+    if type(key) ~= "string" then return "PRIMARY" end
+    if ROW_STYLE[key] then return ROW_STYLE[key] end
+    if key:sub(1, 4) == "rune" then
+        -- "runicpower" also starts with "rune" and is a genuine pool with its
+        -- own full-width bar, not a rune slot. Excluded explicitly, because
+        -- getting this wrong makes runic power a one-segment strip.
+        if key ~= "runicpower" then return "SEGMENT" end
+    end
+    return "PRIMARY"
+end
+
+-- Gap between segments within a row, as a fraction of the bar width. Small
+-- enough that six runes still read as one bar divided up rather than six
+-- separate things.
+local UF_SEGMENT_GAP = 0.012
+
+-- Plan the rows for one scan's entries.
+--
+-- Returns { rows = { {height, top, valueEntry}, ... },
+--           slots = { {entryIndex, row, offset, width, segIndex, segMax}, ... },
+--           height = <total pixels> }
+--
+-- `slots` is in draw order and maps one-to-one onto pooled bars. A SPLIT
+-- entry contributes several slots, which is why slots are not simply the
+-- entries again.
+--
+-- `valueEntry` is the entry index whose numbers that row shows in the values
+-- column, or nil for a row that shows none. A rune row deliberately shows
+-- none: "4/6" next to six rune segments says nothing the segments have not
+-- already said, and X-Perl prints nothing there either.
+function ns:PlanUnitFrameRows(entries, barHeight, secondaryHeight)
+    entries = entries or {}
+    barHeight = barHeight or UF_BAR_HEIGHT
+    -- 0 (the stored "work it out" value) and nil both mean derive it.
+    if not secondaryHeight or secondaryHeight < 1 then
+        secondaryHeight = max(floor(barHeight * 0.6), UF_MIN_SEGMENT_HEIGHT)
+    elseif secondaryHeight < UF_MIN_SEGMENT_HEIGHT then
+        secondaryHeight = UF_MIN_SEGMENT_HEIGHT
+    end
+
+    local rows, slots = {}, {}
+    local top = 0
+    local openStyle, openKeyFamily
+
+    local function newRow(height, valueEntry)
+        if #rows > 0 then top = top + UF_BAR_SPACING end
+        rows[#rows + 1] = { height = height, top = top, valueEntry = valueEntry }
+        top = top + height
+        return #rows
+    end
+
+    for i, e in ipairs(entries) do
+        local style = ns:UnitFrameRowStyle(e and e.key)
+
+        if style == "SEGMENT" then
+            -- Consecutive runes share the open row. Grouping is by adjacency
+            -- rather than by gathering all runes together, so the order
+            -- CollectResources chose is never rearranged behind its back -
+            -- its pin-ordering rules are load-bearing (see that function).
+            local rowIndex
+            if openStyle == "SEGMENT" and openKeyFamily == "runes" then
+                rowIndex = #rows
+            else
+                rowIndex = newRow(secondaryHeight, nil)
+                openStyle, openKeyFamily = "SEGMENT", "runes"
+            end
+            slots[#slots + 1] = { entryIndex = i, row = rowIndex }
+
+        elseif style == "SPLIT" then
+            local segMax = e.max or 1
+            if segMax < 1 then segMax = 1 end
+            -- Capped so a private server reporting a nonsense max cannot ask
+            -- for hundreds of slivers, each too thin to see, and exhaust the
+            -- bar pool in the process.
+            if segMax > UF_MAX_SPLIT_SEGMENTS then segMax = UF_MAX_SPLIT_SEGMENTS end
+            local rowIndex = newRow(secondaryHeight, i)
+            for seg = 1, segMax do
+                slots[#slots + 1] = {
+                    entryIndex = i, row = rowIndex, segIndex = seg, segMax = segMax,
+                }
+            end
+            openStyle, openKeyFamily = "SPLIT", nil
+
+        else
+            local rowIndex = newRow(barHeight, i)
+            slots[#slots + 1] = { entryIndex = i, row = rowIndex }
+            openStyle, openKeyFamily = "PRIMARY", nil
+        end
+    end
+
+    -- Second pass for the horizontal split. Done after the rows are known
+    -- because a segment's width depends on how many ended up sharing its row,
+    -- which is not known while the row is still being filled.
+    local perRow = {}
+    for _, s in ipairs(slots) do
+        perRow[s.row] = (perRow[s.row] or 0) + 1
+    end
+    local seen = {}
+    for _, s in ipairs(slots) do
+        local n = perRow[s.row]
+        local index = (seen[s.row] or 0)
+        seen[s.row] = index + 1
+        if n <= 1 then
+            s.offset, s.width = 0, 1
+        else
+            local gap = UF_SEGMENT_GAP
+            local w = (1 - gap * (n - 1)) / n
+            s.offset = index * (w + gap)
+            s.width = w
+        end
+    end
+
+    return { rows = rows, slots = slots, height = top }
 end
 
 -- Width the values column needs to show every visible row without wrapping,
@@ -357,8 +545,8 @@ end
 -- (see ScanUnitFrame below) - a per-scan reformat of unchanged geometry
 -- would be exactly the kind of per-frame-path work CLAUDE.md asks this
 -- slice to avoid.
-local function LayoutUnitFrame(frame, elements, barCount, measuredValuesWidth)
-    local layout = ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
+local function LayoutUnitFrame(frame, elements, plan, measuredValuesWidth)
+    local layout = ns:ComputeUnitFrameLayout(elements, plan, measuredValuesWidth)
 
     frame:SetWidth(layout.width)
     frame:SetHeight(layout.height)
@@ -401,33 +589,56 @@ local function LayoutUnitFrame(frame, elements, barCount, measuredValuesWidth)
         frame.nameText:Hide()
     end
 
+    -- Place each planned slot. A slot's offset and width are fractions of the
+    -- bar width (see ns:PlanUnitFrameRows), so six runes sharing a row each
+    -- get a sixth of it, and a lone health bar gets all of it - one code path
+    -- rather than a special case per row style.
+    local slots = plan and plan.slots or {}
+    local rows  = plan and plan.rows  or {}
+
     for i = 1, MAX_UNIT_FRAME_SLOTS do
         local bar = frame.bars[i]
-        local y = -(layout.barsTop + (i - 1) * (layout.barHeight + layout.barSpacing))
-
-        bar:ClearAllPoints()
-        bar:SetPoint("TOPLEFT", frame, "TOPLEFT", layout.barsX, y)
-        bar:SetWidth(layout.barWidth)
-        bar:SetHeight(layout.barHeight)
-
-        -- The unfilled remainder of a bar. Without this a resource sitting at
-        -- zero (an out-of-combat rage bar, a spent rune) drew as a bare hole
-        -- in the backdrop rather than as an empty bar.
         local bg = frame.barBackdrops[i]
-        bg:ClearAllPoints()
-        bg:SetPoint("TOPLEFT", frame, "TOPLEFT", layout.barsX, y)
-        bg:SetWidth(layout.barWidth)
-        bg:SetHeight(layout.barHeight)
+        local slot = slots[i]
 
-        -- Anchored by its RIGHT edge with no width set, so it right-aligns
-        -- against the frame edge and never wraps. See ns:ComputeUnitFrameLayout.
-        local valueText = frame.valueTexts[i]
-        valueText:ClearAllPoints()
-        valueText:SetPoint("RIGHT", frame, "TOPLEFT",
-            layout.valuesX + layout.valuesWidth, y - layout.barHeight / 2)
+        if slot then
+            local row = rows[slot.row]
+            local y = -(layout.barsTop + (row and row.top or 0))
+            local h = row and row.height or layout.barHeight
+            local x = layout.barsX + slot.offset * layout.barWidth
+            local w = slot.width * layout.barWidth
+
+            bar:ClearAllPoints()
+            bar:SetPoint("TOPLEFT", frame, "TOPLEFT", x, y)
+            bar:SetWidth(w)
+            bar:SetHeight(h)
+
+            -- The unfilled remainder of a bar. Without this a resource sitting
+            -- at zero (an out-of-combat rage bar, a spent rune) drew as a bare
+            -- hole in the backdrop rather than as an empty bar.
+            bg:ClearAllPoints()
+            bg:SetPoint("TOPLEFT", frame, "TOPLEFT", x, y)
+            bg:SetWidth(w)
+            bg:SetHeight(h)
+        end
     end
 
-    frame.lastLayoutBarCount = barCount
+    -- One values entry per ROW, not per slot: a row of six rune segments has
+    -- one set of numbers at most, and rows that show none (runes) simply have
+    -- no valueEntry.
+    for i = 1, MAX_UNIT_FRAME_SLOTS do
+        local valueText = frame.valueTexts[i]
+        local row = rows[i]
+        valueText:ClearAllPoints()
+        if row then
+            valueText:SetPoint("RIGHT", frame, "TOPLEFT",
+                layout.valuesX + layout.valuesWidth,
+                -(layout.barsTop + row.top + row.height / 2))
+        end
+    end
+
+    frame.lastLayoutBarCount = plan and #plan.slots or 0
+    frame.lastLayoutRowCount = plan and #plan.rows or 0
     frame.lastValuesWidth = layout.valuesWidth
     -- The MEASUREMENT this layout was built from, kept separate from the
     -- width actually applied. They differ whenever the measurement falls
@@ -714,9 +925,21 @@ local function ScanUnitFrame(key)
     })
     entries = ns:FilterResourceEntries(entries, cfg.hiddenResources)
 
-    if frame.lastLayoutBarCount ~= #entries then
-        LayoutUnitFrame(frame, elements, #entries, frame.lastValuesMeasured)
+    -- The plan decides which entries share a row and how each row is divided
+    -- (ns:PlanUnitFrameRows). It is rebuilt every scan because it is cheap
+    -- arithmetic over a list of at most a dozen entries, and because the
+    -- shape genuinely changes underfoot - a combo point gained changes
+    -- nothing, but a druid shifting form or a rune being converted does.
+    local plan = ns:PlanUnitFrameRows(entries, elements.barHeight, cfg.secondaryBarHeight)
+
+    -- Re-layout on any change to the SHAPE (slot or row count), not just the
+    -- entry count: six runes collapsing to three pairs changes the row
+    -- heights while leaving the number of entries alone in some cases.
+    if frame.lastLayoutBarCount ~= #plan.slots
+       or frame.lastLayoutRowCount ~= #plan.rows then
+        LayoutUnitFrame(frame, elements, plan, frame.lastValuesMeasured)
     end
+    frame.plan = plan
 
     -- Header: name (+ level). Diffed against frame.lastHeaderText, a
     -- runtime-only cache field, so an unchanged header never touches the
@@ -773,11 +996,13 @@ local function ScanUnitFrame(key)
 
     local valuesChanged = false
 
+    local slots = plan.slots
+
     for i = 1, MAX_UNIT_FRAME_SLOTS do
         local bar = frame.bars[i]
-        local valueText = frame.valueTexts[i]
         local barBackdrop = frame.barBackdrops[i]
-        local e = entries[i]
+        local slot = slots[i]
+        local e = slot and entries[slot.entryIndex]
 
         if e then
             local bd = bar.barData
@@ -786,7 +1011,19 @@ local function ScanUnitFrame(key)
             bd.resourceKey = e.key
             bd.runeType    = e.runeType
             bd.trackMode   = e.trackMode or "Buff"
-            ns:UpdateResourceBar(bar, e.current, e.max, e.icon, e.label, e.stacks or e.current)
+
+            -- A SPLIT segment is one point of a divided resource, so it draws
+            -- as simply lit or unlit rather than as a fraction: combo point 3
+            -- of 5 is full when you have 3 or more and empty otherwise. Every
+            -- other slot draws its resource's real current/max.
+            if slot.segIndex then
+                local lit = (e.current or 0) >= slot.segIndex
+                ns:UpdateResourceBar(bar, lit and 1 or 0, 1, e.icon, e.label, lit and 1 or 0)
+            else
+                ns:UpdateResourceBar(bar, e.current, e.max, e.icon, e.label,
+                                     e.stacks or e.current)
+            end
+
             -- The resource NAME is never drawn on the bar: the header already
             -- names the unit, and a row labelled "Health" next to a health
             -- bar tells nobody anything. The numbers are a real choice
@@ -796,13 +1033,19 @@ local function ScanUnitFrame(key)
             -- have shown, keeping the two placements identical in content.
             if bar.nameText then bar.nameText:Hide() end
 
+            -- Numbers belong to the ROW, and only to a row that has any: a
+            -- rune strip shows none, and a combo-point strip shows one "3/5"
+            -- rather than a digit on every segment.
+            local row = plan.rows[slot.row]
+            local ownsRowText = row and row.valueEntry == slot.entryIndex
+                                and not slot.segIndex
             local text
-            if elements.values or elements.valuesOnBar then
+            if ownsRowText and (elements.values or elements.valuesOnBar) then
                 text = ns:FormatUnitFrameValue(e.current, e.max)
             end
 
             if bar.timeText then
-                if elements.valuesOnBar then
+                if text and elements.valuesOnBar then
                     if bar.timeText.lastUFText ~= text then
                         bar.timeText.lastUFText = text
                         bar.timeText:SetText(text)
@@ -832,17 +1075,6 @@ local function ScanUnitFrame(key)
             if frame.barOpacity then bar:SetAlpha(frame.barOpacity) end
             bar:Show()
             barBackdrop:Show()
-
-            if elements.values then
-                if valueText.lastText ~= text then
-                    valueText.lastText = text
-                    valueText:SetText(text)
-                    valuesChanged = true
-                end
-                valueText:Show()
-            else
-                valueText:Hide()
-            end
         else
             if bar.barData.enabled then
                 bar.barData.enabled = false
@@ -852,6 +1084,27 @@ local function ScanUnitFrame(key)
             end
             bar:Hide()
             barBackdrop:Hide()
+        end
+    end
+
+    -- The values column, one entry per ROW. Separate from the slot loop above
+    -- because slots and rows are no longer one-to-one: six rune segments are
+    -- six slots on a single row, and a row with no valueEntry (runes) shows
+    -- nothing at all.
+    for i = 1, MAX_UNIT_FRAME_SLOTS do
+        local valueText = frame.valueTexts[i]
+        local row = plan.rows[i]
+        local e = row and row.valueEntry and entries[row.valueEntry]
+
+        if e and elements.values then
+            local text = ns:FormatUnitFrameValue(e.current, e.max)
+            if valueText.lastText ~= text then
+                valueText.lastText = text
+                valueText:SetText(text)
+                valuesChanged = true
+            end
+            valueText:Show()
+        else
             valueText:Hide()
         end
     end
@@ -864,7 +1117,7 @@ local function ScanUnitFrame(key)
     if valuesChanged and elements.values then
         local needed = ns:MeasureUnitFrameValuesWidth(frame.valueTexts, MAX_UNIT_FRAME_SLOTS)
         if needed ~= frame.lastValuesMeasured then
-            LayoutUnitFrame(frame, elements, #entries, needed)
+            LayoutUnitFrame(frame, elements, plan, needed)
         end
     end
 end

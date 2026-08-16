@@ -199,10 +199,7 @@ local function CreateProfilesTab(parent)
                     ns.profiles[text] = {
                         description = "",
                         lastModified = time(),
-                        data = {
-                            frames = ns:CopyTable(ns.db.frames),
-                            visual = ns:CopyTable(ns.db.visual),
-                        },
+                        data = ns:CaptureProfileData(),
                     }
                     selectedProfileName = text
                     frame:RefreshList()
@@ -274,20 +271,11 @@ local function CreateProfilesTab(parent)
         if profile.data then
             -- Back up first: loading a profile replaces the current layout.
             if ns.BackupFrames then ns:BackupFrames("load profile") end
-            if profile.data.frames then
-                ns.db.frames = ns:CopyTable(profile.data.frames)
-                -- Profiles can predate the current schema; migrate on load so a
-                -- legacy-saved profile arrives canonicalised (never happened in
-                -- v1 - the "loaded profile doesn't track" gap).
-                if ns.MigrateFrames then ns:MigrateFrames(ns.db.frames) end
-            end
-            if profile.data.visual then
-                ns.db.visual = ns:CopyTable(profile.data.visual)
-                -- Backfill keys added since the profile was saved (e.g. crop
-                -- icons, cooldown spiral) so they don't read as nil/off and get
-                -- re-persisted incomplete on the next Save. Mirrors ImportFromV1.
-                if ns.MergeDefaults then ns:MergeDefaults(ns.db.visual, ns.DEFAULTS.visual) end
-            end
+            -- Per-section migration and default-backfill live in
+            -- ns:ApplyProfileData (DB.lua) so save, load, and import cannot
+            -- disagree about what a profile contains - which is exactly how
+            -- unit frames came to be missing from every exported profile.
+            ns:ApplyProfileData(profile.data)
             ns.db.activeProfile = selectedProfileName
             ns:FireCallback("OnProfileChanged", selectedProfileName)
             frame:RefreshList()
@@ -298,10 +286,7 @@ local function CreateProfilesTab(parent)
     local saveBtn = ns:CreateButton(frame, "Save", 80, function()
         if not RequireSelectedProfile() then return end
         local profile = ns.profiles[selectedProfileName]
-        profile.data = {
-            frames = ns:CopyTable(ns.db.frames),
-            visual = ns:CopyTable(ns.db.visual),
-        }
+        profile.data = ns:CaptureProfileData()
         profile.lastModified = time()
         frame:RefreshList()
     end)
@@ -342,9 +327,12 @@ local function CreateProfilesTab(parent)
                     ns:Print("Invalid import string: failed to deserialize.")
                     return
                 end
-                -- Validate schema: must have frames and/or visual tables
-                if type(data.frames) ~= "table" and type(data.visual) ~= "table" then
-                    ns:Print("Invalid import string: missing frames/visual data.")
+                -- Must carry at least one section we recognise. Asked of
+                -- ns:ProfileDataHasContent rather than naming frames/visual
+                -- here, so a profile carrying only unit frames is accepted
+                -- instead of being rejected as empty.
+                if not ns:ProfileDataHasContent(data) then
+                    ns:Print("Invalid import string: no settings found in it.")
                     return
                 end
                 -- Canonicalise imported frames now (they may predate the current

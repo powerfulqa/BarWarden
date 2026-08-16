@@ -143,6 +143,7 @@ function M.test_defaults_unitFramesExact()
             valueFontSize = 0,
             valuePlacement  = "COLUMN",
             barHeight       = 16,
+            secondaryBarHeight = 0,
             frameOpacity    = 1.0,
             portraitOpacity = 1.0,
             barOpacity      = 1.0,

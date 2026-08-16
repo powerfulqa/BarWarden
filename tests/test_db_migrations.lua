@@ -350,4 +350,109 @@ function M.test_legacyProfileMigrationDoesNotClobberAccountEntry()
     assertx.assertEqual(_G.BarWardenAccountDB.profiles.Old.marker, "account")
 end
 
+-- --------------------------------------------------------------------------
+-- Profile contents (ns:CaptureProfileData / ns:ApplyProfileData)
+--
+-- These exist because the answer to "what is in a profile" used to be
+-- written out at four separate call sites, and unit frames were added
+-- without any of them learning about it - so every Frames-tab setting
+-- silently failed to travel with an exported profile. The point of these
+-- tests is that a section added to PROFILE_SECTIONS is carried by save,
+-- load and import together, or not at all.
+-- --------------------------------------------------------------------------
+
+function M.test_captureProfile_carriesUnitFramesNotJustFramesAndVisual()
+    local ns = freshDB(nil)
+    ns.db.unitFrames.player.enabled = true
+    ns.db.unitFrames.player.portraitStyle = "3D"
+
+    local data = ns:CaptureProfileData()
+    assertx.assertTrue(type(data.frames) == "table", "frames must be captured")
+    assertx.assertTrue(type(data.visual) == "table", "visual must be captured")
+    assertx.assertTrue(type(data.unitFrames) == "table", "unit frames must be captured")
+    assertx.assertEqual(data.unitFrames.player.portraitStyle, "3D")
+end
+
+-- A copy, not a reference: a captured profile must not keep changing as the
+-- live config does, or "Save" would be meaningless.
+function M.test_captureProfile_isADeepCopy()
+    local ns = freshDB(nil)
+    local data = ns:CaptureProfileData()
+    ns.db.unitFrames.player.barHeight = 39
+    assertx.assertTrue(data.unitFrames.player.barHeight ~= 39,
+        "the snapshot must not track later edits")
+end
+
+function M.test_applyProfile_restoresUnitFrames()
+    local ns = freshDB(nil)
+    ns:ApplyProfileData({ unitFrames = { player = { enabled = true, barHeight = 22 } } })
+    assertx.assertTrue(ns.db.unitFrames.player.enabled)
+    assertx.assertEqual(ns.db.unitFrames.player.barHeight, 22)
+end
+
+-- Backfill: a profile saved before a setting existed must come back with the
+-- current default filled in, not nil, or the next Save would persist a table
+-- with holes in it.
+function M.test_applyProfile_backfillsKeysAddedSinceItWasSaved()
+    local ns = freshDB(nil)
+    ns:ApplyProfileData({ unitFrames = { player = { enabled = true } } })
+    assertx.assertEqual(ns.db.unitFrames.player.barTexture,
+                        ns.DEFAULTS.unitFrames.player.barTexture,
+                        "a key the profile predates must be backfilled")
+end
+
+-- A profile saved before unit frames existed must leave the current ones
+-- alone rather than wiping them.
+function M.test_applyProfile_absentSectionIsLeftUntouched()
+    local ns = freshDB(nil)
+    ns.db.unitFrames.player.enabled = true
+    ns:ApplyProfileData({ frames = {}, visual = {} })
+    assertx.assertTrue(ns.db.unitFrames.player.enabled,
+        "an older profile must not wipe a section it never knew about")
+end
+
+function M.test_profileHasContent_acceptsAnyKnownSection()
+    local ns = freshDB(nil)
+    assertx.assertTrue(ns:ProfileDataHasContent({ frames = {} }))
+    assertx.assertTrue(ns:ProfileDataHasContent({ visual = {} }))
+    -- The case the old frames-or-visual check would have wrongly rejected.
+    assertx.assertTrue(ns:ProfileDataHasContent({ unitFrames = {} }))
+end
+
+function M.test_profileHasContent_rejectsJunk()
+    local ns = freshDB(nil)
+    assertx.assertFalse(ns:ProfileDataHasContent({}))
+    assertx.assertFalse(ns:ProfileDataHasContent({ nonsense = {} }))
+    assertx.assertFalse(ns:ProfileDataHasContent("not a table"))
+    assertx.assertFalse(ns:ProfileDataHasContent(nil))
+end
+
+-- The round trip is the thing that actually broke, so assert it end to end.
+function M.test_profileRoundTrip_preservesFramesSettings()
+    local ns = freshDB(nil)
+    ns.db.unitFrames.player.enabled       = true
+    ns.db.unitFrames.player.portraitStyle = "3D"
+    ns.db.unitFrames.player.barHeight     = 21
+    ns.db.unitFrames.player.frameOpacity  = 0.35
+    ns.db.unitFrames.player.hiddenResources = { runes = true }
+
+    local exported = ns:CaptureProfileData()
+
+    -- Wipe the live side the way loading a different profile would.
+    ns.db.unitFrames.player.enabled       = false
+    ns.db.unitFrames.player.portraitStyle = "2D"
+    ns.db.unitFrames.player.barHeight     = 16
+    ns.db.unitFrames.player.frameOpacity  = 1.0
+    ns.db.unitFrames.player.hiddenResources = {}
+
+    ns:ApplyProfileData(exported)
+
+    local p = ns.db.unitFrames.player
+    assertx.assertTrue(p.enabled)
+    assertx.assertEqual(p.portraitStyle, "3D")
+    assertx.assertEqual(p.barHeight, 21)
+    assertx.assertEqual(p.frameOpacity, 0.35)
+    assertx.assertTrue(p.hiddenResources.runes, "resource choices must survive the round trip")
+end
+
 return M

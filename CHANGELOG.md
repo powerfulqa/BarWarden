@@ -33,6 +33,17 @@ against renaming BarWarden and its commands in a fork. Full detail in
 [LICENSE](LICENSE); exactly which files came from where is recorded in
 [NOTICE.md](NOTICE.md).
 
+**The frame is laid out like a unit frame, not a stack of bars.** Health
+and power get a full-width bar each. Runes share a single strip, side by
+side, instead of taking six rows. Combo points and soul shards divide one
+strip into lit and unlit segments. Those strips draw shorter than the main
+bars, so health and power stand out, and a *Rune Strip Height* slider sets
+how much shorter. On a death knight this turns nine rows into four.
+
+**Profiles now carry your Frames settings.** Portrait style, fonts, sizes,
+opacity, bar look and which resources you show all travel with an exported
+or saved profile. They previously did not.
+
 **You choose what the frame shows.** A *Resources Shown* section lets you
 untick anything you do not want: health, mana, rage, energy, focus, runic
 power, runes, combo points, soul shards. Mana, rage and energy each stay

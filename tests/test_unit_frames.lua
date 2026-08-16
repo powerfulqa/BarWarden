@@ -414,4 +414,195 @@ function M.test_portrait_spansExactlyTheBodyHeight()
     end
 end
 
+-- --------------------------------------------------------------------------
+-- Row planning (ns:UnitFrameRowStyle / ns:PlanUnitFrameRows)
+--
+-- This is what makes the widget read as a unit frame instead of a stack of
+-- identical bars: health and power get a full row each, runes share one row,
+-- and combo points divide a row into lit and unlit segments.
+-- --------------------------------------------------------------------------
+
+function M.test_rowStyle_poolsGetTheirOwnRow()
+    local ns = fresh()
+    for _, key in ipairs({ "health", "mana", "rage", "energy", "focus", "runicpower" }) do
+        assertx.assertEqual(ns:UnitFrameRowStyle(key), "PRIMARY", key)
+    end
+end
+
+-- "runicpower" starts with "rune" but is a genuine pool. Getting this wrong
+-- turns runic power into a one-segment sliver.
+function M.test_rowStyle_runicPowerIsNotARune()
+    local ns = fresh()
+    assertx.assertEqual(ns:UnitFrameRowStyle("runicpower"), "PRIMARY")
+    for slot = 1, 6 do
+        assertx.assertEqual(ns:UnitFrameRowStyle("rune" .. slot), "SEGMENT")
+    end
+    assertx.assertEqual(ns:UnitFrameRowStyle("runepair2"), "SEGMENT")
+end
+
+function M.test_rowStyle_comboPointsAndShardsSplit()
+    local ns = fresh()
+    assertx.assertEqual(ns:UnitFrameRowStyle("combopoints"), "SPLIT")
+    assertx.assertEqual(ns:UnitFrameRowStyle("soulshards"), "SPLIT")
+end
+
+-- An unknown resource must get a normal bar rather than disappearing.
+function M.test_rowStyle_unknownDefaultsToItsOwnRow()
+    local ns = fresh()
+    assertx.assertEqual(ns:UnitFrameRowStyle("holypower"), "PRIMARY")
+    assertx.assertEqual(ns:UnitFrameRowStyle(nil), "PRIMARY")
+end
+
+-- The headline result: a death knight's nine entries become four rows.
+function M.test_plan_runesCollapseToASingleRow()
+    local ns = fresh()
+    local entries = {
+        { key = "health", current = 100, max = 100 },
+        { key = "runicpower", current = 50, max = 100 },
+        { key = "rune1" }, { key = "rune2" }, { key = "rune3" },
+        { key = "rune4" }, { key = "rune5" }, { key = "rune6" },
+    }
+    local plan = ns:PlanUnitFrameRows(entries, 16)
+
+    assertx.assertEqual(#plan.rows, 3, "health, runic power, and ONE rune row")
+    assertx.assertEqual(#plan.slots, 8, "every rune still gets its own slot")
+
+    -- All six runes on the last row, each a sixth of the width.
+    local runeRow = plan.slots[3].row
+    for i = 3, 8 do
+        assertx.assertEqual(plan.slots[i].row, runeRow, "rune " .. i .. " must share the row")
+        assertx.assertTrue(plan.slots[i].width < 0.2,
+            "a rune segment must be a fraction of the bar, not the whole thing")
+    end
+    assertx.assertEqual(plan.slots[1].width, 1, "health takes the full width")
+end
+
+-- Segments must tile left to right without overlapping or running past the
+-- end of the bar.
+function M.test_plan_segmentsTileWithoutOverlap()
+    local ns = fresh()
+    local entries = {}
+    for i = 1, 6 do entries[i] = { key = "rune" .. i } end
+    local plan = ns:PlanUnitFrameRows(entries, 16)
+
+    local prevEnd = 0
+    for i, s in ipairs(plan.slots) do
+        assertx.assertTrue(s.offset >= prevEnd - 0.0001,
+            "segment " .. i .. " must start at or after the previous one ends")
+        prevEnd = s.offset + s.width
+    end
+    assertx.assertTrue(prevEnd <= 1.0001, "segments must not run past the bar: " .. prevEnd)
+    assertx.assertTrue(prevEnd > 0.95, "segments must fill the bar, not leave it mostly empty")
+end
+
+-- One combo-points entry becomes five drawable segments. This is the only
+-- case where slots and entries are not one-to-one.
+function M.test_plan_comboPointsExpandIntoSegments()
+    local ns = fresh()
+    local plan = ns:PlanUnitFrameRows({ { key = "combopoints", current = 3, max = 5 } }, 16)
+
+    assertx.assertEqual(#plan.rows, 1)
+    assertx.assertEqual(#plan.slots, 5, "five points, five segments")
+    for i, s in ipairs(plan.slots) do
+        assertx.assertEqual(s.entryIndex, 1, "every segment points at the one entry")
+        assertx.assertEqual(s.segIndex, i)
+        assertx.assertEqual(s.segMax, 5)
+    end
+end
+
+-- A private server reporting a nonsense max must not be able to ask for
+-- hundreds of slivers and drain the bar pool.
+function M.test_plan_splitSegmentsAreCapped()
+    local ns = fresh()
+    local plan = ns:PlanUnitFrameRows({ { key = "combopoints", current = 0, max = 9999 } }, 16)
+    assertx.assertTrue(#plan.slots <= 10, "expected a cap, got " .. #plan.slots)
+    assertx.assertTrue(#plan.slots > 0)
+end
+
+function M.test_plan_secondaryRowsAreShorterThanPrimary()
+    local ns = fresh()
+    local plan = ns:PlanUnitFrameRows({
+        { key = "health", current = 1, max = 1 },
+        { key = "rune1" },
+    }, 20)
+    assertx.assertEqual(plan.rows[1].height, 20, "a pool keeps the configured height")
+    assertx.assertTrue(plan.rows[2].height < 20,
+        "a rune strip must not carry the same weight as health")
+end
+
+-- Which rows show numbers. A rune strip shows none; a combo strip shows one
+-- set for the whole row rather than a digit per segment.
+function M.test_plan_runeRowShowsNoNumbers()
+    local ns = fresh()
+    local plan = ns:PlanUnitFrameRows({ { key = "rune1" }, { key = "rune2" } }, 16)
+    assertx.assertEqual(plan.rows[1].valueEntry, nil)
+end
+
+function M.test_plan_splitRowShowsOneSetOfNumbers()
+    local ns = fresh()
+    local plan = ns:PlanUnitFrameRows({ { key = "combopoints", current = 2, max = 5 } }, 16)
+    assertx.assertEqual(plan.rows[1].valueEntry, 1)
+end
+
+function M.test_plan_primaryRowShowsItsOwnNumbers()
+    local ns = fresh()
+    local plan = ns:PlanUnitFrameRows({
+        { key = "health", current = 1, max = 1 },
+        { key = "mana", current = 1, max = 1 },
+    }, 16)
+    assertx.assertEqual(plan.rows[1].valueEntry, 1)
+    assertx.assertEqual(plan.rows[2].valueEntry, 2)
+end
+
+-- Rows must stack without overlapping, whatever mix of heights they carry.
+function M.test_plan_rowsStackWithoutOverlap()
+    local ns = fresh()
+    local plan = ns:PlanUnitFrameRows({
+        { key = "health", current = 1, max = 1 },
+        { key = "rune1" }, { key = "rune2" },
+        { key = "combopoints", current = 1, max = 5 },
+        { key = "mana", current = 1, max = 1 },
+    }, 18)
+
+    local prevBottom = nil
+    for i, row in ipairs(plan.rows) do
+        if prevBottom then
+            assertx.assertTrue(row.top >= prevBottom,
+                "row " .. i .. " starts at " .. row.top .. ", previous ended at " .. prevBottom)
+        end
+        prevBottom = row.top + row.height
+    end
+    assertx.assertEqual(plan.height, prevBottom, "reported height must match the last row's bottom")
+end
+
+function M.test_plan_emptyEntriesPlanNothing()
+    local ns = fresh()
+    local plan = ns:PlanUnitFrameRows({}, 16)
+    assertx.assertEqual(#plan.rows, 0)
+    assertx.assertEqual(#plan.slots, 0)
+    assertx.assertEqual(plan.height, 0)
+end
+
+-- The layout accepts a plan table and uses its height, so segment rows
+-- actually shrink the frame rather than the frame staying sized for one
+-- full-height row per resource.
+function M.test_layout_acceptsAPlanAndUsesItsHeight()
+    local ns = fresh()
+    local flat = {}
+    for i = 1, 8 do flat[i] = { key = "res" .. i, current = 1, max = 1 } end
+    local runes = {
+        { key = "health", current = 1, max = 1 },
+        { key = "runicpower", current = 1, max = 1 },
+    }
+    for i = 1, 6 do runes[#runes + 1] = { key = "rune" .. i } end
+
+    local flatPlan  = ns:PlanUnitFrameRows(flat, 16)
+    local runePlan  = ns:PlanUnitFrameRows(runes, 16)
+    local flatBox   = ns:ComputeUnitFrameLayout({ header = true }, flatPlan)
+    local runeBox   = ns:ComputeUnitFrameLayout({ header = true }, runePlan)
+
+    assertx.assertTrue(runeBox.height < flatBox.height,
+        "the same eight resources must make a SHORTER frame once runes share a row")
+end
+
 return M

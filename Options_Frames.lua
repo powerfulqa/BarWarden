@@ -127,6 +127,18 @@ local function CreateFramesTab(parent)
           db = "unitFrames.player.barHeight", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
+        { type = "slider", label = "Rune Strip Height", min = 0, max = 30, step = 1,
+          width = 200,
+          format = function(v)
+              if not v or v < 1 then return "Auto" end
+              return tostring(math.floor(v))
+          end,
+          tooltip = "How tall the rune and combo point strips are. They are "
+                 .. "kept shorter than the main bars so health and power "
+                 .. "stand out. Slide fully left to size them automatically.",
+          db = "unitFrames.player.secondaryBarHeight", refresh = "RebuildUnitFrames",
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
+
         { type = "header", text = "Opacity", spacing = 24, offsetX = ns.OFFSET_HEADER },
 
         { type = "note",

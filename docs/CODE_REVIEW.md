@@ -174,11 +174,12 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     `ns.DEFAULTS.unitFrames` entry, and a Frames-tab toggle, since the
     widget itself is already unit-token-driven. Also deferred: per-bar
     visibility conditions on a unit frame (bar groups' `conditions` table has
-    no equivalent here yet), a user-facing cap on `MAX_UNIT_FRAME_SLOTS` (the
-    fixed value of 10 already has ample headroom for every feed
-    `ns:CollectResources` can produce), and folding `BarWardenDB.unitFrames`
-    into profile export/import (`ns:ExportProfile`/`ns:ImportProfile` still
-    only carry `frames`/`visual`). None of these block the current slice;
+    no equivalent here yet) and a user-facing cap on `MAX_UNIT_FRAME_SLOTS`
+    (the fixed value already has ample headroom for every feed
+    `ns:CollectResources` can produce). **Profile export/import is now
+    done**: `ns:CaptureProfileData` / `ns:ApplyProfileData` (DB.lua) drive
+    every call site from one `PROFILE_SECTIONS` list, which is what stops the
+    next added section going missing the way `unitFrames` did. None of these block the current slice;
     listed so a later session extending unit frames does not have to
     rediscover the boundary. Low priority, low-med effort per item.
 

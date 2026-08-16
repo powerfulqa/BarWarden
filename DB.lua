@@ -170,6 +170,12 @@ ns.DEFAULTS = {
             -- them. showValues == false hides them either way.
             valuePlacement = "COLUMN",
             barHeight    = 16,
+            -- Height of a rune / combo point strip. Deliberately shorter
+            -- than barHeight: giving a rune slot the same weight as health
+            -- is what made the frame read as a stack of identical bars
+            -- rather than a unit frame. 0 means "work it out from Bar
+            -- Height" (see ns:PlanUnitFrameRows).
+            secondaryBarHeight = 0,
             -- Opacity, one per part of the frame so each can be faded on its
             -- own. 1.0 is X-Perl's solid black panel. Kept as four keys
             -- rather than one because they genuinely want different values:
@@ -401,6 +407,77 @@ function ns:MigrateFrames(frames)
         end
     end
     return frames
+end
+
+-- ----------------------------------------------------------------------------
+-- What a profile carries.
+--
+-- These two functions exist because the answer used to be written out
+-- separately at four call sites (create, save, load, and the import
+-- validator), and they drifted: unit frames were added as a new top-level
+-- table and none of the four learned about them, so every Frames-tab setting
+-- - portrait style, fonts, sizes, the four opacity sliders, which resources
+-- show - silently failed to travel with an exported profile. The bug was not
+-- that someone forgot a line; it was that there were four places to forget.
+--
+-- Anything added to a profile from here on goes in PROFILE_SECTIONS and is
+-- picked up by all of them at once.
+-- ----------------------------------------------------------------------------
+
+-- `migrate` runs on load for sections whose shape can predate the current
+-- schema; `merge` backfills keys added since the profile was saved, so a
+-- profile written before a setting existed does not read it back as nil and
+-- re-persist an incomplete table on the next Save.
+local PROFILE_SECTIONS = {
+    { key = "frames",     migrate = "MigrateFrames" },
+    { key = "visual",     merge = true },
+    { key = "unitFrames", merge = true },
+}
+
+-- Snapshot the live config into a fresh table suitable for storing in a
+-- profile or serialising for export.
+function ns:CaptureProfileData()
+    local data = {}
+    if not ns.db then return data end
+    for _, section in ipairs(PROFILE_SECTIONS) do
+        if type(ns.db[section.key]) == "table" then
+            data[section.key] = ns:CopyTable(ns.db[section.key])
+        end
+    end
+    return data
+end
+
+-- Restore a profile's data over the live config. Only sections actually
+-- present are touched, so loading a profile saved before unit frames existed
+-- leaves the current unit frames alone rather than wiping them.
+--
+-- Does NOT back up first: every caller has its own view of whether a backup
+-- is warranted (and what reason to record), and they all take one already.
+function ns:ApplyProfileData(data)
+    if type(data) ~= "table" or not ns.db then return end
+    for _, section in ipairs(PROFILE_SECTIONS) do
+        local incoming = data[section.key]
+        if type(incoming) == "table" then
+            ns.db[section.key] = ns:CopyTable(incoming)
+            if section.migrate and ns[section.migrate] then
+                ns[section.migrate](ns, ns.db[section.key])
+            end
+            if section.merge and ns.MergeDefaults and ns.DEFAULTS[section.key] then
+                ns:MergeDefaults(ns.db[section.key], ns.DEFAULTS[section.key])
+            end
+        end
+    end
+end
+
+-- Does this decoded import string carry anything we recognise? Used by the
+-- import validator so it accepts a profile carrying only unit frames rather
+-- than insisting on frames/visual specifically.
+function ns:ProfileDataHasContent(data)
+    if type(data) ~= "table" then return false end
+    for _, section in ipairs(PROFILE_SECTIONS) do
+        if type(data[section.key]) == "table" then return true end
+    end
+    return false
 end
 
 -- Pre-migration safety net: snapshot the current frames into a small ring of
