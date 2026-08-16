@@ -46,7 +46,8 @@ General tab still work for hiding the default player or target frame
 without running a BarWarden one.
 
 **Frames for everyone: you, your target, your target's target, your pet,
-your focus, and all four party slots.** They share the player frame's
+your focus, and all four party slots.** Each gets its own tab along the
+bottom of the Frames page, the way Bar Control splits Groups and Bars. They share the player frame's
 looks - portrait, fonts, opacity, bar look and height - and each is dragged
 where you want it. Every one except your own shows what that unit actually
 has, health and its power, the way the default frames do, and hides itself

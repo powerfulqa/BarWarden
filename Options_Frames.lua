@@ -357,21 +357,24 @@ end
 -- Order is the owner's, and is by how often a frame is actually looked at
 -- rather than alphabetical or by unit-token order: player, target, party,
 -- then the three occasional ones.
+-- `label` heads the section and names its Show tickbox; `tab` is the shorter
+-- form on the bottom tab, because six tabs share the panel width and
+-- "Target's Target Frame" alone would eat most of it.
 local FRAME_SECTIONS = {
-    { key = "player",       label = "Player Frame",
+    { key = "player",       label = "Player Frame",         tab = "Player",
       whose = "your own character", resourceTickList = true },
-    { key = "target",       label = "Target Frame",
+    { key = "target",       label = "Target Frame",         tab = "Target",
       whose = "whatever you have targeted" },
-    { key = "party",        label = "Party Frames",
+    { key = "party",        label = "Party Frames",         tab = "Party",
       whose = "everyone in your party",
       note = "One set of settings for all four party frames. Each is dragged "
           .. "on its own, and a frame only shows while someone is in that "
           .. "slot." },
-    { key = "targettarget", label = "Target's Target Frame",
+    { key = "targettarget", label = "Target's Target Frame", tab = "Target's Target",
       whose = "whoever your target is targeting" },
-    { key = "pet",          label = "Pet Frame",
+    { key = "pet",          label = "Pet Frame",            tab = "Pet",
       whose = "your pet" },
-    { key = "focus",        label = "Focus Frame",
+    { key = "focus",        label = "Focus Frame",          tab = "Focus",
       whose = "your focus target" },
 }
 
@@ -391,31 +394,54 @@ local function CreateFramesTab(parent)
     if ns.ApplyWidth then ns:ApplyWidth(desc, 32) end
     desc:SetText("A unit frame shows health, power, and class resources in the "
               .. "usual arrangement: portrait, name and level, and bars. Drag "
-              .. "one to move it. This is separate from Resource Groups on Bar "
-              .. "Control - use whichever reads better.")
+              .. "one to move it. Pick a frame below.")
 
-    local scrollFrame = CreateFrame("ScrollFrame", "BarWardenFramesScrollFrame",
-                                    frame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT",     desc,  "BOTTOMLEFT",  -12,  -6)
-    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28,   4)
-
-    local content = CreateFrame("Frame", nil, scrollFrame)
-    content:SetWidth(544)
-    content:SetHeight(1)
-    scrollFrame:SetScrollChild(content)
-    scrollFrame:SetScript("OnSizeChanged", function(_, w)
-        if w and w > 0 then content:SetWidth(math.min(w, ns.SETTINGS_MAX_WIDTH or 300)) end
-    end)
-
+    -- One scroll panel per frame, switched by the tabs along the bottom.
+    --
+    -- These were one long page until six frames' worth of settings made it
+    -- unreadable. Splitting them mirrors Bar Control's Groups / Bars tabs
+    -- rather than inventing a second way of doing the same thing, so the two
+    -- pages behave identically: same template, same sound, same placement.
+    --
+    -- A panel each, rather than one panel whose scroll child is swapped, so
+    -- each keeps its own scroll position and measured height. Only one is
+    -- ever shown, and an unshown ScrollFrame costs nothing.
     local widgets = {}
+    local sections = {}
 
-    local SCHEMA = {}
-    for _, section in ipairs(FRAME_SECTIONS) do
-        AppendFrameSchema(SCHEMA, frame, section.key, section.label, section)
+    for i, section in ipairs(FRAME_SECTIONS) do
+        local scrollFrame = CreateFrame("ScrollFrame",
+            "BarWardenFramesScrollFrame" .. section.key,
+            frame, "UIPanelScrollFrameTemplate")
+        scrollFrame:SetPoint("TOPLEFT",     desc,  "BOTTOMLEFT",  -12,  -6)
+        -- Bottom inset clears the tab row.
+        scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28,  28)
+
+        local content = CreateFrame("Frame", nil, scrollFrame)
+        content:SetWidth(544)
+        content:SetHeight(1)
+        scrollFrame:SetScrollChild(content)
+        scrollFrame:SetScript("OnSizeChanged", function(_, w)
+            if w and w > 0 then
+                content:SetWidth(math.min(w, ns.SETTINGS_MAX_WIDTH or 300))
+            end
+        end)
+
+        -- Every section shares one `widgets` table. Ids are already namespaced
+        -- by frame key (see AppendFrameSchema), so nothing collides, and one
+        -- table keeps ApplyConditionals a single pass over every frame rather
+        -- than needing to know which tab is open.
+        local schema = {}
+        AppendFrameSchema(schema, frame, section.key, section.label, section)
+        local refresh, reflow = ns:BuildSettings(content, schema, widgets,
+                                    { firstX = 16, firstY = -10 })
+
+        sections[i] = {
+            key = section.key, scrollFrame = scrollFrame, content = content,
+            Refresh = refresh, Reflow = reflow,
+        }
+        scrollFrame:Hide()
     end
-
-    frame.Refresh, frame.Reflow = ns:BuildSettings(content, SCHEMA, widgets,
-                                     { firstX = 16, firstY = -10 })
 
     -- Widgets that only make sense under another setting. BuildSettings has
     -- no declarative "hidden" concept: PositionEntry simply skips any widget
@@ -424,6 +450,9 @@ local function CreateFramesTab(parent)
     --
     -- One function covering every frame, rather than per-frame copies, so a
     -- rule cannot end up applied to the player and forgotten for the target.
+    -- It runs over all six even though only one tab is visible: a hidden
+    -- panel reflowed now is correct the moment its tab opens, which is
+    -- cheaper than remembering to fix it up on every tab switch.
     function frame:ApplyConditionals()
         for _, section in ipairs(FRAME_SECTIONS) do
             local key = section.key
@@ -467,13 +496,13 @@ local function CreateFramesTab(parent)
                 end
             end
         end
-        if frame.Reflow then frame.Reflow() end
+        for _, s in ipairs(sections) do
+            if s.Reflow then s.Reflow() end
+        end
     end
 
-    -- [?] deep links. One per section heading rather than only on the player
-    -- frame: with six sections on this tab, a single icon at the very top is
-    -- unreachable by the time anyone has scrolled to the question they
-    -- actually have. Every id here is asserted to resolve by
+    -- [?] deep links, one per section heading plus the two sub-headings that
+    -- raise their own questions. Every id here is asserted to resolve by
     -- tests/test_help.lua, so a renamed help entry fails the suite rather
     -- than leaving a dead icon.
     local HELP_LINKS = {
@@ -490,30 +519,95 @@ local function CreateFramesTab(parent)
         for _, link in ipairs(HELP_LINKS) do
             local w = widgets[link.widget]
             if w then
-                ns:CreateHelpIcon(content, w, "LEFT", "RIGHT", 6, 0, link.topic)
+                -- Parented to the widget's OWN section content, not one
+                -- shared panel: an icon anchored into a panel it does not
+                -- belong to would stay on screen when that panel hides.
+                ns:CreateHelpIcon(w:GetParent(), w, "LEFT", "RIGHT", 6, 0, link.topic)
             end
         end
     end
 
-    -- Trim the scroll child to the last widget so there is no empty scroll
-    -- area below it, same pattern as Options_Visuals.lua's trimHeight.
-    local function trimHeight()
-        local bottom = frame.Reflow and frame.Reflow()
-        local contentTop = content:GetTop()
+    -- Trim a section's scroll child to its last widget so there is no empty
+    -- scroll area below it, same pattern as Options_Visuals.lua's trimHeight.
+    local function trimSection(s)
+        if not s then return end
+        local bottom = s.Reflow and s.Reflow()
+        local contentTop = s.content:GetTop()
         if bottom and contentTop and contentTop > bottom then
-            content:SetHeight(contentTop - bottom + 20)
+            s.content:SetHeight(contentTop - bottom + 20)
         end
     end
 
+    -- ========================================================================
+    -- Bottom tabs, one per frame. Same template, sound and placement as Bar
+    -- Control's, so the two pages feel like one addon.
+    -- ========================================================================
+    local tabs = {}
+    local function ShowFrameSection(index)
+        PanelTemplates_SetTab(frame, index)
+        for i, s in ipairs(sections) do
+            if i == index then s.scrollFrame:Show() else s.scrollFrame:Hide() end
+        end
+        local s = sections[index]
+        if s then
+            local w = s.scrollFrame:GetWidth()
+            if w and w > 100 then
+                s.content:SetWidth(math.min(w, ns.SETTINGS_MAX_WIDTH or 300))
+            end
+            if s.Refresh then s.Refresh() end
+            trimSection(s)
+            -- A newly shown panel has not been measured at its real size yet,
+            -- so re-trim once the Show above has taken effect (same delay
+            -- Options_Bars.lua's fitGroupHeight needs, for the same reason).
+            if ns.After then ns:After(0, function() trimSection(s) end) end
+        end
+    end
+    frame.ShowFrameSection = ShowFrameSection
+
+    for i, section in ipairs(FRAME_SECTIONS) do
+        -- Named "<frameName>Tab<i>" so PanelTemplates_UpdateTabs finds them.
+        local tab = CreateFrame("Button", frame:GetName() .. "Tab" .. i, frame,
+                                "CharacterFrameTabButtonTemplate")
+        tab:SetText(section.tab or section.label)
+        tab:SetID(i)
+        -- Left at scale 1, unlike Bar Control's two tabs at 1.3: six of these
+        -- share the panel width. Padding trimmed to match.
+        if PanelTemplates_TabResize then PanelTemplates_TabResize(tab, 8) end
+        tab:SetScript("OnClick", function(self)
+            ShowFrameSection(self:GetID())
+            PlaySound("igCharacterInfoTab")
+        end)
+        if i == 1 then
+            tab:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 8, 4)
+        else
+            tab:SetPoint("LEFT", tabs[i - 1], "RIGHT", -14, 0)
+        end
+        tabs[i] = tab
+    end
+    PanelTemplates_SetNumTabs(frame, #FRAME_SECTIONS)
+
+    -- Refreshes EVERY section, not just the visible one. The options panel
+    -- calls this after a profile load, and a hidden tab holding stale values
+    -- would show them the moment it was opened.
+    function frame:Refresh()
+        for _, s in ipairs(sections) do
+            if s.Refresh then s.Refresh() end
+        end
+    end
+
+    ShowFrameSection(1)
+
     frame:SetScript("OnShow", function()
-        local w = scrollFrame:GetWidth()
-        if w and w > 100 then content:SetWidth(math.min(w, ns.SETTINGS_MAX_WIDTH or 300)) end
-        if frame.Refresh then frame:Refresh() end
-        -- Before trimHeight: the trim measures the last visible widget, so
+        frame:Refresh()
+        -- Before trimming: the trim measures the last visible widget, so
         -- hiding one afterwards would leave the scroll child too tall.
         frame:ApplyConditionals()
-        trimHeight()
-        if ns.After then ns:After(0, trimHeight) end
+        for _, s in ipairs(sections) do trimSection(s) end
+        if ns.After then
+            ns:After(0, function()
+                for _, s in ipairs(sections) do trimSection(s) end
+            end)
+        end
     end)
 
     return frame

@@ -354,9 +354,10 @@ local HELP_ENTRIES = {
     {
         id = "unit-frames-setup",
         q = "How do I turn on my unit frame?",
-        a = "On the Frames tab, tick the frame you want: player, target, "
-          .. "target's target, pet, focus, or party. Each has its own "
-          .. "settings below it: "
+        a = "The Frames tab has a tab of its own along the bottom for each "
+          .. "one: Player, Target, Party, Target's Target, Pet and Focus. "
+          .. "Pick one and tick Show at the top of it.\n\n"
+          .. "Each has the same settings: "
           .. "Scale resizes without moving, Bar Look and Bar Height change the "
           .. "bars, the Opacity sliders fade each part on its own, and Show "
           .. "Portrait, Show Name, Show Level and Show Values turn parts off.\n\n"
