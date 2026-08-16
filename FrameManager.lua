@@ -1,7 +1,7 @@
 -- FrameManager.lua - Group frame creation, layout, and positioning.
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 
 local addonName, ns = ...
 
@@ -131,11 +131,17 @@ local function NewAutoBarData()
     }
 end
 
--- Backdrop table for group frames. Exposed on `ns` so UnitFrames.lua draws
--- its own panel with the exact same primitives (a plain white texture tinted
--- by SetBackdropColor, and Blizzard's own tooltip border) rather than a new
--- texture asset - there is nothing about a unit frame's backdrop that needs
--- to look different from a bar group's.
+-- Backdrop table for group frames: a plain white texture tinted by
+-- SetBackdropColor, plus Blizzard's own tooltip border.
+--
+-- Unit frames deliberately do NOT use this. They started out sharing it, on
+-- the reasoning that a unit frame's backdrop need not look different from a
+-- bar group's; seeing both on screen at once disproved that. A bar group is
+-- a container the player positions and which should recede, while a unit
+-- frame is meant to read as a piece of UI in its own right. UnitFrames.lua
+-- now carries its own UNIT_FRAME_BACKDROP built on X-Perl's artwork. Still
+-- exposed on `ns` because other callers use it; this note exists so the
+-- divergence reads as a decision rather than as an oversight to tidy up.
 local GROUP_BACKDROP = {
     bgFile = "Interface\\Buttons\\WHITE8x8",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",

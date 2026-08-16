@@ -1,7 +1,7 @@
 -- SharedMedia.lua - Optional LibSharedMedia integration.
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 
 local addonName, ns = ...
 
@@ -44,7 +44,24 @@ local BW_TEXTURES = {
     ["BW Leather"]  = T .. "Leather.tga",
 }
 
+-- X-Perl's bar textures, redistributed under the GNU GPL v3 (see LICENSE
+-- and NOTICE.md). "XP Perl v2" is X-Perl's own default and the one the
+-- Frames tab defaults to, so a unit frame looks like the addon these came
+-- from out of the box; the numbered variants are its alternate skins, kept
+-- because they cost nothing and give the same choice X-Perl offered.
+local XP = "Interface\\AddOns\\BarWarden\\Textures\\XPerl\\"
+local XP_TEXTURES = {
+    ["XP Perl v2"] = XP .. "XPerl_StatusBar.blp",
+}
+for i = 2, 10 do
+    XP_TEXTURES["XP Perl " .. i] = XP .. "XPerl_StatusBar" .. i .. ".blp"
+end
+
 for name, path in pairs(BW_TEXTURES) do
+    LSM:Register(STATUSBAR, name, path)
+end
+
+for name, path in pairs(XP_TEXTURES) do
     LSM:Register(STATUSBAR, name, path)
 end
 

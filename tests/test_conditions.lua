@@ -1057,12 +1057,18 @@ function M.test_getResourcePowerColor_unholyRuneIsGreen()
     assertx.assertEqual(b, 0)
 end
 
-function M.test_getResourcePowerColor_frostRuneIsCyan()
+-- Frost is the one rune colour that deliberately departs from Blizzard's
+-- own FrameXML palette, which uses pure cyan (0, 1, 1). The owner asked for
+-- frost runes to read as blue after seeing cyan on a live frame. This test
+-- pins the requested colour so a later "let's match the client again" tidy-up
+-- fails loudly instead of silently reverting a deliberate choice.
+function M.test_getResourcePowerColor_frostRuneIsBlueNotBlizzardCyan()
     local ns = fresh()
     local r, g, b = ns:GetResourcePowerColor(runeBarIn(1, 3))
-    assertx.assertEqual(r, 0)
-    assertx.assertEqual(g, 1)
+    assertx.assertEqual(r, 0.2)
+    assertx.assertEqual(g, 0.55)
     assertx.assertEqual(b, 1)
+    assertx.assertTrue(g < b, "frost must read as blue, not cyan (cyan has g == b)")
 end
 
 -- Death runes need their own distinct colour, not a repeat of one of the

@@ -1,7 +1,7 @@
 -- Options.lua - Interface Options shell: one category per panel.
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 --
 -- v2 navigation: instead of one cramped window with hand-rolled tab buttons,
 -- BarWarden registers a parent "BarWarden" category plus one child category

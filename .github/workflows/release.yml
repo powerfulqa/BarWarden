@@ -85,8 +85,11 @@ jobs:
           # no extension so the *.md exclude does not drop it (attribution
           # preservation requires it to ship).
           rsync -av --exclude='.git' --exclude='.github' --exclude='.gitignore' --exclude='.claude*' --exclude='docs' --exclude='build' --exclude='logs' --exclude='NeedToKnow' --exclude='RoguePowerBars' --exclude='3.3.5.a' --exclude='tests' --exclude='*.md' . build/BarWarden/
-          # Include README inside the zip for reference
-          cp README.md build/BarWarden/
+          # Include README inside the zip for reference. NOTICE.md is not
+          # optional: the GPL section 7(b) term in LICENSE requires it to
+          # ship in every distributed copy, and it carries the X-Perl
+          # artwork provenance, so the *.md exclude must not drop it.
+          cp README.md NOTICE.md build/BarWarden/
           cd build
           zip -r ../BarWarden.zip BarWarden/
 

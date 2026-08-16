@@ -1,7 +1,7 @@
 -- DragReorder.lua - Drag-to-reorder with ghost bar and drop indicator.
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 
 local addonName, ns = ...
 

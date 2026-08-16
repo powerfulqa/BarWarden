@@ -1,7 +1,7 @@
 -- Options_Visuals.lua - Visuals settings tab.
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 
 local addonName, ns = ...
 
@@ -43,8 +43,19 @@ local BUILTIN_TEXTURE_ITEMS = {
     { text = "Glow",      value = "Glow"     },
     { text = "Metal",     value = "Metal"    },
     { text = "Leather",   value = "Leather"  },
-    { text = "Custom",    value = "Custom"   },
 }
+
+-- X-Perl's bar skins, appended in a loop rather than written out (the ten
+-- numbered variants differ only by index) and kept out of the literal above
+-- so "Custom" stays last in the list, where users expect it. Names match
+-- what SharedMedia.lua registers with LSM and what Bar.lua resolves without
+-- it, so a saved choice means the same thing on either client.
+BUILTIN_TEXTURE_ITEMS[#BUILTIN_TEXTURE_ITEMS + 1] = { text = "XP Perl v2", value = "XP Perl v2" }
+for i = 2, 10 do
+    BUILTIN_TEXTURE_ITEMS[#BUILTIN_TEXTURE_ITEMS + 1] =
+        { text = "XP Perl " .. i, value = "XP Perl " .. i }
+end
+BUILTIN_TEXTURE_ITEMS[#BUILTIN_TEXTURE_ITEMS + 1] = { text = "Custom", value = "Custom" }
 
 local BW_FONT = "Interface\\AddOns\\BarWarden\\Fonts\\"
 local BUILTIN_FONT_ITEMS = {

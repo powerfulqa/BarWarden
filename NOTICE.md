@@ -1,10 +1,54 @@
-# Notice - shared conventions and prior art
+# Notice - third-party material, shared conventions and prior art
 
 This file documents BarWarden's design lineage honestly, so that any
 future "they copied us" or "you copied them" claim has a record to refer
 to. Convergence on similar shapes is acknowledged where it exists, and
 originality is not claimed where a pattern is shared with a sibling
 project or with the broader WoW 3.3.5a addon ecosystem.
+
+---
+
+## X-Perl UnitFrames artwork (GNU GPL v3)
+
+BarWarden's unit frames are drawn with artwork taken from **X-Perl
+UnitFrames**, Copyright (C) Zek (zeksie@gmail.com), licensed under the GNU
+General Public License version 3. The files were taken from the
+[Xperl-Grimfall](https://github.com/Valdstuff/Xperl-Grimfall) fork, which
+carries X-Perl's GPL v3 licence and its `## X-License` and `## Author`
+metadata intact.
+
+**This is why BarWarden is GPL v3.** The GPL is a copyleft licence: a work
+that incorporates GPL-licensed material must itself be distributed under
+the GPL. BarWarden shipped under a bespoke source-available attribution
+licence through v2.6.0 and relicensed at v2.7.0 as the condition of using
+this artwork. See [LICENSE](LICENSE) for what that changed.
+
+Files taken, all from `XPerl/Images/` and unmodified, now in
+`Textures/XPerl/`:
+
+| File | Used for |
+| --- | --- |
+| `XPerl_FrameBack.blp` | The frame and portrait backdrop tile |
+| `XPerl_ThinEdge.blp` | Border artwork |
+| `XPerl_Highlight.blp` | Highlight overlay |
+| `XPerl_Elite.blp`, `XPerl_Rare.blp` | Target classification overlays |
+| `XPerl_EyeBall.blp` | Targeting indicator |
+| `XPerl_StatusBar.blp` and `XPerl_StatusBar2..10.blp` | Bar skins, offered as "XP Perl v2" and "XP Perl 2".."XP Perl 10" |
+
+The frame geometry (a 16px tooltip-bordered backdrop over a 32px tile with
+a 4px inset, and a portrait inset 5px inside its own bordered frame) is
+reproduced from X-Perl's `XPerl_BorderStyleTemplate` and
+`XPerl_Portrait_Template` so the artwork sits the way its author drew it
+to sit.
+
+**No X-Perl code was copied.** `UnitFrames.lua` is BarWarden's own, written
+against the same Blizzard 3.3.5a API. X-Perl's XML was read to learn how
+its artwork is assembled, which is what the table above records.
+
+A separate reference copy of **DragonUI-Grimfall** was consulted for layout
+ideas only. It carries no licence file, so nothing from it - code or art -
+is used or shipped. Both reference checkouts are gitignored and never
+packaged.
 
 ---
 

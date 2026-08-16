@@ -27,6 +27,15 @@ cleanup.
   Options panel. It ships as 31 `.lua` files plus the bundled `Libs/`.
   [BarWarden.toc](BarWarden.toc) lists every file in load order; add a
   new file after everything it depends on.
+- **BarWarden is GPL v3** as of v2.7.0, because its unit-frame artwork
+  (`Textures/XPerl/`) comes from X-Perl UnitFrames, which is GPL v3.
+  Copying more GPL v3 material in is therefore fine; adding material under
+  a licence that is *incompatible* with the GPL is not. Read
+  [NOTICE.md](NOTICE.md) before taking anything from a third-party addon,
+  and add a row there when you do. The reference checkouts matched by
+  `*-Grimfall-main/` in `.gitignore` are not all licensed alike:
+  Xperl-Grimfall carries GPL v3, DragonUI-Grimfall carries no licence at
+  all, so nothing from DragonUI may be used or shipped.
 - **The bundled libraries are intentional.** LibStub,
   LibSharedMedia-3.0, LibDataBroker-1.1, and LibDBIcon-1.0 stay. LSM adds
   real texture/font value; LDB + LibDBIcon are the standard minimap stack.
@@ -100,7 +109,10 @@ runs the test suite as a gate, then:
    without the `v`, and the `[vX.Y.Z]` Title badge with it). No manual
    version edit is needed; `ns.version` reads the TOC at runtime via
    `GetAddOnMetadata`.
-2. Packages the addon (plus `LICENSE` and `README.md`) into `BarWarden.zip`.
+2. Packages the addon (plus `LICENSE`, `NOTICE.md` and `README.md`) into
+   `BarWarden.zip`. `NOTICE.md` is not optional: the GPL section 7(b) term
+   in `LICENSE` requires it in every distributed copy, and it carries the
+   X-Perl artwork provenance.
 3. Commits the stamped TOC back to `main` as `Update version to vX.Y.Z
    [skip ci]`. **After a release, `git pull` before your next commit** or
    local `main` is one behind.

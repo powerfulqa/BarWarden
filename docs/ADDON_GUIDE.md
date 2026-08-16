@@ -1533,9 +1533,18 @@ The provenance globals are stamped from Core.lua at load:
 `BARWARDEN_IDENT`, `BARWARDEN_AUTHOR`, `BARWARDEN_ORIGIN`,
 `__BarWarden_origin`, `__BarWarden_author`, and `__BarWarden_watermark`
 (a fingerprint of `BarWarden@<version>`). These, the `## Author:` TOC
-line, the options-panel byline, the `BarWardenDB`/`BarWardenAccountDB`
-names, the `/bw` slash command, and the `BarWarden:` export prefix are
-attribution-preserved by [LICENSE](../LICENSE). Do not rename or blank them.
+line, and the options-panel byline are attribution-preserved by the GPL
+section 7(b) term in [LICENSE](../LICENSE). Do not rename or blank them.
+
+The `BarWardenDB`/`BarWardenAccountDB` names, the `/bw` slash command and
+the `BarWarden:` export prefix are **no longer licence-protected**. The
+pre-v2.7.0 licence forbade renaming them in a fork; GPL section 7 does not
+permit that as an additional restriction, so it did not survive the
+relicense (see [NOTICE.md](../NOTICE.md) for why BarWarden is GPL v3).
+They are still not to be renamed *in this repository* - they are the
+SavedVariables keys every migration and every exported profile string is
+written against, so renaming one is a data-compatibility break, not a
+branding question.
 
 ---
 

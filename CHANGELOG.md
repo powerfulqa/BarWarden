@@ -13,6 +13,41 @@ exhaustive notes.
 
 ---
 
+### v2.7.0
+
+**Unit frames now look the part, and BarWarden is now GPL v3.**
+
+The unit frame added in v2.6.0 worked but looked unfinished, so it has
+been redrawn using the artwork from X-Perl UnitFrames by Zek. The frame
+and portrait now sit in X-Perl's own bordered panel, and the bars use its
+bar skins, offered as "XP Perl v2" through "XP Perl 10" everywhere a bar
+texture can be chosen.
+
+**Licence change.** X-Perl is licensed under the GNU GPL v3, which
+requires anything built with it to carry the same licence. BarWarden has
+therefore moved from its own source-available licence to the GPL v3. You
+can still use, modify, redistribute and bundle it freely, including on
+private servers and in addon packs, and the attribution requirements are
+unchanged and still binding. What no longer applies is the old rule
+against renaming BarWarden and its commands in a fork. Full detail in
+[LICENSE](LICENSE); exactly which files came from where is recorded in
+[NOTICE.md](NOTICE.md).
+
+Fixed in the same pass:
+
+- **The numbers column no longer overlaps itself.** Each row's text was
+  wrapping onto a second line and colliding with the row below it. The
+  column now sizes itself to the numbers it holds, so a high-health
+  character no longer pushes text over the frame edge.
+- **Frost runes are blue.** They were drawing in the client's own cyan.
+- **Resources sitting at zero draw as an empty bar** rather than as a
+  black gap in the frame.
+- **The portrait has a border** instead of bleeding into the backdrop.
+- A unit frame's bar look is now its own setting, so the frame and your
+  timer bars no longer have to match.
+
+---
+
 ### v2.6.0
 
 **A conventional unit frame joins resource groups as a second way to show

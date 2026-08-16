@@ -1,7 +1,7 @@
 -- DB.lua - SavedVariables schema, defaults, and migrations.
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 
 local addonName, ns = ...
 
@@ -151,6 +151,10 @@ ns.DEFAULTS = {
             showPortrait = true,
             showLevel    = true,
             showValues   = true,
+            -- X-Perl's own default bar skin, so an enabled unit frame looks
+            -- like a unit frame out of the box rather than inheriting
+            -- whatever texture the player chose for their timer bars.
+            barTexture   = "XP Perl v2",
         },
     },
 

@@ -1,7 +1,7 @@
 -- PanelInfra.lua - panel-width registry + reactivity layer.
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 --
 -- The v2 UI foundation. Every Interface Options sub-panel builds widgets
 -- through these helpers and relies on the reactive layout registry to track

@@ -1,7 +1,7 @@
 -- Conditions.lua - Visibility condition registry and evaluator.
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 
 local addonName, ns = ...
 local MAX_AURA_INDEX = ns.MAX_AURA_INDEX
@@ -374,19 +374,25 @@ end
 -- Death Knight rune colours by type: 1 Blood, 2 Unholy, 3 Frost, 4 Death
 -- (GetRuneType's own numbering; matches RUNE_ICONS/RUNE_NAMES, Trackers.lua).
 --
--- 3.3.5a's FrameXML (RuneFrame.lua) defines this exact palette, but as a
+-- 3.3.5a's FrameXML (RuneFrame.lua) defines this palette, but as a
 -- file-local `runeColors` table with no addon-visible equivalent of
 -- PowerBarColor for rune types, so - unlike the power-type colours above -
--- it cannot be read live from the client at all; these four values are
--- copied from Blizzard's own client source, not invented, so a rune bar
+-- it cannot be read live from the client at all; these values are copied
+-- from Blizzard's own client source rather than invented, so a rune bar
 -- looks the same as Blizzard's default rune display. Death is a distinct
 -- magenta/purple in Blizzard's own table, not white or a repeat of one of
 -- the three basic types - kept as-is rather than picking a "nicer" colour.
+--
+-- Frost is the one deliberate divergence. Blizzard's own value is pure cyan
+-- (0, 1, 1); the owner asked for frost runes to read as blue after seeing
+-- cyan on a live frame, so this is a requested change, not a stylistic
+-- tweak someone made in passing. Do not "restore" it to Blizzard's cyan on
+-- the grounds that the rest of the table matches the client.
 local RUNE_TYPE_COLORS = {
-    [1] = { r = 1,   g = 0,   b = 0 },   -- Blood
-    [2] = { r = 0,   g = 0.5, b = 0 },   -- Unholy
-    [3] = { r = 0,   g = 1,   b = 1 },   -- Frost
-    [4] = { r = 0.8, g = 0.1, b = 1 },   -- Death
+    [1] = { r = 1,   g = 0,    b = 0 },   -- Blood
+    [2] = { r = 0,   g = 0.5,  b = 0 },   -- Unholy
+    [3] = { r = 0.2, g = 0.55, b = 1 },   -- Frost (see note above)
+    [4] = { r = 0.8, g = 0.1,  b = 1 },   -- Death
 }
 
 -- Resolve the power-type default colour for a resource bar. Returns (r, g, b),

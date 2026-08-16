@@ -1,7 +1,7 @@
 -- Bar.lua - Bar frame construction and visual config.
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 
 local addonName, ns = ...
 
@@ -29,6 +29,17 @@ local TEXTURES = {
     ["Metal"]    = T .. "Metal.tga",
     ["Leather"]  = T .. "Leather.tga",
 }
+
+-- X-Perl's bar textures (GNU GPL v3, see LICENSE and NOTICE.md). Keyed by
+-- the same names SharedMedia.lua registers with LSM, so a saved texture
+-- choice resolves identically whether or not LSM is present - without this,
+-- a unit frame would silently fall back to Flat on an LSM-less client and
+-- the Frames tab's default would look broken through no fault of the user.
+local XP = "Interface\\AddOns\\BarWarden\\Textures\\XPerl\\"
+TEXTURES["XP Perl v2"] = XP .. "XPerl_StatusBar.blp"
+for i = 2, 10 do
+    TEXTURES["XP Perl " .. i] = XP .. "XPerl_StatusBar" .. i .. ".blp"
+end
 
 -- Resolve the spell/item icon for a bar, or nil if nothing maps.
 local function ResolveBarIcon(barData)
@@ -174,6 +185,15 @@ local function ResolveTexture(name)
     end
     -- Fall back to treating the name as a raw texture path
     return name
+end
+
+-- Exposed so a unit frame can draw its bar-background texture with the same
+-- resolution rules (own table, then LSM, then raw path) the bar fill itself
+-- uses. Without a shared resolver the background would need a second copy of
+-- that fallback chain, and the two would drift the first time a texture is
+-- added to one list and not the other.
+function ns:ResolveTextureName(name)
+    return ResolveTexture(name)
 end
 
 -- Resolve the group config for a bar (nil-safe). Used for group-level visual

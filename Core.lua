@@ -1,7 +1,7 @@
 -- Core.lua - Lifecycle, ADDON_LOADED, slash commands, provenance.
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 
 local addonName, ns = ...
 

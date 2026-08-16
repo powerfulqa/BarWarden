@@ -533,4 +533,12 @@ Type `/bw bugreport` to generate a copyable diagnostic report you can paste into
 
 ---
 
+## Licence
+
+BarWarden is free software under the **GNU General Public License version 3**. You may use, modify, redistribute and bundle it, including on private servers and in addon packs. If you pass it on, recipients get the same freedoms and the source. Credits must stay intact: the author line, the in-game byline, and the provenance values. See [LICENSE](LICENSE) for the full terms.
+
+The unit frame artwork comes from **X-Perl UnitFrames** by Zek, also under the GPL v3, which is why BarWarden carries that licence. [NOTICE.md](NOTICE.md) records exactly which files were used and where they came from.
+
+---
+
 *Author: Serv*

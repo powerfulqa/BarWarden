@@ -2,7 +2,7 @@
 -- bars + a values column, driven by a unit token.
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 
 local addonName, ns = ...
 
@@ -68,8 +68,41 @@ local UF_BAR_WIDTH    = 120
 local UF_BAR_HEIGHT   = 14
 local UF_BAR_SPACING  = 1
 local UF_HEADER_HEIGHT = 14
-local UF_VALUES_WIDTH  = 74
 local UF_PADDING       = 4
+
+-- Fallback width for the values column, used only until the first scan has
+-- real text to measure (see ns:MeasureUnitFrameValuesWidth and the
+-- measured-width note above it). Deliberately narrow: the frame widens to
+-- fit on the very next tick, and starting narrow-then-growing looks better
+-- than starting wide-then-shrinking.
+local UF_VALUES_MIN_WIDTH = 40
+
+-- X-Perl's own frame backdrop, reproduced with its geometry exactly as
+-- XPerl_BorderStyleTemplate declares it (XPerl_Globals.xml): its
+-- XPerl_FrameBack tile, Blizzard's tooltip border, edge 16, tile 32, inset
+-- 4. The artwork is GPL v3 and redistributed under that licence - it is the
+-- reason this addon is GPL at all (see LICENSE and NOTICE.md).
+--
+-- This deliberately does NOT reuse ns.GROUP_BACKDROP: a bar group is a
+-- container the player positions and should recede, whereas a unit frame is
+-- meant to read as a piece of UI in its own right, the way the frames it
+-- replaces do. They looked identical before this and that was the single
+-- biggest reason the unit frame read as unfinished next to X-Perl.
+local UNIT_FRAME_BACKDROP = {
+    bgFile   = "Interface\\AddOns\\BarWarden\\Textures\\XPerl\\XPerl_FrameBack.blp",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 32, edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 },
+}
+
+-- Inset from the portrait's own border to the portrait art, matching
+-- XPerl_Portrait_Template (a 60x62 bordered frame around a 50x50 portrait).
+local UF_PORTRAIT_INSET = 5
+
+-- Default bar texture for a unit frame. Registered by both SharedMedia.lua
+-- (for LSM) and Bar.lua (for the LSM-less fallback) under this exact name,
+-- so the default resolves either way.
+local UF_DEFAULT_TEXTURE = "XP Perl v2"
 
 -- Which optional elements a unit frame currently shows, resolved from its
 -- saved config. Nil-safe (a not-yet-built cfg reads as "show everything",
@@ -93,7 +126,17 @@ end
 -- element - a unit frame always has a name - only whether the level is
 -- appended to it is a toggle (ns:ResolveUnitFrameElements above), so it does
 -- not change this arithmetic at all.
-function ns:ComputeUnitFrameLayout(elements, barCount)
+-- `measuredValuesWidth` is the width the widest values-column string
+-- actually needs, measured from the live fontstrings by
+-- ns:MeasureUnitFrameValuesWidth. It is a parameter rather than a constant
+-- because a fixed width is what broke this column in the first place: a
+-- FontString given an explicit width wraps at spaces on 3.3.5a (there is no
+-- SetWordWrap before 4.0), so "2489 / 2489 (100%)" in a 74px column split
+-- across two lines and every row collided with the row beneath it. The
+-- column is now never given a width at all - it cannot wrap - and the frame
+-- widens to fit instead. Nil (no measurement yet) falls back to a narrow
+-- starting width.
+function ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
     elements = elements or {}
     barCount = max(barCount or 0, 1)
 
@@ -101,22 +144,55 @@ function ns:ComputeUnitFrameLayout(elements, barCount)
     local bodyHeight = UF_HEADER_HEIGHT + barsHeight
     local portraitSize = elements.portrait and bodyHeight or 0
 
-    local barsX = (portraitSize > 0) and (portraitSize + UF_PADDING) or 0
-    local valuesWidth = elements.values and UF_VALUES_WIDTH or 0
+    -- Left edge of the body sits inside the backdrop's own 4px inset, so the
+    -- artwork's border never overlaps the portrait or the first bar.
+    local bodyX = UF_PADDING
+    local barsX = bodyX + ((portraitSize > 0) and (portraitSize + UF_PADDING) or 0)
+
+    local valuesWidth = 0
+    if elements.values then
+        valuesWidth = max(measuredValuesWidth or 0, UF_VALUES_MIN_WIDTH)
+    end
     local valuesX = barsX + UF_BAR_WIDTH + (valuesWidth > 0 and UF_PADDING or 0)
 
     return {
         width        = valuesX + valuesWidth + UF_PADDING,
-        height       = bodyHeight + UF_PADDING,
+        height       = bodyHeight + UF_PADDING * 2,
         portraitSize = portraitSize,
+        portraitInset = UF_PORTRAIT_INSET,
+        bodyX        = bodyX,
         barsX        = barsX,
-        barsTop      = UF_HEADER_HEIGHT,
+        barsTop      = UF_PADDING + UF_HEADER_HEIGHT,
         valuesX      = valuesX,
         valuesWidth  = valuesWidth,
         barWidth     = UF_BAR_WIDTH,
         barHeight    = UF_BAR_HEIGHT,
         barSpacing   = UF_BAR_SPACING,
     }
+end
+
+-- Width the values column needs to show every visible row without wrapping,
+-- measured from the live fontstrings. GetStringWidth reports a FontString's
+-- natural single-line width, which is only meaningful because these
+-- fontstrings are never given an explicit width - see the note on
+-- ns:ComputeUnitFrameLayout above.
+--
+-- Called only when a values string actually changed (ScanUnitFrame diffs
+-- them already), so a frame whose numbers are steady pays nothing, and a
+-- frame whose numbers tick pays a handful of GetStringWidth calls - the same
+-- order of cost as the UnitHealth/UnitPower reads that produced them.
+function ns:MeasureUnitFrameValuesWidth(valueTexts, count)
+    local widest = 0
+    for i = 1, count do
+        local fs = valueTexts[i]
+        if fs and fs:IsShown() then
+            local w = fs:GetStringWidth() or 0
+            if w > widest then widest = w end
+        end
+    end
+    -- Ceil to a whole pixel: a fractional width would differ from the stored
+    -- value on every comparison and re-layout the frame on every single tick.
+    return floor(widest + 0.999)
 end
 
 -- Values-column text for one resource row: the raw current/max fraction plus
@@ -148,23 +224,28 @@ end
 -- (see ScanUnitFrame below) - a per-scan reformat of unchanged geometry
 -- would be exactly the kind of per-frame-path work CLAUDE.md asks this
 -- slice to avoid.
-local function LayoutUnitFrame(frame, elements, barCount)
-    local layout = ns:ComputeUnitFrameLayout(elements, barCount)
+local function LayoutUnitFrame(frame, elements, barCount, measuredValuesWidth)
+    local layout = ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
 
     frame:SetWidth(layout.width)
     frame:SetHeight(layout.height)
 
-    if frame.portrait then
+    if frame.portraitFrame then
         if elements.portrait then
-            frame.portrait:SetSize(layout.portraitSize, layout.portraitSize)
-            frame.portrait:Show()
+            frame.portraitFrame:ClearAllPoints()
+            frame.portraitFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", layout.bodyX, -UF_PADDING)
+            frame.portraitFrame:SetWidth(layout.portraitSize)
+            frame.portraitFrame:SetHeight(layout.portraitSize)
+            frame.portraitFrame:Show()
         else
-            frame.portrait:Hide()
+            frame.portraitFrame:Hide()
         end
     end
 
     frame.nameText:ClearAllPoints()
-    frame.nameText:SetPoint("TOPLEFT", frame, "TOPLEFT", layout.barsX + 2, -2)
+    frame.nameText:SetPoint("TOPLEFT", frame, "TOPLEFT", layout.barsX + 1, -(UF_PADDING + 1))
+    frame.nameText:SetPoint("TOPRIGHT", frame, "TOPLEFT",
+        layout.valuesX + layout.valuesWidth, -(UF_PADDING + 1))
 
     for i = 1, MAX_UNIT_FRAME_SLOTS do
         local bar = frame.bars[i]
@@ -175,13 +256,31 @@ local function LayoutUnitFrame(frame, elements, barCount)
         bar:SetWidth(layout.barWidth)
         bar:SetHeight(layout.barHeight)
 
+        -- The unfilled remainder of a bar. Without this a resource sitting at
+        -- zero (an out-of-combat rage bar, a spent rune) drew as a bare hole
+        -- in the backdrop rather than as an empty bar.
+        local bg = frame.barBackdrops[i]
+        bg:ClearAllPoints()
+        bg:SetPoint("TOPLEFT", frame, "TOPLEFT", layout.barsX, y)
+        bg:SetWidth(layout.barWidth)
+        bg:SetHeight(layout.barHeight)
+
+        -- Anchored by its RIGHT edge with no width set, so it right-aligns
+        -- against the frame edge and never wraps. See ns:ComputeUnitFrameLayout.
         local valueText = frame.valueTexts[i]
         valueText:ClearAllPoints()
-        valueText:SetPoint("TOPLEFT", frame, "TOPLEFT", layout.valuesX, y)
-        valueText:SetWidth(layout.valuesWidth)
+        valueText:SetPoint("RIGHT", frame, "TOPLEFT",
+            layout.valuesX + layout.valuesWidth, y - layout.barHeight / 2)
     end
 
     frame.lastLayoutBarCount = barCount
+    frame.lastValuesWidth = layout.valuesWidth
+    -- The MEASUREMENT this layout was built from, kept separate from the
+    -- width actually applied. They differ whenever the measurement falls
+    -- under UF_VALUES_MIN_WIDTH, and comparing the next measurement against
+    -- the applied width instead would then never match - re-laying the frame
+    -- out on every tick that touched a number.
+    frame.lastValuesMeasured = measuredValuesWidth or 0
     return layout
 end
 
@@ -204,9 +303,13 @@ local function BuildUnitFrame(key)
     frame.isUnitFrame = true
     frame.unitKey = key
 
-    frame:SetBackdrop(ns.GROUP_BACKDROP)
-    frame:SetBackdropColor(0, 0, 0, 0.6)
-    frame:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
+    frame:SetBackdrop(UNIT_FRAME_BACKDROP)
+    -- White backdrop colour so XPerl_FrameBack's own artwork shows through
+    -- untinted, the way X-Perl draws it. Tinting it (as the bar-group
+    -- backdrop does with a black fill) would just mute the texture we went
+    -- to the trouble of licensing.
+    frame:SetBackdropColor(1, 1, 1, 1)
+    frame:SetBackdropBorderColor(1, 1, 1, 1)
     frame:SetWidth(160)
     frame:SetHeight(40)  -- placeholder; the first ScanUnitFrame pass resizes it
 
@@ -234,8 +337,20 @@ local function BuildUnitFrame(key)
     -- Portrait. SetPortraitTexture(texture, unit) is the standard 3.3.5a API;
     -- guarded with pcall since a private server is not trusted to implement
     -- it identically (per-3.3.5a-private-server rule).
-    local portrait = frame:CreateTexture(nil, "ARTWORK")
-    portrait:SetPoint("TOPLEFT", frame, "TOPLEFT", 2, -2)
+    --
+    -- The portrait gets its own bordered sub-frame rather than being a bare
+    -- texture on the parent, matching XPerl_Portrait_Template: X-Perl's
+    -- portrait is ringed by the same border as the frame body, and without
+    -- that ring the portrait art just bled into the backdrop with no edge.
+    local portraitFrame = CreateFrame("Frame", nil, frame)
+    portraitFrame:SetBackdrop(UNIT_FRAME_BACKDROP)
+    portraitFrame:SetBackdropColor(1, 1, 1, 1)
+    portraitFrame:SetBackdropBorderColor(1, 1, 1, 1)
+    frame.portraitFrame = portraitFrame
+
+    local portrait = portraitFrame:CreateTexture(nil, "ARTWORK")
+    portrait:SetPoint("TOPLEFT", portraitFrame, "TOPLEFT", UF_PORTRAIT_INSET, -UF_PORTRAIT_INSET)
+    portrait:SetPoint("BOTTOMRIGHT", portraitFrame, "BOTTOMRIGHT", -UF_PORTRAIT_INSET, UF_PORTRAIT_INSET)
     frame.portrait = portrait
 
     -- Header: name, optionally with a colour-escaped level suffix
@@ -251,16 +366,34 @@ local function BuildUnitFrame(key)
     frame.nameText = nameText
     frame.lastHeaderText = nil
 
+    -- The bar texture a unit frame draws with. Applied as the per-bar
+    -- textureOverride (the highest-precedence level ns:ApplyVisualConfig
+    -- resolves) rather than left to the addon-wide visual.texture, because a
+    -- unit frame should look like a unit frame regardless of what texture
+    -- the player picked for their timer bars. It is still a setting, so
+    -- anyone who wants their bars and frames to match can say so.
+    local barTexture = cfg.barTexture or UF_DEFAULT_TEXTURE
+
     frame.bars = {}
     frame.valueTexts = {}
+    frame.barBackdrops = {}
     for i = 1, MAX_UNIT_FRAME_SLOTS do
+        -- Drawn before the bar is acquired so it sits behind it: the pool
+        -- parents bars to this frame at a higher draw layer.
+        local bg = frame:CreateTexture(nil, "BACKGROUND")
+        bg:SetTexture(ns.ResolveTextureName and ns:ResolveTextureName(barTexture)
+            or "Interface\\Buttons\\WHITE8x8")
+        bg:SetVertexColor(0.15, 0.15, 0.15, 0.9)
+        bg:Hide()
+        frame.barBackdrops[i] = bg
+
         local bar = ns:AcquireBar(frame)
         bar.barData = {
             name = "", enabled = false, trackMode = "Buff", unit = unit,
             -- showIcon = false: a unit frame's bars are plain fills, not
             -- icon rows - identity lives in the header, numbers live in the
             -- values column, so a per-row icon would just be clutter.
-            display = { lingerTime = 0, showIcon = false },
+            display = { lingerTime = 0, showIcon = false, textureOverride = barTexture },
             conditions = {},
         }
         bar.barIndex   = i
@@ -272,8 +405,21 @@ local function BuildUnitFrame(key)
         bar:Hide()
         frame.bars[i] = bar
 
+        -- No SetWidth, ever: an explicit width makes a 3.3.5a FontString
+        -- wrap at spaces, which is what stacked two lines of every row on top
+        -- of the row below it. Width is reserved by the frame instead
+        -- (ns:MeasureUnitFrameValuesWidth).
         local valueText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         valueText:SetJustifyH("RIGHT")
+        valueText:SetJustifyV("MIDDLE")
+        if visual.font then
+            valueText:SetFont(visual.font, visual.fontSize or 11, "OUTLINE")
+        end
+        -- The values column can overhang the frame edge onto the game world
+        -- while the frame is mid-resize, so it carries its own shadow rather
+        -- than relying on the backdrop behind it for contrast.
+        valueText:SetShadowColor(0, 0, 0, 1)
+        valueText:SetShadowOffset(1, -1)
         valueText:Hide()
         frame.valueTexts[i] = valueText
     end
@@ -317,7 +463,7 @@ local function ScanUnitFrame(key)
     local entries = ns:CollectResources({ unit = unit })
 
     if frame.lastLayoutBarCount ~= #entries then
-        LayoutUnitFrame(frame, elements, #entries)
+        LayoutUnitFrame(frame, elements, #entries, frame.lastValuesMeasured)
     end
 
     -- Header: name (+ level). Diffed against frame.lastHeaderText, a
@@ -341,9 +487,12 @@ local function ScanUnitFrame(key)
         pcall(SetPortraitTexture, frame.portrait, unit)
     end
 
+    local valuesChanged = false
+
     for i = 1, MAX_UNIT_FRAME_SLOTS do
         local bar = frame.bars[i]
         local valueText = frame.valueTexts[i]
+        local barBackdrop = frame.barBackdrops[i]
         local e = entries[i]
 
         if e then
@@ -361,12 +510,14 @@ local function ScanUnitFrame(key)
             if bar.nameText then bar.nameText:Hide() end
             if bar.timeText then bar.timeText:Hide() end
             bar:Show()
+            barBackdrop:Show()
 
             if elements.values then
                 local text = ns:FormatUnitFrameValue(e.current, e.max)
                 if valueText.lastText ~= text then
                     valueText.lastText = text
                     valueText:SetText(text)
+                    valuesChanged = true
                 end
                 valueText:Show()
             else
@@ -380,7 +531,20 @@ local function ScanUnitFrame(key)
                 ns:DeactivateBar(bar, true)
             end
             bar:Hide()
+            barBackdrop:Hide()
             valueText:Hide()
+        end
+    end
+
+    -- Re-reserve the values column only when a string actually changed and
+    -- the width it needs actually moved. Health ticking 2489 -> 2488 changes
+    -- the text but not its width, so the common case costs a measurement and
+    -- nothing more. The frame is only ever re-laid-out when the numbers grow
+    -- or shrink a digit.
+    if valuesChanged and elements.values then
+        local needed = ns:MeasureUnitFrameValuesWidth(frame.valueTexts, MAX_UNIT_FRAME_SLOTS)
+        if needed ~= frame.lastValuesMeasured then
+            LayoutUnitFrame(frame, elements, #entries, needed)
         end
     end
 end

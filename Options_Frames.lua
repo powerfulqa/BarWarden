@@ -1,7 +1,7 @@
 -- Options_Frames.lua - Frames tab: unit frame settings (declarative schema).
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 
 local addonName, ns = ...
 
@@ -15,6 +15,27 @@ local addonName, ns = ...
 -- ============================================================================
 
 local FRAMES_TAB_INDEX = 7
+
+-- Bar skins offered for a unit frame. Same guard-the-call pattern as
+-- Options_Visuals.lua: SharedMedia.lua returns early when LibSharedMedia is
+-- absent, so ns:LSMDropdownItems does not merely return nil then, it does
+-- not exist - calling it unguarded takes the whole panel down at file scope.
+-- "Custom" is deliberately NOT offered here: a raw texture path belongs on
+-- the Visuals tab where the path box that goes with it lives.
+local BUILTIN_UF_TEXTURE_ITEMS = {
+    { text = "XP Perl v2", value = "XP Perl v2" },
+    { text = "Flat",       value = "Flat"       },
+    { text = "Smooth",     value = "Smooth"     },
+    { text = "Gloss",      value = "Gloss"      },
+    { text = "Graphite",   value = "Graphite"   },
+}
+for i = 2, 10 do
+    BUILTIN_UF_TEXTURE_ITEMS[#BUILTIN_UF_TEXTURE_ITEMS + 1] =
+        { text = "XP Perl " .. i, value = "XP Perl " .. i }
+end
+
+local ufTextureItems = (ns.LSMDropdownItems and ns:LSMDropdownItems("statusbar"))
+                       or BUILTIN_UF_TEXTURE_ITEMS
 
 local function CreateFramesTab(parent)
     local frame = CreateFrame("Frame", "BarWardenFramesTab", parent)
@@ -65,6 +86,14 @@ local function CreateFramesTab(parent)
           get = function() return ns:DBGet("unitFrames.player.scale", 1.0) end,
           set = function(_, value) ns:SetUnitFrameScale("player", value) end,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
+
+        { type = "dropdown", id = "ufTextureDD", label = "Bar Look",
+          db = "unitFrames.player.barTexture", refresh = "RebuildUnitFrames",
+          items = ufTextureItems, width = 191,
+          tooltip = "The look of the bars inside the frame. This is separate "
+                 .. "from your timer bars, so the frame can look one way and "
+                 .. "your bars another.",
+          offsetX = ns.OFFSET_DROPDOWN, spacing = 16 },
 
         { type = "header", text = "Elements", spacing = 24, offsetX = ns.OFFSET_HEADER },
 

@@ -1,7 +1,7 @@
 -- Options_Profiles.lua - Profiles tab (save / load / import / export).
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 
 local addonName, ns = ...
 

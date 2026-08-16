@@ -83,10 +83,13 @@ function M.test_layout_widthGrowsWithPortraitAndValues()
     assertx.assertTrue(withBoth.width > withValues.width, "both together must widen further than either alone")
 end
 
-function M.test_layout_barsStartAtZeroWithoutPortrait()
+-- With no portrait the bars sit at the body's left edge, which is the
+-- backdrop's own inset rather than zero: X-Perl's frame artwork has a 4px
+-- border, and bars drawn at x = 0 would sit on top of it.
+function M.test_layout_barsStartAtBodyEdgeWithoutPortrait()
     local ns = fresh()
     local l = ns:ComputeUnitFrameLayout({ portrait = false, values = true }, 3)
-    assertx.assertEqual(l.barsX, 0, "bars must start flush left with no portrait")
+    assertx.assertEqual(l.barsX, l.bodyX, "bars must start at the body edge with no portrait")
     assertx.assertEqual(l.portraitSize, 0)
 end
 
@@ -94,9 +97,60 @@ function M.test_layout_portraitSizeMatchesBodyHeight()
     local ns = fresh()
     local l = ns:ComputeUnitFrameLayout({ portrait = true, values = false }, 4)
     -- The portrait spans the full header+bars stack, so its size must equal
-    -- the height that stack occupies (the frame height minus the fixed
-    -- outer padding this function also adds).
-    assertx.assertEqual(l.portraitSize, l.height - 4)
+    -- the height that stack occupies (the frame height minus the outer
+    -- padding this function adds above AND below the body).
+    assertx.assertEqual(l.portraitSize, l.height - 8)
+end
+
+-- The values column is sized from a measurement rather than a constant,
+-- because a fixed width made the fontstring wrap and every row overlapped
+-- the one beneath it. A measurement under the floor must still clamp up, and
+-- anything above it must be honoured exactly.
+function M.test_layout_valuesWidthHonoursMeasurement()
+    local ns = fresh()
+    local wide = ns:ComputeUnitFrameLayout({ portrait = false, values = true }, 2, 130)
+    assertx.assertEqual(wide.valuesWidth, 130, "a measured width above the floor must be used as-is")
+
+    local narrow = ns:ComputeUnitFrameLayout({ portrait = false, values = true }, 2, 5)
+    assertx.assertTrue(narrow.valuesWidth > 5, "a measurement under the floor must clamp up")
+
+    local unmeasured = ns:ComputeUnitFrameLayout({ portrait = false, values = true }, 2, nil)
+    assertx.assertEqual(unmeasured.valuesWidth, narrow.valuesWidth,
+        "no measurement yet must fall back to the same floor")
+
+    assertx.assertTrue(wide.width > narrow.width,
+        "a wider values column must widen the whole frame, not overflow it")
+end
+
+-- Hiding the values column must reclaim its width entirely, measurement or
+-- not - otherwise turning the column off would leave a blank gutter.
+function M.test_layout_valuesWidthIsZeroWhenHidden()
+    local ns = fresh()
+    local l = ns:ComputeUnitFrameLayout({ portrait = false, values = false }, 2, 200)
+    assertx.assertEqual(l.valuesWidth, 0, "a hidden values column reserves no width")
+end
+
+-- The measured width is the widest VISIBLE row: a hidden slot's leftover
+-- string must not stretch the frame. MAX_UNIT_FRAME_SLOTS fontstrings always
+-- exist, and the unused ones keep whatever text they last held.
+function M.test_measureValuesWidth_ignoresHiddenRows()
+    local ns = fresh()
+    local function fs(width, shown)
+        return {
+            GetStringWidth = function() return width end,
+            IsShown = function() return shown end,
+        }
+    end
+    local texts = { fs(40, true), fs(220, false), fs(75, true) }
+    assertx.assertEqual(ns:MeasureUnitFrameValuesWidth(texts, 3), 75,
+        "a hidden row's stale text must not widen the column")
+end
+
+function M.test_measureValuesWidth_roundsUpToWholePixels()
+    local ns = fresh()
+    local texts = { { GetStringWidth = function() return 61.2 end, IsShown = function() return true end } }
+    assertx.assertEqual(ns:MeasureUnitFrameValuesWidth(texts, 1), 62,
+        "a fractional width would differ on every compare and relayout every tick")
 end
 
 function M.test_layout_heightGrowsWithBarCount()

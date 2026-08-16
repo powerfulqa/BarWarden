@@ -1,7 +1,7 @@
 -- Utils.lua - Shared helpers (CopyTable, MergeDefaults, GetVisual, ...).
 -- Author:  Serv
 -- Source:  https://github.com/powerfulqa/BarWarden
--- License: see LICENSE; attribution preservation is required.
+-- License: GNU GPL v3 (see LICENSE); attribution preservation is required.
 
 local addonName, ns = ...
 
