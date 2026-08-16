@@ -82,6 +82,10 @@ Fixed in the same pass:
   *Panel* covers the whole dark background, including behind the bars and
   the name band, and *Bars* fades the bars themselves along with any numbers
   on them.
+- **Click a frame's portrait or its name to select that unit**, and
+  right-click for its menu. Party frames included, so you can click a party
+  member to target them. This works while your frames are locked; locking
+  only stops you dragging them.
 - **The bars sit flush against the portrait**, with no gap between them.
 - **The numbers sit on the bars by default.** The column beside them is
   still there under *Values Position* if you prefer it.

@@ -737,6 +737,12 @@ function ns:LockAllFrames()
     -- they are keyed by unit rather than by a BarWardenDB.frames index) - so
     -- the lock toggle has to reach them separately. No drag-reorder to
     -- disable: a unit frame has one bar per resource, not a reorderable list.
+    -- Deliberately does NOT touch frame.portraitButton / frame.nameButton.
+    -- Those are the click-to-target handles (UnitFrames.lua), and locking is
+    -- about not dragging things by accident, not about making a unit frame
+    -- inert - a locked frame you cannot click to select the unit would be a
+    -- picture of a unit frame. They check the lock state themselves before
+    -- starting a drag, so nothing here has to disable them.
     for _, frame in pairs(ns.unitFrames or {}) do
         frame:EnableMouse(false)
         if frame.isMoving then

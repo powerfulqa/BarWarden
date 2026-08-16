@@ -718,6 +718,19 @@ local function LayoutUnitFrame(frame, elements, plan, measuredValuesWidth)
         end
     end
 
+    -- The click targets track what they sit over, so they are re-anchored
+    -- here rather than once at build time: the portrait and the header band
+    -- both change size with the bar count and the name font.
+    if frame.portraitButton then
+        if elements.portrait then
+            frame.portraitButton:ClearAllPoints()
+            frame.portraitButton:SetAllPoints(frame.portraitFrame)
+            frame.portraitButton:Show()
+        else
+            frame.portraitButton:Hide()
+        end
+    end
+
     -- The header strip spans the bars and the values column together, so the
     -- name and the numbers share one band across the top of the frame.
     local headerShown = layout.headerHeight > 0
@@ -730,6 +743,18 @@ local function LayoutUnitFrame(frame, elements, plan, measuredValuesWidth)
             frame.headerStrip:Show()
         else
             frame.headerStrip:Hide()
+        end
+    end
+
+    if frame.nameButton then
+        if headerShown then
+            frame.nameButton:ClearAllPoints()
+            frame.nameButton:SetPoint("TOPLEFT", frame, "TOPLEFT", layout.barsX, -UF_PADDING)
+            frame.nameButton:SetWidth(layout.valuesX + layout.valuesWidth - layout.barsX)
+            frame.nameButton:SetHeight(layout.headerHeight)
+            frame.nameButton:Show()
+        else
+            frame.nameButton:Hide()
         end
     end
 
@@ -863,6 +888,66 @@ local function BuildUnitFrame(key)
         frame:EnableMouse(false)
     end
 
+    -- Click-to-target. A unit frame you cannot click is a picture of a unit
+    -- frame, so the portrait and the name band both select the unit they
+    -- describe, and right-click opens its unit menu.
+    --
+    -- These are SecureUnitButtonTemplate buttons rather than plain OnMouseUp
+    -- handlers because TargetUnit is protected in combat on 3.3.5a: an
+    -- insecure script calling it mid-fight is blocked, which is precisely
+    -- when clicking a party frame matters. The secure template does the
+    -- targeting itself from the attributes below, with no addon code running
+    -- at click time.
+    --
+    -- They are CHILDREN of the frame, and deliberately keep their own mouse
+    -- enabled when the frame is locked: locking is about not dragging things
+    -- by accident, not about making the frame inert. A child's mouse
+    -- handling is independent of its parent's EnableMouse, so this survives
+    -- ns:LockAllFrames without that function needing to know about them.
+    local function MakeClickTarget(name)
+        -- pcall: SetAttribute on a secure frame is blocked in combat, and a
+        -- rebuild CAN be triggered from the options panel mid-fight. Failing
+        -- to be clickable until the next rebuild is an acceptable outcome;
+        -- erroring the whole frame build is not.
+        local ok, button = pcall(CreateFrame, "Button", name, frame,
+                                 "SecureUnitButtonTemplate")
+        if not ok or not button then return nil end
+
+        pcall(function()
+            button:SetAttribute("unit", unit)
+            button:SetAttribute("type1", "target")
+            button:SetAttribute("type2", "togglemenu")
+            button:RegisterForClicks("AnyUp")
+        end)
+
+        -- Above everything else in the frame. These buttons are created
+        -- before the portrait and the bars, so without this they would sit
+        -- UNDER them in child order. Nothing above them enables mouse today,
+        -- so clicks would still land - but that is an accident of what those
+        -- pieces happen to do, not something to rely on.
+        button:SetFrameLevel(frame:GetFrameLevel() + 10)
+
+        -- Drag is forwarded to the parent so an unlocked frame can still be
+        -- picked up by its portrait or its name, which is where anyone would
+        -- naturally grab it. Without this the two most obvious grab handles
+        -- would swallow the drag and the frame would only move from its edges.
+        button:RegisterForDrag("LeftButton")
+        button:SetScript("OnDragStart", function()
+            if BarWardenDB and BarWardenDB.global.locked then return end
+            ns.OnFrameDragStart(frame)
+        end)
+        button:SetScript("OnDragStop", function()
+            if BarWardenDB and BarWardenDB.global.locked then return end
+            ns:OnFrameDragStop(frame, false, function(pos)
+                SaveUnitFramePosition(UnitFrameConfig(key), key, pos)
+            end)
+        end)
+        return button
+    end
+
+    frame.portraitButton = MakeClickTarget("BarWardenUnitFramePortrait" .. key)
+    frame.nameButton     = MakeClickTarget("BarWardenUnitFrameName" .. key)
+
     -- Portrait. SetPortraitTexture(texture, unit) is the standard 3.3.5a API;
     -- guarded with pcall since a private server is not trusted to implement
     -- it identically (per-3.3.5a-private-server rule).
@@ -880,13 +965,23 @@ local function BuildUnitFrame(key)
     -- the header plus the bar stack, so the two columns align at top and
     -- bottom whether or not the borders are visible.
     --
-    -- A plain black fill stays behind it, which is what the Portrait opacity
-    -- slider controls: a 3D model is transparent around the character, so
-    -- without a backing the game world shows through its head.
+    -- A plain black fill stays behind it: a 3D model is transparent around
+    -- the character, so without a backing the game world shows through its
+    -- head.
+    --
+    -- Portrait opacity is applied to the WHOLE portrait frame, not just this
+    -- backing. Fading only the backing did nothing visible whenever the panel
+    -- behind it was solid, because the portrait sits ON TOP of the panel -
+    -- turning the backing transparent simply revealed the panel through it,
+    -- so the portrait appeared to follow the Panel slider and ignore its own.
+    -- Setting the frame's alpha fades the backing, the picture and the 3D
+    -- model together, which is what "portrait opacity" has to mean for the
+    -- slider to do anything at all over an opaque panel.
     local portraitBG = portraitFrame:CreateTexture(nil, "BACKGROUND")
     portraitBG:SetAllPoints(portraitFrame)
     portraitBG:SetTexture("Interface\\Buttons\\WHITE8x8")
-    portraitBG:SetVertexColor(0, 0, 0, ns:GetUnitFrameOpacity(cfg, "portraitOpacity"))
+    portraitBG:SetVertexColor(0, 0, 0, 1)
+    portraitFrame:SetAlpha(ns:GetUnitFrameOpacity(cfg, "portraitOpacity"))
     frame.portraitBG = portraitBG
     frame.portraitFrame = portraitFrame
 
