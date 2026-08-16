@@ -120,6 +120,14 @@ local function CreateFramesTab(parent)
           db = "unitFrames.player.barHeight", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
+        { type = "slider", label = "Background Opacity", min = 0, max = 1, step = 0.05,
+          width = 200,
+          format = function(v) return string.format("%d%%", (v or 0) * 100) end,
+          tooltip = "How solid the frame's background is. Slide to zero for "
+                 .. "a see-through frame.",
+          db = "unitFrames.player.backdropOpacity", refresh = "RebuildUnitFrames",
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
+
         { type = "header", text = "Elements", spacing = 24, offsetX = ns.OFFSET_HEADER },
 
         { type = "toggle", label = "Show Portrait",
@@ -199,7 +207,14 @@ local function CreateFramesTab(parent)
         local familyKey = family.key
         SCHEMA[#SCHEMA + 1] = {
             type = "toggle", label = family.label,
-            tooltip = "Shows " .. family.label:lower() .. " on the frame.",
+            -- Power types read differently from the rest: ticking one keeps
+            -- it on the frame even when it is not the pool you are currently
+            -- using, which is the whole point on a character that has more
+            -- than one. It still never appears if the pool is not real.
+            tooltip = family.power
+                and ("Keeps " .. family.label:lower() .. " on the frame, if "
+                     .. "your character has it.")
+                or ("Shows " .. family.label:lower() .. " on the frame."),
             get = function()
                 local hidden = ns:DBGet("unitFrames.player.hiddenResources", nil)
                 return not (hidden and hidden[familyKey])
@@ -243,9 +258,8 @@ local function CreateFramesTab(parent)
     end
 
     local TEXT_SCHEMA = {
-        { type = "header", text = "Text", spacing = 24, offsetX = ns.OFFSET_HEADER },
-
         { type = "dropdown", id = "nameFontDD", label = "Name Font",
+          spacing = 24,
           db = "unitFrames.player.nameFont", refresh = "RebuildUnitFrames",
           items = ufFontItems, width = 191,
           tooltip = "The font used for the name across the top.",

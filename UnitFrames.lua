@@ -101,6 +101,33 @@ local UNIT_FRAME_BACKDROP = {
     insets = { left = 4, right = 4, top = 4, bottom = 4 },
 }
 
+-- X-Perl's own backdrop tint, from its option defaults: the frame fill is
+-- BLACK and the border a mid grey (XPerl_FrameOptions.lua sets
+-- colour.frame = {0,0,0,1} and colour.border = {0.5,0.5,0.5,1}).
+--
+-- This file originally drew the backdrop white, reasoning that tinting it
+-- would mute the artwork. That was simply wrong about how X-Perl uses its
+-- own tile: XPerl_FrameBack is a light texture that is MEANT to be tinted
+-- dark, and leaving it white is why the frame read as washed-out grey and
+-- why a 3D portrait appeared to sit on a grey background - the model is
+-- transparent around the character, so the untinted tile showed through it.
+local UF_BORDER_COLOR = { r = 0.5, g = 0.5, b = 0.5 }
+
+-- Apply the backdrop tint to a frame or its portrait box. Opacity is a
+-- setting because the owner asked for the choice between a solid black
+-- panel and a translucent one; the colour itself is not, since anything
+-- other than black stops looking like the addon this artwork came from.
+local function ApplyUnitFrameBackdropColor(f, cfg)
+    local alpha = cfg and cfg.backdropOpacity
+    if type(alpha) ~= "number" then alpha = 1.0 end
+    if alpha < 0 then alpha = 0 elseif alpha > 1 then alpha = 1 end
+    f:SetBackdropColor(0, 0, 0, alpha)
+    -- The border keeps full opacity even at zero background alpha, so a
+    -- see-through frame still reads as a frame rather than as loose bars
+    -- floating over the world.
+    f:SetBackdropBorderColor(UF_BORDER_COLOR.r, UF_BORDER_COLOR.g, UF_BORDER_COLOR.b, 1)
+end
+
 -- Inset from the portrait's own border to the portrait art, matching
 -- XPerl_Portrait_Template (a 60x62 bordered frame around a 50x50 portrait).
 local UF_PORTRAIT_INSET = 5
@@ -123,14 +150,26 @@ local UF_DEFAULT_TEXTURE = "XP Perl v2"
 -- Returns nil when there is no usable font at all, which is the caller's
 -- signal to leave the fontstring on its template font rather than calling
 -- SetFont with a nil path (which errors).
+-- The LSM step is not optional and its absence is a silent failure: the font
+-- dropdowns are populated from ns:LSMDropdownItems, which yields LSM NAMES
+-- ("BW Adventure"), not file paths. SetFont given a name simply does nothing
+-- and leaves the fontstring on its template font - which is exactly how this
+-- first shipped, making the font AND size controls both look inert (no
+-- SetFont call happens at all, so the size never lands either). Bar.lua's
+-- ApplyVisualConfig does the same LSMFetch for the same reason.
 local function ResolveUnitFrameFont(font, size, sizeBump)
     local visual = ns:GetVisual()
     local path = (font and font ~= "") and font or visual.font
-    if not path or path == "" then return nil end
+    if not path or path == "" then
+        path = "Fonts\\FRIZQT__.TTF"
+    elseif ns.LSM then
+        path = ns:LSMFetch("font", path) or path
+    end
     local resolved = size
     if not resolved or resolved <= 0 then
         resolved = (visual.fontSize or 11) + (sizeBump or 0)
     end
+    if resolved < 1 then resolved = 1 end
     return path, resolved
 end
 
@@ -396,12 +435,7 @@ local function BuildUnitFrame(key)
     frame.unitKey = key
 
     frame:SetBackdrop(UNIT_FRAME_BACKDROP)
-    -- White backdrop colour so XPerl_FrameBack's own artwork shows through
-    -- untinted, the way X-Perl draws it. Tinting it (as the bar-group
-    -- backdrop does with a black fill) would just mute the texture we went
-    -- to the trouble of licensing.
-    frame:SetBackdropColor(1, 1, 1, 1)
-    frame:SetBackdropBorderColor(1, 1, 1, 1)
+    ApplyUnitFrameBackdropColor(frame, cfg)
     frame:SetWidth(160)
     frame:SetHeight(40)  -- placeholder; the first ScanUnitFrame pass resizes it
 
@@ -436,8 +470,12 @@ local function BuildUnitFrame(key)
     -- that ring the portrait art just bled into the backdrop with no edge.
     local portraitFrame = CreateFrame("Frame", nil, frame)
     portraitFrame:SetBackdrop(UNIT_FRAME_BACKDROP)
-    portraitFrame:SetBackdropColor(1, 1, 1, 1)
-    portraitFrame:SetBackdropBorderColor(1, 1, 1, 1)
+    -- Always fully opaque, regardless of the frame's own opacity setting: a
+    -- 3D model is transparent around the character, so a see-through
+    -- portrait box would show the game world through the model's head.
+    portraitFrame:SetBackdropColor(0, 0, 0, 1)
+    portraitFrame:SetBackdropBorderColor(UF_BORDER_COLOR.r, UF_BORDER_COLOR.g,
+                                         UF_BORDER_COLOR.b, 1)
     frame.portraitFrame = portraitFrame
 
     local portrait = portraitFrame:CreateTexture(nil, "ARTWORK")
@@ -594,9 +632,16 @@ local function ScanUnitFrame(key)
     -- group's six-bar view is unchanged): six full-width rune bars are the
     -- single biggest reason a frame reads as cluttered, and a frame is a new
     -- surface with no existing look to preserve.
+    --
+    -- `pinned` carries the ticked power types (see ns:BuildUnitFramePins).
+    -- Without it, mana/rage/energy only ever appear when one of them is the
+    -- unit's CURRENT power type, so on a classless server a character with
+    -- all three would still only ever see one - a filter can hide, but it
+    -- cannot add. The filter afterwards is what honours the unticked ones.
     local entries = ns:CollectResources({
         unit = unit,
         pairRunes = cfg.pairRunes ~= false,
+        pinned = ns:BuildUnitFramePins(cfg.hiddenResources),
     })
     entries = ns:FilterResourceEntries(entries, cfg.hiddenResources)
 

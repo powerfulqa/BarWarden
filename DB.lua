@@ -170,6 +170,10 @@ ns.DEFAULTS = {
             -- them. showValues == false hides them either way.
             valuePlacement = "COLUMN",
             barHeight    = 16,
+            -- Backdrop opacity. 1.0 is X-Perl's own solid black panel; drop
+            -- it for a translucent frame. The border stays fully opaque at
+            -- any value so the frame still reads as a frame.
+            backdropOpacity = 1.0,
             -- Runes as three ready-count rows rather than six. Defaulted ON
             -- here and OFF for resource groups on purpose: a group predates
             -- this and must keep its six-bar view, a frame is new and six

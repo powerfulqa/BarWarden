@@ -426,7 +426,10 @@ function M.test_resourceFamily_mapsEveryKeyCollectResourcesEmits()
     local ns = fresh()
     local expected = {
         health = "health",
-        mana = "power", rage = "power", energy = "power", focus = "power",
+        -- One family per power type, not a shared "power": a classless
+        -- server gives one character mana AND rage AND energy at once, so
+        -- there is no single power to tick.
+        mana = "mana", rage = "rage", energy = "energy", focus = "focus",
         runicpower = "runicpower",
         combopoints = "combopoints",
         soulshards = "soulshards",
@@ -474,15 +477,53 @@ function M.test_filterEntries_dropsAWholeFamilyAtOnce()
     assertx.assertEqual(kept[2].key, "mana")
 end
 
--- Any power type maps to "power", so the one tickbox keeps working across a
--- druid's form changes instead of quietly stopping when the key changes.
-function M.test_filterEntries_powerFamilyCoversEveryPowerType()
+-- Each power type is filtered on its own, so hiding Rage on a character
+-- that also has mana and energy leaves the other two alone.
+function M.test_filterEntries_powerTypesAreIndependent()
     local ns = fresh()
-    for _, key in ipairs({ "mana", "rage", "energy", "focus" }) do
-        local kept = ns:FilterResourceEntries({ { key = "health" }, { key = key } },
-                                              { power = true })
-        assertx.assertEqual(#kept, 1, key .. " must be filtered by the power family")
-        assertx.assertEqual(kept[1].key, "health")
+    local entries = { { key = "health" }, { key = "mana" }, { key = "rage" }, { key = "energy" } }
+    local kept = ns:FilterResourceEntries(entries, { rage = true })
+    assertx.assertEqual(#kept, 3, "only rage should go")
+    for _, e in ipairs(kept) do
+        assertx.assertTrue(e.key ~= "rage", "rage must not survive")
+    end
+end
+
+-- --------------------------------------------------------------------------
+-- ns:BuildUnitFramePins
+--
+-- A filter can only hide what CollectResources already produced, and that
+-- function only emits the unit's CURRENT power type. Showing a second pool
+-- at all requires pinning it, so the tick list has to feed the pins too.
+-- --------------------------------------------------------------------------
+
+function M.test_buildPins_pinsEveryTickedPowerType()
+    local ns = fresh()
+    local pins = ns:BuildUnitFramePins(nil)
+    local keys = {}
+    for _, p in ipairs(pins) do keys[p.key] = true end
+    assertx.assertTrue(keys.mana,   "mana must be pinned by default")
+    assertx.assertTrue(keys.rage,   "rage must be pinned by default")
+    assertx.assertTrue(keys.energy, "energy must be pinned by default")
+end
+
+function M.test_buildPins_omitsUntickedPowerTypes()
+    local ns = fresh()
+    local pins = ns:BuildUnitFramePins({ rage = true, energy = true })
+    assertx.assertEqual(#pins, 1, "only mana should remain pinned")
+    assertx.assertEqual(pins[1].key, "mana")
+end
+
+-- Only the three power types CollectResources can actually be asked to add
+-- are pinnable. Pinning health or runes would be meaningless at best, and
+-- health is already unconditional.
+function M.test_buildPins_neverPinsNonPowerFamilies()
+    local ns = fresh()
+    for _, p in ipairs(ns:BuildUnitFramePins(nil)) do
+        assertx.assertTrue(p.key ~= "health" and p.key ~= "runes"
+                           and p.key ~= "combopoints" and p.key ~= "soulshards"
+                           and p.key ~= "focus" and p.key ~= "runicpower",
+                           "unexpected pin: " .. tostring(p.key))
     end
 end
 

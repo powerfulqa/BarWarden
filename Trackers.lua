@@ -1252,10 +1252,9 @@ local LEGACY_PINNED_ORDER = { "energy", "focus", "mana", "rage" }
 -- Families rather than raw keys, because raw keys are not what a person
 -- thinks in: "runes" is one decision, not six tickboxes for rune1..rune6
 -- that change meaning when Pair Runes by Type is on and the keys become
--- runepair1..3. Health and the current power type are deliberately grouped
--- as "power" too - a druid's bar changes key between mana/rage/energy as
--- they shift form, and a tickbox that silently stopped applying mid-fight
--- would be worse than no tickbox.
+-- runepair1..3. Every other family happens to be one key today; that is a
+-- coincidence of the current resource list, not a reason to drop the
+-- indirection.
 -- ----------------------------------------------------------------------------
 
 -- Display order and labels for the tick list. Order here is the order the
@@ -1263,12 +1262,44 @@ local LEGACY_PINNED_ORDER = { "energy", "focus", "mana", "rage" }
 -- the frame itself so the settings read like the thing they configure.
 ns.RESOURCE_FAMILIES = {
     { key = "health",      label = "Health"      },
-    { key = "power",       label = "Power"       },
+    { key = "mana",        label = "Mana",   power = true },
+    { key = "rage",        label = "Rage",   power = true },
+    { key = "energy",      label = "Energy", power = true },
+    { key = "focus",       label = "Focus"       },
     { key = "runicpower",  label = "Runic Power" },
     { key = "runes",       label = "Runes"       },
     { key = "combopoints", label = "Combo Points"},
     { key = "soulshards",  label = "Soul Shards" },
 }
+
+-- The three power types ns:CollectResources can be asked to include even
+-- when they are not the unit's CURRENT power type (its PINNABLE_POWER_TYPES).
+-- These started life as one "Power" family on the reasoning that a druid's
+-- key changes as they shift form and a single tickbox survives that. On a
+-- classless server where one character genuinely has mana AND rage AND
+-- energy at once, that reasoning fails: there is no single "power" to tick.
+-- Split per type, and ticked means "always show this pool if it is real",
+-- which needs the pin (a filter alone can only ever hide what the current
+-- power type already produced).
+--
+-- Pinning a pool the unit does not have is safe: CollectResources drops any
+-- entry whose max is 0, so a mage with Rage ticked still gets no rage bar.
+local PINNABLE_RESOURCE_FAMILIES = { mana = true, rage = true, energy = true }
+
+-- Build the `pinned` list for ns:CollectResources from a unit frame's hidden
+-- set: every pinnable power family the owner has NOT switched off. Returns
+-- the ordered-list shape NormalizePinnedResources produces, so it can be
+-- handed straight to CollectResources.
+function ns:BuildUnitFramePins(hidden)
+    local list = {}
+    for _, family in ipairs(ns.RESOURCE_FAMILIES) do
+        if PINNABLE_RESOURCE_FAMILIES[family.key]
+           and not (hidden and hidden[family.key]) then
+            list[#list + 1] = { key = family.key }
+        end
+    end
+    return list
+end
 
 -- Every non-rune key CollectResources can emit, mapped to its family. Rune
 -- keys are matched by prefix instead (rune1..rune6 and runepair1..3), so
@@ -1276,10 +1307,10 @@ ns.RESOURCE_FAMILIES = {
 -- step with collectRuneEntries.
 local RESOURCE_FAMILY_BY_KEY = {
     health      = "health",
-    mana        = "power",
-    rage        = "power",
-    energy      = "power",
-    focus       = "power",
+    mana        = "mana",
+    rage        = "rage",
+    energy      = "energy",
+    focus       = "focus",
     runicpower  = "runicpower",
     combopoints = "combopoints",
     soulshards  = "soulshards",

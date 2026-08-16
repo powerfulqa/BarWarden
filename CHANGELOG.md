@@ -34,8 +34,10 @@ against renaming BarWarden and its commands in a fork. Full detail in
 [NOTICE.md](NOTICE.md).
 
 **You choose what the frame shows.** A *Resources Shown* section lets you
-untick anything you do not want: health, power, runic power, runes, combo
-points, soul shards. Runes now combine into three bars by type rather than
+untick anything you do not want: health, mana, rage, energy, focus, runic
+power, runes, combo points, soul shards. Mana, rage and energy each stay
+on the frame while ticked even when they are not the pool you are
+currently using, so a character with more than one sees all of them. Runes now combine into three bars by type rather than
 six separate ones, which you can switch off. The numbers can sit beside
 the bars or on them, or be hidden entirely. Bar height, the name, and the
 level are all toggles or sliders, and the name and the numbers each get
@@ -47,6 +49,12 @@ a model cannot draw a unit the game cannot see.
 
 Fixed in the same pass:
 
+- **The frame background is black rather than washed-out grey**, matching
+  X-Perl's own setting, and a Background Opacity slider goes all the way to
+  see-through. This is also what made a 3D portrait look like it sat on a
+  grey square.
+- **The font and size settings now actually apply.** They were being given
+  a font's name where a file path was needed, so nothing happened.
 - **The Bar Look dropdown no longer overlaps the Scale slider.** A
   dropdown sitting under a slider needed more room than the usual gap.
 - **The portrait fills its frame** instead of sitting as a small circle in

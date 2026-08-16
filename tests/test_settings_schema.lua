@@ -143,6 +143,7 @@ function M.test_defaults_unitFramesExact()
             valueFontSize = 0,
             valuePlacement  = "COLUMN",
             barHeight       = 16,
+            backdropOpacity = 1.0,
             pairRunes       = true,
             hiddenResources = {},
             barTexture      = "XP Perl v2",
