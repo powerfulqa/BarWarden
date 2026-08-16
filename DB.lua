@@ -52,6 +52,7 @@ ns.DEFAULTS = {
             profiles        = true,
             activity        = true,
             troubleshooting = true,
+            unitFrames      = true,
         },
     },
 
@@ -125,6 +126,33 @@ ns.DEFAULTS = {
     -- curated class starter on first login, replacing the old sample
     -- Hearthstone bar that just added clutter.
     frames = {},
+
+    -- Unit frames (UnitFrames.lua): the conventional portrait + name/level +
+    -- health/power-bars + values-column widget, as a second, separate way to
+    -- show the same data a resource group already can - the owner picks
+    -- whichever reads better, and this table is unrelated to `frames` above
+    -- (that key was already taken by bar groups). Keyed by unit ("player" for
+    -- now; target/tot/pet/focus/party join later, each just another key
+    -- here), not a single hardcoded shape, so a later slice only has to add a
+    -- key and a unit-token mapping, not a new schema. `enabled` defaults false
+    -- so nothing appears on screen for an existing install until the owner
+    -- opts in on the new Frames tab; unlike `frames`, this table's contents
+    -- ARE safe to MergeDefaults into (a fixed set of per-unit settings, not a
+    -- user-authored array), so it is treated exactly like `global`/`visual`/
+    -- `minimap` in ns:InitDB below rather than needing frames' own no-merge
+    -- carve-out. No `position` key here on purpose: a unit frame with no
+    -- saved position yet falls back to a hardcoded screen spot the same way
+    -- ns:CreateGroupFrame does for a brand-new group, rather than
+    -- MergeDefaults planting a placeholder anchor no drag ever produced.
+    unitFrames = {
+        player = {
+            enabled      = false,
+            scale        = 1.0,
+            showPortrait = true,
+            showLevel    = true,
+            showValues   = true,
+        },
+    },
 
     -- Activity tracker: passive spell/aura/cooldown monitoring (persistent across sessions)
     activity = {},
@@ -451,6 +479,19 @@ function ns:InitDB()
             BarWardenDB.minimap = ns:CopyTable(ns.DEFAULTS.minimap)
         else
             ns:MergeDefaults(BarWardenDB.minimap, ns.DEFAULTS.minimap)
+        end
+        -- Unit frames: a brand-new sub-table with no legacy predecessor to
+        -- migrate FROM (unlike the minimap block above, which converts old
+        -- global.minimapIcon* keys), so a plain create-or-MergeDefaults here
+        -- is the whole story. No CURRENT_SCHEMA bump needed for the same
+        -- reason global.hidePlayerFrame/versionAlerts/helpCollapsed above
+        -- needed none: MergeDefaults backfills every existing save the
+        -- moment this code ships, so there is nothing left for a versioned
+        -- migration pass to do.
+        if type(BarWardenDB.unitFrames) ~= "table" then
+            BarWardenDB.unitFrames = ns:CopyTable(ns.DEFAULTS.unitFrames)
+        else
+            ns:MergeDefaults(BarWardenDB.unitFrames, ns.DEFAULTS.unitFrames)
         end
     end
     ns.db = BarWardenDB

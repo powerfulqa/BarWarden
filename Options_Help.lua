@@ -302,6 +302,32 @@ local HELP_ENTRIES = {
     },
 
     -- ===================================================================
+    { section = "unitFrames", title = "Unit Frames" },
+    -- ===================================================================
+    {
+        id = "unit-frames-overview",
+        q = "What is a unit frame, and how is it different from a resource group?",
+        a = "Both show the same health, power, and class resource data. A "
+          .. "resource group draws it as a stack of timer-style bars; a unit "
+          .. "frame draws it in the usual arrangement instead: a portrait, "
+          .. "your name and level, tightly stacked bars, and a numbers "
+          .. "column on the right showing the amount and a percent.\n\n"
+          .. "They are two separate, independent options - use whichever "
+          .. "reads better. Turning one on does not change or remove the "
+          .. "other.",
+    },
+    {
+        id = "unit-frames-setup",
+        q = "How do I turn on my unit frame?",
+        a = "On the Frames tab, tick Show Player Frame. Scale resizes it "
+          .. "without moving it, and Show Portrait, Show Level, and Show "
+          .. "Values Column each turn off one part if you would rather not "
+          .. "see it.\n\n"
+          .. "It starts at the centre of the screen; unlock your frames "
+          .. "(/bw lock) to drag it into place, then lock them again.",
+    },
+
+    -- ===================================================================
     { section = "conditions", title = "Conditions & Visibility" },
     -- ===================================================================
     {

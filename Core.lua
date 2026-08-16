@@ -68,6 +68,12 @@ coreFrame:SetScript("OnUpdate", function(self, elapsed)
         if bars and #bars > 0 and ns.ScanAllBars then
             ns:ScanAllBars()
         end
+        -- Unit frames (UnitFrames.lua) ride this same 0.25s tick rather than
+        -- a second OnUpdate loop; ns:ScanUnitFrames no-ops cheaply when none
+        -- are built.
+        if ns.ScanUnitFrames then
+            ns:ScanUnitFrames()
+        end
     end
 end)
 
@@ -308,6 +314,7 @@ function ns:OnInitialize()
     ns:CreateOptionsPanel()
     ns:RebuildAllFrames()
     ns:RefreshAllBars()
+    if ns.RebuildUnitFrames then ns:RebuildUnitFrames() end
     ns:InitMinimapButton()
     -- All files have loaded by now: make sure every popup we trigger is lifted
     -- above the options window (catches late definitions such as Comms's).
@@ -335,6 +342,9 @@ function ns:OnEnable()
     for _, frame in pairs(ns.groupFrames or {}) do
         if frame and frame.Show then frame:Show() end
     end
+    for _, frame in pairs(ns.unitFrames or {}) do
+        if frame and frame.Show then frame:Show() end
+    end
     -- Apply the Hide Blizzard Player/Target Frame settings: covers both
     -- login (this runs whenever the addon comes up enabled) and /bw enable
     -- after a disable had shown the frames back.
@@ -353,6 +363,9 @@ function ns:OnDisable()
     ns:StopActivityTracking()
     ns:DisableEvents()
     for _, frame in pairs(ns.groupFrames or {}) do
+        if frame and frame.Hide then frame:Hide() end
+    end
+    for _, frame in pairs(ns.unitFrames or {}) do
         if frame and frame.Hide then frame:Hide() end
     end
     -- A disabled BarWarden should not go on suppressing Blizzard's player or

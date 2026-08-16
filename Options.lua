@@ -36,6 +36,7 @@ local TAB_NAMES = {
     [4] = "Profiles",
     [5] = "Activity",
     [6] = "Help",
+    [7] = "Frames",
 }
 ns.TAB_NAMES = TAB_NAMES  -- exposed so the Help "Back" button can name the origin
 

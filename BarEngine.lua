@@ -1523,6 +1523,13 @@ function ns:OnUnitDisplayPowerChanged(unit)
     if ns.hasAutoGroups then
         RunScan(ScanAutoGroups, unit)
     end
+    -- The player unit frame (UnitFrames.lua) reads its current-power slot the
+    -- same way a resources auto-track group does, so it gets the same
+    -- zero-lag treatment on a form change rather than waiting for the next
+    -- 0.25s scan tick.
+    if unit == "player" and ns.ScanUnitFrames then
+        ns:ScanUnitFrames()
+    end
 end
 
 function ns:OnPlayerEnteringWorld()

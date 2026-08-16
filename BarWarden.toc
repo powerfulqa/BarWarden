@@ -27,6 +27,7 @@ BarPool.lua
 BarEngine.lua
 Trackers.lua
 FrameManager.lua
+UnitFrames.lua
 DragReorder.lua
 MinimapButton.lua
 PanelInfra.lua
@@ -41,5 +42,6 @@ Options_Visuals.lua
 Options_Profiles.lua
 Options_Stats.lua
 Options_Help.lua
+Options_Frames.lua
 Core.lua
 BugReport.lua
