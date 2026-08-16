@@ -201,9 +201,71 @@ ns.DEFAULTS = {
             -- `db =` path because ns:DBSet validates paths against this
             -- schema and the family keys are user data, not schema.
             hiddenResources = {},
+            -- Pin the ticked power types so they stay on the frame even when
+            -- they are not the pool currently in use. Only the player frame
+            -- does this; see the target entry below.
+            pinPowerTypes = true,
             -- X-Perl's own default bar skin, so an enabled unit frame looks
             -- like a unit frame out of the box rather than inheriting
             -- whatever texture the player chose for their timer bars.
+            barTexture   = "XP Perl v2",
+        },
+
+        -- Target and target's target.
+        --
+        -- These deliberately carry FEWER keys than the player above, and the
+        -- difference is the point rather than an oversight: no
+        -- hiddenResources, no pairRunes, no pinPowerTypes. A target frame
+        -- shows what the target actually has - health plus its current power
+        -- type - the way the default UI does. Adding the player's
+        -- resource-choice keys here for symmetry would create settings that
+        -- either do nothing or offer bars a target cannot have.
+        -- docs/CODE_REVIEW.md item 25 has the full reasoning; read it before
+        -- "completing" these tables.
+        --
+        -- Everything cosmetic IS shared, because there is no reason for a
+        -- target frame to look different from the player's.
+        target = {
+            enabled      = false,
+            scale        = 1.0,
+            showPortrait = true,
+            portraitStyle = "2D",
+            showName     = true,
+            showLevel    = true,
+            showValues   = true,
+            nameFont      = "",
+            nameFontSize  = 0,
+            valueFont     = "",
+            valueFontSize = 0,
+            valuePlacement = "COLUMN",
+            barHeight    = 16,
+            secondaryBarHeight = 0,
+            frameOpacity    = 1.0,
+            portraitOpacity = 1.0,
+            barOpacity      = 1.0,
+            borderOpacity   = 1.0,
+            barTexture   = "XP Perl v2",
+        },
+
+        targettarget = {
+            enabled      = false,
+            scale        = 1.0,
+            showPortrait = true,
+            portraitStyle = "2D",
+            showName     = true,
+            showLevel    = true,
+            showValues   = true,
+            nameFont      = "",
+            nameFontSize  = 0,
+            valueFont     = "",
+            valueFontSize = 0,
+            valuePlacement = "COLUMN",
+            barHeight    = 16,
+            secondaryBarHeight = 0,
+            frameOpacity    = 1.0,
+            portraitOpacity = 1.0,
+            barOpacity      = 1.0,
+            borderOpacity   = 1.0,
             barTexture   = "XP Perl v2",
         },
     },

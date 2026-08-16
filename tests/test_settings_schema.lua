@@ -150,9 +150,67 @@ function M.test_defaults_unitFramesExact()
             borderOpacity   = 1.0,
             pairRunes       = true,
             hiddenResources = {},
+            pinPowerTypes   = true,
+            barTexture      = "XP Perl v2",
+        },
+        -- Target and target's target deliberately carry FEWER keys: no
+        -- hiddenResources, pairRunes or pinPowerTypes. That asymmetry is the
+        -- feature, not an oversight - a target frame shows what the target
+        -- actually has, the way the default UI does (docs/CODE_REVIEW.md item
+        -- 25). This test exists partly to make "completing" these tables for
+        -- symmetry fail loudly rather than quietly adding settings that offer
+        -- bars a target cannot have.
+        target = {
+            enabled      = false,
+            scale        = 1.0,
+            showPortrait = true,
+            portraitStyle = "2D",
+            showName     = true,
+            showLevel    = true,
+            showValues   = true,
+            nameFont      = "",
+            nameFontSize  = 0,
+            valueFont     = "",
+            valueFontSize = 0,
+            valuePlacement  = "COLUMN",
+            barHeight       = 16,
+            secondaryBarHeight = 0,
+            frameOpacity    = 1.0,
+            portraitOpacity = 1.0,
+            barOpacity      = 1.0,
+            borderOpacity   = 1.0,
+            barTexture      = "XP Perl v2",
+        },
+        targettarget = {
+            enabled      = false,
+            scale        = 1.0,
+            showPortrait = true,
+            portraitStyle = "2D",
+            showName     = true,
+            showLevel    = true,
+            showValues   = true,
+            nameFont      = "",
+            nameFontSize  = 0,
+            valueFont     = "",
+            valueFontSize = 0,
+            valuePlacement  = "COLUMN",
+            barHeight       = 16,
+            secondaryBarHeight = 0,
+            frameOpacity    = 1.0,
+            portraitOpacity = 1.0,
+            barOpacity      = 1.0,
+            borderOpacity   = 1.0,
             barTexture      = "XP Perl v2",
         },
     }, "DEFAULTS.unitFrames drift")
+
+    -- Stated as its own assertion rather than left implicit in the table
+    -- above, because it is the rule most likely to be "fixed" by someone
+    -- tidying up.
+    assertx.assertEqual(ns.DEFAULTS.unitFrames.target.hiddenResources, nil,
+        "a target frame must not carry the player's resource tick list")
+    assertx.assertEqual(ns.DEFAULTS.unitFrames.target.pinPowerTypes, nil,
+        "a target frame must not pin power types")
 end
 
 -- --------------------------------------------------------------------------

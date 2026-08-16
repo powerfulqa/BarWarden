@@ -51,14 +51,39 @@ local max   = math.max
 
 ns.unitFrames = {}  -- [key] = WoW frame object, mirrors ns.groupFrames
 
--- Unit token each frame key reads. "player" is the only one this slice
--- builds; UNIT_FRAME_KEYS (the scan/rebuild iteration order) is a separate
--- list below so a later slice adds one line to each rather than restructuring
--- either loop.
+-- Unit token each frame key reads. UNIT_FRAME_KEYS is the scan/rebuild
+-- iteration order, kept as a separate list so adding a frame is one line in
+-- each rather than a restructure of either loop.
+--
+-- Pet, focus and party are not here yet. Pet and focus would be one line
+-- each; party needs a roster that grows and shrinks on
+-- PARTY_MEMBERS_CHANGED, which is a different shape of problem and belongs
+-- in its own slice.
 local UNIT_TOKENS = {
-    player = "player",
+    player       = "player",
+    target       = "target",
+    targettarget = "targettarget",
 }
-local UNIT_FRAME_KEYS = { "player" }
+local UNIT_FRAME_KEYS = { "player", "target", "targettarget" }
+
+-- Player-facing names, used for the Frames tab headings and nothing else.
+local UNIT_FRAME_LABELS = {
+    player       = "Player Frame",
+    target       = "Target Frame",
+    targettarget = "Target's Target Frame",
+}
+ns.UNIT_FRAME_KEYS   = UNIT_FRAME_KEYS
+ns.UNIT_FRAME_LABELS = UNIT_FRAME_LABELS
+
+-- Where each frame sits before it has ever been dragged. Loosely mirrors the
+-- default UI (player left of centre, target right of it, target's target
+-- further right again) so enabling all three gives a usable arrangement
+-- rather than three frames piled on the same spot.
+local UNIT_FRAME_DEFAULT_POSITIONS = {
+    player       = { point = "CENTER", relativePoint = "CENTER", x = -270, y = -120 },
+    target       = { point = "CENTER", relativePoint = "CENTER", x =  270, y = -120 },
+    targettarget = { point = "CENTER", relativePoint = "CENTER", x =  450, y = -120 },
+}
 
 -- Pre-allocated resource-row slots. ns:CollectResources for the player
 -- returns at most health + current power + a handful of class resources
@@ -682,7 +707,13 @@ local function BuildUnitFrame(key)
     frame:SetWidth(160)
     frame:SetHeight(40)  -- placeholder; the first ScanUnitFrame pass resizes it
 
+    -- Only used until the frame is first dragged (ns:ApplySavedFramePosition
+    -- prefers cfg.position whenever there is one). A per-key default matters:
+    -- with a single shared one, enabling all three frames would stack them
+    -- exactly on top of each other at dead centre and look broken until each
+    -- was found and dragged apart.
     ns:ApplySavedFramePosition(frame, cfg.position,
+        UNIT_FRAME_DEFAULT_POSITIONS[key] or
         { point = "CENTER", relativePoint = "CENTER", x = 0, y = 0 })
 
     local scale = math.max(ns.MIN_FRAME_SCALE, math.min(ns.MAX_FRAME_SCALE, cfg.scale or 1.0))
@@ -900,6 +931,27 @@ local function ScanUnitFrame(key)
     local unit = UNIT_TOKENS[key]
     if not unit then return end
 
+    -- A frame for a unit that is not there right now hides completely rather
+    -- than sitting as an empty bordered box with a blank portrait. "player"
+    -- always exists, so this only ever fires for target / target's target,
+    -- which is exactly the behaviour the default UI has and what makes an
+    -- empty target frame disappear the moment you clear your target.
+    --
+    -- Deliberately checked here rather than left to ns:CollectResources
+    -- returning nothing: an entry-less frame would still draw its panel,
+    -- border and header.
+    if unit ~= "player" and not (UnitExists and UnitExists(unit)) then
+        if frame:IsShown() then
+            frame:Hide()
+            -- Dropped so re-targeting re-seats the 3D model and rewrites the
+            -- header rather than trusting values stamped for the last target.
+            frame.lastPortraitGUID = nil
+            frame.lastHeaderText = nil
+        end
+        return
+    end
+    if not frame:IsShown() then frame:Show() end
+
     local elements = ns:ResolveUnitFrameElements(cfg)
     -- The resolved (not configured) name size: cfg.nameFontSize is 0 for
     -- "inherit", and the header has to size itself to what was actually
@@ -918,10 +970,23 @@ local function ScanUnitFrame(key)
     -- unit's CURRENT power type, so on a classless server a character with
     -- all three would still only ever see one - a filter can hide, but it
     -- cannot add. The filter afterwards is what honours the unticked ones.
+    --
+    -- pinPowerTypes is what separates the player frame from the target's.
+    -- The player frame offers a tick list because one character on a
+    -- classless server has several pools at once and wants to choose; a
+    -- target frame should behave like the default UI and show what the
+    -- target actually has, which is health plus its current power type.
+    --
+    -- Getting that costs nothing: ns:CollectResources already gates runes,
+    -- runic power and soul shards on unit == "player" (they are the player's
+    -- own pools, see that function), and excludes combo points for
+    -- targettarget. So a frame that passes no pins and no hidden set gets
+    -- the standard shape for free. Do not "tidy" this by giving the target
+    -- the player's config block - see docs/CODE_REVIEW.md item 25.
     local entries = ns:CollectResources({
         unit = unit,
         pairRunes = cfg.pairRunes ~= false,
-        pinned = ns:BuildUnitFramePins(cfg.hiddenResources),
+        pinned = cfg.pinPowerTypes and ns:BuildUnitFramePins(cfg.hiddenResources) or nil,
     })
     entries = ns:FilterResourceEntries(entries, cfg.hiddenResources)
 

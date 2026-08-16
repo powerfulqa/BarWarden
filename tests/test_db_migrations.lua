@@ -455,4 +455,44 @@ function M.test_profileRoundTrip_preservesFramesSettings()
     assertx.assertTrue(p.hiddenResources.runes, "resource choices must survive the round trip")
 end
 
+-- Every unit frame, not just the player's. Adding target/target's target
+-- must not need a second edit here, and if it ever does, that is the signal
+-- that profile capture has gone back to naming things one at a time.
+function M.test_profileRoundTrip_carriesEveryUnitFrame()
+    local ns = freshDB(nil)
+    ns.db.unitFrames.target.enabled = true
+    ns.db.unitFrames.target.barHeight = 24
+    ns.db.unitFrames.targettarget.enabled = true
+
+    local exported = ns:CaptureProfileData()
+    ns.db.unitFrames.target.enabled = false
+    ns.db.unitFrames.target.barHeight = 16
+    ns.db.unitFrames.targettarget.enabled = false
+
+    ns:ApplyProfileData(exported)
+    assertx.assertTrue(ns.db.unitFrames.target.enabled, "target frame must round-trip")
+    assertx.assertEqual(ns.db.unitFrames.target.barHeight, 24)
+    assertx.assertTrue(ns.db.unitFrames.targettarget.enabled,
+        "target's target frame must round-trip")
+end
+
+-- MergeDefaults must add the new frames to a save written before they
+-- existed, rather than leaving nil tables that every accessor then has to
+-- guard against.
+function M.test_existingSaveGainsTheNewUnitFrames()
+    local ns = freshDB({
+        schemaVersion = 5,
+        frames = {},
+        unitFrames = { player = { enabled = true } },
+    })
+    assertx.assertTrue(type(ns.db.unitFrames.target) == "table",
+        "an older save must gain the target frame")
+    assertx.assertTrue(type(ns.db.unitFrames.targettarget) == "table",
+        "an older save must gain the target's target frame")
+    assertx.assertFalse(ns.db.unitFrames.target.enabled,
+        "a frame the user never asked for must arrive switched off")
+    assertx.assertTrue(ns.db.unitFrames.player.enabled,
+        "the existing player frame must be left alone")
+end
+
 return M

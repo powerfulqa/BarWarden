@@ -310,8 +310,12 @@ local HELP_ENTRIES = {
         a = "Both show the same health, power, and class resource data. A "
           .. "resource group draws it as a stack of timer-style bars; a unit "
           .. "frame draws it in the usual arrangement instead: a portrait, "
-          .. "your name and level, tightly stacked bars, and a numbers "
-          .. "column on the right showing the amount and a percent.\n\n"
+          .. "the name and level, a bar each for health and power, and runes "
+          .. "or combo points as a compact strip. The amounts sit beside the "
+          .. "bars or on them, whichever you prefer.\n\n"
+          .. "There are frames for you, your target, and your target's "
+          .. "target. A target frame shows what that target actually has, "
+          .. "and hides itself when you have nothing targeted.\n\n"
           .. "They are two separate, independent options - use whichever "
           .. "reads better. Turning one on does not change or remove the "
           .. "other.",
@@ -319,12 +323,16 @@ local HELP_ENTRIES = {
     {
         id = "unit-frames-setup",
         q = "How do I turn on my unit frame?",
-        a = "On the Frames tab, tick Show Player Frame. Scale resizes it "
-          .. "without moving it, and Show Portrait, Show Level, and Show "
-          .. "Values Column each turn off one part if you would rather not "
-          .. "see it.\n\n"
-          .. "It starts at the centre of the screen; unlock your frames "
-          .. "(/bw lock) to drag it into place, then lock them again.",
+        a = "On the Frames tab, tick Show Player Frame, Show Target Frame, or "
+          .. "Show Target's Target Frame. Each has its own settings below it: "
+          .. "Scale resizes without moving, Bar Look and Bar Height change the "
+          .. "bars, the Opacity sliders fade each part on its own, and Show "
+          .. "Portrait, Show Name, Show Level and Show Values turn parts off.\n\n"
+          .. "The player frame also lets you pick exactly which resources "
+          .. "appear. Target frames show what the target has, so they need no "
+          .. "such list.\n\n"
+          .. "They start near the middle of the screen; unlock your frames "
+          .. "(/bw lock) to drag each into place, then lock them again.",
     },
 
     -- ===================================================================

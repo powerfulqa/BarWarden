@@ -184,8 +184,9 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     rediscover the boundary. Low priority, low-med effort per item.
 
 25. **Target frame: do NOT copy the player frame's resource controls.**
-    Planned next, and the owner has been explicit that it is not a
-    duplicate. The player frame exposes a per-resource tick list because a
+    **Shipped** for `target` and `targettarget`; kept here because the rule
+    still governs pet, focus, and party when those land. The player frame
+    exposes a per-resource tick list because a
     player on a classless server has several pools at once and wants to
     choose between them. A target frame should behave like Blizzard's own:
     show what the target actually has, which is health plus its current
@@ -200,13 +201,18 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     `targettarget`. So a target frame that passes no pins and no hidden set
     gets exactly the Blizzard-standard health-plus-power shape for free.
 
-    The temptation when adding the frame will be to lift the whole player
-    config block for symmetry. Resist it: the extra controls would each be
-    a setting that either does nothing or shows a bar the target cannot
-    have. Everything else - portrait, name, level, fonts, opacity, bar look
-    and height - SHOULD be shared, and the widget is already unit-token
-    driven, so this is about which config keys exist, not about a second
-    widget. Medium effort, and it blocks nothing today.
+    The temptation when adding a frame is to lift the whole player config
+    block for symmetry. Resist it: the extra controls would each be a
+    setting that either does nothing or shows a bar the unit cannot have.
+    Everything else - portrait, name, level, fonts, opacity, bar look and
+    height - IS shared, generated from one builder in
+    `Options_Frames.lua` (`AppendFrameSchema`), so a new frame is a row in
+    `FRAME_SECTIONS` plus a `ns.DEFAULTS.unitFrames` entry.
+
+    As shipped, `cfg.pinPowerTypes` is the switch: only the player frame
+    sets it, and `ScanUnitFrame` passes pins only when it is on.
+    `test_defaults_unitFramesExact` asserts the target tables do NOT carry
+    `hiddenResources` or `pinPowerTypes`, so "completing" them fails loudly.
 
 ## Audit decisions (intentional - do not "fix")
 
