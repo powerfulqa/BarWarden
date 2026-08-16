@@ -289,6 +289,14 @@ nothing.
 - **Show Icon** - show or hide the resource icon on this group's bars.
 - **Value Text** - how each bar's number is shown: Current / Max (`4200/5100`),
   Percent (`82%`), or Both (`4200/5100 (82%)`).
+- **Pair Runes by Type** - player resource group only. Combines each rune
+  type's two slots into one bar reading how many of that pair are ready
+  (`2/2` when both are up, `1/2` while one recharges), turning six rune
+  rows into three. Off by default, so an existing group's six-bar view is
+  unchanged until you tick it. Each paired bar keeps the same blood/frost/
+  unholy colouring the six-bar view already uses; a rune currently
+  converted into a Death rune still counts toward its pair rather than
+  getting its own row.
 - **Group Name Follows Target** - target and target-of-target groups only.
   Shows the unit's own name as the group's title instead of the name you
   gave the group; falls back to that name with nothing selected.
@@ -357,7 +365,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Sort Mode (Manual, Remaining Time, Alphabetical, As They Come)
 - Growth Direction (Down, Up)
 - Bar Overrides: Bar Texture, Text Format, Bar Style (Countdown, On or Off), Custom Bar Colour, Show Icons Only (a compact grid of spell icons instead of bars, sized with the Width slider), Custom Stack Text (its own size and colour for the stack count), and Custom Bar Effects (Glow on Ready, Pulse on Ready, Linger Time), all for the whole group at once - Custom Bar Effects is also the only way to turn these on for an auto-tracking group
-- Auto Track: fill the group from buffs or debuffs, or from health and power (yours, your target's, or your target's target's), instead of adding bars by hand. Any Health and power choice adds its own Keep Mana/Rage/Energy/Combo Points Visible tickboxes (in the order you tick them, each with an optional colour swatch), a Show Icon toggle, and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings. The player's own group additionally adds Keep Runic Power/Runes Visible tickboxes, since those two pools are the player's own and never a target's. The target and target-of-target choices also add a Group Name Follows Target tickbox
+- Auto Track: fill the group from buffs or debuffs, or from health and power (yours, your target's, or your target's target's), instead of adding bars by hand. Any Health and power choice adds its own Keep Mana/Rage/Energy/Combo Points Visible tickboxes (in the order you tick them, each with an optional colour swatch), a Show Icon toggle, and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings. The player's own group additionally adds Keep Runic Power/Runes Visible tickboxes and a Pair Runes by Type tickbox (combines each rune type's two slots into one "N of 2" bar), since Runic Power and Runes are the player's own and never a target's. The target and target-of-target choices also add a Group Name Follows Target tickbox
 - Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**

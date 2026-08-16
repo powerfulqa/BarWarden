@@ -837,13 +837,102 @@ local function CheckRunes(barConfig)
     return true, current, duration, icon, name, ceil(cdRemaining), runeType
 end
 
--- collectRuneEntries: the six DK rune slots, in the shape ns:CollectResources'
--- addEntry expects (key/label/current/max/icon/stacks/trackMode/runeType).
--- Pulled out of CollectResources so both the unconditional "always visible"
--- block and the pinned-extras block below can build the exact same list
--- without duplicating the per-slot CheckRunes call - see the pin-ordering
--- fix's own comment for why two call sites need this.
-local function collectRuneEntries()
+-- Base rune types the paired view groups into rows, in display order (this
+-- is also GetRuneType's own numbering for these three; 4 is Death, handled
+-- separately below).
+local BASE_RUNE_TYPES = { 1, 2, 3 }
+
+local RUNE_PAIR_NAMES = {
+    [1] = "Blood Runes",
+    [2] = "Unholy Runes",
+    [3] = "Frost Runes",
+}
+
+-- buildRunePairSlots: assign the six rune slots to the three base-type
+-- "pairs" for the Pair Runes by Type view (commit 3), by CURRENT GetRuneType
+-- rather than a hardcoded slot->type mapping - the type-to-slot layout is
+-- not guaranteed contiguous on 3.3.5a (slots 1/2 are not guaranteed to both
+-- be Blood, etc.), so the only honest source is asking the game per slot.
+--
+-- The complication: any rune can be temporarily converted to a Death rune
+-- (GetRuneType returns 4), and a converted slot has no way to report what it
+-- "really" is. Rather than spawn a fourth row for Death, or drop a converted
+-- rune from the count, a slot reporting type 4 is folded into whichever base
+-- bucket (1 Blood, 2 Unholy, 3 Frost) is still short a member, processed in
+-- that order using slots in ascending slot-number order. On 3.3.5a the type-
+-- to-slot layout for the three base types is itself stable per slot number
+-- (each base type occupies a fixed pair of slots that just are not
+-- guaranteed to be adjacent pairs like 1-2/3-4/5-6), so backfilling short
+-- buckets in ascending type order from slots in ascending slot-number order
+-- reconstructs the true pairing for the common single-conversion case; under
+-- multiple simultaneous conversions the specific attribution is a best
+-- effort, but the ready count and the "three rows of two" shape are always
+-- correct regardless, since a converted slot's own cooldown is still read
+-- from the physical slot itself (see collectRunePairEntries below), not
+-- assumed from whichever pair it lands under.
+--
+-- Returns { [1] = {slot, slot}, [2] = {...}, [3] = {...} }.
+local function buildRunePairSlots()
+    local buckets = { [1] = {}, [2] = {}, [3] = {} }
+    local overflow = {}
+    for slot = 1, 6 do
+        local runeType = GetRuneType and GetRuneType(slot) or 1
+        if (runeType == 1 or runeType == 2 or runeType == 3) and #buckets[runeType] < 2 then
+            table.insert(buckets[runeType], slot)
+        else
+            overflow[#overflow + 1] = slot
+        end
+    end
+    for _, t in ipairs(BASE_RUNE_TYPES) do
+        while #buckets[t] < 2 and #overflow > 0 do
+            table.insert(buckets[t], table.remove(overflow, 1))
+        end
+    end
+    return buckets
+end
+
+-- collectRunePairEntries: the Pair Runes by Type view - one entry per base
+-- type (Blood/Unholy/Frost), each a ready-count value bar ("2/2" when both
+-- of that type are up, "1/2" while one recharges). Reuses CheckRunes for
+-- each physical slot's ready state rather than re-reading GetRuneCooldown
+-- directly, so both views agree on what "ready" means. `trackMode` is left
+-- nil (unlike the six-bar view's "Runes"), so UpdateResourceBar renders the
+-- plain current/max fraction text instead of the rune-specific "Ns"
+-- countdown - a ready-count pair is a value bar, not a countdown.
+local function collectRunePairEntries()
+    local buckets = buildRunePairSlots()
+    local list = {}
+    for _, t in ipairs(BASE_RUNE_TYPES) do
+        local slots = buckets[t]
+        if #slots > 0 then
+            local ready = 0
+            local icon
+            for _, slot in ipairs(slots) do
+                local _, _, _, slotIcon, _, stacks = CheckRunes({ spellId = slot })
+                icon = icon or slotIcon
+                if not stacks or stacks == 0 then ready = ready + 1 end
+            end
+            list[#list + 1] = {
+                key = "runepair" .. t, label = RUNE_PAIR_NAMES[t], current = ready,
+                max = #slots, icon = icon or RUNE_ICONS[t], stacks = ready, runeType = t,
+            }
+        end
+    end
+    return list
+end
+
+-- collectRuneEntries: the DK rune display, in the shape ns:CollectResources'
+-- addEntry expects (key/label/current/max/icon/stacks/trackMode/runeType) -
+-- either all six slots (default) or the three type pairs above (`paired`,
+-- from groupData.autoPairRunes). Pulled out of CollectResources so both the
+-- unconditional "always visible" block and the pinned-extras block below can
+-- build the exact same list without duplicating the per-slot CheckRunes
+-- call - see the pin-ordering fix's own comment for why two call sites need
+-- this.
+local function collectRuneEntries(paired)
+    if paired then
+        return collectRunePairEntries()
+    end
     local list = {}
     for slot = 1, 6 do
         local _, cur, mx, icon, name, stacks, runeType = CheckRunes({ spellId = slot })
@@ -1224,6 +1313,12 @@ function ns:CollectResources(opts)
     opts = opts or {}
     local unit = opts.unit or "player"
     local pinned = opts.pinned or {}
+    -- Pair Runes by Type (v2.5.0, commit 3): groupData.autoPairRunes, off by
+    -- default so an existing group's six-bar view is unchanged until the
+    -- owner opts in. Threaded straight to collectRuneEntries() below at both
+    -- call sites, so the six-bar/paired choice applies the same way whether
+    -- Runes are currently pinned or just shown unconditionally.
+    local pairRunes = opts.pairRunes
     local entries = {}
     local seen = {}
 
@@ -1370,7 +1465,7 @@ function ns:CollectResources(opts)
         end
 
         if HasRunes() and not pinnedKeys.runes then
-            for _, e in ipairs(collectRuneEntries()) do
+            for _, e in ipairs(collectRuneEntries(pairRunes)) do
                 addEntry(e.key, e.label, e.current, e.max, e.icon, e.stacks, e.trackMode, e.runeType)
             end
         end
@@ -1414,11 +1509,12 @@ function ns:CollectResources(opts)
     -- see the file comment above), and re-checking their own capability
     -- (HasRunicPower/HasRunes) here too, since a pin must not conjure a bar
     -- for a pool that genuinely is not there. Runes adds however many
-    -- entries collectRuneEntries() currently produces (all six slots today)
-    -- as one ordered block, so the whole group of rune bars moves together
-    -- as a single pinned item. Soul Shards still has no pin tickbox
-    -- (Options_Bars.lua) - see the file comment above for why - so it is not
-    -- listed here.
+    -- entries collectRuneEntries() currently produces (all six slots, or
+    -- the three type pairs once Pair Runes by Type is on) as one ordered
+    -- block, so the whole group of rune bars moves together as a single
+    -- pinned item regardless of which view is active. Soul Shards still has
+    -- no pin tickbox (Options_Bars.lua) - see the file comment above for why
+    -- - so it is not listed here.
     local PINNABLE_POWER_TYPES = { mana = 0, rage = 1, energy = 3 }
     for _, entry in ipairs(normalizedPinned) do
         local powerType = PINNABLE_POWER_TYPES[entry.key]
@@ -1431,7 +1527,7 @@ function ns:CollectResources(opts)
             local _, rpCur, rpMax, rpIcon, rpName = CheckRunicPower({})
             addEntry("runicpower", rpName, rpCur, rpMax, rpIcon)
         elseif entry.key == "runes" and unit == "player" and HasRunes() then
-            for _, e in ipairs(collectRuneEntries()) do
+            for _, e in ipairs(collectRuneEntries(pairRunes)) do
                 addEntry(e.key, e.label, e.current, e.max, e.icon, e.stacks, e.trackMode, e.runeType)
             end
         end

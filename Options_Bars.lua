@@ -461,15 +461,17 @@ local function CreateBarsTab(parent)
         "grpAutoTitleFollowsUnit",
         "grpAutoTitleShowsLevel",
     }
-    -- Runic Power / Runes (v2.5.0) only ever mean anything on the PLAYER
-    -- resource feed: both pools belong to the player alone
-    -- (ns:CollectResources gates them on unit == "player" - Trackers.lua),
-    -- so showing them on the target/target's-target feeds would be dead
-    -- controls that can never do anything, the same reasoning that gives
-    -- AUTO_TARGET_RESOURCE_ONLY_WIDGET_IDS above its own narrower bucket.
+    -- Runic Power / Runes / Pair Runes by Type (v2.5.0) only ever mean
+    -- anything on the PLAYER resource feed: both pools belong to the player
+    -- alone (ns:CollectResources gates them on unit == "player" -
+    -- Trackers.lua), so showing them on the target/target's-target feeds
+    -- would be dead controls that can never do anything, the same reasoning
+    -- that gives AUTO_TARGET_RESOURCE_ONLY_WIDGET_IDS above its own
+    -- narrower bucket.
     local AUTO_PLAYER_RESOURCE_ONLY_WIDGET_IDS = {
         "grpAutoPinRunicPower", "grpAutoPinRunicPowerColor",
         "grpAutoPinRunes", "grpAutoPinRunesColor",
+        "grpAutoPairRunes",
     }
 
     -- Whether the selected group has an AURA feed picked (not "resources").
@@ -1189,16 +1191,17 @@ local function CreateBarsTab(parent)
         -- Runic Power / Runes (v2.5.0): only meaningful on the player feed -
         -- both are the PLAYER's own resource pools (ns:CollectResources'
         -- HasRunicPower/HasRunes probes, Trackers.lua), never a target's or
-        -- a target's-target's - so these two sit in their own
-        -- AUTO_PLAYER_RESOURCE_ONLY_WIDGET_IDS bucket rather than the
-        -- AUTO_RESOURCE_ONLY_WIDGET_IDS one above (which shows for all three
-        -- resource feeds). Unlike Mana/Rage/Energy, both already show
-        -- unconditionally whenever the pool is real, so the tickbox only
-        -- changes ORDER relative to the other pins, not whether the bar
-        -- appears at all - see ns:CollectResources' own comment for the
-        -- ordering fix this pin needed (the same one Combo Points needed: a
-        -- pinned resource used to always land right after Health/current-
-        -- power regardless of tick order).
+        -- a target's-target's - so these two, and Pair Runes by Type
+        -- further below, sit in their own AUTO_PLAYER_RESOURCE_ONLY_WIDGET_IDS
+        -- bucket rather than the AUTO_RESOURCE_ONLY_WIDGET_IDS one above
+        -- (which shows for all three resource feeds). Unlike Mana/Rage/
+        -- Energy, both already show unconditionally whenever the pool is
+        -- real, so the tickbox only changes ORDER relative to the other
+        -- pins, not whether the bar appears at all - see
+        -- ns:CollectResources' own comment for the ordering fix this pin
+        -- needed (the same one Combo Points needed: a pinned resource used
+        -- to always land right after Health/current-power regardless of
+        -- tick order).
         { type = "toggle", id = "grpAutoPinRunicPower", label = "Keep Runic Power Visible",
           tooltip = "Runic Power already shows here whenever you have a pool "
                .. "of it. Tick this to choose where it sits among your other "
@@ -1221,9 +1224,10 @@ local function CreateBarsTab(parent)
           end,
           offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
         -- One tickbox/swatch covers every rune bar the group is currently
-        -- showing (all six slots today), since there is no per-slot pin -
-        -- the pin key is "runes", not "rune1".."rune6", and
-        -- ns:GetPinnedResourceColor (Conditions.lua) maps each bar's own
+        -- showing (all six slots, or the three type pairs once Pair Runes
+        -- by Type below is ticked), since there is no per-slot pin - the
+        -- pin key is "runes", not "rune1".."rune6"/"runepair1".."runepair3",
+        -- and ns:GetPinnedResourceColor (Conditions.lua) maps each bar's own
         -- resourceKey back to this one shared entry for the colour swatch
         -- to actually reach them.
         { type = "toggle", id = "grpAutoPinRunes", label = "Keep Runes Visible",
@@ -1246,6 +1250,29 @@ local function CreateBarsTab(parent)
               ns:RefreshAllBars()
           end,
           offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
+        -- Pair Runes by Type (v2.5.0, commit 3): collapses each rune type's
+        -- two slots into one bar reading how many of that pair are ready
+        -- (e.g. "2/2" Blood, "1/2" while one recharges), so six rows become
+        -- three - see ns:CollectResources' collectRuneEntries/
+        -- collectRunePairEntries (Trackers.lua) for how slots are grouped by
+        -- type rather than a hardcoded slot mapping, and what a converted
+        -- Death rune does to its pair. Off by default: this is the setting
+        -- the owner actually wants on (six rune bars take too much vertical
+        -- space), but changing what an existing group already shows the
+        -- moment someone updates is worse than asking - the same reasoning
+        -- as every other additive per-group setting in this file. The owner
+        -- can tick it themselves in one click.
+        { type = "toggle", id = "grpAutoPairRunes", label = "Pair Runes by Type",
+          tooltip = "Show one bar per rune type (Blood, Unholy, Frost) "
+               .. "instead of six separate bars. Each bar reads how many of "
+               .. "that pair are currently ready.",
+          get = function() local g = getGroup(); return g and g.autoPairRunes end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoPairRunes = v and true or false
+              ns:RefreshBarSettings()
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
         -- Always Show Focus (and its colour swatch) was removed in v2.5.0:
         -- on 3.3.5a Focus is a hunter PET resource, never a player one
         -- (hunters use Mana until Cataclysm), so UnitPowerMax("player", 2)

@@ -566,7 +566,7 @@ written back into `barData`; persisting a client-side lookup into
 SavedVariables would bake in whatever the client could resolve at save
 time and break if the id later resolved differently.
 
-Eleven keys on a group, all nil on a normal group (the last three are
+Twelve keys on a group, all nil on a normal group (the last four are
 resources-only, described further above under "The resources feed"):
 
 | Key | Effect |
@@ -584,6 +584,7 @@ resources-only, described further above under "The resources feed"):
 | `autoResourceShowIcon` | Resources-feed only (v2.5.0): nil/unset defers to the addon-wide Show Icon default (so an upgrading group looks exactly as it did before this tickbox existed); `true`/`false` overrides it for every bar in this group. Read directly inside `ApplyVisualConfig` (Bar.lua), the same direct-read shape as `autoResourceValueText` above, since like it there is no per-bar equivalent to resolve against for an auto slot |
 | `autoTitleFollowsUnit` | `targetResources`/`totResources` only (v2.5.0). nil by default. When true, the group's title shows the feed's unit name instead of the group's own configured name - see "Group Name Follows Target" below |
 | `autoTitleShowsLevel` | `targetResources`/`totResources` only (v2.5.0). nil by default. When true AND `autoTitleFollowsUnit` resolved a unit name, the title also shows that unit's level - see "Show Target Level" below |
+| `autoPairRunes` | `resources` (player feed) only (v2.5.0, commit 3). Off by default - preserves the six-bar view for every existing group. When true, `ns:CollectResources`' `opts.pairRunes` routes rune collection through `collectRunePairEntries` (Trackers.lua) instead of the six-slot loop - see "Pair Runes by Type" below |
 
 `iconOnly` used to live in this table as `autoIconOnly`, gated to
 auto-tracking groups only. It is now a general Bar Overrides setting (see
@@ -863,6 +864,65 @@ alongside `bd.resourceKey`, clearing it when the slot empties. This sits at
 the same precedence level as the power-type default above (4): a per-bar
 override, a pinned resource colour, or the group's Custom Bar Colour all
 still win over it, exactly like any other resource bar.
+
+**Pair Runes by Type** (v2.5.0, commit 3, `groupData.autoPairRunes`) turns
+the six rune bars into three: one per base type (Blood, Unholy, Frost),
+each a ready-count value bar ("2/2" when both of that type are up, "1/2"
+while one recharges). Off by default, so an existing group's six-bar view
+is unchanged until the owner ticks it - it exists because six rune rows
+plus health/power/runic power is a lot of vertical space on a classless
+server where one character can have every resource at once, which is
+exactly the case that motivated it.
+
+`collectRuneEntries(paired)` (Trackers.lua) is the single function both the
+unconditional "always visible" rune block and the pinned-extras block call;
+`paired` (threaded from `opts.pairRunes`, which `ScanAutoResourceGroup`
+reads off `groupData.autoPairRunes`) picks between the plain six-slot loop
+and `collectRunePairEntries()`.
+
+The pairing itself - `buildRunePairSlots()` - buckets the six slots by
+their CURRENT `GetRuneType(slot)` value rather than a hardcoded slot->type
+mapping, because the type-to-slot layout is not guaranteed contiguous on
+3.3.5a (slots 1/2 are not guaranteed to both be Blood, etc. - only asking
+the game per slot is honest). The complication: any rune can be temporarily
+converted to a Death rune (`GetRuneType` returns 4), and a converted slot
+has no way to report what it "really" is. Rather than spawn a fourth row
+for Death or drop a converted rune from the count, a slot reporting type 4
+is folded into whichever base bucket (1 Blood, 2 Unholy, 3 Frost) is still
+short a member, processed in that order using slots in ascending slot
+number. This keeps the view at exactly three rows always, and a pair
+containing a converted rune keeps its base type's label/icon/colour rather
+than showing anything Death-specific - only the ready COUNT changes, read
+per physical slot via `CheckRunes` (reused, not re-implemented), so a
+converted rune still on cooldown correctly drags its pair's count down. On
+3.3.5a the type-to-slot layout for the three base types is itself stable
+per slot number, so this backfill order reconstructs the true pairing for
+the common single-conversion case; under multiple simultaneous conversions
+the specific attribution is a best effort, but the ready count and the
+three-rows shape are always correct regardless.
+
+Paired entries use key `runepair1`/`runepair2`/`runepair3` (not
+`rune1`..`rune6`) and leave `trackMode` nil rather than `"Runes"`, so
+`UpdateResourceBar` renders the plain current/max fraction ("2/2") instead
+of the rune-specific "Ns" countdown text - a ready-count pair is a value
+bar, not a countdown, even though the underlying per-slot data still comes
+from the same cooldown-reading `CheckRunes`. `runeType` (1/2/3) still rides
+the entry, so the paired bars keep the exact same per-type colouring the
+six-bar view uses (see "Death Knight runes coloured by type" above) with no
+separate colour-resolution path needed.
+
+The "Keep Runes Visible" pin (see above) works identically in either view:
+its `entry.key == "runes"` branch in the pinned-extras loop calls
+`collectRuneEntries(pairRunes)` exactly like the unconditional block does,
+so a pinned Runes entry follows whichever view is currently active rather
+than always producing six bars.
+
+A **split-fill bar** (one bar per type, visually divided in half rather
+than a plain ready-count) was considered and rejected: it would need a new
+drawing primitive in [Bar.lua](../Bar.lua), whereas the ready-count value
+bar reuses the exact path `ns:UpdateResourceBar` already draws every other
+resource bar through - Combo Points, Runic Power, Soul Shards, and the
+six-bar Runes view all already show a current/max fraction the same way.
 
 Adding a new group override means: the widget in
 [Options_Bars.lua](../Options_Bars.lua) `GROUP_SETTINGS_SCHEMA` (with an

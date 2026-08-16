@@ -143,6 +143,14 @@ the same current-power-type signal the game itself uses.
   respects the order you ticked the pins in instead of always sitting
   right after Health. There is still no pin for Soul Shards; that stays a
   deliberate gap, not an oversight.
+- **Six rune bars can now become three.** A new "Pair Runes by Type"
+  tickbox on the player resource group combines each rune type's two
+  slots into one bar reading how many of the pair are ready (Blood shows
+  "2/2" when both are up, "1/2" while one recharges). Off by default, so
+  an existing group's six-bar view stays exactly as it was until you turn
+  it on; each paired bar keeps the same per-type colour the six-bar view
+  already uses. A rune currently converted into a Death rune still counts
+  toward its pair rather than getting a row of its own.
 
 ---
 

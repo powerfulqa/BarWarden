@@ -1129,7 +1129,15 @@ end
 -- for an ordinary hand-placed resource bar, just applied per-slot instead of
 -- per-bar).
 local function ScanAutoResourceGroup(group, groupData, unit)
-    local entries = ns:CollectResources({ pinned = groupData.autoPinnedResources, unit = unit })
+    -- autoPairRunes (v2.5.0, commit 3): only ever meaningful on the player
+    -- feed (Runes are the player's own pool - ns:CollectResources gates them
+    -- on unit == "player" regardless), but passed through unconditionally
+    -- here since ns:CollectResources already no-ops it for the other two
+    -- feeds, the same reasoning autoPinnedResources itself already relies on.
+    local entries = ns:CollectResources({
+        pinned = groupData.autoPinnedResources, unit = unit,
+        pairRunes = groupData.autoPairRunes,
+    })
 
     for i, bar in ipairs(group.bars) do
         local e  = entries[i]

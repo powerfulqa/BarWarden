@@ -1108,4 +1108,144 @@ function M.test_runes_pinnedWithNoRealRunesAddsNothing()
         "pinning must not conjure rune bars with no real rune data behind them")
 end
 
+-- --------------------------------------------------------------------------
+-- Pair Runes by Type (v2.5.0, commit 3): opts.pairRunes collapses the six
+-- rune slots into three per-type entries, each a ready-count value bar
+-- ("2/2" when both of that type are up, "1/2" while one recharges), so six
+-- rows become three. Slots are grouped by GetRuneType(slot) at scan time
+-- (Blood=1, Unholy=2, Frost=3), not by a hardcoded slot->type mapping.
+-- --------------------------------------------------------------------------
+
+function M.test_pairedRunes_producesOneEntryPerTypeBothReady()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.runeCooldown = function(slot) return 0, 10, true end -- all six ready
+    local slotTypes = { 1, 1, 2, 2, 3, 3 } -- Blood, Blood, Unholy, Unholy, Frost, Frost
+    mock.runeType = function(slot) return slotTypes[slot] end
+
+    local entries = ns:CollectResources({ pairRunes = true })
+
+    assertx.assertNil(findEntry(entries, "rune1"), "the six-bar per-slot keys must not appear in the paired view")
+
+    local blood = findEntry(entries, "runepair1")
+    local unholy = findEntry(entries, "runepair2")
+    local frost = findEntry(entries, "runepair3")
+    assertx.assertNotNil(blood, "expected one entry for the Blood pair")
+    assertx.assertNotNil(unholy, "expected one entry for the Unholy pair")
+    assertx.assertNotNil(frost, "expected one entry for the Frost pair")
+    assertx.assertEqual(blood.current, 2)
+    assertx.assertEqual(blood.max, 2)
+    assertx.assertEqual(blood.runeType, 1)
+    assertx.assertEqual(unholy.current, 2)
+    assertx.assertEqual(unholy.max, 2)
+    assertx.assertEqual(frost.current, 2)
+    assertx.assertEqual(frost.max, 2)
+end
+
+function M.test_pairedRunes_partiallyRechargingPairReadsOneOfTwo()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    -- Slot 1 (Blood) is still on cooldown; every other slot is ready.
+    mock.runeCooldown = function(slot)
+        if slot == 1 then return 0, 10, false end
+        return 0, 10, true
+    end
+    local slotTypes = { 1, 1, 2, 2, 3, 3 }
+    mock.runeType = function(slot) return slotTypes[slot] end
+
+    local entries = ns:CollectResources({ pairRunes = true })
+
+    local blood = findEntry(entries, "runepair1")
+    assertx.assertNotNil(blood, "expected an entry for the Blood pair")
+    assertx.assertEqual(blood.current, 1, "one of the two Blood runes is still recharging")
+    assertx.assertEqual(blood.max, 2)
+
+    local unholy = findEntry(entries, "runepair2")
+    assertx.assertEqual(unholy.current, 2, "the Unholy pair is unaffected and stays fully ready")
+end
+
+function M.test_pairedRunes_settingOffStillShowsSixBars()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.runeCooldown = function(slot) return 0, 10, true end
+    local slotTypes = { 1, 1, 2, 2, 3, 3 }
+    mock.runeType = function(slot) return slotTypes[slot] end
+
+    local entries = ns:CollectResources({ pairRunes = false })
+    for slot = 1, 6 do
+        assertx.assertNotNil(findEntry(entries, "rune" .. slot),
+            "the six-bar view must still work with Pair Runes by Type off, slot " .. slot)
+    end
+    assertx.assertNil(findEntry(entries, "runepair1"), "the paired keys must not appear when the setting is off")
+end
+
+function M.test_pairedRunes_defaultIsSixBarView()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.runeCooldown = function(slot) return 0, 10, true end
+
+    -- opts.pairRunes omitted entirely: must behave exactly like `false`,
+    -- so an existing group is unaffected until the owner opts in.
+    local entries = ns:CollectResources()
+    assertx.assertNotNil(findEntry(entries, "rune1"), "the default (no pairRunes option) must be the six-bar view")
+    assertx.assertNil(findEntry(entries, "runepair1"))
+end
+
+-- A rune currently converted to a Death rune (GetRuneType returns 4) has no
+-- way to report its own original type, so it is folded into whichever base
+-- pair is short a member rather than spawning a fourth "Death" row or being
+-- dropped from the count - see buildRunePairSlots' own comment (Trackers.lua)
+-- for the full reasoning. Its own ready state is still read individually via
+-- CheckRunes, so the pair's ready count stays correct either way.
+function M.test_pairedRunes_pairContainingADeathRuneStillCountsIt()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.runeCooldown = function(slot) return 0, 10, true end -- everything ready
+    -- Slot 2 (naturally the second Blood slot) has been converted to Death.
+    local slotTypes = { 1, 4, 2, 2, 3, 3 }
+    mock.runeType = function(slot) return slotTypes[slot] end
+
+    local entries = ns:CollectResources({ pairRunes = true })
+
+    -- Still exactly three rows: the Death-typed slot lands in the Blood
+    -- bucket (the one short a member), not a fourth row of its own.
+    assertx.assertNil(findEntry(entries, "runepair4"), "a converted rune must not spawn its own Death row")
+    local blood = findEntry(entries, "runepair1")
+    assertx.assertNotNil(blood, "expected the Blood pair to still exist")
+    assertx.assertEqual(blood.current, 2, "both members ready, including the converted one, still reads 2 of 2")
+    assertx.assertEqual(blood.max, 2)
+    assertx.assertEqual(blood.runeType, 1, "the pair keeps its base type's colour/label despite the conversion")
+end
+
+function M.test_pairedRunes_deathRuneOnCooldownReflectsInItsPair()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    -- Slot 2 is converted to Death AND still on cooldown; everything else
+    -- is ready. The pair's ready count must reflect the physical slot's own
+    -- state (reused via CheckRunes), not assume a converted rune is ready.
+    mock.runeCooldown = function(slot)
+        if slot == 2 then return 0, 10, false end
+        return 0, 10, true
+    end
+    local slotTypes = { 1, 4, 2, 2, 3, 3 }
+    mock.runeType = function(slot) return slotTypes[slot] end
+
+    local entries = ns:CollectResources({ pairRunes = true })
+    local blood = findEntry(entries, "runepair1")
+    assertx.assertNotNil(blood, "expected the Blood pair to still exist")
+    assertx.assertEqual(blood.current, 1, "the converted slot's own cooldown still counts against its pair")
+end
+
+function M.test_pairedRunes_pinnedRunesRespectsThePairSetting()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 10, 100
+    mock.runeCooldown = function(slot) return 0, 10, true end
+
+    local entries = ns:CollectResources({ pinned = { { key = "runes" } }, pairRunes = true })
+    assertx.assertNotNil(findEntry(entries, "runepair1"), "a pinned Runes entry must honour the pair setting too")
+    assertx.assertNil(findEntry(entries, "rune1"), "the six-bar keys must not appear once paired while pinned")
+end
+
 return M
