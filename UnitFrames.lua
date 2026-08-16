@@ -585,11 +585,24 @@ local function BuildUnitFrame(key)
     frame.valueFontPath = valueFontPath
     frame.valueFontSize = valueFontSize
 
-    -- Applies to the unfilled BACKGROUND behind each bar only, never to the
-    -- bar's own fill. Fading the fill made a bar hard to read at exactly the
-    -- moment it matters, and the point of this setting is to let the black
-    -- behind the bars recede, not to dim the data.
+    -- Bars vs panel, and why this changed twice.
+    --
+    -- This first faded the bar FILLS, then was moved to fade only the
+    -- unfilled background behind them, because dimming the fill dims the
+    -- data. In practice that made the slider look broken: the background is
+    -- only visible on the UNFILLED part of a bar, and a unit frame's bars sit
+    -- at 100% almost all the time (full health, full mana, a ready rune), so
+    -- there was usually nothing left of it to see. The black a player reads
+    -- as "behind the bars" is the panel backdrop, not this.
+    --
+    -- So the two are now split the way they actually look: "Panel" covers
+    -- the frame backdrop AND these bar backgrounds, since they read as one
+    -- surface, and "Bars" goes back to the fills. Note that fading a bar
+    -- fades its on-bar numbers too - they are regions of the same frame -
+    -- which is consistent with what the slider claims to do.
     local barOpacity = ns:GetUnitFrameOpacity(cfg, "barOpacity")
+    frame.barOpacity = barOpacity
+    local panelOpacity = ns:GetUnitFrameOpacity(cfg, "frameOpacity")
 
     frame.bars = {}
     frame.valueTexts = {}
@@ -600,7 +613,7 @@ local function BuildUnitFrame(key)
         local bg = frame:CreateTexture(nil, "BACKGROUND")
         bg:SetTexture(ns.ResolveTextureName and ns:ResolveTextureName(barTexture)
             or "Interface\\Buttons\\WHITE8x8")
-        bg:SetVertexColor(0.15, 0.15, 0.15, 0.9 * barOpacity)
+        bg:SetVertexColor(0.15, 0.15, 0.15, 0.9 * panelOpacity)
         bg:Hide()
         frame.barBackdrops[i] = bg
 
@@ -813,6 +826,10 @@ local function ScanUnitFrame(key)
                 end
             end
 
+            -- Applied here, after ns:UpdateResourceBar, because that sets the
+            -- bar's alpha from visual.activeAlpha on every scan and would
+            -- otherwise overwrite this a quarter of a second later.
+            if frame.barOpacity then bar:SetAlpha(frame.barOpacity) end
             bar:Show()
             barBackdrop:Show()
 

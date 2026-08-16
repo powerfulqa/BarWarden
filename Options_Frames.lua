@@ -135,7 +135,8 @@ local function CreateFramesTab(parent)
 
         { type = "slider", label = "Panel", min = 0, max = 1, step = 0.05,
           width = 200, format = PercentLabel,
-          tooltip = "The background behind the bars.",
+          tooltip = "The dark background the frame sits on, including behind "
+                 .. "the bars.",
           db = "unitFrames.player.frameOpacity", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
@@ -146,10 +147,9 @@ local function CreateFramesTab(parent)
           db = "unitFrames.player.portraitOpacity", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
-        { type = "slider", label = "Bar Background", min = 0, max = 1, step = 0.05,
+        { type = "slider", label = "Bars", min = 0, max = 1, step = 0.05,
           width = 200, format = PercentLabel,
-          tooltip = "The empty part of each bar. The filled part is not "
-                 .. "faded, so a bar stays readable.",
+          tooltip = "The bars themselves, and any numbers sitting on them.",
           db = "unitFrames.player.barOpacity", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 

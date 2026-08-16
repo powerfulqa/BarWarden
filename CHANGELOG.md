@@ -52,7 +52,9 @@ Fixed in the same pass:
 - **The frame background is black rather than washed-out grey**, matching
   X-Perl's own setting. This is also what made a 3D portrait look like it
   sat on a grey square. An *Opacity* section fades the panel, the portrait,
-  the bars and the border independently, each down to fully see-through.
+  the bars and the border independently, each down to fully see-through:
+  *Panel* covers the whole dark background including behind the bars, and
+  *Bars* fades the bars themselves along with any numbers on them.
 - **The font and size settings now actually apply.** They were being given
   a font's name where a file path was needed, so nothing happened. The
   values font and size also had no effect while the numbers were on the
@@ -64,9 +66,6 @@ Fixed in the same pass:
   frame's, so it could never sit level with the bar stack; that border is
   gone and the portrait now spans exactly the same height as the bars
   beside it.
-- **Bar Background opacity no longer fades the bars themselves**, only the
-  empty part behind them, so a bar stays readable however far it is
-  turned down.
 - **Focus is no longer offered** in Resources Shown. On this client focus
   belongs to hunter pets, not player characters, so the tickbox could
   never change anything.
