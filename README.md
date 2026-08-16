@@ -40,6 +40,7 @@ When a spell goes on cooldown or a buff is applied, the matching bar fills up an
   want visible, in the order you tick them, each with its own colour if you
   want one, and pick how the numbers are shown: amount and total, percent,
   or both.
+- **Unit frames** - a second way to show your health, power, and class resources: portrait, name and level, tightly stacked bars, and a values column with the amount and a percent. Independent of resource groups above, so use whichever reads better. Player frame only for now, on the new Frames tab
 - **LibSharedMedia support** gives access to textures and fonts from all LSM-compatible addons on your client, plus BarWarden's own 13 bar textures and 15 fonts
 - **5 duration display styles**: seconds with decimal, whole seconds, min:sec, short text, or auto-adapting
 - **Colour your bars** by class, by tracking mode, or pick your own colour (with per-bar overrides)

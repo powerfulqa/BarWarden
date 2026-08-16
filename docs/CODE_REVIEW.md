@@ -167,6 +167,21 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     the cost is memory in a long session with many settings changes, not
     behaviour. Fixing it means pooling group frames the way bars are pooled. Low.
 
+24. **Unit frames (v2.6.0) ship player-only, with no conditions, cap slider,
+    or profile export.** `UnitFrames.lua` builds the widget and the Frames
+    tab for `unit = "player"` only; target/target's-target/pet/focus/party
+    frames need only a new `UNIT_TOKENS`/`UNIT_FRAME_KEYS` entry, a
+    `ns.DEFAULTS.unitFrames` entry, and a Frames-tab toggle, since the
+    widget itself is already unit-token-driven. Also deferred: per-bar
+    visibility conditions on a unit frame (bar groups' `conditions` table has
+    no equivalent here yet), a user-facing cap on `MAX_UNIT_FRAME_SLOTS` (the
+    fixed value of 10 already has ample headroom for every feed
+    `ns:CollectResources` can produce), and folding `BarWardenDB.unitFrames`
+    into profile export/import (`ns:ExportProfile`/`ns:ImportProfile` still
+    only carry `frames`/`visual`). None of these block the current slice;
+    listed so a later session extending unit frames does not have to
+    rediscover the boundary. Low priority, low-med effort per item.
+
 ## Audit decisions (intentional - do not "fix")
 
 A. **Bundled libraries stay.** LibStub, LibSharedMedia-3.0, LibDataBroker-1.1,

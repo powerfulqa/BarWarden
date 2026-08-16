@@ -32,7 +32,8 @@ and the `BARWARDEN_*` / `__BarWarden_*` provenance globals.
 | [Bar.lua](../Bar.lua) / [BarPool.lua](../BarPool.lua) | Bar frame construction (`nameText` / `timeText` / `stackText`) + the object pool. Never `CreateFrame("StatusBar")` outside these. |
 | [BarEngine.lua](../BarEngine.lua) | The scan loop, bar state machine, OnUpdate depletion, resource bars, and driving auto-tracking group slots (`ns:ScanAutoGroup`). |
 | [Trackers.lua](../Trackers.lua) | Per-`trackMode` checkers (aura / cooldown / item / resource), plus the auto-tracking helpers: whole-unit aura collection (`ns:CollectAutoAuras`), slot placement for Keep Bars In Place (`ns:PlaceAutoAuras`), the cross-group tracked-name set (`ns:GetTrackedAuraNames`), and the skip-set builders (`ns:BuildAutoSkipSet` / `ns:BuildGroupSkipSet`). |
-| [FrameManager.lua](../FrameManager.lua) / [DragReorder.lua](../DragReorder.lua) | Group frames + layout; drag-to-reorder. FrameManager also judges whether an auto-tracking group's start-up backdrop counts as empty (`ns.IsGroupEmptyForBackdrop`), since its slot count, not its configured bar count, is the only honest signal. |
+| [FrameManager.lua](../FrameManager.lua) / [DragReorder.lua](../DragReorder.lua) | Group frames + layout; drag-to-reorder. FrameManager also judges whether an auto-tracking group's start-up backdrop counts as empty (`ns.IsGroupEmptyForBackdrop`), since its slot count, not its configured bar count, is the only honest signal. It also owns the movable-frame machinery shared with unit frames: `ns:ApplySavedFramePosition`, `ns:OnFrameDragStart`/`ns:OnFrameDragStop`, `ns:RescaleFrame`, and `ns:ReleaseFrameBars`. |
+| [UnitFrames.lua](../UnitFrames.lua) | The unit frame widget: portrait + name/level header + health/power bars + a values column, driven by a unit token (`ns:RebuildUnitFrames` / `ns:ScanUnitFrames`). A second, separate way to show the data a resource group already can - see ADDON_GUIDE's "Unit frames" section. Reuses `ns:CollectResources` (Trackers.lua) for data, `ns:UpdateResourceBar` (BarEngine.lua) and the bar pool for rendering, and FrameManager's shared positioning helpers above. |
 | [ActivityTracker.lua](../ActivityTracker.lua) | Passive usage tracking + per-spell stats store. |
 | [ClassPresets.lua](../ClassPresets.lua) | Per-class / per-spec starter profiles + the loaders. |
 
@@ -57,7 +58,8 @@ and the rest of the per-widget-type set).
 [Visuals](../Options_Visuals.lua) ·
 [Profiles](../Options_Profiles.lua) ·
 [Activity Tracker](../Options_Stats.lua) ·
-[Help](../Options_Help.lua)
+[Help](../Options_Help.lua) ·
+[Frames](../Options_Frames.lua)
 
 ### Other UI & utility
 
@@ -99,6 +101,7 @@ like dead code or a bug.
 | Add / edit a class starter preset | `ClassPresets.lua` |
 | Add a Help FAQ entry or a `[?]` icon | `Options_Help.lua` (`HELP_ENTRIES`) + `ns:CreateHelpIcon` |
 | Send an addon-to-addon message | `ns.Comms` in `Comms.lua` |
+| Add a unit frame for a new unit (target, pet, ...) | `UnitFrames.lua` (`UNIT_TOKENS` / `UNIT_FRAME_KEYS`) + a `ns.DEFAULTS.unitFrames` entry (`DB.lua`) + a toggle in `Options_Frames.lua` |
 
 ## Verifying a change
 

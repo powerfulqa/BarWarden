@@ -13,6 +13,25 @@ exhaustive notes.
 
 ---
 
+### v2.6.0
+
+**A conventional unit frame joins resource groups as a second way to show
+your health, power, and class resources.** Where a resource group draws
+this data as a stack of timer-style bars, a unit frame draws it the usual
+way: portrait, name and level, tightly stacked bars, and a values column
+with both the amount and a percent. The two are entirely independent -
+resource groups are untouched by this change, and you can use either or
+both.
+
+- **New Frames tab** turns on your player frame, sets its scale, and lets
+  you show or hide the portrait, level, and values column independently.
+- **Player frame only for now** - target, target's target, pet, focus, and
+  party frames follow in later updates, reusing the same widget.
+- Movable and lockable exactly like a bar group: drag it into place while
+  unlocked (`/bw lock`), then lock it back.
+
+---
+
 ### v2.5.0
 
 **A group can now show your health and power automatically, following you

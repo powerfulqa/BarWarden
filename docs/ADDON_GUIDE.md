@@ -1296,6 +1296,136 @@ Always borrow from [BarPool.lua](../BarPool.lua) (`ns:AcquireBar` /
 `ns:ReleaseBar`); never `CreateFrame("StatusBar", ...)` directly outside
 Bar.lua / BarPool.lua.
 
+### Unit frames
+
+[UnitFrames.lua](../UnitFrames.lua) (v2.6.0) is a second, separate way to
+show the same health/power/class-resource data a resource group
+(`autoTrack = "resources"`, see above) already can. The owner found a
+resource group reads as "bars in a box" rather than a unit frame, so this
+draws the conventional arrangement instead: portrait on the left, a
+name-and-level header, health/power bars stacked tightly, and a values
+column on the right showing both the raw numbers and a percentage.
+**Resource groups are untouched by this feature** - the two are independent,
+equally-supported options; the owner picks whichever reads better for a
+given group.
+
+This first slice builds the widget and the player frame only. Target,
+target's target, pet, focus, and party frames are later slices; the whole
+file is keyed by a unit token rather than hardcoding `"player"` so adding
+one is a new key in `UNIT_TOKENS`/`UNIT_FRAME_KEYS` plus a
+`ns.DEFAULTS.unitFrames` entry and a toggle in
+[Options_Frames.lua](../Options_Frames.lua) (the Frames tab), not a new
+widget.
+
+**Data.** `BarWardenDB.unitFrames` is its own top-level table (`frames` was
+already taken by bar groups), keyed by unit (`unitFrames.player` for now),
+each holding `enabled`, `scale`, `showPortrait`, `showLevel`, `showValues`.
+No schema bump was needed to add it: like `global.hidePlayerFrame`/
+`versionAlerts`/`helpCollapsed` before it, `ns:InitDB` (DB.lua) creates or
+`ns:MergeDefaults`-backfills the whole table unconditionally, the same
+treatment `minimap` already gets - there is no legacy shape to migrate
+*from*, so a schema-versioned `MigrateDB()` block would have nothing to do
+that plain merging does not already cover. No `position` key ships in
+`ns.DEFAULTS.unitFrames.player`: a frame with nothing saved yet falls back
+to a hardcoded on-screen spot the same way `ns:CreateGroupFrame` does for a
+brand-new group, rather than `MergeDefaults` planting a placeholder anchor
+no drag ever produced.
+
+**The data.** `ns:CollectResources(opts)` (Trackers.lua) is reused verbatim
+- `ns:ScanUnitFrames` calls it with `opts.unit = "player"` the same way
+`ns:ScanAutoResourceGroup` (BarEngine.lua) does for a resources group, so
+health, current power type, class resources, rune pairing, and per-resource
+colours all come along for free. There is no second collector.
+
+**Status bars.** CLAUDE.md's rule ("never `CreateFrame("StatusBar")`
+outside Bar.lua / BarPool.lua") needed no change: a unit frame's rows are
+borrowed from the shared pool via `ns:AcquireBar`/`ns:ReleaseBar`
+(BarPool.lua), exactly like a resource group's slots, and driven through the
+same `ns:UpdateResourceBar` (BarEngine.lua) that every other resource bar
+already uses. `bar.frameIndex` is deliberately left `nil` on a unit-frame
+bar - that field indexes `BarWardenDB.frames` (bar GROUPS), an unrelated
+table this widget has nothing to do with, so every `frameIndex`-gated
+resolver (`GetBarColor`'s per-group override, `GetBarTextFormat`, and so on)
+is a harmless no-op here rather than a collision with some unrelated group.
+A unit-frame bar shows no inline name/time text (`bar.nameText`/
+`bar.timeText` are explicitly hidden after each `ns:UpdateResourceBar`
+call): the header already carries identity and the values column already
+carries the numbers, so repeating either per row would be exactly the
+"bars in a box" clutter this feature exists to move away from.
+
+**Positioning is not a second system.** `ns:CreateGroupFrame`,
+`SaveFramePosition`, `ns:NormalizeGroupAnchor`, and the lock handling in
+[FrameManager.lua](../FrameManager.lua) were read first, and the reusable
+core was extracted rather than duplicated:
+- `ns:ApplySavedFramePosition(frame, pos, fallback)` applies a saved anchor
+  or a caller-supplied fallback (a group's `TOPLEFT, 100, -200`; a unit
+  frame's `CENTER, 0, 0`, matching a brand-new group's own creation
+  placeholder).
+- `ns:OnFrameDragStop(frame, growUp, savePosition)` is the generic
+  stop-dragging/repin/persist body; the old `SaveFramePosition` is gone,
+  folded into the bar-group call site that now calls this with a fresh
+  `BarWardenDB.frames[i].growDirection` read on every drop (unit frames pass
+  `growUp = false`, since a unit frame's shape never grows the way a bar
+  group's bar count does). `OnDragStart` needed no generalising at all - it
+  had zero group-specific state already - so it is exposed as-is
+  (`ns.OnFrameDragStart`).
+- `ns:RescaleFrame(frame, newScale, growUp, onAnchorChanged)` is the
+  position-preserving rescale `ns:SetFrameScale` used to do inline just for
+  itself; `ns:SetUnitFrameScale` (UnitFrames.lua) calls the same function.
+- `ns:LockAllFrames`/`ns:UnlockAllFrames` also iterate `ns.unitFrames` now
+  (a second, separate tracking table from `ns.groupFrames`, keyed by unit
+  rather than a `BarWardenDB.frames` index) so the existing lock toggle and
+  `/bw lock` reach a unit frame too, with no drag-reorder call since a unit
+  frame has one bar per resource, not a reorderable list.
+- `ns:ReleaseFrameBars(frame)` is the release-every-bar-back-to-the-pool loop
+  that `DestroyGroupFrame`/`BuildBarsForFrame` both used to inline
+  separately; `DestroyUnitFrame` (UnitFrames.lua) is a third call site rather
+  than a fourth copy.
+
+One new guard was needed for this to be safe: `ns:UpdateGroupLayout`
+(FrameManager.lua) now bails immediately when `group.isUnitFrame` is set.
+Without it, `ns:DeactivateBar`/`ns:UpdateResourceBar` (BarEngine.lua) - both
+shared with resource groups - call `MarkGroupDirty(bar:GetParent())` on
+every activate/deactivate regardless of what kind of frame the bar's parent
+is, which would silently run the bar-GROUP layout algorithm against a unit
+frame's completely different geometry (portrait, header, values column) on
+the very next scan. `ns:LayoutUnitFrame` (UnitFrames.lua) owns unit-frame
+layout instead, and is only invoked when the resource-row count actually
+changes, the same "only relayout when something visible changed" discipline
+`MarkGroupDirty` already gives bar groups.
+
+**Updates.** `ns:ScanUnitFrames` is called from the existing 0.25s OnUpdate
+ticker in [Core.lua](../Core.lua), right next to `ns:ScanAllBars` - there is
+no second update loop. `ns:OnUnitDisplayPowerChanged` (BarEngine.lua) also
+calls it for `unit == "player"`, the same zero-lag treatment a resources
+auto-track group gets on a form change. Per-frame-path discipline mirrors
+`ns:ScanAutoResourceGroup`'s title handling: the header text
+(`frame.lastHeaderText`) and each values-column entry
+(`frame.valueTexts[i].lastText`) are cached and only written to their
+fontstring when the resolved value actually changed. The full per-bar
+reposition (`LayoutUnitFrame`) is likewise skipped unless the resource-row
+count changed since the last pass. Bar fill/colour/text itself is not
+diffed beyond that - it goes through `ns:UpdateResourceBar`, the same
+function every other resource bar already runs through every tick, so this
+adds no new per-tick cost class.
+
+**Layout and level.** `ns:ComputeUnitFrameLayout(elements, barCount)` and
+`ns:ResolveUnitFrameElements(cfg)` (both UnitFrames.lua) are pure functions
+covered by `tests/test_unit_frames.lua` - see that file for the layout
+arithmetic and the portrait/level/values-column show/hide decision.
+`ns:FormatUnitFrameValue(current, max)` is the values-column formatter
+("3000 / 4500 (67%)"), also pure and tested there. The header's level
+suffix reuses `ns:FormatUnitLevelSuffix(unit)` (FrameManager.lua) verbatim -
+the same colour-escaped level/classification-mark string "Group Name
+Follows Target" already builds for a resource group's title - rather than a
+second implementation.
+
+**Deferred to a later slice:** target/pet/focus/party frames, per-bar
+conditions/visibility on a unit frame, a Max Bars-style cap exposed in the
+UI (the fixed `MAX_UNIT_FRAME_SLOTS = 10` pre-allocation already has ample
+headroom for the player feed), and folding `unitFrames` into profile
+export/import (a profile currently only carries `frames`/`visual`).
+
 ---
 
 ## UI conventions
@@ -1548,6 +1678,7 @@ Current trap sites:
 | [Options_Bars.lua](../Options_Bars.lua) `KeepListFrameShown` | the `Show()` right after `FauxScrollFrame_Update` (looks redundant) | Blizzard's `FauxScrollFrame_Update` hides the whole scroll frame, not just its scrollbar, when the list fits without scrolling, and the rest of the column anchors to that frame. Removing the `Show()` re-breaks the Bar Control page whenever a list drops from 7 items to 6 (the dependants strand at the panel origin until something re-shows the frame). |
 | [Comms.lua](../Comms.lua) | `SetItemRef` reassigned wholesale (looks like it should be `hooksecurefunc`'d like everything else) | Replaced on purpose: the stock 3.3.5a handler passes unknown link types to `SetHyperlink`, which errors on the addon's custom `bwupdate:` link. Returning early avoids that path; every other link is forwarded to the original untouched. Do not swap this to a hook. |
 | [Core.lua](../Core.lua) `ns:ApplyPlayerFrameHidden` | the `PlayerFrame:HookScript("OnShow", ...)` looks redundant next to the `Hide()` call right above it | It is not a duplicate: `Hide()` only takes effect for the instant it runs, while Blizzard re-`Show()`s `PlayerFrame` on a long list of events for the rest of the session. `HookScript` cannot be removed, so the hook - not the `Hide()` call - is what keeps the frame down after the first time, and it re-checks the live setting on every call rather than being installed only while the setting is on. Deleting it "as a duplicate" brings the frame back the next time Blizzard shows it. |
+| [FrameManager.lua](../FrameManager.lua) `ns:UpdateGroupLayout` | the `if group.isUnitFrame then return end` guard at the top looks pointless (every OTHER caller already only ever hands this a real bar-group frame) | A unit frame (UnitFrames.lua) shares the bar pool, so it also shares `ns:DeactivateBar`/`ns:UpdateResourceBar`'s `MarkGroupDirty(bar:GetParent())` call on every activate/deactivate, regardless of what kind of frame the bar's parent is. Removing the guard lets the bar-GROUP layout algorithm run against a unit frame's completely different geometry (portrait, header, values column) the next time any of its resource bars changes state, snapping its bars into a top-to-bottom stack. |
 
 ---
 
