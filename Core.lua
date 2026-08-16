@@ -147,8 +147,15 @@ function ns:RefreshBarSettings()
 end
 
 -- ----------------------------------------------------------------------------
--- Hide Blizzard's PlayerFrame/TargetFrame and their satellites
--- (global.hidePlayerFrame / global.hideTargetFrame, Options_General.lua)
+-- Hide Blizzard's unit frames and their satellites.
+--
+-- Driven by two things, composed in ns:ResolveBlizzardFrameHidden
+-- (Conditions.lua): the standalone tickboxes for player and target
+-- (global.hidePlayerFrame / global.hideTargetFrame, Options_General.lua),
+-- and - since unit frames grew to cover every unit - whether the BarWarden
+-- frame that REPLACES a given Blizzard frame is switched on. Two frames
+-- drawing the same unit in the same place is never what anyone wants, so
+-- that half is automatic rather than six more tickboxes to find.
 --
 -- A frame's own children - portrait, health/mana bars, group indicator, PvP
 -- icon, level text and the rest - hide the instant the frame itself hides:
@@ -164,24 +171,20 @@ end
 --     player controls separately and are not visually anchored to
 --     PlayerFrame the way RuneFrame is, and the alternate power bar (druid
 --     Eclipse, etc.) is a genuine PlayerFrame child.
---   * TargetFrame: TargetFrameToT (target-of-target) is a comparable
---     standalone satellite, and is STILL left OUT of TARGET_HIDE_FRAME_NAMES
---     even now that a target's-target resource group exists (autoTrack =
---     "totResources", Trackers.lua) to replace what it shows. The reason
---     changed, not the answer: hiding TargetFrame is one tickbox, and
---     building a target's-target group is a separate, opt-in action on a
---     group the owner has to go and set up - the two are not linked, and
---     nothing here can tell whether a matching group actually exists for
---     this character. Folding TargetFrameToT into this tickbox would mean
---     ticking "Hide Blizzard Target Frame" - read by anyone as "declutter
---     the target portrait" - can silently take away target-of-target too,
---     for someone who never built the replacement. The tooltip
---     (Options_General.lua) says explicitly that target-of-target is NOT
---     touched by this setting, so nobody has to guess.
--- The two settings are independent by construction: PLAYER_HIDE_FRAME_NAMES
--- and TARGET_HIDE_FRAME_NAMES are separate lists, each driven by its own
--- want-function and applied by its own public entry point, so ticking one
--- can never touch the other's frames.
+--   * TargetFrame: target-of-target is a comparable standalone satellite,
+--     and is STILL deliberately not folded into the Hide Blizzard Target
+--     Frame tickbox. It has its own entry in BLIZZARD_FRAME_GROUPS instead,
+--     driven by the BarWarden target's-target frame. The distinction is the
+--     same one that kept it out before: ticking "Hide Blizzard Target Frame"
+--     reads as "declutter the target portrait" and must not silently take
+--     away target-of-target too, for someone who never set up a replacement.
+--     Turning ON a BarWarden target's-target frame IS an explicit request
+--     for a replacement, which is why that half is allowed to hide it.
+--     Options_General.lua's tooltip still says so plainly.
+--
+-- Groups stay independent by construction: each row of BLIZZARD_FRAME_GROUPS
+-- has its own name list and its own want-function, so nothing one group does
+-- can reach another group's frames.
 --
 -- Reversible by construction: never UnregisterAllEvents on any of these -
 -- undoing that means hand-re-registering every event Blizzard registered on
@@ -195,33 +198,64 @@ end
 -- just needs one more Show() and the hook stops acting.
 -- ----------------------------------------------------------------------------
 
-local PLAYER_HIDE_FRAME_NAMES = { "PlayerFrame", "RuneFrame" }
-local TARGET_HIDE_FRAME_NAMES = { "TargetFrame", "ComboFrame" }
+-- One entry per Blizzard frame group we can suppress.
+--
+--   unitFrame  the BarWarden unit-frame key that REPLACES this group. When
+--              that frame is switched on, Blizzard's is hidden without the
+--              owner having to ask: the two show the same unit in the same
+--              place, so leaving both up is never what anyone wants.
+--   manual     an optional global tickbox that hides the group on its own,
+--              for someone who wants Blizzard's frame gone without running a
+--              BarWarden one. Only player and target have these; they predate
+--              unit frames and are kept working.
+--   names      the frame globals to hide. Several are listed speculatively -
+--              ApplyFrameHidden skips any global that does not exist, so
+--              naming both spellings of a frame that differs between client
+--              builds costs nothing and avoids guessing wrong.
+local BLIZZARD_FRAME_GROUPS = {
+    { key = "player", unitFrame = "player", manual = "hidePlayerFrame",
+      names = { "PlayerFrame", "RuneFrame" } },
+    { key = "target", unitFrame = "target", manual = "hideTargetFrame",
+      names = { "TargetFrame", "ComboFrame" } },
+    -- Target-of-target is a CHILD of TargetFrame, and 3.3.5a builds differ on
+    -- what it is called, hence both names.
+    { key = "targettarget", unitFrame = "targettarget",
+      names = { "TargetFrameToT", "TargetofTargetFrame" } },
+    { key = "pet",   unitFrame = "pet",   names = { "PetFrame" } },
+    { key = "focus", unitFrame = "focus", names = { "FocusFrame", "FocusFrameToT" } },
+    { key = "party", unitFrame = "party",
+      names = { "PartyMemberFrame1", "PartyMemberFrame2",
+                "PartyMemberFrame3", "PartyMemberFrame4" } },
+}
 
 -- Whether a frame group should be suppressed at all, ignoring combat: tied
--- to both its own tickbox and the addon's own enabled state, so /bw disable
--- hands every frame straight back rather than stranding it hidden with only
--- the options panel (which stays reachable either way via /bw) to fix it. A
+-- to its manual tickbox, to whether the BarWarden frame that replaces it is
+-- switched on, and to the addon's own enabled state - so /bw disable hands
+-- every frame straight back rather than stranding it hidden with only the
+-- options panel (which stays reachable either way via /bw) to fix it. A
 -- disabled BarWarden should not be suppressing any UI, Blizzard's included.
-local function WantPlayerFrameHidden()
-    local g = ns.db and ns.db.global
-    return not not (g and g.enabled and g.hidePlayerFrame)
-end
-
-local function WantTargetFrameHidden()
-    local g = ns.db and ns.db.global
-    return not not (g and g.enabled and g.hideTargetFrame)
+local function MakeWantFn(group)
+    return function()
+        local g = ns.db and ns.db.global
+        if not (g and g.enabled) then return false end
+        local manual = group.manual and g[group.manual]
+        local uf = ns.db.unitFrames and ns.db.unitFrames[group.unitFrame]
+        return ns:ResolveBlizzardFrameHidden(true, manual, uf and uf.enabled)
+    end
 end
 
 local hideHookInstalled = {}
+-- Frames this addon has actually hidden, so the undo path can hand back only
+-- what it took. See the elseif in ApplyFrameHidden for why that matters.
+local hiddenByUs = {}
 
 -- Apply (or re-apply) the hide/show state to one satellite frame by global
--- name. Shared body for every entry in PLAYER_HIDE_FRAME_NAMES/
--- TARGET_HIDE_FRAME_NAMES so the reversible Hide()/HookScript treatment is
--- defined exactly once. `wantFn` is whichever want-function owns this frame
--- (WantPlayerFrameHidden or WantTargetFrameHidden), captured by the OnShow
--- hook below so a frame keeps reading the RIGHT setting for its own group
--- for the life of the hook, not whichever setting last called this function.
+-- name. Shared body for every name in every BLIZZARD_FRAME_GROUPS row, so
+-- the reversible Hide()/HookScript treatment is defined exactly once.
+-- `wantFn` is the want-function of the group this frame belongs to, captured
+-- by the OnShow hook below so a frame keeps reading the RIGHT settings for
+-- its own group for the life of the hook, not whichever group last called
+-- this function.
 local function ApplyFrameHidden(name, wantFn)
     local frame = _G[name]
     -- Blizzard global; guarded the same defensive way as the bundled-library
@@ -269,11 +303,18 @@ local function ApplyFrameHidden(name, wantFn)
         -- template in 3.3.5a, so Hide() is not expected to be combat-
         -- protected, but this never risks erroring the addon if that
         -- assumption is ever wrong on some client build.
+        hiddenByUs[name] = true
         pcall(frame.Hide, frame)
-    else
-        -- Nothing wants this frame hidden (the tickbox is off, or the
-        -- addon is disabled): show it. Same "not actually combat-protected"
-        -- reasoning as the pcall above applies here too.
+    elseif hiddenByUs[name] then
+        -- Only ever Show() a frame WE hid. Blizzard hides most of these
+        -- itself whenever they do not apply - no target of target, no pet,
+        -- an empty party slot, a class with no runes - so showing one
+        -- unconditionally would force it up in exactly the situations
+        -- Blizzard had correctly taken it down, and it would stay up until
+        -- whatever event next re-hid it. Handing back only what we took is
+        -- the only version of "undo" that is actually reversible.
+        hiddenByUs[name] = nil
+        -- Same "not actually combat-protected" reasoning as the pcall above.
         pcall(frame.Show, frame)
     end
 end
@@ -284,19 +325,31 @@ end
 -- built on a secure template in 3.3.5a, so there is nothing to defer (see
 -- ns:ResolvePlayerFrameHidden, Conditions.lua, and the OnShow hook's
 -- EC-TRAP above).
-function ns:ApplyPlayerFrameHidden()
-    for _, name in ipairs(PLAYER_HIDE_FRAME_NAMES) do
-        ApplyFrameHidden(name, WantPlayerFrameHidden)
+function ns:ApplyBlizzardFrameHiding()
+    for _, group in ipairs(BLIZZARD_FRAME_GROUPS) do
+        -- Built once per group and reused for every name in it, so all of a
+        -- group's frames answer to the same want-function - and so the OnShow
+        -- hook, which captures this closure for the life of the session,
+        -- keeps reading its OWN group's settings rather than whichever group
+        -- happened to be applied last.
+        group.wantFn = group.wantFn or MakeWantFn(group)
+        for _, name in ipairs(group.names) do
+            ApplyFrameHidden(name, group.wantFn)
+        end
     end
 end
 
--- Same as ns:ApplyPlayerFrameHidden, for TargetFrame and its satellites.
--- Independent setting, independent frame list: ticking this never touches
--- PlayerFrame/RuneFrame, and vice versa.
+-- Kept as named entry points because Options_General.lua's two tickboxes and
+-- the enable/disable path call them. Both now apply every group: the groups
+-- are no longer independent in practice (turning on a BarWarden frame hides
+-- its Blizzard counterpart), so re-applying one in isolation would leave the
+-- others stale after a change they also care about.
+function ns:ApplyPlayerFrameHidden()
+    ns:ApplyBlizzardFrameHiding()
+end
+
 function ns:ApplyTargetFrameHidden()
-    for _, name in ipairs(TARGET_HIDE_FRAME_NAMES) do
-        ApplyFrameHidden(name, WantTargetFrameHidden)
-    end
+    ns:ApplyBlizzardFrameHiding()
 end
 
 -- ----------------------------------------------------------------------------

@@ -85,20 +85,24 @@ local SCHEMA = {
         offsetX = ns.OFFSET_TOGGLE,
     },
 
-    -- Hide Blizzard's default player frame. Addon-wide, not per group: a
-    -- resource group already duplicates what that frame shows, but hiding it
-    -- is a global act and a second resource group must not fight the first
-    -- over it, so this is a plain tickbox rather than something a resource
-    -- group turns on by itself. ns:ApplyPlayerFrameHidden (Core.lua) does the
-    -- actual, reversible hide/show.
+    -- Hide Blizzard's default player frame.
+    --
+    -- This stays a tickbox even though a BarWarden player frame now hides
+    -- Blizzard's automatically (ns:ResolveBlizzardFrameHidden, Conditions.lua),
+    -- because the two answer different questions. This one is "I want the
+    -- default frame gone", which is valid with no BarWarden frame running at
+    -- all - someone using only resource groups, or nothing. The automatic
+    -- rule is "these two draw the same unit in the same place". Either alone
+    -- hides the frame; unticking this does not bring it back while a
+    -- BarWarden player frame is still up.
     {
         type    = "toggle",
         label   = "Hide Blizzard Player Frame",
         tooltip = "Hides the default player frame (the portrait box near "
                .. "your character), and the Death Knight rune display with "
                .. "it. You lose its portrait, the buffs it shows, its "
-               .. "right-click menu, and floating combat text. BarWarden's "
-               .. "own bars keep working either way.",
+               .. "right-click menu, and floating combat text. Turning on "
+               .. "BarWarden's own player frame hides it anyway.",
         get     = function() return ns.db and ns.db.global and ns.db.global.hidePlayerFrame end,
         set     = function(_, checked)
             if ns.db and ns.db.global then ns.db.global.hidePlayerFrame = checked end
@@ -108,13 +112,11 @@ local SCHEMA = {
     },
 
     -- Hide Blizzard's default target frame. Mirrors Hide Blizzard Player
-    -- Frame above (own tickbox, own addon-wide setting, independent of the
-    -- player one): a target resource group already duplicates what this
-    -- frame shows, but hiding it is a global act and must not fight the
-    -- player-frame tickbox over anything. ns:ApplyTargetFrameHidden
-    -- (Core.lua) does the actual, reversible hide/show for TargetFrame and
-    -- ComboFrame (the combo-point display, its own top-level frame on
-    -- 3.3.5a - see Core.lua's TARGET_HIDE_FRAME_NAMES).
+    -- Frame above in every respect, including the automatic rule: a BarWarden
+    -- target frame hides this one on its own. Target-of-target is still NOT
+    -- folded in here (it has its own group in BLIZZARD_FRAME_GROUPS, driven
+    -- by the BarWarden target's-target frame), so this tickbox means exactly
+    -- what it says and nothing more.
     {
         type    = "toggle",
         label   = "Hide Blizzard Target Frame",
@@ -122,7 +124,7 @@ local SCHEMA = {
                .. "your target). You lose its portrait, the target's buffs "
                .. "and debuffs, its right-click menu, and the combo point "
                .. "display. Your target's target display is not affected. "
-               .. "BarWarden's own bars keep working either way.",
+               .. "Turning on BarWarden's own target frame hides it anyway.",
         get     = function() return ns.db and ns.db.global and ns.db.global.hideTargetFrame end,
         set     = function(_, checked)
             if ns.db and ns.db.global then ns.db.global.hideTargetFrame = checked end

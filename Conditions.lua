@@ -293,6 +293,33 @@ function ns:ResolvePlayerFrameHidden(wantHidden)
     return not not wantHidden
 end
 
+-- Should a Blizzard frame group be suppressed? Composes the three inputs
+-- that can ask for it (see BLIZZARD_FRAME_GROUPS, Core.lua):
+--
+--   addonEnabled      /bw disable hands every frame back. A disabled
+--                     BarWarden must not be suppressing any UI, so this
+--                     vetoes the other two outright.
+--   manualHide        the standalone tickbox on the General tab, for someone
+--                     who wants Blizzard's frame gone without running a
+--                     BarWarden one. Only player and target have one.
+--   unitFrameEnabled  the BarWarden frame that REPLACES this group is on.
+--                     The two draw the same unit in the same place, so
+--                     leaving both up is never what anyone wants - hiding
+--                     Blizzard's is automatic rather than a second tickbox
+--                     the owner has to find.
+--
+-- Deliberately OR rather than "the tickbox wins": someone who ticked Hide
+-- Blizzard Player Frame and then ALSO turned on a BarWarden player frame
+-- wants it gone twice over, and unticking one must not bring it back while
+-- the other still stands.
+--
+-- Combat is not an input here, and must not become one - see the long note
+-- on ns:ResolvePlayerFrameHidden above for what that cost last time.
+function ns:ResolveBlizzardFrameHidden(addonEnabled, manualHide, unitFrameEnabled)
+    if not addonEnabled then return false end
+    return (manualHide or unitFrameEnabled) and true or false
+end
+
 -- ----------------------------------------------------------------------------
 -- Resource bar default colours (v2.5.0): a resource bar (health, the
 -- character's current power, a pinned extra) should read in the game's own

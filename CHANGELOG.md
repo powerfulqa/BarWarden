@@ -33,6 +33,13 @@ against renaming BarWarden and its commands in a fork. Full detail in
 [LICENSE](LICENSE); exactly which files came from where is recorded in
 [NOTICE.md](NOTICE.md).
 
+**Turning on a BarWarden frame hides Blizzard's equivalent.** Player,
+target, target's target, pet, focus and party all do this, so you never end
+up with two frames drawing the same unit in the same place. Switch the
+BarWarden frame back off and Blizzard's returns. The two tickboxes on the
+General tab still work for hiding the default player or target frame
+without running a BarWarden one.
+
 **Frames for everyone: you, your target, your target's target, your pet,
 your focus, and all four party slots.** They share the player frame's
 looks - portrait, fonts, opacity, bar look and height - and each is dragged
@@ -72,8 +79,12 @@ Fixed in the same pass:
   X-Perl's own setting. This is also what made a 3D portrait look like it
   sat on a grey square. An *Opacity* section fades the panel, the portrait,
   the bars and the border independently, each down to fully see-through:
-  *Panel* covers the whole dark background including behind the bars, and
-  *Bars* fades the bars themselves along with any numbers on them.
+  *Panel* covers the whole dark background, including behind the bars and
+  the name band, and *Bars* fades the bars themselves along with any numbers
+  on them.
+- **The bars sit flush against the portrait**, with no gap between them.
+- **The numbers sit on the bars by default.** The column beside them is
+  still there under *Values Position* if you prefer it.
 - **The font and size settings now actually apply.** They were being given
   a font's name where a file path was needed, so nothing happened. The
   values font and size also had no effect while the numbers were on the

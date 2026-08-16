@@ -214,7 +214,10 @@ function M.test_defaults_unitFrameCriticalValues()
     assertx.assertFalse(player.enabled, "unit frames must be off until asked for")
     assertx.assertEqual(player.portraitStyle, "2D",
         "2D is the portrait that always works; 3D cannot render an unseen unit")
-    assertx.assertEqual(player.valuePlacement, "COLUMN")
+    -- Numbers on the bars by default. The values column is still available,
+    -- but a frame whose numbers sit off to one side reads as a bar chart with
+    -- a legend rather than as a unit frame.
+    assertx.assertEqual(player.valuePlacement, "ONBAR")
     assertx.assertEqual(player.barTexture, "XP Perl v2")
     assertx.assertTrue(player.pairRunes, "six rune rows are the main source of clutter")
     assertx.assertEqual(player.secondaryBarHeight, 0, "0 means derive it from bar height")

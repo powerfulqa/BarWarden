@@ -438,8 +438,13 @@ function ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
 
     -- Left edge of the body sits inside the backdrop's own 4px inset, so the
     -- artwork's border never overlaps the portrait or the first bar.
+    --
+    -- The bars butt straight up against the portrait with no gap. There used
+    -- to be a UF_PADDING between them, on the reasoning that elements need
+    -- breathing room; on screen it just read as a hole in the frame, because
+    -- the portrait and the bars are one block, not two.
     local bodyX = UF_PADDING
-    local barsX = bodyX + ((portraitSize > 0) and (portraitSize + UF_PADDING) or 0)
+    local barsX = bodyX + portraitSize
 
     local valuesWidth = 0
     if elements.values then
@@ -925,7 +930,12 @@ local function BuildUnitFrame(key)
     local headerStrip = frame:CreateTexture(nil, "BORDER")
     headerStrip:SetTexture(ns.ResolveTextureName and ns:ResolveTextureName(barTexture)
         or "Interface\\Buttons\\WHITE8x8")
-    headerStrip:SetVertexColor(0.1, 0.1, 0.1, 0.85)
+    -- Fades with the Panel slider, not on its own: the name band reads as
+    -- part of the same dark surface as the frame background and the bar
+    -- backgrounds, so leaving it at a fixed alpha made it the one piece that
+    -- stayed solid when everything around it was turned down.
+    headerStrip:SetVertexColor(0.1, 0.1, 0.1,
+        0.85 * ns:GetUnitFrameOpacity(cfg, "frameOpacity"))
     frame.headerStrip = headerStrip
 
     local nameText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -1323,6 +1333,13 @@ end
 -- change there is infrequent, so a full rebuild rather than a targeted
 -- per-setting updater is the simplest correct answer for a single frame).
 function ns:RebuildUnitFrames()
+    -- Blizzard's equivalent frames are hidden by the same pass that builds
+    -- ours, because "is the BarWarden frame on" is now an input to whether
+    -- Blizzard's should be up (ns:ResolveBlizzardFrameHidden, Conditions.lua).
+    -- Every settings change on the Frames tab routes through here, so this is
+    -- the one place that has to remember.
+    if ns.ApplyBlizzardFrameHiding then ns:ApplyBlizzardFrameHiding() end
+
     for _, key in ipairs(UNIT_FRAME_KEYS) do
         DestroyUnitFrame(key)
         local cfg = UnitFrameConfig(key)

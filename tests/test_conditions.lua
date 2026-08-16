@@ -1057,6 +1057,51 @@ function M.test_getResourcePowerColor_unholyRuneIsGreen()
     assertx.assertEqual(b, 0)
 end
 
+-- --------------------------------------------------------------------------
+-- ns:ResolveBlizzardFrameHidden
+--
+-- Decides whether Blizzard's own player/target/party/... frame is suppressed.
+-- Three inputs, and getting the precedence wrong either strands a frame
+-- hidden with no way to bring it back, or leaves two frames drawing the same
+-- unit on top of each other.
+-- --------------------------------------------------------------------------
+
+function M.test_blizzardHidden_nothingAsksMeansVisible()
+    local ns = fresh()
+    assertx.assertFalse(ns:ResolveBlizzardFrameHidden(true, false, false))
+    assertx.assertFalse(ns:ResolveBlizzardFrameHidden(true, nil, nil))
+end
+
+function M.test_blizzardHidden_manualTickboxHides()
+    local ns = fresh()
+    assertx.assertTrue(ns:ResolveBlizzardFrameHidden(true, true, false))
+end
+
+-- The automatic half: a BarWarden frame replacing this one is reason enough,
+-- with no second tickbox for the owner to find.
+function M.test_blizzardHidden_ourOwnFrameBeingOnHides()
+    local ns = fresh()
+    assertx.assertTrue(ns:ResolveBlizzardFrameHidden(true, false, true))
+end
+
+-- OR, not "the tickbox wins": someone who asked twice must not have it come
+-- back when they undo one of the two.
+function M.test_blizzardHidden_eitherReasonAloneIsEnough()
+    local ns = fresh()
+    assertx.assertTrue(ns:ResolveBlizzardFrameHidden(true, true, true))
+    assertx.assertTrue(ns:ResolveBlizzardFrameHidden(true, true, false))
+    assertx.assertTrue(ns:ResolveBlizzardFrameHidden(true, false, true))
+end
+
+-- /bw disable must hand every frame back. This is the safety valve: a
+-- disabled addon suppressing UI would leave someone with no visible frames
+-- and no obvious cause.
+function M.test_blizzardHidden_disabledAddonSuppressesNothing()
+    local ns = fresh()
+    assertx.assertFalse(ns:ResolveBlizzardFrameHidden(false, true, true),
+        "a disabled BarWarden must not hide anything, whatever else asks")
+end
+
 -- Frost is the one rune colour that deliberately departs from Blizzard's
 -- own FrameXML palette, which uses pure cyan (0, 1, 1). The owner asked for
 -- frost runes to read as blue after seeing cyan on a live frame. This test

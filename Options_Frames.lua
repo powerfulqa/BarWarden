@@ -333,22 +333,25 @@ end
 -- generic sentence.
 -- `key` here is a CONFIG key: "party" is one settings block covering all
 -- four party frames, which is why there is no party1..party4 row.
+-- Order is the owner's, and is by how often a frame is actually looked at
+-- rather than alphabetical or by unit-token order: player, target, party,
+-- then the three occasional ones.
 local FRAME_SECTIONS = {
     { key = "player",       label = "Player Frame",
       whose = "your own character", resourceTickList = true },
     { key = "target",       label = "Target Frame",
       whose = "whatever you have targeted" },
+    { key = "party",        label = "Party Frames",
+      whose = "everyone in your party",
+      note = "One set of settings for all four party frames. Each is dragged "
+          .. "on its own, and a frame only shows while someone is in that "
+          .. "slot." },
     { key = "targettarget", label = "Target's Target Frame",
       whose = "whoever your target is targeting" },
     { key = "pet",          label = "Pet Frame",
       whose = "your pet" },
     { key = "focus",        label = "Focus Frame",
       whose = "your focus target" },
-    { key = "party",        label = "Party Frames",
-      whose = "everyone in your party",
-      note = "One set of settings for all four party frames. Each is dragged "
-          .. "on its own, and a frame only shows while someone is in that "
-          .. "slot." },
 }
 
 local function CreateFramesTab(parent)

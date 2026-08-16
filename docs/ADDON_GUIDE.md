@@ -944,34 +944,43 @@ pure arithmetic the test harness can reach without the frame-heavy code that
 actually touches `PlayerFrame`/`TargetFrame`. `wantHidden` already folds in
 `global.enabled`, so a disabled addon never keeps either frame hidden.
 
-Each setting reaches more than just the frame named in its label:
-`PLAYER_HIDE_FRAME_NAMES` (Core.lua) is `{ "PlayerFrame", "RuneFrame" }` and
-`TARGET_HIDE_FRAME_NAMES` is `{ "TargetFrame", "ComboFrame" }` - the short
-lists of standalone satellites each setting applies to. `RuneFrame` (the
+Suppression is table-driven: `BLIZZARD_FRAME_GROUPS` (Core.lua) has one row
+per Blizzard frame group, naming the globals to hide, the optional standalone
+tickbox, and the BarWarden unit-frame key that replaces it.
+`ns:ResolveBlizzardFrameHidden` (Conditions.lua) composes the three inputs -
+addon enabled, manual tickbox, replacing frame enabled - as
+`addonEnabled and (manual or unitFrameEnabled)`. The OR is deliberate:
+someone who ticked the box AND turned on a BarWarden frame wants it gone
+twice over, and undoing one must not bring it back.
+
+Each group reaches more than the frame named in its label. `RuneFrame` (the
 Death Knight rune display) and `ComboFrame` (the combo-point display) are
-each their own top-level frame on 3.3.5a, not a child of `PlayerFrame`/
+each their own top-level frame on 3.3.5a, not a child of `PlayerFrame` /
 `TargetFrame` respectively, so hiding the parent alone left them on screen.
 Everything else that visually rides along with either frame (portrait,
 health/mana bars, group indicator, PvP icon, level text, the alternate
 power bar some forms use, the target's cast bar) is a genuine XML child of
 it, and a hidden parent already makes WoW treat every child as invisible
 regardless of the child's own `Show()`/`Hide()` state, so none of those
-need an entry here. Checked further for each:
-  * PlayerFrame: the pet frame and the totem frame are independent UI the
-    player controls separately and are not anchored to `PlayerFrame`, so
-    they are out of scope on purpose, not an oversight.
-  * TargetFrame: `TargetFrameToT` (target-of-target) is a comparable
-    standalone satellite, and is STILL left OUT of `TARGET_HIDE_FRAME_NAMES`
-    even now that a `totResources` group (v2.5.0; see "The 'resources' /
-    'targetResources' / 'totResources' feeds" above) exists to replace what
-    it shows. The reason changed, not the answer: hiding `TargetFrame` is
-    one tickbox, and building a `totResources` group is a separate, opt-in
-    action the owner has to take on a specific group - nothing here can
-    tell whether a matching group exists for this character, so folding
-    `TargetFrameToT` into this tickbox would let someone lose
-    target-of-target just by ticking "declutter the target portrait", with
-    no replacement built. The tooltip (Options_General.lua) says
-    explicitly that target-of-target is not touched by this setting.
+need an entry. Some rows list two spellings of the same frame
+(`TargetFrameToT` / `TargetofTargetFrame`) because 3.3.5a builds differ;
+`ApplyFrameHidden` skips a global that does not exist, so naming both is
+free and beats guessing.
+
+Two rules that are easy to break:
+  * **Only ever `Show()` a frame this addon hid.** `hiddenByUs` tracks that.
+    Blizzard hides most of these itself whenever they do not apply - no
+    target of target, no pet, an empty party slot, a class with no runes -
+    so an unconditional `Show()` forces a frame up in exactly the cases
+    Blizzard had correctly taken it down, and it stays up until whatever
+    event next re-hides it.
+  * **Target-of-target is still NOT folded into the Hide Blizzard Target
+    Frame tickbox.** It has its own group, driven by the BarWarden
+    target's-target frame. Ticking "Hide Blizzard Target Frame" reads as
+    "declutter the target portrait" and must not silently take
+    target-of-target with it; turning on a BarWarden target's-target frame
+    IS an explicit request for a replacement, which is why that is allowed
+    to hide it. The tooltip (Options_General.lua) still says so.
 
 `ns:ApplyPlayerFrameHidden` / `ns:ApplyTargetFrameHidden` (Core.lua) do the
 impure half and are deliberately reversible: each only ever calls `Hide()` /

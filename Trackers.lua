@@ -1192,7 +1192,7 @@ end
 --     simply has none banked right now, so there is nothing further to
 --     probe. Blizzard's own UI agrees that they travel with the target, not
 --     the player: ComboFrame is anchored to TargetFrame, not PlayerFrame
---     (see Core.lua's TARGET_HIDE_FRAME_NAMES). They are offered on the
+--     (see Core.lua's BLIZZARD_FRAME_GROUPS). They are offered on the
 --     player feed and the target feed - unlike Runes/Runic Power/Soul
 --     Shards, showing them via the target feed is never a mislabelled read
 --     of your own data, it is the same reading either way. They stop at the
