@@ -98,6 +98,10 @@ function M.test_defaults_globalExact()
         versionAlerts = true,
         hidePlayerFrame = false,
         hideTargetFrame = false,
+        -- Ticked from a player buff/debuff auto-track group, but stored
+        -- globally like the two above: hiding the default icons is one act,
+        -- and a buff group and a debuff group must not fight over it.
+        hideBlizzardAuras = false,
         -- Help-tab section collapse seed (added with the Help tab). Getting
         -- Started ships open, so it has no key here; the rest start collapsed.
         helpCollapsed = {

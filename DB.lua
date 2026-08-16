@@ -37,6 +37,13 @@ ns.DEFAULTS = {
         -- backfilled by MergeDefaults on existing saves (no schema bump
         -- needed, same as hidePlayerFrame).
         hideTargetFrame = false,
+        -- Hide Blizzard's default buff/debuff icons. Ticked from the Auto
+        -- Track section of a group that fills itself from the player's own
+        -- buffs or debuffs (Options_Bars.lua), since that is the group which
+        -- replaces them - but stored globally, like the two above, because
+        -- hiding them is one act and a buff group and a debuff group must
+        -- not fight over it. Additive key, backfilled by MergeDefaults.
+        hideBlizzardAuras = false,
         -- Help-tab section collapse state: sectionKey -> true when collapsed.
         -- Seeded so Getting Started is open and the rest start collapsed.
         -- Additive key, backfilled by MergeDefaults on existing saves (no

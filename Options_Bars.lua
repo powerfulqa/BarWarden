@@ -473,6 +473,13 @@ local function CreateBarsTab(parent)
         "grpAutoPinRunes", "grpAutoPinRunesColor",
         "grpAutoPairRunes",
     }
+    -- Only the two feeds that replace Blizzard's own buff display. Offering
+    -- "hide the default buffs" on a TARGET feed would be wrong: the default
+    -- display shows the player's own auras, so a target group replaces
+    -- nothing of it.
+    local AUTO_PLAYER_AURA_ONLY_WIDGET_IDS = {
+        "grpAutoHideBlizzardAuras",
+    }
 
     -- Whether the selected group has an AURA feed picked (not "resources").
     -- The banned-spells section (built further down) is keyed off this too:
@@ -500,6 +507,7 @@ local function CreateBarsTab(parent)
         local isTargetResource = value == "targetResources" or value == "totResources"
         local isAura  = hasFeed and value ~= "resources" and not isTargetResource
         local isPlayerResource = value == "resources"
+        local isPlayerAura = (value == "playerBuffs" or value == "playerDebuffs")
 
         local function setAll(ids, shown)
             for _, id in ipairs(ids) do
@@ -515,6 +523,7 @@ local function CreateBarsTab(parent)
         setAll(AUTO_RESOURCE_ONLY_WIDGET_IDS, hasFeed and not isAura)
         setAll(AUTO_TARGET_RESOURCE_ONLY_WIDGET_IDS, isTargetResource)
         setAll(AUTO_PLAYER_RESOURCE_ONLY_WIDGET_IDS, isPlayerResource)
+        setAll(AUTO_PLAYER_AURA_ONLY_WIDGET_IDS, isPlayerAura)
 
         autoFeedShown = isAura
         if UpdateBanList then UpdateBanList() end
@@ -998,6 +1007,34 @@ local function CreateBarsTab(parent)
           end,
           onChange = function(value) SetAutoSubWidgetsShown(value) end,
           offsetX = ns.OFFSET_DROPDOWN, spacing = 28 },
+
+        -- Sits directly under the Track dropdown, and only for the two feeds
+        -- that actually replace Blizzard's own buff display.
+        --
+        -- The SETTING is addon-wide (global.hideBlizzardAuras), not per
+        -- group, even though the tickbox lives in a group's settings. Hiding
+        -- that display is a single global act, and two groups tracking
+        -- buffs and debuffs separately must not fight each other over it -
+        -- the same reasoning as the Hide Blizzard Player Frame tickbox on
+        -- the General tab. The tooltip says so, so ticking it in one group
+        -- and finding it ticked in another is not a surprise.
+        { type = "toggle", id = "grpAutoHideBlizzardAuras",
+          label = "Hide Blizzard Buffs and Debuffs",
+          tooltip = "Hides the default buff and debuff icons in the corner of "
+                 .. "the screen. This is one setting for the whole addon, not "
+                 .. "just this group. Buffs and debuffs go together because "
+                 .. "the game draws them as one piece. Weapon enchants are "
+                 .. "not affected.",
+          get = function()
+              return ns.db and ns.db.global and ns.db.global.hideBlizzardAuras
+          end,
+          set = function(_, checked)
+              if ns.db and ns.db.global then
+                  ns.db.global.hideBlizzardAuras = checked
+              end
+              if ns.ApplyBlizzardFrameHiding then ns:ApplyBlizzardFrameHiding() end
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 8 },
         { type = "slider", id = "grpAutoMaxBars", label = "Max Bars", min = 1, max = 30, step = 1,
           width = 150, stretch = true,
           tooltip = "How many bars this group can show at once.",

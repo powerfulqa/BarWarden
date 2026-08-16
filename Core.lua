@@ -226,6 +226,21 @@ local BLIZZARD_FRAME_GROUPS = {
     { key = "party", unitFrame = "party",
       names = { "PartyMemberFrame1", "PartyMemberFrame2",
                 "PartyMemberFrame3", "PartyMemberFrame4" } },
+    -- Blizzard's buff/debuff icons. Manual-only: unlike every group above,
+    -- no unit frame replaces these, so nothing turns them off automatically.
+    -- An auto-tracking group that fills from the player's own buffs or
+    -- debuffs is what replaces them, and its Auto Track section is where the
+    -- tickbox lives (Options_Bars.lua) - but a group is an opt-in thing the
+    -- owner builds, and "I made a buff group" is not the same statement as
+    -- "take away the default display", so this stays a deliberate tick.
+    --
+    -- Buffs and debuffs are ONE entry because 3.3.5a draws them as one:
+    -- BuffButton1.. and DebuffButton1.. are both children of BuffFrame, so
+    -- there is no way to hide one and keep the other by hiding a frame.
+    -- TemporaryEnchantFrame (weapon enchants) is a separate top-level frame
+    -- and is deliberately left alone - someone hiding buff icons has said
+    -- nothing about their weapon enchants.
+    { key = "auras", manual = "hideBlizzardAuras", names = { "BuffFrame" } },
 }
 
 -- Whether a frame group should be suppressed at all, ignoring combat: tied
@@ -239,7 +254,11 @@ local function MakeWantFn(group)
         local g = ns.db and ns.db.global
         if not (g and g.enabled) then return false end
         local manual = group.manual and g[group.manual]
-        local uf = ns.db.unitFrames and ns.db.unitFrames[group.unitFrame]
+        -- A group with no `unitFrame` (the buff/debuff icons) has nothing
+        -- that replaces it, so only its tickbox can hide it. Guarded rather
+        -- than relying on a nil table lookup reading back nil.
+        local uf = group.unitFrame and ns.db.unitFrames
+                   and ns.db.unitFrames[group.unitFrame]
         return ns:ResolveBlizzardFrameHidden(true, manual, uf and uf.enabled)
     end
 end

@@ -33,6 +33,11 @@ against renaming BarWarden and its commands in a fork. Full detail in
 [LICENSE](LICENSE); exactly which files came from where is recorded in
 [NOTICE.md](NOTICE.md).
 
+**Hide the default buff and debuff icons.** Set a group to track all buffs
+or all debuffs on you and a *Hide Blizzard Buffs and Debuffs* tick appears
+under that dropdown. The two go together because the game draws them as one
+piece; weapon enchants are left alone.
+
 **Turning on a BarWarden frame hides Blizzard's equivalent.** Player,
 target, target's target, pet, focus and party all do this, so you never end
 up with two frames drawing the same unit in the same place. Switch the

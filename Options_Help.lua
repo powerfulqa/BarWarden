@@ -230,6 +230,20 @@ local HELP_ENTRIES = {
           .. "settings.",
     },
     {
+        id = "auto-track-hide-blizzard",
+        q = "Can I hide the default buff and debuff icons?",
+        a = "Yes. Set a group to track all buffs on you or all debuffs on "
+          .. "you, and Hide Blizzard Buffs and Debuffs appears just under "
+          .. "that dropdown.\n\n"
+          .. "Buffs and debuffs go together because the game draws them as "
+          .. "one piece, so the tick hides both. Weapon enchants are left "
+          .. "alone. It is one setting for the whole addon rather than per "
+          .. "group, so a buff group and a debuff group cannot disagree about "
+          .. "it - tick it in either and it applies once.\n\n"
+          .. "Untick it to bring the icons back, or /bw disable to hand back "
+          .. "everything BarWarden is hiding.",
+    },
+    {
         id = "auto-track-tips",
         q = "What should I expect from an auto-tracking group?",
         a = "The group is empty until something real is actually active on "
