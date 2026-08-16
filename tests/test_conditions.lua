@@ -1102,6 +1102,41 @@ function M.test_blizzardHidden_disabledAddonSuppressesNothing()
         "a disabled BarWarden must not hide anything, whatever else asks")
 end
 
+-- --------------------------------------------------------------------------
+-- ns:ShouldRestoreBlizzardFrame
+--
+-- The undo half, and NOT the mirror image of the hide question. Getting it
+-- wrong is immediately visible: an empty focus frame and empty party frames
+-- appeared on screen the instant those BarWarden frames were switched off,
+-- and nothing took them down again short of a reload.
+-- --------------------------------------------------------------------------
+
+function M.test_restore_neverHandsBackWhatWeNeverTook()
+    local ns = fresh()
+    -- The common case, not an edge one: Blizzard hides the focus frame, the
+    -- pet frame and empty party slots itself whenever they do not apply, so
+    -- most "hides" take nothing.
+    assertx.assertFalse(ns:ShouldRestoreBlizzardFrame(false, "focus", true))
+    assertx.assertFalse(ns:ShouldRestoreBlizzardFrame(nil, "party1", true))
+end
+
+-- A frame with no unit is always applicable, so it is always safe to restore.
+function M.test_restore_unitlessFrameAlwaysComesBack()
+    local ns = fresh()
+    assertx.assertTrue(ns:ShouldRestoreBlizzardFrame(true, nil, false))
+    assertx.assertTrue(ns:ShouldRestoreBlizzardFrame(true, nil, nil))
+end
+
+-- Hidden while a focus was set, restored after it was cleared: showing it
+-- now would put an empty frame on screen.
+function M.test_restore_skipsAUnitThatHasSinceGone()
+    local ns = fresh()
+    assertx.assertFalse(ns:ShouldRestoreBlizzardFrame(true, "focus", false),
+        "a frame whose unit has gone must stay down")
+    assertx.assertTrue(ns:ShouldRestoreBlizzardFrame(true, "focus", true),
+        "a frame whose unit is still there must come back")
+end
+
 -- Frost is the one rune colour that deliberately departs from Blizzard's
 -- own FrameXML palette, which uses pure cyan (0, 1, 1). The owner asked for
 -- frost runes to read as blue after seeing cyan on a live frame. This test

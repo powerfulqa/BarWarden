@@ -265,8 +265,31 @@ end
 
 local hideHookInstalled = {}
 -- Frames this addon has actually hidden, so the undo path can hand back only
--- what it took. See the elseif in ApplyFrameHidden for why that matters.
+-- what it took. See ApplyFrameHidden for why that matters.
 local hiddenByUs = {}
+
+-- The unit a frame describes, for frames Blizzard only shows when that unit
+-- exists. Consulted when restoring: showing a focus frame with no focus, or a
+-- party slot with nobody in it, puts an empty frame on screen that nothing
+-- will take down again short of a reload.
+--
+-- Absent from this table means "always applicable" (PlayerFrame, RuneFrame,
+-- BuffFrame) and so always safe to restore. RuneFrame is deliberately not
+-- listed: it has no unit, and the "was it actually shown" check in
+-- ApplyFrameHidden already stops a non-Death-Knight being handed one.
+local RESTORE_UNIT = {
+    TargetFrame         = "target",
+    ComboFrame          = "target",
+    TargetFrameToT      = "targettarget",
+    TargetofTargetFrame = "targettarget",
+    FocusFrame          = "focus",
+    FocusFrameToT       = "focus",
+    PetFrame            = "pet",
+    PartyMemberFrame1   = "party1",
+    PartyMemberFrame2   = "party2",
+    PartyMemberFrame3   = "party3",
+    PartyMemberFrame4   = "party4",
+}
 
 -- Apply (or re-apply) the hide/show state to one satellite frame by global
 -- name. Shared body for every name in every BLIZZARD_FRAME_GROUPS row, so
@@ -312,29 +335,41 @@ local function ApplyFrameHidden(name, wantFn)
         hideHookInstalled[name] = true
         frame:HookScript("OnShow", function(self)
             if ns:ResolvePlayerFrameHidden(wantFn()) then
+                -- Blizzard was trying to show it, so it IS a frame we have
+                -- taken away and owe back. Recorded here as well as below
+                -- because this is the only place that learns about a frame
+                -- that became applicable after we started hiding it - you had
+                -- no focus when the setting went on, and picked one later.
+                hiddenByUs[name] = true
                 self:Hide()
             end
         end)
     end
 
     if shouldHide then
+        -- Recorded ONLY if the frame was actually up. Hiding something
+        -- Blizzard already had hidden takes nothing, so there is nothing to
+        -- give back - and claiming otherwise is what put an empty focus frame
+        -- and empty party frames on screen the moment those BarWarden frames
+        -- were switched off. Blizzard hides most of these itself whenever
+        -- they do not apply (no focus, no pet, an empty party slot, a class
+        -- with no runes), so this case is the common one, not the edge.
+        if frame:IsShown() then hiddenByUs[name] = true end
         -- pcall belt-and-braces: neither frame is built on a secure
         -- template in 3.3.5a, so Hide() is not expected to be combat-
         -- protected, but this never risks erroring the addon if that
         -- assumption is ever wrong on some client build.
-        hiddenByUs[name] = true
         pcall(frame.Hide, frame)
-    elseif hiddenByUs[name] then
-        -- Only ever Show() a frame WE hid. Blizzard hides most of these
-        -- itself whenever they do not apply - no target of target, no pet,
-        -- an empty party slot, a class with no runes - so showing one
-        -- unconditionally would force it up in exactly the situations
-        -- Blizzard had correctly taken it down, and it would stay up until
-        -- whatever event next re-hid it. Handing back only what we took is
-        -- the only version of "undo" that is actually reversible.
+    else
+        -- The rule itself is ns:ShouldRestoreBlizzardFrame (Conditions.lua),
+        -- where it is testable; this only gathers its three inputs.
+        local unit = RESTORE_UNIT[name]
+        local exists = unit and UnitExists and UnitExists(unit)
+        if ns:ShouldRestoreBlizzardFrame(hiddenByUs[name], unit, exists) then
+            -- Same "not actually combat-protected" reasoning as above.
+            pcall(frame.Show, frame)
+        end
         hiddenByUs[name] = nil
-        -- Same "not actually combat-protected" reasoning as the pcall above.
-        pcall(frame.Show, frame)
     end
 end
 

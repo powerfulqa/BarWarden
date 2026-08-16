@@ -264,6 +264,25 @@ function ns:CreateHelpIcon(parent, anchorWidget, anchorPoint, relPoint, xOff, yO
     local name = NextName("HELP")
     local btn = CreateFrame("Button", name, parent)
     btn:SetSize(22, 16)
+
+    -- A checkbox's FRAME is only the tick box; its label is a separate
+    -- fontstring extending well past the frame's right edge. Anchoring to the
+    -- frame therefore drops the [?] into the middle of the label text, which
+    -- is exactly what it did on Hide Blizzard Player Frame. Re-anchor to the
+    -- label so "to the right of this control" means what it looks like.
+    --
+    -- Done here rather than at the call site so every panel gets it: this had
+    -- gone unnoticed only because every earlier [?] was anchored to a header,
+    -- which is a bare fontstring and has no such gap.
+    if anchorWidget and anchorWidget.GetObjectType
+       and anchorWidget:GetObjectType() == "CheckButton"
+       and anchorWidget.GetName and anchorWidget:GetName() then
+        local label = _G[anchorWidget:GetName() .. "Text"]
+        if label and label:GetText() and label:GetText() ~= "" then
+            anchorWidget = label
+        end
+    end
+
     if anchorWidget then
         btn:SetPoint(anchorPoint or "LEFT", anchorWidget, relPoint or "RIGHT",
                      xOff or 4, yOff or 0)

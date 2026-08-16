@@ -320,6 +320,28 @@ function ns:ResolveBlizzardFrameHidden(addonEnabled, manualHide, unitFrameEnable
     return (manualHide or unitFrameEnabled) and true or false
 end
 
+-- Should a Blizzard frame be handed BACK now that nothing wants it hidden?
+-- Not the mirror image of the question above, and getting it wrong is
+-- visible: an empty focus frame or empty party frames appear on screen the
+-- instant the matching BarWarden frame is switched off, and nothing takes
+-- them down again short of a reload.
+--
+--   wasHiddenByUs  this addon actually hid it. Hiding something Blizzard
+--                  already had down takes nothing, so there is nothing to
+--                  give back - and that is the COMMON case, since Blizzard
+--                  hides most of these itself whenever they do not apply.
+--   unit           the unit the frame describes, or nil for one that is
+--                  always applicable (the player frame, the rune display,
+--                  the buff icons). Those are always safe to restore.
+--   unitExists     whether that unit is there right now. We may have hidden
+--                  the focus frame while a focus was set, and the focus may
+--                  have been cleared since.
+function ns:ShouldRestoreBlizzardFrame(wasHiddenByUs, unit, unitExists)
+    if not wasHiddenByUs then return false end
+    if not unit then return true end
+    return unitExists and true or false
+end
+
 -- ----------------------------------------------------------------------------
 -- Resource bar default colours (v2.5.0): a resource bar (health, the
 -- character's current power, a pinned extra) should read in the game's own

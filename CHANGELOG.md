@@ -41,7 +41,9 @@ piece; weapon enchants are left alone.
 **Turning on a BarWarden frame hides Blizzard's equivalent.** Player,
 target, target's target, pet, focus and party all do this, so you never end
 up with two frames drawing the same unit in the same place. Switch the
-BarWarden frame back off and Blizzard's returns. The two tickboxes on the
+BarWarden frame back off and Blizzard's returns, but only if it was there
+to begin with: switching off a focus or party frame no longer leaves an
+empty default frame stranded on screen. The two tickboxes on the
 General tab still work for hiding the default player or target frame
 without running a BarWarden one.
 
