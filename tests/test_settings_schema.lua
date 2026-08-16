@@ -143,6 +143,7 @@ local SHARED_FRAME_KEYS = {
     "enabled", "scale", "showPortrait", "portraitStyle", "showName",
     "showLevel", "showValues", "nameFont", "nameFontSize", "valueFont",
     "valueFontSize", "valuePlacement", "barHeight", "secondaryBarHeight",
+    "minRows",
     "frameOpacity", "portraitOpacity", "barOpacity", "borderOpacity",
     "barTexture",
 }

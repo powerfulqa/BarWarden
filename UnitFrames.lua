@@ -549,7 +549,11 @@ local UF_SEGMENT_GAP = 0.012
 -- were missing, which is the same silently-dropped-bar shape as a resource
 -- group overflowing its Max Bars. Dropping the whole row is at least
 -- visible. Nil means no cap.
-function ns:PlanUnitFrameRows(entries, barHeight, secondaryHeight, maxSlots)
+--
+-- `minRows` reserves at least that many full-height rows, padding with empty
+-- ones when the unit has fewer resources than that. See the reservation loop
+-- below for why a unit frame needs this at all.
+function ns:PlanUnitFrameRows(entries, barHeight, secondaryHeight, maxSlots, minRows)
     entries = entries or {}
     barHeight = barHeight or UF_BAR_HEIGHT
     -- 0 (the stored "work it out" value) and nil both mean derive it.
@@ -620,6 +624,24 @@ function ns:PlanUnitFrameRows(entries, barHeight, secondaryHeight, maxSlots)
                 openStyle, openKeyFamily = "PRIMARY", nil
             end
         end
+    end
+
+    -- Reserve space so the frame keeps a steady size as its unit changes.
+    --
+    -- Without this a target frame is one row tall for a mob (health only,
+    -- because ns:CollectResources skips a power pool whose max is 0) and two
+    -- rows tall for a player (health and mana). The frame therefore resized
+    -- every time the target changed, dragging anything anchored around it out
+    -- of place. Blizzard's own target frame is a fixed-size piece of art with
+    -- an undrawn mana bar for exactly this reason.
+    --
+    -- Filler rows carry a slot each so they get a bar BACKGROUND and read as
+    -- an empty bar, rather than leaving a bare gap at the bottom of the panel
+    -- that looks like something failed to draw.
+    for _ = #rows + 1, (minRows or 0) do
+        if wouldOverrun(1) then break end
+        local rowIndex = newRow(barHeight, nil)
+        slots[#slots + 1] = { row = rowIndex, filler = true }
     end
 
     -- Second pass for the horizontal split. Done after the rows are known
@@ -1345,7 +1367,8 @@ local function ScanUnitFrame(key)
     -- shape genuinely changes underfoot - a combo point gained changes
     -- nothing, but a druid shifting form or a rune being converted does.
     local plan = ns:PlanUnitFrameRows(entries, elements.barHeight,
-                                      cfg.secondaryBarHeight, frame.slotCount)
+                                      cfg.secondaryBarHeight, frame.slotCount,
+                                      cfg.minRows)
 
     -- Re-layout on any change to the SHAPE (slot or row count), not just the
     -- entry count: six runes collapsing to three pairs changes the row
@@ -1498,7 +1521,14 @@ local function ScanUnitFrame(key)
                 ns:DeactivateBar(bar, true)
             end
             bar:Hide()
-            barBackdrop:Hide()
+            -- A reserved row keeps its background so it reads as an empty
+            -- bar, the way Blizzard's undrawn mana bar does on a mob. Only a
+            -- slot that is not there at all goes fully dark.
+            if slot and slot.filler then
+                barBackdrop:Show()
+            else
+                barBackdrop:Hide()
+            end
         end
     end
 

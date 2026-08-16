@@ -640,6 +640,17 @@ local HELP_ENTRIES = {
           .. "back where you can see it.",
     },
     {
+        id = "trouble-frame-resizing",
+        q = "My target frame changes size when I change target.",
+        a = "A mob has no mana, so it needs fewer bars than a player does, and "
+          .. "the frame used to shrink to fit. Minimum Bars, on the Frames "
+          .. "tab, keeps room for at least that many bars whatever you have "
+          .. "targeted. Two is enough for health and power; raise it if you "
+          .. "also want room kept for combo points.\n\n"
+          .. "The spare row draws as an empty bar, the same way the default "
+          .. "frames leave a mana bar undrawn on a creature.",
+    },
+    {
         id = "trouble-spell-not-tracked",
         q = "A spell is not being tracked.",
         a = "Some private servers use different spell IDs than you expect. Try "

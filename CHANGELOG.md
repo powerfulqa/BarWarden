@@ -92,6 +92,12 @@ Fixed in the same pass:
   icon, whisper, inspect. Party frames included, so you can click a party
   member to target them. This works while your frames are locked; locking
   only stops you dragging them.
+- **A frame keeps its size as its unit changes.** A mob has no mana, so a
+  target frame used to shrink for one and grow again for a player, moving
+  anything you had placed around it. *Minimum Bars* keeps room for at least
+  two bars; the spare row draws as an empty bar, the way the default frames
+  do. Set it higher to leave room for combo points, or to Off for the old
+  size-to-fit behaviour.
 - **The bars sit flush against the portrait**, with no gap between them.
 - **The numbers sit on the bars by default.** The column beside them is
   still there under *Values Position* if you prefer it.

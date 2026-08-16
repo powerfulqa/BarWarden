@@ -154,6 +154,19 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
           db = P .. "secondaryBarHeight", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
+        { type = "slider", label = "Minimum Bars", min = 0, max = 10, step = 1,
+          width = 200,
+          format = function(v)
+              if not v or v < 1 then return "Off" end
+              return tostring(math.floor(v))
+          end,
+          tooltip = "Keeps room for at least this many bars so the frame does "
+                 .. "not change size when its unit does. A mob with no mana "
+                 .. "would otherwise make the frame shorter than a player "
+                 .. "does, moving anything you have placed around it.",
+          db = P .. "minRows", refresh = "RebuildUnitFrames",
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
+
         { type = "header", text = "Opacity", id = id("OpacityHeader"),
           spacing = 24, offsetX = ns.OFFSET_HEADER },
 

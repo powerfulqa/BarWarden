@@ -618,6 +618,78 @@ function M.test_plan_noBudgetMeansNoCap()
     assertx.assertEqual(#plan.slots, 6, "nil budget must not truncate")
 end
 
+-- A frame that resizes as its unit changes drags anything anchored around it
+-- out of place. A mob has no power pool, so its target frame is one row tall
+-- where a player's is two - which is exactly what the owner hit.
+function M.test_plan_reservesMinimumRows()
+    local ns = fresh()
+    local mob    = { { key = "health", current = 1, max = 1 } }
+    local player = { { key = "health", current = 1, max = 1 },
+                     { key = "mana",   current = 1, max = 1 } }
+
+    local mobPlan    = ns:PlanUnitFrameRows(mob,    16, nil, 24, 2)
+    local playerPlan = ns:PlanUnitFrameRows(player, 16, nil, 24, 2)
+
+    assertx.assertEqual(mobPlan.height, playerPlan.height,
+        "a frame must be the same height whichever unit it shows")
+    assertx.assertEqual(#mobPlan.rows, 2, "the missing row must be reserved")
+
+    -- WIDTH too, and for a reason that is easy to miss: the portrait is
+    -- square and sized from the body height, so a shorter frame gets a
+    -- smaller portrait and therefore a narrower frame. Both dimensions moved
+    -- when the target changed, which is why the reported symptom was the
+    -- whole frame changing size rather than just its height.
+    local elements = { portrait = true, header = true }
+    local mobBox    = ns:ComputeUnitFrameLayout(elements, mobPlan)
+    local playerBox = ns:ComputeUnitFrameLayout(elements, playerPlan)
+    assertx.assertEqual(mobBox.width, playerBox.width,
+        "a frame must be the same width whichever unit it shows")
+    assertx.assertEqual(mobBox.portraitSize, playerBox.portraitSize,
+        "the portrait must not shrink with the unit")
+end
+
+-- The reserved row carries a slot so it draws a bar background and reads as
+-- an empty bar, rather than leaving a bare gap that looks like a failure.
+function M.test_plan_reservedRowIsMarkedAsFiller()
+    local ns = fresh()
+    local plan = ns:PlanUnitFrameRows({ { key = "health", current = 1, max = 1 } },
+                                      16, nil, 24, 3)
+    local fillers = 0
+    for _, s in ipairs(plan.slots) do
+        if s.filler then
+            fillers = fillers + 1
+            assertx.assertEqual(s.entryIndex, nil, "a filler points at no resource")
+        end
+    end
+    assertx.assertEqual(fillers, 2, "two rows short of the minimum, two fillers")
+end
+
+-- Reserving is a floor, never a cap: a unit with more resources than the
+-- minimum must still show all of them.
+function M.test_plan_minimumNeverTruncates()
+    local ns = fresh()
+    local entries = {}
+    for i = 1, 5 do entries[i] = { key = "res" .. i, current = 1, max = 1 } end
+    local plan = ns:PlanUnitFrameRows(entries, 16, nil, 24, 2)
+    assertx.assertEqual(#plan.rows, 5, "the minimum must not cap a richer unit")
+end
+
+function M.test_plan_minimumZeroSizesToFit()
+    local ns = fresh()
+    local plan = ns:PlanUnitFrameRows({ { key = "health", current = 1, max = 1 } },
+                                      16, nil, 24, 0)
+    assertx.assertEqual(#plan.rows, 1, "0 means size to fit, as before")
+end
+
+-- The slot budget still wins: reserving must not be able to ask for more
+-- bars than the frame actually holds.
+function M.test_plan_minimumRespectsTheSlotBudget()
+    local ns = fresh()
+    local plan = ns:PlanUnitFrameRows({ { key = "health", current = 1, max = 1 } },
+                                      16, nil, 3, 10)
+    assertx.assertTrue(#plan.slots <= 3, "expected the budget to hold, got " .. #plan.slots)
+end
+
 function M.test_plan_emptyEntriesPlanNothing()
     local ns = fresh()
     local plan = ns:PlanUnitFrameRows({}, 16)

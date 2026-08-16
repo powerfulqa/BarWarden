@@ -183,6 +183,11 @@ ns.DEFAULTS = {
             -- rather than a unit frame. 0 means "work it out from Bar
             -- Height" (see ns:PlanUnitFrameRows).
             secondaryBarHeight = 0,
+            -- Reserve space for at least this many bars so the frame keeps
+            -- a steady size as its unit changes. 2 covers health plus a
+            -- power bar, which is what stops a target frame shrinking on a
+            -- mob that has no power pool. 0 lets it size to fit.
+            minRows      = 2,
             -- Opacity, one per part of the frame so each can be faded on its
             -- own. 1.0 is X-Perl's solid black panel. Kept as four keys
             -- rather than one because they genuinely want different values:
@@ -247,6 +252,11 @@ ns.DEFAULTS = {
             valuePlacement = "ONBAR",
             barHeight    = 16,
             secondaryBarHeight = 0,
+            -- Reserve space for at least this many bars so the frame keeps
+            -- a steady size as its unit changes. 2 covers health plus a
+            -- power bar, which is what stops a target frame shrinking on a
+            -- mob that has no power pool. 0 lets it size to fit.
+            minRows      = 2,
             frameOpacity    = 1.0,
             portraitOpacity = 1.0,
             barOpacity      = 1.0,
@@ -269,6 +279,11 @@ ns.DEFAULTS = {
             valuePlacement = "ONBAR",
             barHeight    = 16,
             secondaryBarHeight = 0,
+            -- Reserve space for at least this many bars so the frame keeps
+            -- a steady size as its unit changes. 2 covers health plus a
+            -- power bar, which is what stops a target frame shrinking on a
+            -- mob that has no power pool. 0 lets it size to fit.
+            minRows      = 2,
             frameOpacity    = 1.0,
             portraitOpacity = 1.0,
             barOpacity      = 1.0,
@@ -294,6 +309,11 @@ ns.DEFAULTS = {
             valuePlacement = "ONBAR",
             barHeight    = 14,
             secondaryBarHeight = 0,
+            -- Reserve space for at least this many bars so the frame keeps
+            -- a steady size as its unit changes. 2 covers health plus a
+            -- power bar, which is what stops a target frame shrinking on a
+            -- mob that has no power pool. 0 lets it size to fit.
+            minRows      = 2,
             frameOpacity    = 1.0,
             portraitOpacity = 1.0,
             barOpacity      = 1.0,
@@ -318,6 +338,11 @@ ns.DEFAULTS = {
             valuePlacement = "ONBAR",
             barHeight    = 14,
             secondaryBarHeight = 0,
+            -- Reserve space for at least this many bars so the frame keeps
+            -- a steady size as its unit changes. 2 covers health plus a
+            -- power bar, which is what stops a target frame shrinking on a
+            -- mob that has no power pool. 0 lets it size to fit.
+            minRows      = 2,
             frameOpacity    = 1.0,
             portraitOpacity = 1.0,
             barOpacity      = 1.0,
@@ -345,6 +370,11 @@ ns.DEFAULTS = {
             valuePlacement = "ONBAR",
             barHeight    = 14,
             secondaryBarHeight = 0,
+            -- Reserve space for at least this many bars so the frame keeps
+            -- a steady size as its unit changes. 2 covers health plus a
+            -- power bar, which is what stops a target frame shrinking on a
+            -- mob that has no power pool. 0 lets it size to fit.
+            minRows      = 2,
             frameOpacity    = 1.0,
             portraitOpacity = 1.0,
             barOpacity      = 1.0,
