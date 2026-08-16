@@ -1237,6 +1237,94 @@ end
 -- expressed in the ordered shape.
 local LEGACY_PINNED_ORDER = { "energy", "focus", "mana", "rage" }
 
+-- ----------------------------------------------------------------------------
+-- Resource families: which resources a unit frame shows.
+--
+-- ns:CollectResources is purely ADDITIVE - it decides what a unit genuinely
+-- has and returns all of it, and `pinned` only ever adds MORE. That is right
+-- for a resource group, whose Max Bars caps the list, but it is why a unit
+-- frame on a character with runes drew nine rows with no way to say "not
+-- those". Filtering happens here, after collection, rather than by teaching
+-- CollectResources to exclude things: that function is shared with every
+-- resource group and its ordering rules are load-bearing (see the pin-order
+-- comments in it), so a post-filter cannot regress them.
+--
+-- Families rather than raw keys, because raw keys are not what a person
+-- thinks in: "runes" is one decision, not six tickboxes for rune1..rune6
+-- that change meaning when Pair Runes by Type is on and the keys become
+-- runepair1..3. Health and the current power type are deliberately grouped
+-- as "power" too - a druid's bar changes key between mana/rage/energy as
+-- they shift form, and a tickbox that silently stopped applying mid-fight
+-- would be worse than no tickbox.
+-- ----------------------------------------------------------------------------
+
+-- Display order and labels for the tick list. Order here is the order the
+-- Frames tab draws them, chosen to match the order they normally appear in
+-- the frame itself so the settings read like the thing they configure.
+ns.RESOURCE_FAMILIES = {
+    { key = "health",      label = "Health"      },
+    { key = "power",       label = "Power"       },
+    { key = "runicpower",  label = "Runic Power" },
+    { key = "runes",       label = "Runes"       },
+    { key = "combopoints", label = "Combo Points"},
+    { key = "soulshards",  label = "Soul Shards" },
+}
+
+-- Every non-rune key CollectResources can emit, mapped to its family. Rune
+-- keys are matched by prefix instead (rune1..rune6 and runepair1..3), so
+-- this table does not need nine rune rows that would then have to be kept in
+-- step with collectRuneEntries.
+local RESOURCE_FAMILY_BY_KEY = {
+    health      = "health",
+    mana        = "power",
+    rage        = "power",
+    energy      = "power",
+    focus       = "power",
+    runicpower  = "runicpower",
+    combopoints = "combopoints",
+    soulshards  = "soulshards",
+}
+
+-- Which family a collected entry belongs to, or nil for a key this does not
+-- recognise. Nil is meaningful: ns:FilterResourceEntries keeps unrecognised
+-- entries rather than dropping them, so a resource added to CollectResources
+-- later shows up by default instead of silently vanishing because nobody
+-- remembered to add it here.
+function ns:ResourceFamilyForKey(key)
+    if type(key) ~= "string" then return nil end
+    local family = RESOURCE_FAMILY_BY_KEY[key]
+    if family then return family end
+    -- "runepair1" also starts with "rune", and both views are the one
+    -- Runes decision, so a plain prefix test covers each without caring
+    -- which view is active.
+    if key:sub(1, 4) == "rune" then return "runes" end
+    return nil
+end
+
+-- Drop entries whose family the owner has switched off. `hidden` is a set of
+-- family keys ({ runes = true }), deliberately storing what is OFF rather
+-- than what is on: an empty/absent table then means "show everything", which
+-- is exactly the behaviour every existing save already has, so this needed no
+-- migration and no schema bump.
+--
+-- Returns a fresh list; the caller's table is never mutated.
+function ns:FilterResourceEntries(entries, hidden)
+    local kept = {}
+    if not entries then return kept end
+    if not hidden then
+        for i = 1, #entries do kept[i] = entries[i] end
+        return kept
+    end
+    for _, e in ipairs(entries) do
+        local family = ns:ResourceFamilyForKey(e and e.key)
+        -- An unrecognised family is kept on purpose - see above.
+        if not (family and hidden[family]) then
+            kept[#kept + 1] = e
+        end
+    end
+    return kept
+end
+
 -- Pure: given a group's raw autoPinnedResources value (nil, the legacy set,
 -- or the current ordered list), returns a FRESH ordered list of
 -- { key = "mana", color = {r,g,b} | nil } entries. Never the caller's own

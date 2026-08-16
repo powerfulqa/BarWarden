@@ -95,6 +95,13 @@ local function CreateFramesTab(parent)
                  .. "your bars another.",
           offsetX = ns.OFFSET_DROPDOWN, spacing = 16 },
 
+        { type = "slider", label = "Bar Height", min = 8, max = 40, step = 1,
+          width = 200,
+          tooltip = "How tall each bar is. Taller bars suit showing the "
+                 .. "numbers on the bar.",
+          db = "unitFrames.player.barHeight", refresh = "RebuildUnitFrames",
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
+
         { type = "header", text = "Elements", spacing = 24, offsetX = ns.OFFSET_HEADER },
 
         { type = "toggle", label = "Show Portrait",
@@ -107,14 +114,110 @@ local function CreateFramesTab(parent)
           db = "unitFrames.player.showLevel", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_TOGGLE },
 
-        { type = "toggle", label = "Show Values Column",
-          tooltip = "Shows the amount and percent next to each bar.",
+        { type = "toggle", label = "Show Values",
+          tooltip = "Shows the amount and percent for each bar.",
           db = "unitFrames.player.showValues", refresh = "RebuildUnitFrames",
+          set = function(_, value)
+              ns:DBSet("unitFrames.player.showValues", value)
+              ns:RebuildUnitFrames()
+              -- Values Position means nothing with no values to place, so it
+              -- appears and disappears with this tick. Same show/hide-then-
+              -- reflow pattern the Visuals tab uses for its colour swatch.
+              if frame.ApplyConditionals then frame:ApplyConditionals() end
+          end,
           offsetX = ns.OFFSET_TOGGLE },
+
+        { type = "dropdown", id = "valuePlacementDD", label = "Values Position",
+          db = "unitFrames.player.valuePlacement", refresh = "RebuildUnitFrames",
+          items = {
+              { text = "Beside the bars", value = "COLUMN" },
+              { text = "On the bars",     value = "ONBAR"  },
+          },
+          width = 191,
+          tooltip = "Whether the numbers sit in a column beside the bars or "
+                 .. "on the bars themselves.",
+          offsetX = ns.OFFSET_DROPDOWN, spacing = 16 },
+
+        { type = "header", text = "Resources Shown", spacing = 24,
+          offsetX = ns.OFFSET_HEADER },
+
+        { type = "note",
+          text = "Untick anything you do not want on the frame.",
+          offsetX = ns.OFFSET_HEADER, spacing = 10 },
+    }
+
+    -- One tickbox per resource family, generated from ns.RESOURCE_FAMILIES
+    -- (Trackers.lua) rather than written out here, so a family added there
+    -- appears here automatically instead of needing both lists edited.
+    --
+    -- These use get/set closures rather than a `db =` path: hiddenResources
+    -- holds user-chosen keys, and ns:DBSet validates paths against
+    -- ns.DEFAULTS, where the table is deliberately empty. The stored sense is
+    -- inverted (the table records what is HIDDEN) so the tickbox reads the
+    -- natural way round: ticked means shown.
+    for _, family in ipairs(ns.RESOURCE_FAMILIES) do
+        local familyKey = family.key
+        SCHEMA[#SCHEMA + 1] = {
+            type = "toggle", label = family.label,
+            tooltip = "Shows " .. family.label:lower() .. " on the frame.",
+            get = function()
+                local hidden = ns:DBGet("unitFrames.player.hiddenResources", nil)
+                return not (hidden and hidden[familyKey])
+            end,
+            set = function(_, value)
+                local cfg = ns.db and ns.db.unitFrames and ns.db.unitFrames.player
+                if not cfg then return end
+                cfg.hiddenResources = cfg.hiddenResources or {}
+                -- nil rather than false when shown, so the table stays a set
+                -- of genuinely-hidden keys and never accumulates a row per
+                -- family the owner merely looked at.
+                cfg.hiddenResources[familyKey] = (not value) or nil
+                ns:RebuildUnitFrames()
+                -- Unticking Runes takes the rune-combining option with it.
+                if familyKey == "runes" and frame.ApplyConditionals then
+                    frame:ApplyConditionals()
+                end
+            end,
+            offsetX = ns.OFFSET_TOGGLE,
+        }
+    end
+
+    SCHEMA[#SCHEMA + 1] = {
+        type = "toggle", id = "pairRunesToggle", label = "Combine Runes by Type",
+        tooltip = "Shows three rune bars (blood, frost, unholy) instead of "
+               .. "six separate ones.",
+        db = "unitFrames.player.pairRunes", refresh = "RebuildUnitFrames",
+        offsetX = ns.OFFSET_TOGGLE, spacing = 16,
     }
 
     frame.Refresh, frame.Reflow = ns:BuildSettings(content, SCHEMA, widgets,
                                      { firstX = 16, firstY = -10 })
+
+    -- Widgets that only make sense under another setting. BuildSettings has
+    -- no declarative "hidden" concept: PositionEntry simply skips any widget
+    -- that is not shown and chains the next one off the last visible widget,
+    -- so a panel drives this itself by Show/Hide followed by a reflow. Kept
+    -- as one function on the frame rather than inline in each setter so
+    -- every trigger (a setter, OnShow, the initial build) applies the exact
+    -- same rules and cannot drift.
+    function frame:ApplyConditionals()
+        if widgets.valuePlacementDD then
+            if ns:DBGet("unitFrames.player.showValues", true) == false then
+                widgets.valuePlacementDD:Hide()
+            else
+                widgets.valuePlacementDD:Show()
+            end
+        end
+        if widgets.pairRunesToggle then
+            local hiddenRes = ns:DBGet("unitFrames.player.hiddenResources", nil)
+            if hiddenRes and hiddenRes.runes then
+                widgets.pairRunesToggle:Hide()
+            else
+                widgets.pairRunesToggle:Show()
+            end
+        end
+        if frame.Reflow then frame.Reflow() end
+    end
 
     if widgets.playerFrameHeader and ns.CreateHelpIcon then
         ns:CreateHelpIcon(content, widgets.playerFrameHeader, "LEFT", "RIGHT", 6, 0,
@@ -135,6 +238,9 @@ local function CreateFramesTab(parent)
         local w = scrollFrame:GetWidth()
         if w and w > 100 then content:SetWidth(math.min(w, ns.SETTINGS_MAX_WIDTH or 300)) end
         if frame.Refresh then frame:Refresh() end
+        -- Before trimHeight: the trim measures the last visible widget, so
+        -- hiding one afterwards would leave the scroll child too tall.
+        frame:ApplyConditionals()
         trimHeight()
         if ns.After then ns:After(0, trimHeight) end
     end)

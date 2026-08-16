@@ -135,7 +135,11 @@ function M.test_defaults_unitFramesExact()
             showPortrait = true,
             showLevel    = true,
             showValues   = true,
-            barTexture   = "XP Perl v2",
+            valuePlacement  = "COLUMN",
+            barHeight       = 16,
+            pairRunes       = true,
+            hiddenResources = {},
+            barTexture      = "XP Perl v2",
         },
     }, "DEFAULTS.unitFrames drift")
 end

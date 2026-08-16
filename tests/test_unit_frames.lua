@@ -220,4 +220,56 @@ function M.test_formatValue_currentAboveMaxClampsPercent()
     assertx.assertTrue(text:find("(100%)", 1, true) ~= nil, "expected the percent to clamp: " .. text)
 end
 
+-- --------------------------------------------------------------------------
+-- Values placement (ns:ResolveUnitFrameElements)
+--
+-- Two settings produce three outcomes, and the rule that showValues == false
+-- beats any placement is the one worth pinning: a frame that kept drawing
+-- numbers on its bars after the owner turned values off would look like the
+-- tickbox was broken.
+-- --------------------------------------------------------------------------
+
+function M.test_valuePlacement_defaultsToColumn()
+    local ns = fresh()
+    local e = ns:ResolveUnitFrameElements({ showValues = true })
+    assertx.assertTrue(e.values, "no placement set must mean the column")
+    assertx.assertTrue(not e.valuesOnBar)
+end
+
+function M.test_valuePlacement_onBarSuppressesTheColumn()
+    local ns = fresh()
+    local e = ns:ResolveUnitFrameElements({ showValues = true, valuePlacement = "ONBAR" })
+    assertx.assertTrue(e.valuesOnBar, "on-bar placement must be reported")
+    assertx.assertTrue(not e.values, "the column must not also be drawn")
+end
+
+function M.test_valuePlacement_showValuesOffBeatsAnyPlacement()
+    local ns = fresh()
+    for _, placement in ipairs({ "COLUMN", "ONBAR" }) do
+        local e = ns:ResolveUnitFrameElements({ showValues = false, valuePlacement = placement })
+        assertx.assertTrue(not e.values, placement .. ": column must be off")
+        assertx.assertTrue(not e.valuesOnBar, placement .. ": on-bar must be off")
+    end
+end
+
+-- --------------------------------------------------------------------------
+-- Bar height (ns:ComputeUnitFrameLayout)
+-- --------------------------------------------------------------------------
+
+function M.test_barHeight_isHonouredAndClamped()
+    local ns = fresh()
+    local tall = ns:ComputeUnitFrameLayout({ barHeight = 24 }, 3)
+    assertx.assertEqual(tall.barHeight, 24, "a sane height must be used as-is")
+
+    -- A hand-edited or imported profile must not be able to produce a frame
+    -- with zero-height rows or one taller than the screen.
+    local silly = ns:ComputeUnitFrameLayout({ barHeight = 0 }, 3)
+    assertx.assertTrue(silly.barHeight >= 8, "height must clamp up off zero")
+    local huge = ns:ComputeUnitFrameLayout({ barHeight = 5000 }, 3)
+    assertx.assertTrue(huge.barHeight <= 40, "height must clamp down")
+
+    assertx.assertTrue(tall.height > ns:ComputeUnitFrameLayout({ barHeight = 10 }, 3).height,
+        "taller bars must make a taller frame")
+end
+
 return M

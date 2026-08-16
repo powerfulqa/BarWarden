@@ -414,4 +414,92 @@ function M.test_checkTracker_nilModeReturnsInactive()
     assertx.assertFalse(active)
 end
 
+-- --------------------------------------------------------------------------
+-- Resource families (ns:ResourceFamilyForKey / ns:FilterResourceEntries)
+--
+-- ns:CollectResources is additive and cannot exclude anything, so this
+-- post-filter is the only thing standing between a rune-carrying character
+-- and a nine-row unit frame. Worth pinning properly.
+-- --------------------------------------------------------------------------
+
+function M.test_resourceFamily_mapsEveryKeyCollectResourcesEmits()
+    local ns = fresh()
+    local expected = {
+        health = "health",
+        mana = "power", rage = "power", energy = "power", focus = "power",
+        runicpower = "runicpower",
+        combopoints = "combopoints",
+        soulshards = "soulshards",
+    }
+    for key, family in pairs(expected) do
+        assertx.assertEqual(ns:ResourceFamilyForKey(key), family, "key " .. key)
+    end
+end
+
+-- Both rune views must land in the same family, or unticking Runes would
+-- work in one view and silently not in the other.
+function M.test_resourceFamily_bothRuneViewsAreOneFamily()
+    local ns = fresh()
+    for slot = 1, 6 do
+        assertx.assertEqual(ns:ResourceFamilyForKey("rune" .. slot), "runes")
+    end
+    for t = 1, 3 do
+        assertx.assertEqual(ns:ResourceFamilyForKey("runepair" .. t), "runes")
+    end
+end
+
+function M.test_resourceFamily_unknownKeyHasNoFamily()
+    local ns = fresh()
+    assertx.assertEqual(ns:ResourceFamilyForKey("holy_power"), nil)
+    assertx.assertEqual(ns:ResourceFamilyForKey(nil), nil)
+    assertx.assertEqual(ns:ResourceFamilyForKey(42), nil)
+end
+
+function M.test_filterEntries_noSelectionKeepsEverything()
+    local ns = fresh()
+    local entries = { { key = "health" }, { key = "mana" }, { key = "rune1" } }
+    assertx.assertEqual(#ns:FilterResourceEntries(entries, nil), 3)
+    assertx.assertEqual(#ns:FilterResourceEntries(entries, {}), 3)
+end
+
+function M.test_filterEntries_dropsAWholeFamilyAtOnce()
+    local ns = fresh()
+    local entries = {
+        { key = "health" }, { key = "mana" },
+        { key = "rune1" }, { key = "rune2" }, { key = "runepair3" },
+    }
+    local kept = ns:FilterResourceEntries(entries, { runes = true })
+    assertx.assertEqual(#kept, 2, "all three rune rows must go together")
+    assertx.assertEqual(kept[1].key, "health")
+    assertx.assertEqual(kept[2].key, "mana")
+end
+
+-- Any power type maps to "power", so the one tickbox keeps working across a
+-- druid's form changes instead of quietly stopping when the key changes.
+function M.test_filterEntries_powerFamilyCoversEveryPowerType()
+    local ns = fresh()
+    for _, key in ipairs({ "mana", "rage", "energy", "focus" }) do
+        local kept = ns:FilterResourceEntries({ { key = "health" }, { key = key } },
+                                              { power = true })
+        assertx.assertEqual(#kept, 1, key .. " must be filtered by the power family")
+        assertx.assertEqual(kept[1].key, "health")
+    end
+end
+
+-- A resource added to CollectResources later must appear by default rather
+-- than vanish because nobody remembered to add it to the family table.
+function M.test_filterEntries_unknownFamilySurvivesFiltering()
+    local ns = fresh()
+    local kept = ns:FilterResourceEntries({ { key = "future_resource" } },
+                                          { runes = true, power = true })
+    assertx.assertEqual(#kept, 1, "an unmapped resource must not be silently dropped")
+end
+
+function M.test_filterEntries_doesNotMutateTheCallersList()
+    local ns = fresh()
+    local entries = { { key = "health" }, { key = "rune1" } }
+    ns:FilterResourceEntries(entries, { runes = true })
+    assertx.assertEqual(#entries, 2, "the source list must be left alone")
+end
+
 return M

@@ -65,10 +65,16 @@ local MAX_UNIT_FRAME_SLOTS = 10
 -- ----------------------------------------------------------------------------
 
 local UF_BAR_WIDTH    = 120
-local UF_BAR_HEIGHT   = 14
+local UF_BAR_HEIGHT   = 16
 local UF_BAR_SPACING  = 1
 local UF_HEADER_HEIGHT = 14
 local UF_PADDING       = 4
+
+-- Bounds for the Bar Height setting. The floor is the point below which the
+-- value text stops fitting on a bar at all; the ceiling just stops a typo or
+-- a hand-edited profile producing a frame taller than the screen.
+local UF_MIN_BAR_HEIGHT = 8
+local UF_MAX_BAR_HEIGHT = 40
 
 -- Fallback width for the values column, used only until the first scan has
 -- real text to measure (see ns:MeasureUnitFrameValuesWidth and the
@@ -99,6 +105,11 @@ local UNIT_FRAME_BACKDROP = {
 -- XPerl_Portrait_Template (a 60x62 bordered frame around a 50x50 portrait).
 local UF_PORTRAIT_INSET = 5
 
+-- How much of each edge of a unit portrait to crop away. Blizzard's portrait
+-- images carry a transparent margin around a circular subject; this is the
+-- long-standing value that trims it without cutting into the face.
+local UF_PORTRAIT_CROP = 0.15
+
 -- Default bar texture for a unit frame. Registered by both SharedMedia.lua
 -- (for LSM) and Bar.lua (for the LSM-less fallback) under this exact name,
 -- so the default resolves either way.
@@ -108,12 +119,22 @@ local UF_DEFAULT_TEXTURE = "XP Perl v2"
 -- saved config. Nil-safe (a not-yet-built cfg reads as "show everything",
 -- matching ns.DEFAULTS.unitFrames.player) so this can be called defensively
 -- from anywhere without a live frame or a populated DB.
+-- `values` is specifically "a values COLUMN is drawn", because that is the
+-- only element that changes the layout arithmetic - values drawn on the bars
+-- reserve no width. Placement is resolved here rather than at each use site
+-- so the two settings that produce it (Show Values, and where) are read in
+-- exactly one place: showValues == false must win over any placement, and
+-- splitting that rule across callers is how one of them ends up disagreeing.
 function ns:ResolveUnitFrameElements(cfg)
     cfg = cfg or {}
+    local showValues = cfg.showValues ~= false
+    local onBar = showValues and cfg.valuePlacement == "ONBAR"
     return {
-        portrait = cfg.showPortrait ~= false,
-        level    = cfg.showLevel ~= false,
-        values   = cfg.showValues ~= false,
+        portrait    = cfg.showPortrait ~= false,
+        level       = cfg.showLevel ~= false,
+        values      = showValues and not onBar,
+        valuesOnBar = onBar,
+        barHeight   = cfg.barHeight,
     }
 end
 
@@ -140,7 +161,15 @@ function ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
     elements = elements or {}
     barCount = max(barCount or 0, 1)
 
-    local barsHeight = barCount * UF_BAR_HEIGHT + (barCount - 1) * UF_BAR_SPACING
+    -- Bar height is a setting (X-Perl's bars are chunkier than the 14px this
+    -- started at, and a values-on-the-bar frame needs the room), clamped so
+    -- a hand-edited or imported profile cannot produce a frame with
+    -- zero-height or absurd rows.
+    local barHeight = elements.barHeight or UF_BAR_HEIGHT
+    if barHeight < UF_MIN_BAR_HEIGHT then barHeight = UF_MIN_BAR_HEIGHT end
+    if barHeight > UF_MAX_BAR_HEIGHT then barHeight = UF_MAX_BAR_HEIGHT end
+
+    local barsHeight = barCount * barHeight + (barCount - 1) * UF_BAR_SPACING
     local bodyHeight = UF_HEADER_HEIGHT + barsHeight
     local portraitSize = elements.portrait and bodyHeight or 0
 
@@ -166,7 +195,7 @@ function ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
         valuesX      = valuesX,
         valuesWidth  = valuesWidth,
         barWidth     = UF_BAR_WIDTH,
-        barHeight    = UF_BAR_HEIGHT,
+        barHeight    = barHeight,
         barSpacing   = UF_BAR_SPACING,
     }
 end
@@ -242,10 +271,20 @@ local function LayoutUnitFrame(frame, elements, barCount, measuredValuesWidth)
         end
     end
 
+    -- The header strip spans the bars and the values column together, so the
+    -- name and the numbers share one band across the top of the frame.
+    if frame.headerStrip then
+        frame.headerStrip:ClearAllPoints()
+        frame.headerStrip:SetPoint("TOPLEFT", frame, "TOPLEFT", layout.barsX, -UF_PADDING)
+        frame.headerStrip:SetWidth(layout.valuesX + layout.valuesWidth - layout.barsX)
+        frame.headerStrip:SetHeight(UF_HEADER_HEIGHT)
+    end
+
     frame.nameText:ClearAllPoints()
-    frame.nameText:SetPoint("TOPLEFT", frame, "TOPLEFT", layout.barsX + 1, -(UF_PADDING + 1))
-    frame.nameText:SetPoint("TOPRIGHT", frame, "TOPLEFT",
-        layout.valuesX + layout.valuesWidth, -(UF_PADDING + 1))
+    frame.nameText:SetPoint("LEFT", frame, "TOPLEFT",
+        layout.barsX + 3, -(UF_PADDING + UF_HEADER_HEIGHT / 2))
+    frame.nameText:SetPoint("RIGHT", frame, "TOPLEFT",
+        layout.valuesX + layout.valuesWidth - 3, -(UF_PADDING + UF_HEADER_HEIGHT / 2))
 
     for i = 1, MAX_UNIT_FRAME_SLOTS do
         local bar = frame.bars[i]
@@ -299,6 +338,15 @@ local function BuildUnitFrame(key)
     local cfg = ns.db and ns.db.unitFrames and ns.db.unitFrames[key]
     if not unit or not cfg then return nil end
 
+    -- The bar texture this frame draws with, resolved up front because both
+    -- the header strip and every bar background need it. Applied to the bars
+    -- themselves as a per-bar textureOverride (the highest-precedence level
+    -- ns:ApplyVisualConfig resolves) rather than left to the addon-wide
+    -- visual.texture: a unit frame should look like a unit frame regardless
+    -- of the texture chosen for timer bars. It is still a setting, so anyone
+    -- who wants them to match can say so.
+    local barTexture = cfg.barTexture or UF_DEFAULT_TEXTURE
+
     local frame = CreateFrame("Frame", "BarWardenUnitFrame" .. key, UIParent)
     frame.isUnitFrame = true
     frame.unitKey = key
@@ -351,6 +399,13 @@ local function BuildUnitFrame(key)
     local portrait = portraitFrame:CreateTexture(nil, "ARTWORK")
     portrait:SetPoint("TOPLEFT", portraitFrame, "TOPLEFT", UF_PORTRAIT_INSET, -UF_PORTRAIT_INSET)
     portrait:SetPoint("BOTTOMRIGHT", portraitFrame, "BOTTOMRIGHT", -UF_PORTRAIT_INSET, UF_PORTRAIT_INSET)
+    -- SetPortraitTexture hands back a square image whose subject is a circle
+    -- with transparent corners - drawn raw it reads as a small head floating
+    -- in a black box, which is exactly how it looked. Cropping past the
+    -- transparent margin makes the portrait fill its frame, which is what
+    -- X-Perl and every other unit-frame addon does with it.
+    portrait:SetTexCoord(UF_PORTRAIT_CROP, 1 - UF_PORTRAIT_CROP,
+                         UF_PORTRAIT_CROP, 1 - UF_PORTRAIT_CROP)
     frame.portrait = portrait
 
     -- Header: name, optionally with a colour-escaped level suffix
@@ -358,6 +413,16 @@ local function BuildUnitFrame(key)
     -- for the "Group Name Follows Target" resource-group feature; reused
     -- verbatim rather than re-implemented).
     local visual = ns:GetVisual()
+
+    -- A strip behind the name, so the header reads as part of the frame
+    -- rather than as text floating over the backdrop. X-Perl's name sits on
+    -- its own panel; this is the same idea with the artwork already loaded.
+    local headerStrip = frame:CreateTexture(nil, "BORDER")
+    headerStrip:SetTexture(ns.ResolveTextureName and ns:ResolveTextureName(barTexture)
+        or "Interface\\Buttons\\WHITE8x8")
+    headerStrip:SetVertexColor(0.1, 0.1, 0.1, 0.85)
+    frame.headerStrip = headerStrip
+
     local nameText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     nameText:SetJustifyH("LEFT")
     if visual.font then
@@ -365,14 +430,6 @@ local function BuildUnitFrame(key)
     end
     frame.nameText = nameText
     frame.lastHeaderText = nil
-
-    -- The bar texture a unit frame draws with. Applied as the per-bar
-    -- textureOverride (the highest-precedence level ns:ApplyVisualConfig
-    -- resolves) rather than left to the addon-wide visual.texture, because a
-    -- unit frame should look like a unit frame regardless of what texture
-    -- the player picked for their timer bars. It is still a setting, so
-    -- anyone who wants their bars and frames to match can say so.
-    local barTexture = cfg.barTexture or UF_DEFAULT_TEXTURE
 
     frame.bars = {}
     frame.valueTexts = {}
@@ -460,7 +517,17 @@ local function ScanUnitFrame(key)
     if not unit then return end
 
     local elements = ns:ResolveUnitFrameElements(cfg)
-    local entries = ns:CollectResources({ unit = unit })
+    -- pairRunes collapses six rune rows to three ready-count rows. Reused
+    -- from the resource-group feature rather than reimplemented, and defaulted
+    -- ON for unit frames (unlike groups, where it stays off so an existing
+    -- group's six-bar view is unchanged): six full-width rune bars are the
+    -- single biggest reason a frame reads as cluttered, and a frame is a new
+    -- surface with no existing look to preserve.
+    local entries = ns:CollectResources({
+        unit = unit,
+        pairRunes = cfg.pairRunes ~= false,
+    })
+    entries = ns:FilterResourceEntries(entries, cfg.hiddenResources)
 
     if frame.lastLayoutBarCount ~= #entries then
         LayoutUnitFrame(frame, elements, #entries, frame.lastValuesMeasured)
@@ -503,17 +570,37 @@ local function ScanUnitFrame(key)
             bd.runeType    = e.runeType
             bd.trackMode   = e.trackMode or "Buff"
             ns:UpdateResourceBar(bar, e.current, e.max, e.icon, e.label, e.stacks or e.current)
-            -- The bar itself carries no inline text: the header already
-            -- names the unit, and the values column already carries the
-            -- numbers, so repeating either on every row would just be
-            -- clutter - the whole point of this widget over "bars in a box".
+            -- The resource NAME is never drawn on the bar: the header already
+            -- names the unit, and a row labelled "Health" next to a health
+            -- bar tells nobody anything. The numbers are a real choice
+            -- though, and this is where "on the bar" is honoured -
+            -- UpdateResourceBar has just written its own text into timeText,
+            -- so this overwrites it with the same string the column would
+            -- have shown, keeping the two placements identical in content.
             if bar.nameText then bar.nameText:Hide() end
-            if bar.timeText then bar.timeText:Hide() end
+
+            local text
+            if elements.values or elements.valuesOnBar then
+                text = ns:FormatUnitFrameValue(e.current, e.max)
+            end
+
+            if bar.timeText then
+                if elements.valuesOnBar then
+                    if bar.timeText.lastUFText ~= text then
+                        bar.timeText.lastUFText = text
+                        bar.timeText:SetText(text)
+                    end
+                    bar.timeText:Show()
+                else
+                    bar.timeText.lastUFText = nil
+                    bar.timeText:Hide()
+                end
+            end
+
             bar:Show()
             barBackdrop:Show()
 
             if elements.values then
-                local text = ns:FormatUnitFrameValue(e.current, e.max)
                 if valueText.lastText ~= text then
                     valueText.lastText = text
                     valueText:SetText(text)

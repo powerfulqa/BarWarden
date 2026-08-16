@@ -151,6 +151,24 @@ ns.DEFAULTS = {
             showPortrait = true,
             showLevel    = true,
             showValues   = true,
+            -- Where the numbers sit: "COLUMN" beside the bars, "ONBAR" on
+            -- them. showValues == false hides them either way.
+            valuePlacement = "COLUMN",
+            barHeight    = 16,
+            -- Runes as three ready-count rows rather than six. Defaulted ON
+            -- here and OFF for resource groups on purpose: a group predates
+            -- this and must keep its six-bar view, a frame is new and six
+            -- rune rows are the main thing that made it look cluttered.
+            pairRunes    = true,
+            -- Resource families the owner has switched OFF (see
+            -- ns.RESOURCE_FAMILIES / ns:FilterResourceEntries, Trackers.lua).
+            -- Stores what is hidden rather than what is shown so that an
+            -- empty table means "show everything" - which is what every save
+            -- written before this existed already means, hence no migration
+            -- and no schema bump. Written through a set closure rather than a
+            -- `db =` path because ns:DBSet validates paths against this
+            -- schema and the family keys are user data, not schema.
+            hiddenResources = {},
             -- X-Perl's own default bar skin, so an enabled unit frame looks
             -- like a unit frame out of the box rather than inheriting
             -- whatever texture the player chose for their timer bars.
