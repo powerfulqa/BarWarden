@@ -1095,4 +1095,53 @@ function M.test_getPinnedResourceColor_stillWinsForARuneKeyedBar()
     _G.BarWardenDB = nil
 end
 
+-- --------------------------------------------------------------------------
+-- "Keep Runes Visible" pin colour (v2.5.0, commit 2): the Options panel has
+-- one tickbox/swatch pair covering ALL rune bars, stored under the single
+-- "runes" key (there is no per-slot pin), so ns:GetPinnedResourceColor must
+-- resolve a bar's per-slot/per-pair resourceKey (rune1..rune6, or
+-- runepair1..runepair3 once Pair Runes by Type is on) against that shared
+-- entry when there is no more specific exact-key match - see the function's
+-- own comment for why the exact-key check above still runs first.
+-- --------------------------------------------------------------------------
+
+function M.test_getPinnedResourceColor_fallsBackToSharedRunesEntryForASlotKey()
+    local ns = freshWithTrackers()
+    _G.BarWardenDB = { frames = { { autoPinnedResources = {
+        { key = "runes", color = { r = 0.6, g = 0.7, b = 0.8 } },
+    } } } }
+    local r, g, b = ns:GetPinnedResourceColor(runeBarIn(1, 1))
+    assertx.assertEqual(r, 0.6)
+    assertx.assertEqual(g, 0.7)
+    assertx.assertEqual(b, 0.8)
+    _G.BarWardenDB = nil
+end
+
+function M.test_getPinnedResourceColor_fallsBackToSharedRunesEntryForAPairKey()
+    local ns = freshWithTrackers()
+    _G.BarWardenDB = { frames = { { autoPinnedResources = {
+        { key = "runes", color = { r = 0.6, g = 0.7, b = 0.8 } },
+    } } } }
+    local pairBar = { frameIndex = 1, isResourceBar = true,
+                       barData = { resourceKey = "runepair1", runeType = 1, display = {} } }
+    local r, g, b = ns:GetPinnedResourceColor(pairBar)
+    assertx.assertEqual(r, 0.6)
+    assertx.assertEqual(g, 0.7)
+    assertx.assertEqual(b, 0.8)
+    _G.BarWardenDB = nil
+end
+
+function M.test_getPinnedResourceColor_exactSlotKeyStillWinsOverSharedRunesEntry()
+    local ns = freshWithTrackers()
+    _G.BarWardenDB = { frames = { { autoPinnedResources = {
+        { key = "runes", color = { r = 0.6, g = 0.7, b = 0.8 } },
+        { key = "rune3", color = { r = 0.4, g = 0.4, b = 0.4 } },
+    } } } }
+    local r, g, b = ns:GetPinnedResourceColor(runeBarIn(1, 3))
+    assertx.assertEqual(r, 0.4)
+    assertx.assertEqual(g, 0.4)
+    assertx.assertEqual(b, 0.4)
+    _G.BarWardenDB = nil
+end
+
 return M

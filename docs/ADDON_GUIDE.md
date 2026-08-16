@@ -309,8 +309,11 @@ the resource actually is:
     count, as truthful for "never picked one up" as for "cannot hold one".
     Showing "0 Soul Shards" to everyone would be noise, so the entry is
     gated on `GetItemCount(SOUL_SHARD_ITEM_ID) > 0`: it appears once a real
-    shard is held and disappears once the last one is spent. There is no pin
-    for this yet.
+    shard is held and disappears once the last one is spent. There is
+    deliberately still no pin for Soul Shards (v2.5.0 added one for Runic
+    Power and Runes below, but the owner only asked for those two DK pools -
+    a third, unrequested tickbox with no test coverage behind it would be
+    scope creep, not a gap that needs closing here).
   * Combo Points sit in between: `GetComboPoints("player", "target")` is
     already, unconditionally, a "your points on your CURRENT target"
     reading - it never changes meaning depending on whether the player or
@@ -347,11 +350,37 @@ the resource actually is:
     to always plant them right after Health/current-power, ignoring
     whatever order the owner ticked the pins in. The "in use" check above
     now skips entirely while `combopoints` is pinned, leaving the ordered
-    loop to place it. Runic Power, Runes and Soul Shards have the same
-    shape (added in a fixed spot ahead of the ordered loop) but no pin
-    tickbox exists for them yet, so the bug cannot surface for them today;
-    a future pin for any of them needs the same treatment, not a bare
+    loop to place it.
+
+    Runic Power and Runes (v2.5.0) got the identical fix once their own
+    pins ("Keep Runic Power Visible" / "Keep Runes Visible") were added:
+    both used to be added unconditionally in a fixed spot ahead of the
+    ordered loop (the same shape Combo Points had), so a pinned entry always
+    landed right after Health/current-power regardless of tick order. The
+    unconditional adds are now guarded with `not pinnedKeys.runicpower` /
+    `not pinnedKeys.runes`, and the pinned-extras loop adds them itself
+    (re-checking `HasRunicPower()`/`HasRunes()` there too, so a pin cannot
+    conjure a bar for a pool that genuinely is not there) - exactly the same
+    "stop claiming the slot early, add it in the ordered loop instead"
+    shape as the Combo Points fix. Unlike Mana/Rage/Energy/Combo Points,
+    neither pin changes VISIBILITY at all: both already show whenever the
+    pool is real, so the tickbox only lets the owner choose where the bar
+    sits among the other pins. `collectRuneEntries()` (Trackers.lua) is the
+    small helper both the unconditional block and the pinned block call, so
+    the six-slot (or, once Pair Runes by Type is on, three-pair) list is
+    built in exactly one place. Soul Shards has the same "added in a fixed
+    spot ahead of the ordered loop" shape but still no pin tickbox exists
+    for it (a deliberate scope decision, not an oversight - see the file
+    comment above); a future pin for it needs the same treatment, not a bare
     addition to `PINNABLE_POWER_TYPES`.
+
+    A "Keep Runes Visible" pin covers every rune bar the group currently
+    shows with a single tickbox/swatch pair, since there is one pin for the
+    whole rune group rather than one per slot. `ns:GetPinnedResourceColor`
+    (Conditions.lua) resolves this: it checks for an exact `resourceKey`
+    match first (so a hand-set `rune3`-keyed entry, if one ever existed,
+    would still win), then falls back to the shared `"runes"` entry for any
+    `resourceKey` matching `rune<N>` or `runepair<N>`.
 
 Pinning applies identically to all three feeds: `opts.pinned` reads off
 `unit` too (via the same `addPowerType` helper the current-power-type step
@@ -550,7 +579,7 @@ resources-only, described further above under "The resources feed"):
 | `autoSkipTracked` | Skip spells a bar in another group already tracks (matched by name via `ns:GetTrackedAuraNames`) |
 | `autoStableOrder` | Keep Bars In Place: an aura stays in the slot it first appeared in for as long as it lasts, instead of the soonest-expiring sort reshuffling every slot on each tick or refresh. Only a fade frees a slot. `ns:ScanAutoGroup` builds the held-name list from the live slots and hands it to `ns:PlaceAutoAuras` (Trackers.lua), the tested half that decides the new placement; the untested half is just reading `bar.barData` to build that list |
 | `autoBanned` | Per-group spell bans set by alt-left-clicking a bar's icon (`bar.isAutoBar` only), keyed by lower-cased spell name: `{ [name] = { name = "Blade Flurry", id = 13877 } }`, `id` optionally nil. Nil (not `{}`) once every ban is removed, so `ns:BuildAutoSkipSet` keeps its cheap no-skip path. `ns:BuildGroupSkipSet` (Trackers.lua) folds this in unconditionally via `ns:BuildAutoSkipSet`, always returning a fresh table so the caller's own copy is never mutated, so a ban applies even with `autoSkipTracked` off. Managed from the "Hidden In This Group" list under Auto Track in Options_Bars.lua, which only shows/enables for a group with an AURA feed picked - a resource has nothing to ban, so it hides the same as no feed at all |
-| `autoPinnedResources` | Any resources feed only (v2.5.0: now an ORDERED list, `{ { key = "mana", color = {r,g,b}? }, ... }`, in tick order; a group saved before this existed still carries the legacy set, `{ mana = true }` - `ns:NormalizePinnedResources` (Trackers.lua) accepts either shape, so no migration was needed). Resources the user ticked to always show even when not the unit's current power type, passed as `ns:CollectResources`'s `opts.pinned` and read against `opts.unit` (player, target, or targettarget). Each entry's optional `color` is the most specific level `ns:GetPinnedResourceColor` (Conditions.lua) resolves - see "Resource bar default colours" below. `mana`/`rage`/`energy` (`PINNABLE_POWER_TYPES`, Trackers.lua) and `combopoints` are the pinnable keys; `focus` was removed in v2.5.0 (see CHANGELOG) - a legacy save with `focus` still pinned just finds no match there and is silently dropped, no migration needed |
+| `autoPinnedResources` | Any resources feed only (v2.5.0: now an ORDERED list, `{ { key = "mana", color = {r,g,b}? }, ... }`, in tick order; a group saved before this existed still carries the legacy set, `{ mana = true }` - `ns:NormalizePinnedResources` (Trackers.lua) accepts either shape, so no migration was needed). Resources the user ticked to always show even when not the unit's current power type, passed as `ns:CollectResources`'s `opts.pinned` and read against `opts.unit` (player, target, or targettarget). Each entry's optional `color` is the most specific level `ns:GetPinnedResourceColor` (Conditions.lua) resolves - see "Resource bar default colours" below. `mana`/`rage`/`energy` (`PINNABLE_POWER_TYPES`, Trackers.lua) and `combopoints` are the pinnable keys; `focus` was removed in v2.5.0 (see CHANGELOG) - a legacy save with `focus` still pinned just finds no match there and is silently dropped, no migration needed. `runicpower` and `runes` (v2.5.0) are pinnable too, player feed only - unlike the others, pinning them changes ORDER only, since both already show unconditionally whenever the pool is real; `runes` covers every rune bar in the group as one entry (there is no per-slot pin) |
 | `autoResourceValueText` | Resources-feed only: nil/`""` (current/max, e.g. "3000/4500"), `"PERCENT"` ("67%"), or `"BOTH"` ("3000/4500 (67%)"). Read directly inside `ns:UpdateResourceBar` (BarEngine.lua) |
 | `autoResourceShowIcon` | Resources-feed only (v2.5.0): nil/unset defers to the addon-wide Show Icon default (so an upgrading group looks exactly as it did before this tickbox existed); `true`/`false` overrides it for every bar in this group. Read directly inside `ApplyVisualConfig` (Bar.lua), the same direct-read shape as `autoResourceValueText` above, since like it there is no per-bar equivalent to resolve against for an auto slot |
 | `autoTitleFollowsUnit` | `targetResources`/`totResources` only (v2.5.0). nil by default. When true, the group's title shows the feed's unit name instead of the group's own configured name - see "Group Name Follows Target" below |

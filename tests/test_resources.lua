@@ -916,4 +916,196 @@ function M.test_comboPoints_pinnedAndActive_stillFollowsTickOrder()
     assertx.assertTrue(rageIdx < comboIdx, "rage was pinned first, so an active combo count must still fall in behind it")
 end
 
+-- --------------------------------------------------------------------------
+-- Runic Power / Runes pins (v2.5.0, commit 2): unlike Mana/Rage/Energy,
+-- Runic Power and Runes already show unconditionally whenever HasRunicPower/
+-- HasRunes says the pool is real (see the file comment above), so pinning
+-- them changes nothing about VISIBILITY - it only changes ORDER. Before this
+-- fix, both were added in a fixed spot ahead of the pinned-extras loop
+-- (same bug just fixed for Combo Points), so a pinned Runic Power/Runes
+-- entry always landed right after Health/current-power regardless of tick
+-- order. These tests are the regression coverage for that fix, plus basic
+-- pin-does-not-duplicate coverage.
+-- --------------------------------------------------------------------------
+
+-- Current power type deliberately left as Mana (0), disjoint from both
+-- resources being compared (Rage and Runic Power): the current power type is
+-- always added, unconditionally, before the pinned-extras loop even runs
+-- (see the file comment above CollectResources), so a test that used Rage as
+-- BOTH the current power type AND one of the two pins compared would prove
+-- nothing about tick order - Rage would always land first no matter which
+-- pin was ticked first. The same reasoning already shapes the existing
+-- Energy/Rage ordering tests further above.
+function M.test_runicPower_pinned_landsAfterAResourcePinnedBeforeIt()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 10, 100
+    mock.power[1], mock.powerMax[1] = 20, 100
+    mock.power[6], mock.powerMax[6] = 40, 100
+
+    local pinned = { { key = "rage" }, { key = "runicpower" } }
+    local entries = ns:CollectResources({ pinned = pinned })
+
+    local rageIdx, rpIdx
+    for i, e in ipairs(entries) do
+        if e.key == "rage" then rageIdx = i end
+        if e.key == "runicpower" then rpIdx = i end
+    end
+    assertx.assertNotNil(rageIdx, "expected rage to be collected")
+    assertx.assertNotNil(rpIdx, "expected runicpower to be collected")
+    assertx.assertTrue(rageIdx < rpIdx, "rage was pinned first, so it must appear first")
+end
+
+function M.test_runicPower_pinned_landsBeforeAResourcePinnedAfterIt()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 10, 100
+    mock.power[1], mock.powerMax[1] = 20, 100
+    mock.power[6], mock.powerMax[6] = 40, 100
+
+    -- Same two resources, ticked in the opposite order.
+    local pinned = { { key = "runicpower" }, { key = "rage" } }
+    local entries = ns:CollectResources({ pinned = pinned })
+
+    local rageIdx, rpIdx
+    for i, e in ipairs(entries) do
+        if e.key == "rage" then rageIdx = i end
+        if e.key == "runicpower" then rpIdx = i end
+    end
+    assertx.assertTrue(rpIdx < rageIdx, "runic power was pinned first this time, so it must appear first")
+end
+
+function M.test_runicPower_pinnedDoesNotDuplicate()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.powerType, mock.powerTypeToken = 1, "RAGE"
+    mock.power[1], mock.powerMax[1] = 20, 100
+    mock.power[6], mock.powerMax[6] = 40, 100
+
+    local entries = ns:CollectResources({ pinned = { { key = "runicpower" } } })
+    local count = 0
+    for _, e in ipairs(entries) do
+        if e.key == "runicpower" then count = count + 1 end
+    end
+    assertx.assertEqual(count, 1, "pinning runic power must not duplicate the entry")
+end
+
+function M.test_runicPower_unpinnedStillShowsWhenCapable()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.powerType, mock.powerTypeToken = 1, "RAGE"
+    mock.power[1], mock.powerMax[1] = 20, 100
+    mock.power[6], mock.powerMax[6] = 40, 100
+
+    local entries = ns:CollectResources()
+    assertx.assertNotNil(findEntry(entries, "runicpower"),
+        "runic power must still show unconditionally when nothing is pinned")
+end
+
+function M.test_runicPower_pinnedWithNoRealPoolAddsNothing()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.powerType, mock.powerTypeToken = 1, "RAGE"
+    mock.power[1], mock.powerMax[1] = 20, 100
+    mock.powerMax[6] = 0
+
+    local ok, entries = pcall(function()
+        return ns:CollectResources({ pinned = { { key = "runicpower" } } })
+    end)
+    assertx.assertTrue(ok, "pinning runic power without a real pool must not error")
+    assertx.assertNil(findEntry(entries, "runicpower"),
+        "pinning must not conjure a runic power bar with no real pool behind it")
+end
+
+-- Same current-power-type caveat as the Runic Power ordering tests above:
+-- Mana is current, disjoint from Rage and Runes, so tick order is the only
+-- thing that can explain the result.
+function M.test_runes_pinned_landsAfterAResourcePinnedBeforeIt()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 10, 100
+    mock.power[1], mock.powerMax[1] = 20, 100
+    mock.runeCooldown = function(slot) return 0, 10, true end -- all runes ready
+
+    local pinned = { { key = "rage" }, { key = "runes" } }
+    local entries = ns:CollectResources({ pinned = pinned })
+
+    local rageIdx, rune1Idx
+    for i, e in ipairs(entries) do
+        if e.key == "rage" then rageIdx = i end
+        if e.key == "rune1" then rune1Idx = i end
+    end
+    assertx.assertNotNil(rageIdx, "expected rage to be collected")
+    assertx.assertNotNil(rune1Idx, "expected the first rune slot to be collected")
+    assertx.assertTrue(rageIdx < rune1Idx, "rage was pinned first, so it must appear before the runes")
+end
+
+function M.test_runes_pinned_landsBeforeAResourcePinnedAfterIt()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.powerType, mock.powerTypeToken = 0, "MANA"
+    mock.power[0], mock.powerMax[0] = 10, 100
+    mock.power[1], mock.powerMax[1] = 20, 100
+    mock.runeCooldown = function(slot) return 0, 10, true end
+
+    local pinned = { { key = "runes" }, { key = "rage" } }
+    local entries = ns:CollectResources({ pinned = pinned })
+
+    local rageIdx, rune1Idx
+    for i, e in ipairs(entries) do
+        if e.key == "rage" then rageIdx = i end
+        if e.key == "rune1" then rune1Idx = i end
+    end
+    assertx.assertTrue(rune1Idx < rageIdx, "runes were pinned first this time, so they must appear first")
+end
+
+function M.test_runes_pinnedDoesNotDuplicate()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.powerType, mock.powerTypeToken = 1, "RAGE"
+    mock.power[1], mock.powerMax[1] = 20, 100
+    mock.runeCooldown = function(slot) return 0, 10, true end
+
+    local entries = ns:CollectResources({ pinned = { { key = "runes" } } })
+    for slot = 1, 6 do
+        local count = 0
+        for _, e in ipairs(entries) do
+            if e.key == "rune" .. slot then count = count + 1 end
+        end
+        assertx.assertEqual(count, 1, "pinning runes must not duplicate rune slot " .. slot)
+    end
+end
+
+function M.test_runes_unpinnedStillShowsSixEntries()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.powerType, mock.powerTypeToken = 1, "RAGE"
+    mock.power[1], mock.powerMax[1] = 20, 100
+    mock.runeCooldown = function(slot) return 0, 10, true end
+
+    local entries = ns:CollectResources()
+    for slot = 1, 6 do
+        assertx.assertNotNil(findEntry(entries, "rune" .. slot),
+            "runes must still show unconditionally when nothing is pinned, slot " .. slot)
+    end
+end
+
+function M.test_runes_pinnedWithNoRealRunesAddsNothing()
+    local ns = fresh()
+    mock.playerClass = "WARRIOR"
+    mock.powerType, mock.powerTypeToken = 1, "RAGE"
+    mock.power[1], mock.powerMax[1] = 20, 100
+    -- Default mock.runeCooldown (duration 0 on every slot) = no real runes.
+
+    local ok, entries = pcall(function()
+        return ns:CollectResources({ pinned = { { key = "runes" } } })
+    end)
+    assertx.assertTrue(ok, "pinning runes without any real rune data must not error")
+    assertx.assertNil(findEntry(entries, "rune1"),
+        "pinning must not conjure rune bars with no real rune data behind them")
+end
+
 return M

@@ -461,6 +461,16 @@ local function CreateBarsTab(parent)
         "grpAutoTitleFollowsUnit",
         "grpAutoTitleShowsLevel",
     }
+    -- Runic Power / Runes (v2.5.0) only ever mean anything on the PLAYER
+    -- resource feed: both pools belong to the player alone
+    -- (ns:CollectResources gates them on unit == "player" - Trackers.lua),
+    -- so showing them on the target/target's-target feeds would be dead
+    -- controls that can never do anything, the same reasoning that gives
+    -- AUTO_TARGET_RESOURCE_ONLY_WIDGET_IDS above its own narrower bucket.
+    local AUTO_PLAYER_RESOURCE_ONLY_WIDGET_IDS = {
+        "grpAutoPinRunicPower", "grpAutoPinRunicPowerColor",
+        "grpAutoPinRunes", "grpAutoPinRunesColor",
+    }
 
     -- Whether the selected group has an AURA feed picked (not "resources").
     -- The banned-spells section (built further down) is keyed off this too:
@@ -487,6 +497,7 @@ local function CreateBarsTab(parent)
         local hasFeed = value ~= nil and value ~= ""
         local isTargetResource = value == "targetResources" or value == "totResources"
         local isAura  = hasFeed and value ~= "resources" and not isTargetResource
+        local isPlayerResource = value == "resources"
 
         local function setAll(ids, shown)
             for _, id in ipairs(ids) do
@@ -501,6 +512,7 @@ local function CreateBarsTab(parent)
         setAll(AUTO_AURA_ONLY_WIDGET_IDS, isAura)
         setAll(AUTO_RESOURCE_ONLY_WIDGET_IDS, hasFeed and not isAura)
         setAll(AUTO_TARGET_RESOURCE_ONLY_WIDGET_IDS, isTargetResource)
+        setAll(AUTO_PLAYER_RESOURCE_ONLY_WIDGET_IDS, isPlayerResource)
 
         autoFeedShown = isAura
         if UpdateBanList then UpdateBanList() end
@@ -1170,6 +1182,66 @@ local function CreateBarsTab(parent)
           set = function(_, color)
               local g = getGroup(); if not g then return end
               g.autoPinnedResources = ns:SetPinnedResourceColor(g.autoPinnedResources, "combopoints",
+                  { r = color.r, g = color.g, b = color.b })
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
+        -- Runic Power / Runes (v2.5.0): only meaningful on the player feed -
+        -- both are the PLAYER's own resource pools (ns:CollectResources'
+        -- HasRunicPower/HasRunes probes, Trackers.lua), never a target's or
+        -- a target's-target's - so these two sit in their own
+        -- AUTO_PLAYER_RESOURCE_ONLY_WIDGET_IDS bucket rather than the
+        -- AUTO_RESOURCE_ONLY_WIDGET_IDS one above (which shows for all three
+        -- resource feeds). Unlike Mana/Rage/Energy, both already show
+        -- unconditionally whenever the pool is real, so the tickbox only
+        -- changes ORDER relative to the other pins, not whether the bar
+        -- appears at all - see ns:CollectResources' own comment for the
+        -- ordering fix this pin needed (the same one Combo Points needed: a
+        -- pinned resource used to always land right after Health/current-
+        -- power regardless of tick order).
+        { type = "toggle", id = "grpAutoPinRunicPower", label = "Keep Runic Power Visible",
+          tooltip = "Runic Power already shows here whenever you have a pool "
+               .. "of it. Tick this to choose where it sits among your other "
+               .. "pinned resources, instead of it always sitting right "
+               .. "after Health.",
+          get = function() return isResourcePinned(getGroup(), "runicpower") end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = ns:TogglePinnedResource(g.autoPinnedResources, "runicpower", v and true or false)
+          end,
+          onChange = function(value) onPinToggleChanged("grpAutoPinRunicPowerColor", value) end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
+        { type = "color", id = "grpAutoPinRunicPowerColor", label = "Runic Power Colour",
+          get = function() return getPinnedResourceColor(getGroup(), "runicpower") end,
+          set = function(_, color)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = ns:SetPinnedResourceColor(g.autoPinnedResources, "runicpower",
+                  { r = color.r, g = color.g, b = color.b })
+              ns:RefreshAllBars()
+          end,
+          offsetX = ns.OFFSET_TOGGLE + 10, spacing = 8 },
+        -- One tickbox/swatch covers every rune bar the group is currently
+        -- showing (all six slots today), since there is no per-slot pin -
+        -- the pin key is "runes", not "rune1".."rune6", and
+        -- ns:GetPinnedResourceColor (Conditions.lua) maps each bar's own
+        -- resourceKey back to this one shared entry for the colour swatch
+        -- to actually reach them.
+        { type = "toggle", id = "grpAutoPinRunes", label = "Keep Runes Visible",
+          tooltip = "Runes already show here whenever you have any. Tick "
+               .. "this to choose where they sit among your other pinned "
+               .. "resources, instead of always sitting right after Health.",
+          get = function() return isResourcePinned(getGroup(), "runes") end,
+          set = function(_, v)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = ns:TogglePinnedResource(g.autoPinnedResources, "runes", v and true or false)
+          end,
+          onChange = function(value) onPinToggleChanged("grpAutoPinRunesColor", value) end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
+        { type = "color", id = "grpAutoPinRunesColor", label = "Runes Colour",
+          get = function() return getPinnedResourceColor(getGroup(), "runes") end,
+          set = function(_, color)
+              local g = getGroup(); if not g then return end
+              g.autoPinnedResources = ns:SetPinnedResourceColor(g.autoPinnedResources, "runes",
                   { r = color.r, g = color.g, b = color.b })
               ns:RefreshAllBars()
           end,

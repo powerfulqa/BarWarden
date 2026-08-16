@@ -135,6 +135,14 @@ the same current-power-type signal the game itself uses.
   whatever order you ticked the pins in, because it was added before the
   ordered pinned-resources step ran. It now takes its place among Mana,
   Rage and Energy in the order you pinned them.
+- **New "Keep Runic Power Visible" and "Keep Runes Visible" pins**, each
+  with its own colour swatch, alongside Mana / Rage / Energy / Combo
+  Points. Both already show whenever you have the pool, so the pin only
+  changes where they sit among your other pinned resources rather than
+  whether they show at all - and, like the Combo Points fix above, it now
+  respects the order you ticked the pins in instead of always sitting
+  right after Health. There is still no pin for Soul Shards; that stays a
+  deliberate gap, not an oversight.
 
 ---
 

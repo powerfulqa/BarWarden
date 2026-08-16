@@ -434,12 +434,32 @@ function ns:GetPinnedResourceColor(bar)
     local pinned = groupData and groupData.autoPinnedResources
     if not pinned then return nil end
 
-    for _, entry in ipairs(ns:NormalizePinnedResources(pinned)) do
+    local list = ns:NormalizePinnedResources(pinned)
+    for _, entry in ipairs(list) do
         if entry.key == key and entry.color then
             local c = entry.color
             return c.r or 1, c.g or 1, c.b or 1
         end
     end
+
+    -- Runes are pinned as a single "Keep Runes Visible" entry (key "runes")
+    -- covering every rune bar in the group at once - there is no tickbox for
+    -- an individual slot or pair, unlike Mana/Rage/Energy/Combo Points/Runic
+    -- Power, which each own exactly one resourceKey. A per-slot resourceKey
+    -- ("rune1".."rune6") or per-pair one ("runepair1".."runepair3", once
+    -- Pair Runes by Type is on - Trackers.lua's collectRuneEntries) that
+    -- found no exact match above therefore falls back to the shared "runes"
+    -- entry, so the one swatch actually reaches the bars it is meant to
+    -- colour.
+    if key:match("^rune%d") or key:match("^runepair%d") then
+        for _, entry in ipairs(list) do
+            if entry.key == "runes" and entry.color then
+                local c = entry.color
+                return c.r or 1, c.g or 1, c.b or 1
+            end
+        end
+    end
+
     return nil
 end
 

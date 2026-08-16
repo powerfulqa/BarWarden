@@ -837,6 +837,24 @@ local function CheckRunes(barConfig)
     return true, current, duration, icon, name, ceil(cdRemaining), runeType
 end
 
+-- collectRuneEntries: the six DK rune slots, in the shape ns:CollectResources'
+-- addEntry expects (key/label/current/max/icon/stacks/trackMode/runeType).
+-- Pulled out of CollectResources so both the unconditional "always visible"
+-- block and the pinned-extras block below can build the exact same list
+-- without duplicating the per-slot CheckRunes call - see the pin-ordering
+-- fix's own comment for why two call sites need this.
+local function collectRuneEntries()
+    local list = {}
+    for slot = 1, 6 do
+        local _, cur, mx, icon, name, stacks, runeType = CheckRunes({ spellId = slot })
+        list[#list + 1] = {
+            key = "rune" .. slot, label = name, current = cur, max = mx,
+            icon = icon, stacks = stacks, trackMode = "Runes", runeType = runeType,
+        }
+    end
+    return list
+end
+
 -- ----------------------------------------------------------------------------
 -- Capability probes for the PLAYER's own DK/Warlock-flavoured pools, used by
 -- ns:CollectResources below INSTEAD OF UnitClass("player") - see the long
@@ -1067,9 +1085,15 @@ end
 --     one), so the shown-only-when-real rule Combo Points already use below
 --     is reused here: a Soul Shard entry appears only once `GetItemCount`
 --     reports at least one, and disappears again once the last one is
---     spent. There is no pin for this yet (Options_Bars.lua has no "Keep
---     Soul Shards Visible" tickbox); if one is ever added it should gate the
---     same way the Combo Points pin does, not by resurrecting a class check.
+--     spent. There is deliberately still no pin for this (v2.5.0 added one
+--     for Runic Power and Runes but not Soul Shards): the owner only asked
+--     for the two DK pools, and shipping a third, unrequested tickbox in the
+--     same change would be scope creep with no test coverage behind it. If
+--     one is ever wanted it should gate the same way the Runic Power/Runes
+--     pins do below (guard the unconditional add with `not
+--     pinnedKeys.soulshards`, add it again in the pinned-extras loop, gated
+--     on `GetItemCount(...) > 0` the same as the unconditional add), not by
+--     resurrecting a class check.
 --   * Combo Points are different again: GetComboPoints("player", "target")
 --     is already, unconditionally, a "your points on your CURRENT target"
 --     reading - it does not change meaning depending on whether the player
@@ -1329,23 +1353,34 @@ function ns:CollectResources(opts)
     -- it here too, even though it is usually already added above via the
     -- current-power-type step; addEntry's `seen` guard makes the explicit
     -- add below a harmless no-op rather than a duplicate bar.
+    --
+    -- Runic Power and Runes are guarded by `not pinnedKeys.X` (v2.5.0 pin
+    -- fix): without that guard, a pinned entry would still be added HERE,
+    -- ahead of the ordered pinned-extras loop below, and addEntry's `seen`
+    -- guard means whichever add runs first wins the slot - reproducing the
+    -- exact bug just fixed for Combo Points (see that block's comment
+    -- above), where a pinned resource always landed right after
+    -- Health/current-power regardless of tick order. This block now only
+    -- ever handles the UNPINNED "always visible because the pool is real"
+    -- case; the pinned case is handled entirely by the pinned-extras loop.
     if unit == "player" then
-        if HasRunicPower() then
+        if HasRunicPower() and not pinnedKeys.runicpower then
             local _, rpCur, rpMax, rpIcon, rpName = CheckRunicPower({})
             addEntry("runicpower", rpName, rpCur, rpMax, rpIcon)
         end
 
-        if HasRunes() then
-            for slot = 1, 6 do
-                local _, cur, mx, icon, name, stacks, runeType = CheckRunes({ spellId = slot })
-                addEntry("rune" .. slot, name, cur, mx, icon, stacks, "Runes", runeType)
+        if HasRunes() and not pinnedKeys.runes then
+            for _, e in ipairs(collectRuneEntries()) do
+                addEntry(e.key, e.label, e.current, e.max, e.icon, e.stacks, e.trackMode, e.runeType)
             end
         end
 
         -- No capability API exists for Soul Shards (see the file comment
         -- above): GetItemCount > 0 is the only honest "has one right now"
         -- signal, so the bar appears with the count already in hand rather
-        -- than a class-inferred, possibly-empty one.
+        -- than a class-inferred, possibly-empty one. No pin exists for this
+        -- one (see the file comment above for why that is a deliberate,
+        -- separate decision, not an oversight).
         local shardCount = GetItemCount(SOUL_SHARD_ITEM_ID) or 0
         if shardCount > 0 then
             local _, cur, mx, icon, name = CheckSoulShards({})
@@ -1372,11 +1407,18 @@ function ns:CollectResources(opts)
     -- there deliberately steps aside while pinned). Still gated on unit ==
     -- player/target: GetComboPoints has no target's-target reading, so
     -- pinning it must not conjure one on that feed either (see the file
-    -- comment's Combo Points section). Runic Power/Runes/Soul Shards have no
-    -- pin tickbox at all yet (Options_Bars.lua), so they are not listed
-    -- here; if one is ever added for them it needs the same treatment - stop
-    -- claiming the slot early, and add them here instead - since they too
-    -- are currently added in a fixed spot ahead of this loop.
+    -- comment's Combo Points section).
+    --
+    -- Runic Power and Runes (v2.5.0) follow the exact same shape: gated on
+    -- unit == "player" (they are the PLAYER's own pools, never a target's -
+    -- see the file comment above), and re-checking their own capability
+    -- (HasRunicPower/HasRunes) here too, since a pin must not conjure a bar
+    -- for a pool that genuinely is not there. Runes adds however many
+    -- entries collectRuneEntries() currently produces (all six slots today)
+    -- as one ordered block, so the whole group of rune bars moves together
+    -- as a single pinned item. Soul Shards still has no pin tickbox
+    -- (Options_Bars.lua) - see the file comment above for why - so it is not
+    -- listed here.
     local PINNABLE_POWER_TYPES = { mana = 0, rage = 1, energy = 3 }
     for _, entry in ipairs(normalizedPinned) do
         local powerType = PINNABLE_POWER_TYPES[entry.key]
@@ -1385,6 +1427,13 @@ function ns:CollectResources(opts)
         elseif entry.key == "combopoints" and (unit == "player" or unit == "target") then
             local _, cur, mx, icon, name = CheckComboPoints({})
             addEntry("combopoints", name, cur, mx, icon)
+        elseif entry.key == "runicpower" and unit == "player" and HasRunicPower() then
+            local _, rpCur, rpMax, rpIcon, rpName = CheckRunicPower({})
+            addEntry("runicpower", rpName, rpCur, rpMax, rpIcon)
+        elseif entry.key == "runes" and unit == "player" and HasRunes() then
+            for _, e in ipairs(collectRuneEntries()) do
+                addEntry(e.key, e.label, e.current, e.max, e.icon, e.stacks, e.trackMode, e.runeType)
+            end
         end
     end
 

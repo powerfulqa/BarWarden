@@ -268,18 +268,24 @@ showing them under this group would just repeat the other group's number
 under the wrong label. A target with nothing of its own targeted shows
 nothing.
 
-- **Keep Mana / Rage / Energy / Combo Points Visible** - each resource
-  already appears on its own whenever it is what you are (or your target
-  is) currently using; these tickboxes just keep it up the rest of the
-  time too. Combo Points already show once you have some - the tickbox
-  keeps the bar up at zero too, and only does anything for a class that can
-  generate them. Bars appear in the order you tick them, top to bottom;
-  unticking one and re-ticking it later moves it to the end rather than
-  back to where it used to be. Each pin gets its own colour swatch, which
-  opens on the resource's own default colour and beats both the group's
-  Custom Bar Colour and the default power colour above. Works the same on
-  either of the target resource groups, pinning that group's own unit's
-  power.
+- **Keep Mana / Rage / Energy / Combo Points / Runic Power / Runes
+  Visible** - each resource already appears on its own whenever it is what
+  you are (or your target is) currently using, or - for Runic Power and
+  Runes - whenever you have the pool at all; these tickboxes just keep it
+  up the rest of the time too (for Runic Power/Runes, which already always
+  show when you have them, the tickbox instead lets you choose where they
+  sit among your other pins). Combo Points already show once you have
+  some - the tickbox keeps the bar up at zero too, and only does anything
+  for a class that can generate them. Bars appear in the order you tick
+  them, top to bottom; unticking one and re-ticking it later moves it to
+  the end rather than back to where it used to be. Each pin gets its own
+  colour swatch, which opens on the resource's own default colour and
+  beats both the group's Custom Bar Colour and the default power colour
+  above (Runes share one swatch covering every rune bar). Mana/Rage/Energy/
+  Combo Points work the same on either of the target resource groups,
+  pinning that group's own unit's power; Runic Power and Runes are the
+  player's own pools, so their tickboxes only show on the player resource
+  group.
 - **Show Icon** - show or hide the resource icon on this group's bars.
 - **Value Text** - how each bar's number is shown: Current / Max (`4200/5100`),
   Percent (`82%`), or Both (`4200/5100 (82%)`).
@@ -351,7 +357,7 @@ You can combine group tokens with regular spell names using commas: `@Stunned, B
 - Sort Mode (Manual, Remaining Time, Alphabetical, As They Come)
 - Growth Direction (Down, Up)
 - Bar Overrides: Bar Texture, Text Format, Bar Style (Countdown, On or Off), Custom Bar Colour, Show Icons Only (a compact grid of spell icons instead of bars, sized with the Width slider), Custom Stack Text (its own size and colour for the stack count), and Custom Bar Effects (Glow on Ready, Pulse on Ready, Linger Time), all for the whole group at once - Custom Bar Effects is also the only way to turn these on for an auto-tracking group
-- Auto Track: fill the group from buffs or debuffs, or from health and power (yours, your target's, or your target's target's), instead of adding bars by hand. Any Health and power choice adds its own Keep Mana/Rage/Energy/Combo Points Visible tickboxes (in the order you tick them, each with an optional colour swatch), a Show Icon toggle, and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings. The target and target-of-target choices also add a Group Name Follows Target tickbox
+- Auto Track: fill the group from buffs or debuffs, or from health and power (yours, your target's, or your target's target's), instead of adding bars by hand. Any Health and power choice adds its own Keep Mana/Rage/Energy/Combo Points Visible tickboxes (in the order you tick them, each with an optional colour swatch), a Show Icon toggle, and a Value Text dropdown (amount and total, percent, or both) in place of the buff/debuff-only settings. The player's own group additionally adds Keep Runic Power/Runes Visible tickboxes, since those two pools are the player's own and never a target's. The target and target-of-target choices also add a Group Name Follows Target tickbox
 - Group Conditions (Hide When Inactive, Combat Only, Out of Combat Only, Hide Mounted, Hide Resting, Hide In Vehicle, Only In Instance)
 
 **Right panel (Bar list and editor):**
