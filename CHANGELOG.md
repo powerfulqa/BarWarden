@@ -79,9 +79,9 @@ Fixed in the same pass:
   X-Perl's own setting. This is also what made a 3D portrait look like it
   sat on a grey square. An *Opacity* section fades the panel, the portrait,
   the bars and the border independently, each down to fully see-through:
-  *Panel* covers the whole dark background, including behind the bars and
-  the name band, and *Bars* fades the bars themselves along with any numbers
-  on them.
+  *Panel* covers every dark surface, including behind the bars, the name
+  band and the portrait; *Portrait* fades the picture or model itself; and
+  *Bars* fades the bars along with any numbers on them.
 - **Click a frame's portrait or its name to select that unit**, and
   right-click for its menu. Party frames included, so you can click a party
   member to target them. This works while your frames are locked; locking

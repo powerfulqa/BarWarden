@@ -905,20 +905,45 @@ local function BuildUnitFrame(key)
     -- handling is independent of its parent's EnableMouse, so this survives
     -- ns:LockAllFrames without that function needing to know about them.
     local function MakeClickTarget(name)
-        -- pcall: SetAttribute on a secure frame is blocked in combat, and a
-        -- rebuild CAN be triggered from the options panel mid-fight. Failing
-        -- to be clickable until the next rebuild is an acceptable outcome;
-        -- erroring the whole frame build is not.
-        local ok, button = pcall(CreateFrame, "Button", name, frame,
-                                 "SecureUnitButtonTemplate")
-        if not ok or not button then return nil end
+        -- The secure template is TRIED, not assumed. Wrapping this in a pcall
+        -- and returning nil on failure is what made the first version of this
+        -- fail completely silently: if the template is absent (private-server
+        -- clients do trim FrameXML) there was no button, no error, and no
+        -- clue. Now a failure falls through to a plain button that still
+        -- targets out of combat, and frame.clickMode records which path ran
+        -- so "clicking does nothing" can be diagnosed rather than guessed at.
+        local button = CreateFrame("Button", name, frame, "SecureUnitButtonTemplate")
+        local secure = button ~= nil
+        if not button then
+            button = CreateFrame("Button", name, frame)
+        end
+        frame.clickMode = secure and "secure" or "basic"
 
-        pcall(function()
-            button:SetAttribute("unit", unit)
-            button:SetAttribute("type1", "target")
-            button:SetAttribute("type2", "togglemenu")
-            button:RegisterForClicks("AnyUp")
-        end)
+        -- Explicit, not assumed. A Button is not guaranteed to come with
+        -- mouse input already enabled, and without it every script below is
+        -- dead code.
+        button:EnableMouse(true)
+        button:RegisterForClicks("AnyUp")
+
+        if secure then
+            -- Separate pcall per attribute rather than one around the lot:
+            -- SetAttribute is blocked on a secure frame in combat, and a
+            -- rebuild CAN be triggered from the options panel mid-fight. One
+            -- shared pcall meant a failure on the first attribute silently
+            -- skipped the rest.
+            pcall(button.SetAttribute, button, "unit", unit)
+            pcall(button.SetAttribute, button, "type1", "target")
+            pcall(button.SetAttribute, button, "type2", "togglemenu")
+        else
+            -- Insecure fallback. TargetUnit is protected in combat on
+            -- 3.3.5a, so this deliberately does nothing mid-fight rather
+            -- than throwing a blocked-action error on every click. Out of
+            -- combat it behaves the same as the secure path.
+            button:SetScript("OnClick", function()
+                if InCombatLockdown and InCombatLockdown() then return end
+                if TargetUnit then pcall(TargetUnit, unit) end
+            end)
+        end
 
         -- Above everything else in the frame. These buttons are created
         -- before the portrait and the bars, so without this they would sit
@@ -945,6 +970,9 @@ local function BuildUnitFrame(key)
         return button
     end
 
+    -- Not pcall-wrapped. If frame construction is going to fail, it should
+    -- fail loudly with a stack trace rather than leaving a frame that looks
+    -- right and quietly does nothing when clicked.
     frame.portraitButton = MakeClickTarget("BarWardenUnitFramePortrait" .. key)
     frame.nameButton     = MakeClickTarget("BarWardenUnitFrameName" .. key)
 
@@ -969,19 +997,22 @@ local function BuildUnitFrame(key)
     -- the character, so without a backing the game world shows through its
     -- head.
     --
-    -- Portrait opacity is applied to the WHOLE portrait frame, not just this
-    -- backing. Fading only the backing did nothing visible whenever the panel
-    -- behind it was solid, because the portrait sits ON TOP of the panel -
-    -- turning the backing transparent simply revealed the panel through it,
-    -- so the portrait appeared to follow the Panel slider and ignore its own.
-    -- Setting the frame's alpha fades the backing, the picture and the 3D
-    -- model together, which is what "portrait opacity" has to mean for the
-    -- slider to do anything at all over an opaque panel.
+    -- The backing follows PANEL opacity, not portrait opacity. It is part of
+    -- the same dark surface as the frame background, the bar backgrounds and
+    -- the name band, and it is what shows through a 3D model, which is
+    -- transparent around the character.
+    --
+    -- This took two goes to get right. Portrait opacity first faded only this
+    -- backing, which did nothing visible over a solid panel: the portrait
+    -- sits ON TOP of the panel, so a transparent backing just revealed the
+    -- panel through it. Then it faded the whole portrait frame, which worked
+    -- but tied the character's picture to its background - turning the
+    -- backing down took the face with it. Splitting them is the answer:
+    -- Panel owns every dark surface, Portrait owns the image.
     local portraitBG = portraitFrame:CreateTexture(nil, "BACKGROUND")
     portraitBG:SetAllPoints(portraitFrame)
     portraitBG:SetTexture("Interface\\Buttons\\WHITE8x8")
-    portraitBG:SetVertexColor(0, 0, 0, 1)
-    portraitFrame:SetAlpha(ns:GetUnitFrameOpacity(cfg, "portraitOpacity"))
+    portraitBG:SetVertexColor(0, 0, 0, ns:GetUnitFrameOpacity(cfg, "frameOpacity"))
     frame.portraitBG = portraitBG
     frame.portraitFrame = portraitFrame
 
@@ -994,6 +1025,10 @@ local function BuildUnitFrame(key)
     -- X-Perl and every other unit-frame addon does with it.
     portrait:SetTexCoord(UF_PORTRAIT_CROP, 1 - UF_PORTRAIT_CROP,
                          UF_PORTRAIT_CROP, 1 - UF_PORTRAIT_CROP)
+    -- Portrait opacity applies to the IMAGE, not the box it sits in. The
+    -- black behind it belongs to Panel (see portraitBG above).
+    local portraitAlpha = ns:GetUnitFrameOpacity(cfg, "portraitOpacity")
+    portrait:SetAlpha(portraitAlpha)
     frame.portrait = portrait
 
     -- Live 3D model, the same approach X-Perl uses (XPerl_Portrait_Template
@@ -1009,6 +1044,10 @@ local function BuildUnitFrame(key)
     local ok, model = pcall(CreateFrame, "PlayerModel", nil, portraitFrame)
     if ok and model then
         model:SetAllPoints(portraitFrame)
+        -- Same alpha as the flat portrait: the two are alternate renderings
+        -- of the same thing, and Portrait opacity has to mean the same
+        -- regardless of which one is on.
+        model:SetAlpha(portraitAlpha)
         model:Hide()
         frame.portrait3D = model
     end

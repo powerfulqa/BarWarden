@@ -309,6 +309,29 @@ function ns:GenerateBugReport()
     end
     add("")
 
+    -- Unit frames (UnitFrames.lua). `click` is the one line here that cannot
+    -- be worked out from the settings: it records whether the click-to-target
+    -- buttons got SecureUnitButtonTemplate or fell back to a plain button,
+    -- which is the difference between clicking working in combat and not.
+    -- A private-server client that trims FrameXML is the case it catches.
+    add("--- Unit Frames ---")
+    local ufCfg = ns.db and ns.db.unitFrames
+    if type(ufCfg) == "table" then
+        local anyEnabled = false
+        for _, key in ipairs(ns.UNIT_FRAME_KEYS or {}) do
+            local live = ns.unitFrames and ns.unitFrames[key]
+            if live then
+                anyEnabled = true
+                add(string.format("  %s: built, click=%s", key,
+                    tostring(live.clickMode or "none")))
+            end
+        end
+        if not anyEnabled then add("  None built.") end
+    else
+        add("  No unit frame data loaded.")
+    end
+    add("")
+
     -- Activity statistics (from ActivityTracker)
     add("--- Activity Statistics ---")
     local sessionDuration = time() - (ns.sessionStartTime or time())
