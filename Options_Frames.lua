@@ -37,6 +37,21 @@ end
 local ufTextureItems = (ns.LSMDropdownItems and ns:LSMDropdownItems("statusbar"))
                        or BUILTIN_UF_TEXTURE_ITEMS
 
+-- Fonts, with an explicit "same as Visuals" row at the top. Empty string is
+-- the stored inherit value (see ns.DEFAULTS.unitFrames.player.nameFont), so
+-- a frame keeps following a later Visuals change instead of freezing a copy
+-- of whatever the global font was when the frame was built.
+local BUILTIN_UF_FONT_ITEMS = {
+    { text = "Friz Quadrata", value = "Fonts\\FRIZQT__.TTF" },
+    { text = "Arial Narrow",  value = "Fonts\\ARIALN.TTF"   },
+    { text = "Morpheus",      value = "Fonts\\MORPHEUS.TTF" },
+    { text = "Skurri",        value = "Fonts\\SKURRI.TTF"   },
+}
+
+local ufFontItems = (ns.LSMDropdownItems and ns:LSMDropdownItems("font"))
+                    or BUILTIN_UF_FONT_ITEMS
+table.insert(ufFontItems, 1, { text = "Same as Visuals", value = "" })
+
 local function CreateFramesTab(parent)
     local frame = CreateFrame("Frame", "BarWardenFramesTab", parent)
     frame:SetAllPoints(parent)
@@ -93,7 +108,10 @@ local function CreateFramesTab(parent)
           tooltip = "The look of the bars inside the frame. This is separate "
                  .. "from your timer bars, so the frame can look one way and "
                  .. "your bars another.",
-          offsetX = ns.OFFSET_DROPDOWN, spacing = 16 },
+          -- A dropdown directly under a slider needs the wider gap: both
+          -- draw outside their own frames and the normal 16 printed this
+          -- label straight through the slider's minimum value.
+          offsetX = ns.OFFSET_DROPDOWN, spacing = ns.GAP_DROPDOWN_UNDER_SLIDER },
 
         { type = "slider", label = "Bar Height", min = 8, max = 40, step = 1,
           width = 200,
@@ -107,22 +125,44 @@ local function CreateFramesTab(parent)
         { type = "toggle", label = "Show Portrait",
           tooltip = "Shows your character's portrait on the left.",
           db = "unitFrames.player.showPortrait", refresh = "RebuildUnitFrames",
+          -- onChange, not set: BuildSetCallback composes db + onChange, and
+          -- an entry that supplies `set` replaces the DB write entirely
+          -- rather than adding to it (ns:DBSet is a factory that RETURNS a
+          -- setter, so calling it directly writes nothing).
+          onChange = function()
+              if frame.ApplyConditionals then frame:ApplyConditionals() end
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 16 },
+
+        { type = "dropdown", id = "portraitStyleDD", label = "Portrait Style",
+          db = "unitFrames.player.portraitStyle", refresh = "RebuildUnitFrames",
+          items = {
+              { text = "Picture",  value = "2D" },
+              { text = "3D Model", value = "3D" },
+          },
+          width = 191,
+          tooltip = "A 3D model shows your character live. It falls back to "
+                 .. "the picture for anyone out of sight.",
+          offsetX = ns.OFFSET_DROPDOWN, spacing = 16 },
+
+        { type = "toggle", label = "Show Name",
+          tooltip = "Shows the name across the top of the frame.",
+          db = "unitFrames.player.showName", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_TOGGLE, spacing = 16 },
 
         { type = "toggle", label = "Show Level",
-          tooltip = "Adds your level next to your name.",
+          tooltip = "Adds the level next to the name.",
           db = "unitFrames.player.showLevel", refresh = "RebuildUnitFrames",
           offsetX = ns.OFFSET_TOGGLE },
 
         { type = "toggle", label = "Show Values",
           tooltip = "Shows the amount and percent for each bar.",
           db = "unitFrames.player.showValues", refresh = "RebuildUnitFrames",
-          set = function(_, value)
-              ns:DBSet("unitFrames.player.showValues", value)
-              ns:RebuildUnitFrames()
-              -- Values Position means nothing with no values to place, so it
-              -- appears and disappears with this tick. Same show/hide-then-
-              -- reflow pattern the Visuals tab uses for its colour swatch.
+          -- Values Position means nothing with no values to place, so it
+          -- appears and disappears with this tick. Same show/hide-then-reflow
+          -- pattern the Visuals tab uses for its colour swatch. See the note
+          -- on Show Portrait above for why this is onChange and not set.
+          onChange = function()
               if frame.ApplyConditionals then frame:ApplyConditionals() end
           end,
           offsetX = ns.OFFSET_TOGGLE },
@@ -190,6 +230,49 @@ local function CreateFramesTab(parent)
         offsetX = ns.OFFSET_TOGGLE, spacing = 16,
     }
 
+    -- Text section. Size 0 is the stored "inherit" value, and the slider's
+    -- minimum, so dragging it to the far left restores the Visuals size
+    -- rather than producing an unreadable 1px font. The format callback
+    -- spells that out on the slider itself.
+    -- Kept short because ns:CreateSlider uses this same function for the
+    -- minimum-value label printed under the left end of the track, where a
+    -- long string would run out under the slider.
+    local function SizeLabel(value)
+        if not value or value < 1 then return "Auto" end
+        return tostring(math.floor(value))
+    end
+
+    local TEXT_SCHEMA = {
+        { type = "header", text = "Text", spacing = 24, offsetX = ns.OFFSET_HEADER },
+
+        { type = "dropdown", id = "nameFontDD", label = "Name Font",
+          db = "unitFrames.player.nameFont", refresh = "RebuildUnitFrames",
+          items = ufFontItems, width = 191,
+          tooltip = "The font used for the name across the top.",
+          offsetX = ns.OFFSET_DROPDOWN, spacing = 16 },
+
+        { type = "slider", label = "Name Size", min = 0, max = 24, step = 1,
+          width = 200, format = SizeLabel,
+          tooltip = "Size of the name text. Slide fully left to match Visuals.",
+          db = "unitFrames.player.nameFontSize", refresh = "RebuildUnitFrames",
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
+
+        { type = "dropdown", id = "valueFontDD", label = "Values Font",
+          db = "unitFrames.player.valueFont", refresh = "RebuildUnitFrames",
+          items = ufFontItems, width = 191,
+          tooltip = "The font used for the numbers.",
+          offsetX = ns.OFFSET_DROPDOWN, spacing = ns.GAP_DROPDOWN_UNDER_SLIDER },
+
+        { type = "slider", label = "Values Size", min = 0, max = 24, step = 1,
+          width = 200, format = SizeLabel,
+          tooltip = "Size of the numbers. Slide fully left to match Visuals.",
+          db = "unitFrames.player.valueFontSize", refresh = "RebuildUnitFrames",
+          offsetX = ns.OFFSET_SLIDER, spacing = 16 },
+    }
+    for _, entry in ipairs(TEXT_SCHEMA) do
+        SCHEMA[#SCHEMA + 1] = entry
+    end
+
     frame.Refresh, frame.Reflow = ns:BuildSettings(content, SCHEMA, widgets,
                                      { firstX = 16, firstY = -10 })
 
@@ -201,6 +284,13 @@ local function CreateFramesTab(parent)
     -- every trigger (a setter, OnShow, the initial build) applies the exact
     -- same rules and cannot drift.
     function frame:ApplyConditionals()
+        if widgets.portraitStyleDD then
+            if ns:DBGet("unitFrames.player.showPortrait", true) == false then
+                widgets.portraitStyleDD:Hide()
+            else
+                widgets.portraitStyleDD:Show()
+            end
+        end
         if widgets.valuePlacementDD then
             if ns:DBGet("unitFrames.player.showValues", true) == false then
                 widgets.valuePlacementDD:Hide()

@@ -149,8 +149,23 @@ ns.DEFAULTS = {
             enabled      = false,
             scale        = 1.0,
             showPortrait = true,
+            -- "2D" is Blizzard's flat portrait image, "3D" a live model of
+            -- the character. 2D is the default because a model cannot render
+            -- a unit the client cannot see, so it is the one that always
+            -- works; the 3D path falls back to it automatically.
+            portraitStyle = "2D",
+            showName     = true,
             showLevel    = true,
             showValues   = true,
+            -- Empty font means "use the addon-wide font from Visuals". Size
+            -- 0 means the same for size. Storing "inherit" as empty/zero
+            -- rather than copying the current global keeps a frame following
+            -- a later Visuals change instead of freezing whatever the global
+            -- happened to be when the frame was first built.
+            nameFont      = "",
+            nameFontSize  = 0,
+            valueFont     = "",
+            valueFontSize = 0,
             -- Where the numbers sit: "COLUMN" beside the bars, "ONBAR" on
             -- them. showValues == false hides them either way.
             valuePlacement = "COLUMN",

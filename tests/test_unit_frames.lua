@@ -253,6 +253,58 @@ function M.test_valuePlacement_showValuesOffBeatsAnyPlacement()
 end
 
 -- --------------------------------------------------------------------------
+-- Header collapse (ns:ResolveUnitFrameElements / ns:ComputeUnitFrameLayout)
+--
+-- The header band is not itself a setting: it exists if the name or the
+-- level does. With both off it must collapse rather than leave an empty
+-- strip across the top of the frame.
+-- --------------------------------------------------------------------------
+
+function M.test_header_presentWhenEitherNameOrLevelShows()
+    local ns = fresh()
+    assertx.assertTrue(ns:ResolveUnitFrameElements({ showName = true, showLevel = false }).header,
+        "a name alone still needs a header")
+    assertx.assertTrue(ns:ResolveUnitFrameElements({ showName = false, showLevel = true }).header,
+        "a level alone still needs a header")
+end
+
+function M.test_header_collapsesWhenBothAreOff()
+    local ns = fresh()
+    local e = ns:ResolveUnitFrameElements({ showName = false, showLevel = false })
+    assertx.assertTrue(not e.header, "nothing to put in the header means no header")
+
+    local collapsed = ns:ComputeUnitFrameLayout(e, 3)
+    assertx.assertEqual(collapsed.headerHeight, 0)
+    local withHeader = ns:ComputeUnitFrameLayout({ header = true }, 3)
+    assertx.assertTrue(collapsed.height < withHeader.height,
+        "a collapsed header must actually shorten the frame")
+end
+
+-- Callers predating the name toggle pass element tables with no `header`
+-- key at all (the older tests here included). Nil must read as "there is a
+-- header", or every such frame would silently lose its title band.
+function M.test_header_absentKeyIsTreatedAsPresent()
+    local ns = fresh()
+    local l = ns:ComputeUnitFrameLayout({ portrait = false, values = false }, 2)
+    assertx.assertTrue(l.headerHeight > 0, "a missing header flag must not collapse the header")
+end
+
+-- --------------------------------------------------------------------------
+-- Portrait style (ns:ResolveUnitFrameElements)
+-- --------------------------------------------------------------------------
+
+function M.test_portraitStyle_defaultsToTheFlatPicture()
+    local ns = fresh()
+    assertx.assertTrue(not ns:ResolveUnitFrameElements({}).portrait3D)
+    assertx.assertTrue(not ns:ResolveUnitFrameElements({ portraitStyle = "2D" }).portrait3D)
+end
+
+function M.test_portraitStyle_modelIsOptedIntoExplicitly()
+    local ns = fresh()
+    assertx.assertTrue(ns:ResolveUnitFrameElements({ portraitStyle = "3D" }).portrait3D)
+end
+
+-- --------------------------------------------------------------------------
 -- Bar height (ns:ComputeUnitFrameLayout)
 -- --------------------------------------------------------------------------
 

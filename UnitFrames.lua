@@ -115,6 +115,25 @@ local UF_PORTRAIT_CROP = 0.15
 -- so the default resolves either way.
 local UF_DEFAULT_TEXTURE = "XP Perl v2"
 
+-- Resolve a font path + size for one of the frame's fontstrings, falling
+-- back to the addon-wide Visuals settings for anything the frame leaves
+-- unset. Empty string / 0 mean "inherit" rather than being stored as a copy
+-- of the current global, so a frame keeps following a later Visuals change.
+--
+-- Returns nil when there is no usable font at all, which is the caller's
+-- signal to leave the fontstring on its template font rather than calling
+-- SetFont with a nil path (which errors).
+local function ResolveUnitFrameFont(font, size, sizeBump)
+    local visual = ns:GetVisual()
+    local path = (font and font ~= "") and font or visual.font
+    if not path or path == "" then return nil end
+    local resolved = size
+    if not resolved or resolved <= 0 then
+        resolved = (visual.fontSize or 11) + (sizeBump or 0)
+    end
+    return path, resolved
+end
+
 -- Which optional elements a unit frame currently shows, resolved from its
 -- saved config. Nil-safe (a not-yet-built cfg reads as "show everything",
 -- matching ns.DEFAULTS.unitFrames.player) so this can be called defensively
@@ -129,9 +148,17 @@ function ns:ResolveUnitFrameElements(cfg)
     cfg = cfg or {}
     local showValues = cfg.showValues ~= false
     local onBar = showValues and cfg.valuePlacement == "ONBAR"
+    local name = cfg.showName ~= false
+    local level = cfg.showLevel ~= false
     return {
         portrait    = cfg.showPortrait ~= false,
-        level       = cfg.showLevel ~= false,
+        portrait3D  = cfg.portraitStyle == "3D",
+        name        = name,
+        level       = level,
+        -- The header band only exists if something goes in it. With both the
+        -- name and the level switched off it collapses entirely rather than
+        -- leaving an empty strip across the top of the frame.
+        header      = name or level,
         values      = showValues and not onBar,
         valuesOnBar = onBar,
         barHeight   = cfg.barHeight,
@@ -169,8 +196,13 @@ function ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
     if barHeight < UF_MIN_BAR_HEIGHT then barHeight = UF_MIN_BAR_HEIGHT end
     if barHeight > UF_MAX_BAR_HEIGHT then barHeight = UF_MAX_BAR_HEIGHT end
 
+    -- `elements.header` is nil for a caller that predates the name toggle
+    -- (and for the tests' minimal element tables), so nil reads as "there is
+    -- a header", matching every frame built before it became optional.
+    local headerHeight = (elements.header == false) and 0 or UF_HEADER_HEIGHT
+
     local barsHeight = barCount * barHeight + (barCount - 1) * UF_BAR_SPACING
-    local bodyHeight = UF_HEADER_HEIGHT + barsHeight
+    local bodyHeight = headerHeight + barsHeight
     local portraitSize = elements.portrait and bodyHeight or 0
 
     -- Left edge of the body sits inside the backdrop's own 4px inset, so the
@@ -191,7 +223,8 @@ function ns:ComputeUnitFrameLayout(elements, barCount, measuredValuesWidth)
         portraitInset = UF_PORTRAIT_INSET,
         bodyX        = bodyX,
         barsX        = barsX,
-        barsTop      = UF_PADDING + UF_HEADER_HEIGHT,
+        headerHeight = headerHeight,
+        barsTop      = UF_PADDING + headerHeight,
         valuesX      = valuesX,
         valuesWidth  = valuesWidth,
         barWidth     = UF_BAR_WIDTH,
@@ -273,18 +306,29 @@ local function LayoutUnitFrame(frame, elements, barCount, measuredValuesWidth)
 
     -- The header strip spans the bars and the values column together, so the
     -- name and the numbers share one band across the top of the frame.
+    local headerShown = layout.headerHeight > 0
     if frame.headerStrip then
-        frame.headerStrip:ClearAllPoints()
-        frame.headerStrip:SetPoint("TOPLEFT", frame, "TOPLEFT", layout.barsX, -UF_PADDING)
-        frame.headerStrip:SetWidth(layout.valuesX + layout.valuesWidth - layout.barsX)
-        frame.headerStrip:SetHeight(UF_HEADER_HEIGHT)
+        if headerShown then
+            frame.headerStrip:ClearAllPoints()
+            frame.headerStrip:SetPoint("TOPLEFT", frame, "TOPLEFT", layout.barsX, -UF_PADDING)
+            frame.headerStrip:SetWidth(layout.valuesX + layout.valuesWidth - layout.barsX)
+            frame.headerStrip:SetHeight(layout.headerHeight)
+            frame.headerStrip:Show()
+        else
+            frame.headerStrip:Hide()
+        end
     end
 
-    frame.nameText:ClearAllPoints()
-    frame.nameText:SetPoint("LEFT", frame, "TOPLEFT",
-        layout.barsX + 3, -(UF_PADDING + UF_HEADER_HEIGHT / 2))
-    frame.nameText:SetPoint("RIGHT", frame, "TOPLEFT",
-        layout.valuesX + layout.valuesWidth - 3, -(UF_PADDING + UF_HEADER_HEIGHT / 2))
+    if headerShown then
+        frame.nameText:ClearAllPoints()
+        frame.nameText:SetPoint("LEFT", frame, "TOPLEFT",
+            layout.barsX + 3, -(UF_PADDING + layout.headerHeight / 2))
+        frame.nameText:SetPoint("RIGHT", frame, "TOPLEFT",
+            layout.valuesX + layout.valuesWidth - 3, -(UF_PADDING + layout.headerHeight / 2))
+        frame.nameText:Show()
+    else
+        frame.nameText:Hide()
+    end
 
     for i = 1, MAX_UNIT_FRAME_SLOTS do
         local bar = frame.bars[i]
@@ -408,6 +452,25 @@ local function BuildUnitFrame(key)
                          UF_PORTRAIT_CROP, 1 - UF_PORTRAIT_CROP)
     frame.portrait = portrait
 
+    -- Live 3D model, the same approach X-Perl uses (XPerl_Portrait_Template
+    -- carries a PlayerModel alongside the flat texture, and XPerlSetPortrait3D
+    -- drives it with ClearModel/SetUnit/SetCamera(0) for the head shot).
+    -- Created unconditionally but only shown when asked for: building it
+    -- lazily would mean a CreateFrame on a settings change, and an unshown
+    -- PlayerModel costs nothing.
+    --
+    -- pcall-guarded because PlayerModel is the one frame type a private
+    -- server is most likely to have altered, and a missing SetUnit must
+    -- degrade to the flat portrait rather than error on a 4 Hz path.
+    local ok, model = pcall(CreateFrame, "PlayerModel", nil, portraitFrame)
+    if ok and model then
+        model:SetPoint("TOPLEFT", portraitFrame, "TOPLEFT", UF_PORTRAIT_INSET, -UF_PORTRAIT_INSET)
+        model:SetPoint("BOTTOMRIGHT", portraitFrame, "BOTTOMRIGHT",
+                       -UF_PORTRAIT_INSET, UF_PORTRAIT_INSET)
+        model:Hide()
+        frame.portrait3D = model
+    end
+
     -- Header: name, optionally with a colour-escaped level suffix
     -- (ns:FormatUnitLevelSuffix, FrameManager.lua - already built and tested
     -- for the "Group Name Follows Target" resource-group feature; reused
@@ -425,11 +488,19 @@ local function BuildUnitFrame(key)
 
     local nameText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     nameText:SetJustifyH("LEFT")
-    if visual.font then
-        nameText:SetFont(visual.font, (visual.fontSize or 11) + 1, "OUTLINE")
+    -- +1 on the inherited size: the name is the frame's title and reads a
+    -- step above the numbers unless the owner sets an explicit size.
+    local nameFontPath, nameFontSize = ResolveUnitFrameFont(cfg.nameFont, cfg.nameFontSize, 1)
+    if nameFontPath then
+        nameText:SetFont(nameFontPath, nameFontSize, "OUTLINE")
     end
     frame.nameText = nameText
     frame.lastHeaderText = nil
+
+    -- Resolved once for the whole slot loop rather than per slot: every
+    -- values fontstring uses the same font, and ResolveUnitFrameFont reads
+    -- ns:GetVisual() each call.
+    local valueFontPath, valueFontSize = ResolveUnitFrameFont(cfg.valueFont, cfg.valueFontSize, 0)
 
     frame.bars = {}
     frame.valueTexts = {}
@@ -469,8 +540,8 @@ local function BuildUnitFrame(key)
         local valueText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         valueText:SetJustifyH("RIGHT")
         valueText:SetJustifyV("MIDDLE")
-        if visual.font then
-            valueText:SetFont(visual.font, visual.fontSize or 11, "OUTLINE")
+        if valueFontPath then
+            valueText:SetFont(valueFontPath, valueFontSize, "OUTLINE")
         end
         -- The values column can overhang the frame edge onto the game world
         -- while the frame is mid-resize, so it carries its own shadow rather
@@ -537,7 +608,7 @@ local function ScanUnitFrame(key)
     -- runtime-only cache field, so an unchanged header never touches the
     -- fontstring - mirrors group.lastTitleName in ns:ScanAutoResourceGroup.
     local exists = UnitExists and UnitExists(unit)
-    local unitName = exists and (UnitName(unit) or "") or ""
+    local unitName = (elements.name and exists) and (UnitName(unit) or "") or ""
     local levelSuffix = (elements.level and exists) and ns:FormatUnitLevelSuffix(unit) or ""
     local headerText = (levelSuffix ~= "") and (unitName .. "  " .. levelSuffix) or unitName
     if frame.lastHeaderText ~= headerText then
@@ -550,8 +621,40 @@ local function ScanUnitFrame(key)
     -- SetPortraitTexture is a single lightweight client call, no more
     -- expensive than the UnitHealth/UnitPower reads ns:CollectResources just
     -- made above for every row. Skipped entirely while hidden.
-    if elements.portrait and SetPortraitTexture then
-        pcall(SetPortraitTexture, frame.portrait, unit)
+    if elements.portrait then
+        -- A 3D model can only render a unit the client can actually see, so
+        -- an out-of-range or out-of-view unit falls back to the flat
+        -- portrait rather than showing an empty box. This is exactly the
+        -- UnitIsVisible gate X-Perl uses for the same reason.
+        local want3D = elements.portrait3D and frame.portrait3D
+                       and UnitIsVisible and UnitIsVisible(unit)
+
+        if want3D then
+            frame.portrait:Hide()
+            frame.portrait3D:Show()
+            -- Re-seating the model is the expensive part and it visibly
+            -- resets the pose, so it happens only when the unit actually
+            -- changed - not on every one of the four scans a second. GUID
+            -- rather than name, so two mobs sharing a name still re-seat.
+            local guid = UnitGUID and UnitGUID(unit)
+            if frame.lastPortraitGUID ~= guid then
+                frame.lastPortraitGUID = guid
+                pcall(function()
+                    frame.portrait3D:ClearModel()
+                    frame.portrait3D:SetUnit(unit)
+                    frame.portrait3D:SetCamera(0)
+                end)
+            end
+        else
+            if frame.portrait3D then frame.portrait3D:Hide() end
+            frame.portrait:Show()
+            -- Cleared so returning to 3D re-seats the model rather than
+            -- trusting a GUID stamped while the model was hidden.
+            frame.lastPortraitGUID = nil
+            if SetPortraitTexture then
+                pcall(SetPortraitTexture, frame.portrait, unit)
+            end
+        end
     end
 
     local valuesChanged = false

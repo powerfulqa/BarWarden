@@ -33,7 +33,27 @@ against renaming BarWarden and its commands in a fork. Full detail in
 [LICENSE](LICENSE); exactly which files came from where is recorded in
 [NOTICE.md](NOTICE.md).
 
+**You choose what the frame shows.** A *Resources Shown* section lets you
+untick anything you do not want: health, power, runic power, runes, combo
+points, soul shards. Runes now combine into three bars by type rather than
+six separate ones, which you can switch off. The numbers can sit beside
+the bars or on them, or be hidden entirely. Bar height, the name, and the
+level are all toggles or sliders, and the name and the numbers each get
+their own font and size.
+
+**The portrait can be a live 3D model** of your character instead of the
+flat picture. It falls back to the picture for anyone out of sight, since
+a model cannot draw a unit the game cannot see.
+
 Fixed in the same pass:
+
+- **The Bar Look dropdown no longer overlaps the Scale slider.** A
+  dropdown sitting under a slider needed more room than the usual gap.
+- **The portrait fills its frame** instead of sitting as a small circle in
+  a black box.
+- **The name sits on a strip** across the top rather than floating over
+  the background, and the strip disappears if you hide both the name and
+  the level.
 
 - **The numbers column no longer overlaps itself.** Each row's text was
   wrapping onto a second line and colliding with the row below it. The

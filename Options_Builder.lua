@@ -130,6 +130,15 @@ ns.OFFSET_HEADER   = 2     -- plain fontstring, no template padding
 ns.OFFSET_DROPDOWN = -14   -- UIDropDownMenuTemplate box sits ~16px right of frame origin
 ns.OFFSET_TOGGLE   = -4    -- CheckButton tickbox is inset a few px from frame origin
 ns.OFFSET_SLIDER   = 8     -- OptionsSliderTemplate label/track padding
+
+-- `spacing` (the gap ABOVE an entry) for a dropdown placed directly under a
+-- slider. Both widgets draw OUTSIDE their own frame bounds: a slider's min
+-- and max labels hang below its frame, and ns:CreateDropdown anchors its
+-- label above the dropdown's TOPLEFT. The normal 16 therefore leaves them
+-- overlapping - a dropdown label printed straight through a slider's "0.5".
+-- Named rather than a bare number so the next panel to put a dropdown under
+-- a slider gets the answer instead of rediscovering it on screen.
+ns.GAP_DROPDOWN_UNDER_SLIDER = 28
 -- InputBoxTemplate's left edge texture actually sits ~5px left of the frame
 -- origin (it is NOT flush), so offsetX = 2 in a firstX = 0 panel puts the box
 -- border a few px inside the scroll clip edge. The value is chosen to align
