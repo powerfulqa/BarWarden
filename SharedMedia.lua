@@ -51,10 +51,10 @@ local BW_TEXTURES = {
 -- because they cost nothing and give the same choice X-Perl offered.
 local XP = "Interface\\AddOns\\BarWarden\\Textures\\XPerl\\"
 local XP_TEXTURES = {
-    ["XP Perl v2"] = XP .. "XPerl_StatusBar.blp",
+    ["XP Perl v2"] = XP .. "XPerl_StatusBar",
 }
 for i = 2, 10 do
-    XP_TEXTURES["XP Perl " .. i] = XP .. "XPerl_StatusBar" .. i .. ".blp"
+    XP_TEXTURES["XP Perl " .. i] = XP .. "XPerl_StatusBar" .. i
 end
 
 for name, path in pairs(BW_TEXTURES) do

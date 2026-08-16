@@ -89,7 +89,7 @@ local UF_VALUES_MIN_WIDTH = 40
 -- replaces do. They looked identical before this and that was the single
 -- biggest reason the unit frame read as unfinished next to X-Perl.
 local UNIT_FRAME_BACKDROP = {
-    bgFile   = "Interface\\AddOns\\BarWarden\\Textures\\XPerl\\XPerl_FrameBack.blp",
+    bgFile   = "Interface\\AddOns\\BarWarden\\Textures\\XPerl\\XPerl_FrameBack",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
     tile = true, tileSize = 32, edgeSize = 16,
     insets = { left = 4, right = 4, top = 4, bottom = 4 },

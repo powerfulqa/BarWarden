@@ -36,9 +36,9 @@ local TEXTURES = {
 -- a unit frame would silently fall back to Flat on an LSM-less client and
 -- the Frames tab's default would look broken through no fault of the user.
 local XP = "Interface\\AddOns\\BarWarden\\Textures\\XPerl\\"
-TEXTURES["XP Perl v2"] = XP .. "XPerl_StatusBar.blp"
+TEXTURES["XP Perl v2"] = XP .. "XPerl_StatusBar"
 for i = 2, 10 do
-    TEXTURES["XP Perl " .. i] = XP .. "XPerl_StatusBar" .. i .. ".blp"
+    TEXTURES["XP Perl " .. i] = XP .. "XPerl_StatusBar" .. i
 end
 
 -- Resolve the spell/item icon for a bar, or nil if nothing maps.
