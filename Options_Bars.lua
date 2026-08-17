@@ -585,6 +585,29 @@ local function CreateBarsTab(parent)
     end
 
     local GROUP_SETTINGS_SCHEMA = {
+        -- First on the page: it is the switch for everything below it, and a
+        -- reader who unticks it should not have to scroll past twenty
+        -- settings that no longer do anything to find it again.
+        { type = "toggle", label = "Enabled",
+          tooltip = "Turn this group off without losing it. Its bars and "
+                 .. "settings are kept exactly as they are, and tick this "
+                 .. "again to bring it straight back.",
+          get = function() local g = getGroup(); return g and g.enabled ~= false end,
+          set = function(_, checked)
+              local g = getGroup(); if not g then return end
+              g.enabled = checked and true or false
+              -- A full rebuild rather than a Show/Hide: a disabled group is
+              -- not built at all (ns:IsGroupEnabled, Conditions.lua), so its
+              -- frame and pooled bars have to be handed back, and re-enabling
+              -- has to construct them again.
+              ns:RebuildAllFrames()
+              -- The tracked-name cache counts a disabled group as tracking
+              -- nothing, so "Skip Spells I Already Track" in any auto group
+              -- has to be recomputed.
+              if ns.InvalidateTrackedNames then ns:InvalidateTrackedNames() end
+              frame:Refresh()
+          end,
+          offsetX = ns.OFFSET_TOGGLE, spacing = 4 },
         { type = "editbox", label = "Group Name", width = 155, stretch = true,
           tooltip = "A label for this group, shown on the frame when 'Show "
                  .. "Group Name' is ticked.",
@@ -596,7 +619,9 @@ local function CreateBarsTab(parent)
               if gf and gf.titleText then gf.titleText:SetText(text) end
               frame:Refresh()
           end,
-          offsetX = ns.OFFSET_EDITBOX },
+          -- Its label sits above the box, outside the frame, so it needs the
+          -- wider gap or it crowds the Enabled tick above it.
+          offsetX = ns.OFFSET_EDITBOX, spacing = ns.GAP_LABELLED_CONTROL },
         { type = "toggle", label = "Show Group Name",
           tooltip = "Show or hide the group name on the bar frame.",
           get = function() local g = getGroup(); return g and g.showTitle ~= false end,

@@ -971,10 +971,17 @@ function ns:RebuildAllFrames()
     if not BarWardenDB.global.enabled then return end
 
     for idx, frameData in ipairs(BarWardenDB.frames) do
-        local frame = ns:CreateGroupFrame(frameData, idx)
-        if frame then
-            ns:BuildBarsForFrame(idx)
-            ns:UpdateGroupLayout(frame)
+        -- A group switched off is not built at all: no frame, no bars taken
+        -- from the pool, nothing for the scan loop to walk. Its settings stay
+        -- in BarWardenDB.frames untouched, so ticking the box back on brings
+        -- it straight back. See ns:IsGroupEnabled (Conditions.lua) for why
+        -- this is "not built" rather than "built and hidden".
+        if ns:IsGroupEnabled(frameData) then
+            local frame = ns:CreateGroupFrame(frameData, idx)
+            if frame then
+                ns:BuildBarsForFrame(idx)
+                ns:UpdateGroupLayout(frame)
+            end
         end
     end
 

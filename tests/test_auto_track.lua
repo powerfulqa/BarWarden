@@ -16,6 +16,9 @@ local function fresh()
     local ns = {}
     load_addon.load("Utils.lua",      "BarWarden", ns)
     load_addon.load("AuraGroups.lua", "BarWarden", ns)
+    -- Trackers.lua calls ns:IsGroupEnabled (Conditions.lua), which loads
+    -- before it in the TOC.
+    load_addon.load("Conditions.lua", "BarWarden", ns)
     load_addon.load("Trackers.lua",   "BarWarden", ns)
     return ns
 end
@@ -387,6 +390,33 @@ function M.test_trackedNames_collectsAuraBarsAcrossGroups()
         assertx.assertTrue(names["slice and dice"])
         assertx.assertTrue(names["rupture"])
         assertx.assertTrue(names["clearcasting"])
+    end)
+end
+
+-- A switched-off group is not built and shows nothing, so it must not
+-- suppress a spell from an auto group via "Skip Spells I Already Track" -
+-- the same reasoning that already skips an individually disabled bar.
+function M.test_trackedNames_ignoresASwitchedOffGroup()
+    local ns = fresh()
+    withDB({
+        { enabled = false,
+          bars = { { trackMode = "Buff", spellName = "Slice and Dice" } } },
+        { bars = { { trackMode = "Buff", spellName = "Rupture" } } },
+    }, function()
+        local names = ns:GetTrackedAuraNames(nil)
+        assertx.assertTrue(not names["slice and dice"],
+            "a group that is switched off tracks nothing")
+        assertx.assertTrue(names["rupture"], "an enabled group still counts")
+    end)
+end
+
+-- Absent means enabled: every group saved before the box existed must keep
+-- suppressing exactly as it did.
+function M.test_trackedNames_groupWithNoEnabledFlagStillCounts()
+    local ns = fresh()
+    withDB({ { bars = { { trackMode = "Buff", spellName = "Rupture" } } } },
+    function()
+        assertx.assertTrue(ns:GetTrackedAuraNames(nil)["rupture"])
     end)
 end
 

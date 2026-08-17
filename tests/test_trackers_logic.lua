@@ -20,6 +20,9 @@ local function fresh()
     local ns = {}
     load_addon.load("Utils.lua",      "BarWarden", ns)
     load_addon.load("AuraGroups.lua", "BarWarden", ns)
+    -- Trackers.lua calls ns:IsGroupEnabled (Conditions.lua), which loads
+    -- before it in the TOC.
+    load_addon.load("Conditions.lua", "BarWarden", ns)
     load_addon.load("Trackers.lua",   "BarWarden", ns)
     return ns
 end

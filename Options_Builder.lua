@@ -131,13 +131,21 @@ ns.OFFSET_DROPDOWN = -14   -- UIDropDownMenuTemplate box sits ~16px right of fra
 ns.OFFSET_TOGGLE   = -4    -- CheckButton tickbox is inset a few px from frame origin
 ns.OFFSET_SLIDER   = 8     -- OptionsSliderTemplate label/track padding
 
--- `spacing` (the gap ABOVE an entry) for a dropdown placed directly under a
--- slider. Both widgets draw OUTSIDE their own frame bounds: a slider's min
--- and max labels hang below its frame, and ns:CreateDropdown anchors its
--- label above the dropdown's TOPLEFT. The normal 16 therefore leaves them
--- overlapping - a dropdown label printed straight through a slider's "0.5".
--- Named rather than a bare number so the next panel to put a dropdown under
--- a slider gets the answer instead of rediscovering it on screen.
+-- `spacing` (the gap ABOVE an entry) for a control whose LABEL sits above its
+-- own frame, so the frame's top edge is not where the widget visually starts.
+-- ns:CreateDropdown and ns:CreateEditBox both anchor their label to the
+-- widget's TOPLEFT, outside its bounds, so chaining one below anything at the
+-- normal gap prints its label into the widget above it.
+--
+-- Use this whenever a dropdown or an edit box follows another control. Two
+-- separate sightings so far - a dropdown label printed through a slider's
+-- "0.5", and the Group Name label crowding the Enabled tick above it - and
+-- both were the same cause, so the constant is named for the cause rather
+-- than for either sighting.
+ns.GAP_LABELLED_CONTROL = 20
+
+-- A slider is the worst case for the above: its min/max labels ALSO hang
+-- below its frame, so the two overhangs add up and need more room again.
 ns.GAP_DROPDOWN_UNDER_SLIDER = 28
 -- InputBoxTemplate's left edge texture actually sits ~5px left of the frame
 -- origin (it is NOT flush), so offsetX = 2 in a firstX = 0 panel puts the box

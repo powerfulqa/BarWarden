@@ -55,6 +55,29 @@ function ns:IsBarEnabled(bar)
     return not (bd and bd.enabled == false)
 end
 
+-- Is this GROUP switched on? Unticking a group's Enabled box is "put this
+-- away for now": the group and all its settings stay in SavedVariables
+-- untouched, but nothing is built for it - no frame, no bars borrowed from
+-- the pool, and nothing for the scan loop to walk.
+--
+-- Not built rather than built-and-hidden, on purpose. A hidden group still
+-- costs a frame and a scan pass, and more importantly the scan loop is
+-- allowed to Show() a group whose bars become active (see AreAllBarsHidden,
+-- BarEngine.lua) - so a merely-hidden group would keep reappearing the
+-- moment one of its spells fired. Not existing is the only version of "off"
+-- that stays off.
+--
+-- Nil reads as ENABLED, so every group written before this box existed
+-- carries on exactly as it did. `groupData.enabled` was already set to true
+-- by NewGroup and printed by the bug report, but until now nothing read it;
+-- this is what gives that field meaning.
+--
+-- Distinct from `groupData.visible`, which ns:ShowFrame/ns:HideFrame drive
+-- for temporary show/hide and which does NOT stop the group being built.
+function ns:IsGroupEnabled(groupData)
+    return not (groupData and groupData.enabled == false)
+end
+
 -- Resolve "hide when inactive" for a live bar.
 --
 -- The group switch is authoritative once it has been touched: ticked hides

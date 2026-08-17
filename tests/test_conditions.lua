@@ -1103,6 +1103,27 @@ function M.test_blizzardHidden_disabledAddonSuppressesNothing()
 end
 
 -- --------------------------------------------------------------------------
+-- ns:IsGroupEnabled
+--
+-- Unticking a group's Enabled box keeps every setting and builds nothing.
+-- Nil must read as enabled, or every group saved before the box existed
+-- would vanish on the upgrade.
+-- --------------------------------------------------------------------------
+
+function M.test_groupEnabled_nilMeansEnabled()
+    local ns = fresh()
+    assertx.assertTrue(ns:IsGroupEnabled({}),
+        "a group saved before this setting existed must still build")
+    assertx.assertTrue(ns:IsGroupEnabled(nil))
+end
+
+function M.test_groupEnabled_onlyAnExplicitFalseDisables()
+    local ns = fresh()
+    assertx.assertTrue(ns:IsGroupEnabled({ enabled = true }))
+    assertx.assertFalse(ns:IsGroupEnabled({ enabled = false }))
+end
+
+-- --------------------------------------------------------------------------
 -- ns:ShouldRestoreBlizzardFrame
 --
 -- The undo half, and NOT the mirror image of the hide question. Getting it

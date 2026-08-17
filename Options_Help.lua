@@ -230,6 +230,20 @@ local HELP_ENTRIES = {
           .. "settings.",
     },
     {
+        id = "disable-a-group",
+        q = "Can I turn a group off without losing it?",
+        a = "Yes. Untick Enabled at the top of that group's settings. The "
+          .. "group disappears from the screen, and its bars, position and "
+          .. "every setting stay exactly as they were. Tick it again and it "
+          .. "comes straight back.\n\n"
+          .. "A group that is off costs nothing and shows nothing, so an "
+          .. "auto-tracking group with Skip Spells I Already Track will now "
+          .. "show spells that only the switched-off group was tracking.\n\n"
+          .. "This is per group. /bw disable turns the whole addon off "
+          .. "instead, and hands back any default frames BarWarden was "
+          .. "hiding.",
+    },
+    {
         id = "auto-track-hide-blizzard",
         q = "Can I hide the default buff and debuff icons?",
         a = "Yes. Set a group to track all buffs on you or all debuffs on "

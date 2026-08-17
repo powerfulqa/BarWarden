@@ -13,6 +13,17 @@ exhaustive notes.
 
 ---
 
+### v2.8.0
+
+**Turn a group off without losing it.** A new Enabled tick at the top of a
+group's settings puts it away: the group vanishes from the screen while its
+bars, position and every setting stay exactly as they were. Tick it again
+and it comes straight back. A group that is off costs nothing and shows
+nothing, so an auto-tracking group with *Skip Spells I Already Track* now
+shows spells that only the switched-off group was holding.
+
+---
+
 ### v2.7.0
 
 **Unit frames now look the part, and BarWarden is now GPL v3.**

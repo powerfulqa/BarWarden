@@ -432,8 +432,13 @@ function ns:GetTrackedAuraNames(exceptFrameIndex)
     if not frames then return names end
 
     for idx, frameData in ipairs(frames) do
-        -- An auto group's own bars are dormant, so they track nothing.
-        if idx ~= exceptFrameIndex and not frameData.autoTrack and frameData.bars then
+        -- An auto group's own bars are dormant, so they track nothing. A
+        -- switched-off group tracks nothing either, for the same reason its
+        -- bars are already skipped individually when `bd.enabled == false`:
+        -- "Skip Spells I Already Track" must not hide a spell from an auto
+        -- group because some group that is not even built claims it.
+        if idx ~= exceptFrameIndex and ns:IsGroupEnabled(frameData)
+           and not frameData.autoTrack and frameData.bars then
             for _, bd in ipairs(frameData.bars) do
                 if ns.AURA_TRACK_MODES[bd.trackMode] and bd.enabled ~= false then
                     if bd.spellId then
