@@ -17,7 +17,7 @@ local addonName, ns = ...
 -- reports the PREVIOUS version until a full restart. A Lua constant is re-read
 -- on every /reload, so what the addon reports is right straight away. The TOC
 -- lookup stays as the fallback for an unstamped working copy.
-local ADDON_VERSION = "2.8.0"
+local ADDON_VERSION = "2.8.1"
 
 ns.version = (ADDON_VERSION ~= "" and ADDON_VERSION)
              or GetAddOnMetadata(addonName, "Version")
