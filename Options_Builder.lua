@@ -85,6 +85,7 @@ local addonName, ns = ...
 --                       db = <path>, refresh = <NsMethod?>,     -- OR get/set pair
 --                       min = <num>, max = <num>, step = <num>,
 --                       format = <function(num) -> string?>,    -- e.g. ns.FormatSettingDuration
+--                       commitOnRelease = <bool?>,              -- write once on mouse-up, not per drag tick
 --                       width = <px?>, id = <string?>, onChange = <fn?>,
 --                       spacing = <px?> }
 --
@@ -238,6 +239,9 @@ BUILDERS.slider = function(parent, entry)
                               BuildSetCallback(entry),
                               entry.tooltip, entry.format)
     if entry.width then s:SetWidth(entry.width) end
+    -- Deferred commit for a slider whose refresh is too heavy to run per
+    -- drag pixel (see ns:CreateSlider). The label still tracks the drag live.
+    if entry.commitOnRelease then s.commitOnRelease = true end
     return s
 end
 

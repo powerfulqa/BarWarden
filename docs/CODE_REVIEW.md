@@ -218,6 +218,19 @@ Three sections: **Active backlog** (known, not yet actioned), **Audit decisions*
     `test_defaults_unitFramesExact` asserts the target tables do NOT carry
     `hiddenResources` or `pinPowerTypes`, so "completing" them fails loudly.
 
+26. **A unit frame rebuild still orphans the old frame shell.** Same class as
+    item 23, unit-frame edition: `DestroyUnitFrame` (UnitFrames.lua) can only
+    hide and drop the frame (3.3.5a cannot destroy one), and `BuildUnitFrame`
+    creates a fresh shell with the portrait sub-frame and secure click
+    buttons. v2.8.1 cut the rate massively - Frames-tab sliders now commit
+    once on release instead of per drag tick, and a settings change rebuilds
+    only the edited frame's block via `ns:RebuildUnitFramesFor` instead of
+    all nine - but each committed change still orphans one shell per affected
+    frame. Fixing the leak itself means reusing the existing frame in
+    `BuildUnitFrame` (guarding every child-creation) or pooling shells the
+    way bars are pooled. Low; a long session of heavy Frames-tab fiddling is
+    the only way to notice.
+
 ## Audit decisions (intentional - do not "fix")
 
 A. **Bundled libraries stay.** LibStub, LibSharedMedia-3.0, LibDataBroker-1.1,
@@ -289,7 +302,52 @@ J. **`UnitClass("player")` is not a trustworthy signal in `ns:CollectResources`
    opt-in, user-facing class checks rather than automatic resource
    detection, and remain unaffected.
 
+K. **The `ScanAllBars` hide-empty-groups sweep stays a full 4 Hz pass.** It
+   looks like a candidate for the `dirtyGroups` flush, but bars also hide
+   OUTSIDE scan passes (`Bar_OnUpdate` expiry), so a dirty-only check would
+   miss them and leave an empty backdrop up - and this sweep is the only
+   group-hide check there is (see item 6). It is also cheaper than it looks:
+   `AreAllBarsHidden` returns at the first shown bar, and a group the sweep
+   hides is skipped by `group:IsShown()` from the next tick on. Reviewed in
+   the v2.8.1 performance pass and kept; the reasoning is now commented at
+   the sweep itself.
+
 ## Resolved (kept for the record)
+
+- **v2.8.1 performance pass (whole-addon review, engine + frames + UI).**
+  Hot-path fixes, each preserving behaviour exactly: the Frames tab's twenty
+  controls all wired `refresh = "RebuildUnitFrames"` and sliders committed on
+  every `OnValueChanged` tick, so one drag destroyed and re-created up to
+  nine unit frames per pixel, orphaning each old shell (3.3.5a cannot destroy
+  frames) - now sliders carry `commitOnRelease` (Widgets.lua defers the write
+  to mouse-up; the label still tracks the drag) and every Frames-tab setting
+  rebuilds only its own frame's block through `ns:RebuildUnitFramesFor`
+  (`ns:DBSet` accepts a function refresh to carry the key). The remaining
+  one-shell-per-commit orphan is item 26. `ScanBuffActivity`/
+  `ScanDebuffActivity` allocated a snapshot table plus a sub-table per active
+  aura on every throttled `UNIT_AURA` (up to 10 Hz) - now double-buffered
+  plain spellId sets, with activations recorded inline while name/icon are in
+  hand (plus a guard so one spellId listed twice in a scan cannot record
+  twice). `ScanBarsByMode`/`ScanAllBars`/`OnUnitHealth` allocated a closure
+  per event for `RunScan` - now named bodies forwarded through RunScan's
+  existing varargs, and `GetAllBars` returns a shared empty constant instead
+  of allocating one. `CheckCooldown` re-resolved `GetSpellInfo` on every
+  cooldown event - now memoized (`spellInfoCache`, Trackers.lua), wiped by
+  `ns:InvalidateTrackedNames` alongside the display-name cache; the
+  `GetSpellCooldown` dispatch still goes by NAME for name-configured bars
+  (by-name resolves the player's own rank on 3.3.5a). `ScanUnitFrame`
+  rebuilt `ResolveUnitFrameElements`' table and the player pin list (plus
+  the CollectResources opts table) at 4 Hz per frame from rebuild-only
+  inputs - now computed once in `BuildUnitFrame` and stashed on the frame.
+  `ns:RenderBarStacks` re-ran `SetFont`/`SetTextColor`/`SetText` and the
+  anchor dance on every scan of every badged bar - now diffed against the
+  last-applied size/colour/count (one guard for all three calls, because
+  3.3.5a's SetFont can clear existing text; cache invalidated on hide and in
+  `ReleaseBar`, which blanks the fontstring). The `ScanAllBars` hide-empty
+  sweep was assessed and deliberately kept (decision K). UX: profile Load
+  now confirms (`BARWARDEN_CONFIRM_LOAD_PROFILE`), capturing the row at
+  click time per the v2.1.1 wrong-row rule, with the backup unchanged inside
+  onAccept.
 
 - **v2.4.0 drag-reorder was wrong under a sorted group.** The in-game ghost
   drag (`CalcDropIndex`, DragReorder.lua) and the Options Bars-tab list drag

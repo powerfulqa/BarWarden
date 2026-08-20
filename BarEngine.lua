@@ -340,19 +340,29 @@ function ns:RenderBarStacks(bar)
                                          visual.showStacks, bar.isResourceBar)
     if not show then
         fs:Hide()
+        -- Force a full re-apply on the next show: ReleaseBar blanks the
+        -- fontstring, so skipping against a stale cache would leave a
+        -- recycled bar's badge empty.
+        bar._stackCount = nil
         return
     end
 
     -- Anchor to the icon when it is visible, otherwise fall back to the bar's
-    -- own corner (a child of a hidden icon frame would be hidden too).
+    -- own corner (a child of a hidden icon frame would be hidden too). Only
+    -- re-anchored when the target actually changes: the fontstring is created
+    -- unanchored (Bar.lua), so the cached target - not GetParent - is what
+    -- says whether this render still owes it a point.
     local iconShown = bar.icon and bar.icon:IsShown()
     local target = iconShown and bar.icon or bar
-    if fs:GetParent() ~= target then fs:SetParent(target) end
-    fs:ClearAllPoints()
-    if iconShown then
-        fs:SetPoint("BOTTOMRIGHT", bar.icon, "BOTTOMRIGHT", -1, 1)
-    else
-        fs:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", -2, 2)
+    if bar._stackAnchor ~= target then
+        if fs:GetParent() ~= target then fs:SetParent(target) end
+        fs:ClearAllPoints()
+        if iconShown then
+            fs:SetPoint("BOTTOMRIGHT", bar.icon, "BOTTOMRIGHT", -1, 1)
+        else
+            fs:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", -2, 2)
+        end
+        bar._stackAnchor = target
     end
 
     -- Size and colour are configurable per bar, per group, or addon-wide
@@ -361,15 +371,32 @@ function ns:RenderBarStacks(bar)
     -- read off `visual` directly, same as every other bar/group override.
     -- The font itself stays fixed (not the configured bar font) so the
     -- number stays legible at any size, matching the fixed template this
-    -- replaced. SetFont MUST run before SetText below: on 3.3.5a it can
-    -- clear a fontstring's existing text (see the same note in
-    -- ns:BuildBarsForFrame, FrameManager.lua).
+    -- replaced.
+    --
+    -- Applied only when something actually changed: this runs on every scan
+    -- of every active bar (4 Hz baseline plus every aura event), and SetFont
+    -- in particular is not cheap, so re-applying identical values per tick
+    -- was waste - the same diff-before-write rule as _lastSparkX in
+    -- Bar_OnUpdate. The colour is compared by channel, not by table
+    -- reference: the colour picker writes r/g/b into the same table in
+    -- place. When anything changed, SetFont MUST run before SetText below:
+    -- on 3.3.5a it can clear a fontstring's existing text (see the same
+    -- note in ns:BuildBarsForFrame, FrameManager.lua) - which is also why
+    -- all three calls share one guard instead of diffing separately.
     local stackFontSize = ns:GetStackFontSize(bar)
-    fs:SetFont("Fonts\\ARIALN.TTF", stackFontSize, "THICKOUTLINE, MONOCHROME")
     local stackColor = ns:GetStackColor(bar)
-    fs:SetTextColor(stackColor.r, stackColor.g, stackColor.b)
-
-    fs:SetText(tostring(bar.stacks))
+    if bar._stackCount ~= bar.stacks
+       or bar._stackFontSize ~= stackFontSize
+       or bar._stackR ~= stackColor.r
+       or bar._stackG ~= stackColor.g
+       or bar._stackB ~= stackColor.b then
+        fs:SetFont("Fonts\\ARIALN.TTF", stackFontSize, "THICKOUTLINE, MONOCHROME")
+        fs:SetTextColor(stackColor.r, stackColor.g, stackColor.b)
+        fs:SetText(tostring(bar.stacks))
+        bar._stackCount = bar.stacks
+        bar._stackFontSize = stackFontSize
+        bar._stackR, bar._stackG, bar._stackB = stackColor.r, stackColor.g, stackColor.b
+    end
     fs:Show()
 end
 
@@ -1110,11 +1137,13 @@ local trackedNamesCache = {}
 -- Editing a bar's spell or its Enabled box changes what counts as "already
 -- tracked", and neither path rebuilds the bar cache. The same edits can
 -- also change what ns.GetBarDisplayName (Bar.lua) resolves for a bar with
--- no name of its own, so its id->name cache is wiped alongside this one
--- rather than needing its own separate invalidation call sites.
+-- no name of its own, and what CheckCooldown's GetSpellInfo memo
+-- (Trackers.lua) holds for an edited spell, so both are wiped alongside
+-- this one rather than needing their own separate invalidation call sites.
 function ns:InvalidateTrackedNames()
     wipe(trackedNamesCache)
     if ns.InvalidateBarDisplayNameCache then ns:InvalidateBarDisplayNameCache() end
+    if ns.InvalidateSpellInfoCache then ns:InvalidateSpellInfoCache() end
 end
 
 -- ScanAutoResourceGroup: fill a "resources" feed's slots from
@@ -1332,25 +1361,59 @@ local function ScanAutoGroups(unitFilter)
     end
 end
 
+-- Scan bodies handed to RunScan as named functions with their arguments
+-- forwarded through its varargs, never as inline closures: these back the
+-- hottest events in the addon (SPELL_UPDATE_COOLDOWN fires on every ability
+-- press), and a fresh closure allocation per event was needless garbage.
+-- Same pattern as the existing RunScan(ScanAutoGroups, unit) call sites.
+local function ScanAllBarsBody(bars, unit)
+    for _, bar in ipairs(bars) do
+        ScanBar(bar, unit)
+    end
+    ScanAutoGroups(unit)
+end
+
+local function ScanBarsByModeBody(bars, modes, unit)
+    for _, bar in ipairs(bars) do
+        local mode = bar.barData and bar.barData.trackMode
+        if modes[mode] then
+            ScanBar(bar, unit)
+        end
+    end
+end
+
+local function ScanHealthBarsBody(bars)
+    for _, bar in ipairs(bars) do
+        local bd = bar.barData
+        if bd and bd.conditions and bd.conditions.healthBelow then
+            ScanBar(bar, nil)
+        end
+    end
+end
+
 -- ----------------------------------------------------------------------------
 -- ScanAllBars: Check all registered bars against current game state.
 -- unit: optional unit filter passed to ScanBar for Buff/Debuff/Proc bars.
 -- ----------------------------------------------------------------------------
 
 function ns:ScanAllBars(unit)
-    local bars = ns:GetAllBars()
     -- No early return on an empty bar list: auto groups are scanned by group,
     -- not by bar, and would be skipped by one.
-    RunScan(function()
-        for _, bar in ipairs(bars or {}) do
-            ScanBar(bar, unit)
-        end
-        ScanAutoGroups(unit)
-    end)
+    RunScan(ScanAllBarsBody, ns:GetAllBars(), unit)
 
     -- Post-scan: hide group frames whose bars are ALL hidden (e.g. the whole
     -- group failed a group-level condition). Without this, the group backdrop
     -- and title bar would linger visually even though every bar inside is gone.
+    --
+    -- Deliberately a full sweep at 4 Hz, not folded into the dirty-group
+    -- flush: bars also hide OUTSIDE scan passes (Bar_OnUpdate expiry), so a
+    -- dirty-only check would miss them and leave an empty backdrop up - and
+    -- this sweep is the only group-hide check there is (CODE_REVIEW item 6).
+    -- It is also cheaper than it looks: AreAllBarsHidden returns at the
+    -- FIRST shown bar, so a group with anything visible costs one IsShown,
+    -- and a group this pass hides is skipped by group:IsShown() from the
+    -- next tick on. The expensive tail only ever runs for a shown group
+    -- with every bar hidden, which is exactly the group that needs it.
     for _, group in pairs(ns.groupFrames) do
         if group:IsShown() and AreAllBarsHidden(group) then
             group:Hide()
@@ -1387,8 +1450,13 @@ function ns:RebuildAllBarsCache()
     ns.allBars = flat
 end
 
+-- Shared fallback for the window before the first RebuildAllBarsCache.
+-- Callers only ever iterate the returned list, so one constant is safe and
+-- avoids allocating a throwaway table per event while the cache is nil.
+local EMPTY_BARS = {}
+
 function ns:GetAllBars()
-    return ns.allBars or {}
+    return ns.allBars or EMPTY_BARS
 end
 
 -- ----------------------------------------------------------------------------
@@ -1413,14 +1481,7 @@ local RUNE_MODES     = { Runes = true }
 local function ScanBarsByMode(modes, unit)
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
-    RunScan(function()
-        for _, bar in ipairs(bars) do
-            local mode = bar.barData and bar.barData.trackMode
-            if modes[mode] then
-                ScanBar(bar, unit)
-            end
-        end
-    end)
+    RunScan(ScanBarsByModeBody, bars, modes, unit)
 end
 
 function ns:OnSpellCooldownUpdate()
@@ -1585,12 +1646,5 @@ function ns:OnUnitHealth(unit)
     if unit and unit ~= "player" then return end
     local bars = ns:GetAllBars()
     if not bars or #bars == 0 then return end
-    RunScan(function()
-        for _, bar in ipairs(bars) do
-            local bd = bar.barData
-            if bd and bd.conditions and bd.conditions.healthBelow then
-                ScanBar(bar, nil)
-            end
-        end
-    end)
+    RunScan(ScanHealthBarsBody, bars)
 end

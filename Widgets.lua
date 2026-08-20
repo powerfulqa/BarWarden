@@ -80,15 +80,20 @@ function ns:DBSet(path, refreshMethod)
             "ns:DBSet: leaf %q is not declared in ns.DEFAULTS; add it there first",
             path), 2)
     end
-    if refreshMethod and not ns[refreshMethod] then
+    -- A function refresh is the escape hatch for a refresh that needs an
+    -- argument baked in (the Frames tab rebuilds only the edited frame's
+    -- settings block), which a bare ns-method name cannot carry.
+    if refreshMethod and type(refreshMethod) ~= "function" and not ns[refreshMethod] then
         error(string.format(
-            "ns:DBSet: refresh method ns:%s is not defined", refreshMethod), 2)
+            "ns:DBSet: refresh method ns:%s is not defined", tostring(refreshMethod)), 2)
     end
 
     return function(_, value)
         local p, k = ResolvePath(BarWardenDB, path)
         if p then p[k] = value end
-        if refreshMethod and ns[refreshMethod] then
+        if type(refreshMethod) == "function" then
+            refreshMethod(ns)
+        elseif refreshMethod and ns[refreshMethod] then
             ns[refreshMethod](ns)
         end
     end
@@ -147,7 +152,29 @@ function ns:CreateSlider(parent, label, min, max, step, onChange, tooltip, forma
             labelText:SetText(label .. ": " .. string.format("%.2f", value))
         end
         if ns.suppressCallbacks then return end
-        if onChange then onChange(self, value) end
+        if not onChange then return end
+        -- commitOnRelease (set by the caller, see Options_Builder.lua): while
+        -- the mouse is held the callback is deferred and only the label
+        -- tracks the drag; the value commits once, on release. For a setting
+        -- whose refresh tears down and rebuilds frames, committing on every
+        -- changed pixel of a drag is a stutter and, on 3.3.5a (which cannot
+        -- destroy a frame), an orphaned frame per pixel.
+        if self.commitOnRelease and self.sliderMouseDown then
+            self.pendingCommit = value
+            return
+        end
+        onChange(self, value)
+    end)
+    slider:HookScript("OnMouseDown", function(self)
+        self.sliderMouseDown = true
+    end)
+    slider:HookScript("OnMouseUp", function(self)
+        self.sliderMouseDown = nil
+        local pending = self.pendingCommit
+        self.pendingCommit = nil
+        if pending ~= nil and onChange and not ns.suppressCallbacks then
+            onChange(self, pending)
+        end
     end)
     AttachTooltip(slider, tooltip)
     return slider

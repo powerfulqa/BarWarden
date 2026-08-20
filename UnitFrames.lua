@@ -1193,6 +1193,25 @@ local function BuildUnitFrame(key)
     frame.valueFontPath = valueFontPath
     frame.valueFontSize = valueFontSize
 
+    -- The element toggles and (for the player frame) the pin list derive
+    -- purely from cfg plus the two font sizes resolved above, and cfg only
+    -- ever changes through a rebuild, so both are computed once here rather
+    -- than re-allocated by every 0.25s ScanUnitFrame pass per built frame.
+    -- The stored sizes are the RESOLVED ones (cfg.nameFontSize is 0 for
+    -- "inherit"), which the header layout needs and only this builder knows.
+    local elements = ns:ResolveUnitFrameElements(cfg)
+    elements.nameFontSize = nameFontSize
+    elements.valueFontSize = valueFontSize
+    frame.elements = elements
+    -- Ditto the whole ns:CollectResources opts table: unit, pairRunes and
+    -- the pin list are all fixed until the next rebuild, and CollectResources
+    -- only reads its opts, so one table per build serves every scan.
+    frame.collectOpts = {
+        unit = unit,
+        pairRunes = cfg.pairRunes ~= false,
+        pinned = cfg.pinPowerTypes and ns:BuildUnitFramePins(cfg.hiddenResources) or nil,
+    }
+
     -- Bars vs panel, and why this changed twice.
     --
     -- This first faded the bar FILLS, then was moved to fade only the
@@ -1323,12 +1342,11 @@ local function ScanUnitFrame(key)
     end
     if not frame:IsShown() then frame:Show() end
 
-    local elements = ns:ResolveUnitFrameElements(cfg)
-    -- The resolved (not configured) name size: cfg.nameFontSize is 0 for
-    -- "inherit", and the header has to size itself to what was actually
-    -- applied, which only BuildUnitFrame knows.
-    elements.nameFontSize = frame.nameFontSize
-    elements.valueFontSize = frame.valueFontSize
+    -- The element toggles and the resource-collection opts below are both
+    -- computed once in BuildUnitFrame (they derive purely from cfg, which
+    -- only changes through a rebuild), so the scan allocates nothing for
+    -- them at its 4 Hz cadence.
+    local elements = frame.elements
     -- pairRunes collapses six rune rows to three ready-count rows. Reused
     -- from the resource-group feature rather than reimplemented, and defaulted
     -- ON for unit frames (unlike groups, where it stays off so an existing
@@ -1354,11 +1372,7 @@ local function ScanUnitFrame(key)
     -- targettarget. So a frame that passes no pins and no hidden set gets
     -- the standard shape for free. Do not "tidy" this by giving the target
     -- the player's config block - see docs/CODE_REVIEW.md item 25.
-    local entries = ns:CollectResources({
-        unit = unit,
-        pairRunes = cfg.pairRunes ~= false,
-        pinned = cfg.pinPowerTypes and ns:BuildUnitFramePins(cfg.hiddenResources) or nil,
-    })
+    local entries = ns:CollectResources(frame.collectOpts)
     entries = ns:FilterResourceEntries(entries, cfg.hiddenResources)
 
     -- The plan decides which entries share a row and how each row is divided
@@ -1567,26 +1581,49 @@ local function ScanUnitFrame(key)
     end
 end
 
+-- Destroy-and-rebuild the frames reading ONE settings block. Shared by the
+-- whole-addon rebuild below and by ns:RebuildUnitFramesFor, so the two can
+-- never disagree about what a rebuild involves.
+local function RebuildOneUnitFrame(key)
+    DestroyUnitFrame(key)
+    local cfg = UnitFrameConfig(key)
+    if cfg and cfg.enabled then
+        if BuildUnitFrame(key) then
+            ScanUnitFrame(key)
+        end
+    end
+end
+
 -- Rebuild every known unit frame from the live config: destroy it if it
 -- exists, then (re)build + do an immediate scan pass when enabled. Called
--- once from ns:OnInitialize and from the Frames tab's own settings (any
--- change there is infrequent, so a full rebuild rather than a targeted
--- per-setting updater is the simplest correct answer for a single frame).
+-- from ns:OnInitialize and after a profile load. The Frames tab does NOT
+-- route here any more: a settings change there rebuilds only the frames
+-- reading the edited settings block (ns:RebuildUnitFramesFor below), since
+-- 3.3.5a cannot destroy a frame and a whole-addon rebuild orphaned up to
+-- nine frames per settings change for no behavioural gain.
 function ns:RebuildUnitFrames()
     -- Blizzard's equivalent frames are hidden by the same pass that builds
     -- ours, because "is the BarWarden frame on" is now an input to whether
     -- Blizzard's should be up (ns:ResolveBlizzardFrameHidden, Conditions.lua).
-    -- Every settings change on the Frames tab routes through here, so this is
-    -- the one place that has to remember.
+    -- Every settings change on the Frames tab routes through a rebuild, so
+    -- this is the one place that has to remember.
     if ns.ApplyBlizzardFrameHiding then ns:ApplyBlizzardFrameHiding() end
 
     for _, key in ipairs(UNIT_FRAME_KEYS) do
-        DestroyUnitFrame(key)
-        local cfg = UnitFrameConfig(key)
-        if cfg and cfg.enabled then
-            if BuildUnitFrame(key) then
-                ScanUnitFrame(key)
-            end
+        RebuildOneUnitFrame(key)
+    end
+end
+
+-- Rebuild only the frames reading one settings block. `cfgKey` is a CONFIG
+-- key ("party" covers party1..party4), matching what the Frames tab edits.
+function ns:RebuildUnitFramesFor(cfgKey)
+    -- Same reason as the full rebuild: the enabled toggle for the player or
+    -- target frame is an input to whether Blizzard's own frame shows.
+    if ns.ApplyBlizzardFrameHiding then ns:ApplyBlizzardFrameHiding() end
+
+    for _, key in ipairs(UNIT_FRAME_KEYS) do
+        if ConfigKeyFor(key) == cfgKey then
+            RebuildOneUnitFrame(key)
         end
     end
 end

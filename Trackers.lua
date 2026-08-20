@@ -518,30 +518,58 @@ end
 -- Cooldown Tracker
 -- ----------------------------------------------------------------------------
 
+-- GetSpellInfo memo for cooldown bars. A spell's name/icon are static for
+-- the session, but CheckCooldown runs on every SPELL_UPDATE_COOLDOWN /
+-- ACTIONBAR_UPDATE_COOLDOWN firing - effectively every ability press - so
+-- re-resolving them per event was avoidable work. Same shape and same
+-- invalidation as Bar.lua's displayNameCache: an unresolved spell caches as
+-- `false` (so a bad id is not re-queried per event either) and the whole
+-- memo is wiped on any bar edit via ns:InvalidateTrackedNames (BarEngine.lua),
+-- which is when a cached miss could become resolvable.
+local spellInfoCache = {}   -- [spell (id or name)] = {name, icon, id} | false
+
+function ns:InvalidateSpellInfoCache()
+    wipe(spellInfoCache)
+end
+
+local function ResolveSpellInfo(spell)
+    local cached = spellInfoCache[spell]
+    if cached == nil then
+        local spellID = tonumber(spell)
+        local name, icon, resolvedID
+        if spellID then
+            name, _, icon = GetSpellInfo(spellID)
+            resolvedID = spellID
+        else
+            -- Single GetSpellInfo call captures both name/icon and the
+            -- numeric ID used for the SpellDurations override lookup.
+            name, _, icon, _, _, _, _, _, _, resolvedID = GetSpellInfo(spell)
+        end
+        cached = name and { name = name, icon = icon, id = resolvedID } or false
+        spellInfoCache[spell] = cached
+    end
+    if cached then
+        return cached.name, cached.icon, cached.id
+    end
+    return nil, nil, nil
+end
+
 local function CheckCooldown(barConfig)
     local spell = getSpell(barConfig)
     if not spell then
         return false, 0, 0, nil, nil, 0
     end
 
-    local spellID = tonumber(spell)
-    local spellName, spellIcon, resolvedID
-
-    if spellID then
-        spellName, _, spellIcon = GetSpellInfo(spellID)
-        resolvedID = spellID
-    else
-        -- Single GetSpellInfo call captures both name/icon and the numeric ID
-        -- used later for the SpellDurations override lookup; the earlier
-        -- `select(10, GetSpellInfo(spellName))` repeat call is now redundant.
-        spellName, _, spellIcon, _, _, _, _, _, _, resolvedID = GetSpellInfo(spell)
-    end
+    local spellName, spellIcon, resolvedID = ResolveSpellInfo(spell)
 
     if not spellName then
         return false, 0, 0, nil, spell, 0
     end
 
-    local start, duration, enabled = GetSpellCooldown(spellID or spellName)
+    -- By id when the bar is configured by id, by NAME when configured by
+    -- name (not the memo's resolved id): on 3.3.5a a by-name query resolves
+    -- the player's own known rank, which a fixed id may not match.
+    local start, duration, enabled = GetSpellCooldown(tonumber(spell) or spellName)
 
     if not start or enabled ~= 1 then
         return false, 0, 0, spellIcon, spellName, 0

@@ -22,8 +22,18 @@ local MAX_ACTIVITY_ENTRIES = 200
 -- State snapshots: previous tick's data, used for diff-based detection
 -- ----------------------------------------------------------------------------
 
-local prevBuffs = {}      -- [spellId] = { name, icon, expirationTime }
-local prevDebuffs = {}    -- [spellId] = { name, icon, expirationTime }
+-- Buff/debuff snapshots are double-buffered plain sets: prev* holds last
+-- scan's spellIds, spare* is wiped and refilled each scan, then the two swap.
+-- These scanners ride UNIT_AURA (up to 10 Hz per unit in combat), and the
+-- earlier shape - a fresh table plus a {name, icon, expirationTime} sub-table
+-- per active aura per scan - was hundreds of throwaway allocations a second
+-- on a raid-buffed character. Name/icon are only ever needed at the moment an
+-- activation is recorded, while they are still in hand from the aura walk, so
+-- the snapshot itself needs nothing but key presence.
+local prevBuffs = {}      -- [spellId] = true
+local spareBuffs = {}     -- prevBuffs' swap partner
+local prevDebuffs = {}    -- [spellId] = true
+local spareDebuffs = {}   -- prevDebuffs' swap partner
 local prevEnchantMH = false
 local prevEnchantOH = false
 local prevTotems = {}     -- [slot] = totemName
@@ -162,38 +172,38 @@ end
 -- ----------------------------------------------------------------------------
 
 function ns:ScanBuffActivity()
-    local current = {}
+    local current = spareBuffs
+    wipe(current)
 
     for i = 1, MAX_AURA_INDEX do
         local name, _, icon, count, _, duration, expirationTime, _, _, _, spellId = UnitBuff("player", i)
         if not name then break end
-        if spellId then
-            current[spellId] = { name = name, icon = icon, expirationTime = expirationTime }
+        if spellId and not current[spellId] then
+            -- Record while name/icon are in hand from this walk, so the
+            -- snapshot needs no per-aura sub-tables. The `not current` guard
+            -- above also stops a buff listed twice in one scan (two casters,
+            -- one spellId) from recording two activations.
+            -- First scan after a (re)start only seeds the snapshot; effects
+            -- already active are a baseline, not new activations.
+            if primedBuffs and not prevBuffs[spellId] then
+                RecordActivation(MakeKey("Buff", spellId), name, spellId, icon, "Buff")
+            end
+            current[spellId] = true
         end
     end
 
-    -- First scan after a (re)start only seeds the snapshot; effects already
-    -- active are a baseline, not new activations.
     if primedBuffs then
-        -- Detect new buffs (in current but not in previous)
-        for spellId, data in pairs(current) do
-            if not prevBuffs[spellId] then
-                local key = MakeKey("Buff", spellId)
-                RecordActivation(key, data.name, spellId, data.icon, "Buff")
-            end
-        end
-
         -- Detect lost buffs (in previous but not in current)
         for spellId in pairs(prevBuffs) do
             if not current[spellId] then
-                local key = MakeKey("Buff", spellId)
-                RecordDeactivation(key)
+                RecordDeactivation(MakeKey("Buff", spellId))
             end
         end
     else
         primedBuffs = true
     end
 
+    spareBuffs = prevBuffs
     prevBuffs = current
 end
 
@@ -203,36 +213,35 @@ end
 -- ----------------------------------------------------------------------------
 
 function ns:ScanDebuffActivity()
-    local current = {}
+    local current = spareDebuffs
+    wipe(current)
 
     if UnitExists("target") then
         for i = 1, MAX_AURA_INDEX do
             local name, _, icon, count, _, duration, expirationTime, caster, _, _, spellId = UnitDebuff("target", i)
             if not name then break end
-            if spellId and caster == "player" then
-                current[spellId] = { name = name, icon = icon, expirationTime = expirationTime }
+            if spellId and caster == "player" and not current[spellId] then
+                -- Same inline shape as ScanBuffActivity above: record with
+                -- name/icon in hand, snapshot holds key presence only.
+                if primedDebuffs and not prevDebuffs[spellId] then
+                    RecordActivation(MakeKey("Debuff", spellId), name, spellId, icon, "Debuff")
+                end
+                current[spellId] = true
             end
         end
     end
 
     if primedDebuffs then
-        for spellId, data in pairs(current) do
-            if not prevDebuffs[spellId] then
-                local key = MakeKey("Debuff", spellId)
-                RecordActivation(key, data.name, spellId, data.icon, "Debuff")
-            end
-        end
-
         for spellId in pairs(prevDebuffs) do
             if not current[spellId] then
-                local key = MakeKey("Debuff", spellId)
-                RecordDeactivation(key)
+                RecordDeactivation(MakeKey("Debuff", spellId))
             end
         end
     else
         primedDebuffs = true
     end
 
+    spareDebuffs = prevDebuffs
     prevDebuffs = current
 end
 
@@ -361,7 +370,9 @@ function ns:StartActivityTracking()
     -- already running at login/reload/re-enable are not miscounted as fresh
     -- activations (see the primed* guards above).
     wipe(prevBuffs)
+    wipe(spareBuffs)
     wipe(prevDebuffs)
+    wipe(spareDebuffs)
     prevEnchantMH = false
     prevEnchantOH = false
     wipe(prevTotems)

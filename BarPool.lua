@@ -47,6 +47,10 @@ function ns:ReleaseBar(bar)
     bar.isTestBar = nil
     bar.isAutoBar = nil
     bar._lastSparkX = nil
+    -- Stack-badge diff cache (ns:RenderBarStacks): the SetText("") below
+    -- blanks the badge, so the cache must not claim the old count is still
+    -- applied when this bar is reused.
+    bar._stackCount = nil
     bar:SetValue(0)
     if bar.nameText then bar.nameText:SetText("") end
     if bar.timeText then bar.timeText:SetText("") end

@@ -1075,7 +1075,10 @@ Colour swatch - is exactly a widget Custom Stack Text can hide).
 Two ways to wire a setting:
 
 - `db = "path"` + `refresh = "Method"` - uses `ns:DBSet` under the hood
-  (gets strict registration-time validation for free).
+  (gets strict registration-time validation for free). `refresh` may also
+  be a **function**, for a refresh that needs an argument baked in - the
+  Frames tab passes a closure over its frame key so a change rebuilds only
+  that frame's block (`ns:RebuildUnitFramesFor`) instead of all nine.
 - `get = fn` + `set = fn` - escape hatch for stateful behaviour (a
   toggle that branches, calls multiple refreshers, or shows/hides other
   widgets).
@@ -1087,6 +1090,12 @@ string`, applied to the live value label and the Low/High end labels alike
 (e.g. `ns.FormatSettingDuration`, [Utils.lua](../Utils.lua), for a
 seconds-based slider) so the whole control reads in real units instead of a
 bare number; omit it and the slider keeps the old `%d` / `%.2f` rendering.
+A slider whose refresh is too heavy to run per drag pixel (anything that
+destroys and rebuilds frames) should set `commitOnRelease = true`: the
+label still tracks the drag live, but the DB write and refresh fire once,
+on mouse-up. Every Frames-tab rebuild slider uses it; the Visuals sliders
+do not, because `RefreshAllBars` updates widgets in place and the live
+preview is the point.
 Add new types by extending the `BUILDERS` + `APPLIERS` dispatch tables.
 
 Cross-widget coordination: `id = "<name>"` exposes a widget via an
@@ -1145,9 +1154,13 @@ local slider = ns:CreateSlider(parent, "Bar Height", 4, 60, 1,
 
 `ns:DBSet(path, refreshMethod)` returns a callback that writes `value`
 into `BarWardenDB.<dotted.path>` and (optionally) calls
-`ns:<refreshMethod>()`. **Strictly validated at registration time:** the
+`ns:<refreshMethod>()`. `refreshMethod` may instead be a function, called
+as `refreshMethod(ns)` - the escape hatch for a refresh that needs an
+argument baked in, e.g. the Frames tab's per-frame rebuild closure.
+**Strictly validated at registration time:** the
 parent path must resolve, the leaf must already be declared in
-`ns.DEFAULTS`, and the refresh method (if given) must exist on `ns`. Any
+`ns.DEFAULTS`, and the refresh method (if given as a name) must exist on
+`ns`. Any
 failure raises a Lua error during `ns:OnInitialize`, so typos surface at
 load (with `/console scriptErrors 1`) rather than as silent no-ops.
 

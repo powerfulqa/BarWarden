@@ -102,6 +102,15 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
         if panel.ApplyConditionals then panel:ApplyConditionals() end
     end
 
+    -- Every rebuild-on-change setting routes here rather than to the string
+    -- "RebuildUnitFrames": rebuilding all nine frames to apply one frame's
+    -- Bar Height was pure waste, and each destroyed frame is an orphan on
+    -- 3.3.5a (frames cannot be destroyed), so the waste also accumulated.
+    -- ns:DBSet accepts a function refresh for exactly this shape.
+    local function rebuildFrame()
+        ns:RebuildUnitFramesFor(key)
+    end
+
     local entries = {
         { type = "header", text = label, large = true,
           id = id("Header"), spacing = 28, offsetX = ns.OFFSET_HEADER },
@@ -118,7 +127,7 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
     local rest = {
         { type = "toggle", label = "Show " .. label,
           tooltip = "Shows a portrait unit frame for " .. opts.whose .. ".",
-          db = P .. "enabled", refresh = "RebuildUnitFrames",
+          db = P .. "enabled", refresh = rebuildFrame,
           offsetX = ns.OFFSET_TOGGLE, spacing = 16 },
 
         { type = "slider", label = "Scale", min = 0.5, max = 3.0, step = 0.1,
@@ -129,7 +138,7 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
         { type = "dropdown", id = id("TextureDD"), label = "Bar Look",
-          db = P .. "barTexture", refresh = "RebuildUnitFrames",
+          db = P .. "barTexture", refresh = rebuildFrame,
           items = ufTextureItems, width = 191,
           tooltip = "The look of the bars inside the frame. This is separate "
                  .. "from your timer bars, so the frame can look one way and "
@@ -143,7 +152,8 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
           width = 200,
           tooltip = "How tall each bar is. Taller bars suit showing the "
                  .. "numbers on the bar.",
-          db = P .. "barHeight", refresh = "RebuildUnitFrames",
+          db = P .. "barHeight", refresh = rebuildFrame,
+          commitOnRelease = true,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
         { type = "slider", label = "Strip Height", min = 0, max = 30, step = 1,
@@ -151,7 +161,8 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
           tooltip = "How tall the rune and combo point strips are. They are "
                  .. "kept shorter than the main bars so health and power "
                  .. "stand out. Slide fully left to size them automatically.",
-          db = P .. "secondaryBarHeight", refresh = "RebuildUnitFrames",
+          db = P .. "secondaryBarHeight", refresh = rebuildFrame,
+          commitOnRelease = true,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
         { type = "slider", label = "Minimum Bars", min = 0, max = 10, step = 1,
@@ -164,7 +175,8 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
                  .. "not change size when its unit does. A mob with no mana "
                  .. "would otherwise make the frame shorter than a player "
                  .. "does, moving anything you have placed around it.",
-          db = P .. "minRows", refresh = "RebuildUnitFrames",
+          db = P .. "minRows", refresh = rebuildFrame,
+          commitOnRelease = true,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
         { type = "header", text = "Opacity", id = id("OpacityHeader"),
@@ -174,7 +186,8 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
           width = 200, format = PercentLabel,
           tooltip = "The dark background the frame sits on, including behind "
                  .. "the bars.",
-          db = P .. "frameOpacity", refresh = "RebuildUnitFrames",
+          db = P .. "frameOpacity", refresh = rebuildFrame,
+          commitOnRelease = true,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
         -- Hidden while the portrait is a 3D model: the client does not apply
@@ -186,31 +199,34 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
           width = 200, format = PercentLabel,
           tooltip = "Fades the portrait picture. The black behind it belongs "
                  .. "to Panel.",
-          db = P .. "portraitOpacity", refresh = "RebuildUnitFrames",
+          db = P .. "portraitOpacity", refresh = rebuildFrame,
+          commitOnRelease = true,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
         { type = "slider", label = "Bars", min = 0, max = 1, step = 0.05,
           width = 200, format = PercentLabel,
           tooltip = "The bars themselves, and any numbers sitting on them.",
-          db = P .. "barOpacity", refresh = "RebuildUnitFrames",
+          db = P .. "barOpacity", refresh = rebuildFrame,
+          commitOnRelease = true,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
         { type = "slider", label = "Border", min = 0, max = 1, step = 0.05,
           width = 200, format = PercentLabel,
           tooltip = "The edge around the frame and the portrait.",
-          db = P .. "borderOpacity", refresh = "RebuildUnitFrames",
+          db = P .. "borderOpacity", refresh = rebuildFrame,
+          commitOnRelease = true,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
         { type = "header", text = "Elements", spacing = 24, offsetX = ns.OFFSET_HEADER },
 
         { type = "toggle", label = "Show Portrait",
           tooltip = "Shows the portrait on the left.",
-          db = P .. "showPortrait", refresh = "RebuildUnitFrames",
+          db = P .. "showPortrait", refresh = rebuildFrame,
           onChange = reapply,
           offsetX = ns.OFFSET_TOGGLE, spacing = 16 },
 
         { type = "dropdown", id = id("PortraitStyleDD"), label = "Portrait Style",
-          db = P .. "portraitStyle", refresh = "RebuildUnitFrames",
+          db = P .. "portraitStyle", refresh = rebuildFrame,
           items = {
               { text = "Picture",  value = "2D" },
               { text = "3D Model", value = "3D" },
@@ -223,22 +239,22 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
 
         { type = "toggle", label = "Show Name",
           tooltip = "Shows the name across the top of the frame.",
-          db = P .. "showName", refresh = "RebuildUnitFrames",
+          db = P .. "showName", refresh = rebuildFrame,
           offsetX = ns.OFFSET_TOGGLE, spacing = 16 },
 
         { type = "toggle", label = "Show Level",
           tooltip = "Adds the level next to the name.",
-          db = P .. "showLevel", refresh = "RebuildUnitFrames",
+          db = P .. "showLevel", refresh = rebuildFrame,
           offsetX = ns.OFFSET_TOGGLE },
 
         { type = "toggle", label = "Show Values",
           tooltip = "Shows the amount and percent for each bar.",
-          db = P .. "showValues", refresh = "RebuildUnitFrames",
+          db = P .. "showValues", refresh = rebuildFrame,
           onChange = reapply,
           offsetX = ns.OFFSET_TOGGLE },
 
         { type = "dropdown", id = id("ValuePlacementDD"), label = "Values Position",
-          db = P .. "valuePlacement", refresh = "RebuildUnitFrames",
+          db = P .. "valuePlacement", refresh = rebuildFrame,
           items = {
               { text = "Beside the bars", value = "COLUMN" },
               { text = "On the bars",     value = "ONBAR"  },
@@ -300,7 +316,7 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
                     -- set of genuinely-hidden keys and never accumulates a row
                     -- per family the owner merely looked at.
                     cfg.hiddenResources[familyKey] = (not value) or nil
-                    ns:RebuildUnitFrames()
+                    rebuildFrame()
                     -- Unticking Runes takes the rune-combining option with it.
                     if familyKey == "runes" then reapply() end
                 end,
@@ -313,14 +329,14 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
             label = "Combine Runes by Type",
             tooltip = "Shows three rune bars (blood, frost, unholy) instead of "
                    .. "six separate ones.",
-            db = P .. "pairRunes", refresh = "RebuildUnitFrames",
+            db = P .. "pairRunes", refresh = rebuildFrame,
             offsetX = ns.OFFSET_TOGGLE, spacing = 16,
         }
     end
 
     local textEntries = {
         { type = "dropdown", id = id("NameFontDD"), label = "Name Font",
-          db = P .. "nameFont", refresh = "RebuildUnitFrames",
+          db = P .. "nameFont", refresh = rebuildFrame,
           items = ufFontItems, width = 191,
           tooltip = "The font used for the name across the top.",
           offsetX = ns.OFFSET_DROPDOWN, spacing = 24 },
@@ -328,11 +344,12 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
         { type = "slider", label = "Name Size", min = 0, max = 24, step = 1,
           width = 200, format = SizeLabel,
           tooltip = "Size of the name text. Slide fully left to match Visuals.",
-          db = P .. "nameFontSize", refresh = "RebuildUnitFrames",
+          db = P .. "nameFontSize", refresh = rebuildFrame,
+          commitOnRelease = true,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
 
         { type = "dropdown", id = id("ValueFontDD"), label = "Values Font",
-          db = P .. "valueFont", refresh = "RebuildUnitFrames",
+          db = P .. "valueFont", refresh = rebuildFrame,
           items = ufFontItems, width = 191,
           tooltip = "The font used for the numbers.",
           offsetX = ns.OFFSET_DROPDOWN, spacing = ns.GAP_DROPDOWN_UNDER_SLIDER },
@@ -340,7 +357,8 @@ local function AppendFrameSchema(schema, panel, key, label, opts)
         { type = "slider", label = "Values Size", min = 0, max = 24, step = 1,
           width = 200, format = SizeLabel,
           tooltip = "Size of the numbers. Slide fully left to match Visuals.",
-          db = P .. "valueFontSize", refresh = "RebuildUnitFrames",
+          db = P .. "valueFontSize", refresh = rebuildFrame,
+          commitOnRelease = true,
           offsetX = ns.OFFSET_SLIDER, spacing = 16 },
     }
     for _, entry in ipairs(textEntries) do

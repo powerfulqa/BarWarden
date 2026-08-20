@@ -13,6 +13,28 @@ exhaustive notes.
 
 ---
 
+### v2.8.1
+
+**Smoother in combat, and safer profile loading.**
+
+A performance pass over the busiest code paths, from a whole-addon review:
+
+- Dragging a slider on the Frames tab no longer rebuilds every unit frame
+  on every pixel of the drag. The value now applies once, when the slider
+  is released, and only the frame being edited is rebuilt rather than all
+  nine. This was the single heaviest thing the options panel could do.
+- Combat no longer churns memory for nothing: the activity tracker,
+  cooldown scans, unit frame updates and stack badges all stopped
+  re-allocating or re-applying things that had not changed. Long fights
+  and raid-buffed characters generate far less garbage-collector pressure,
+  which on a 3.3.5a client means fewer stutters.
+- Loading a profile now asks first. Load replaces your whole layout, and
+  it was the one button on the Profiles tab that fired on a single click;
+  it now confirms like Delete and the starter buttons do, and the popup
+  reminds you that /bw restore brings the old layout back.
+
+---
+
 ### v2.8.0
 
 **Turn a group off without losing it.** A new Enabled tick at the top of a

@@ -215,6 +215,25 @@ StaticPopupDialogs["BARWARDEN_CONFIRM_STARTER_APPEND"] = {
     preferredIndex = 4,
 }
 
+-- Confirm Load Profile (replaces the live layout with a saved profile).
+-- The only replace on the Profiles tab that did not confirm: one click on
+-- the wrong row silently overwrote the current layout, while Delete, Reset
+-- and both starter buttons all asked first. %s is the profile name.
+StaticPopupDialogs["BARWARDEN_CONFIRM_LOAD_PROFILE"] = {
+    text = "Load the profile \"%s\"?\n\nThis will REPLACE your current groups and bars on this character. Your current layout is backed up first; /bw restore brings it back.",
+    button1 = "Load",
+    button2 = "Cancel",
+    OnAccept = function(self)
+        if self.data and self.data.onAccept then
+            self.data.onAccept()
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 4,
+}
+
 -- A confirmation/entry popup shown from a settings panel can appear BEHIND the
 -- Interface Options window (press a button and the dialog is hidden under the
 -- menu). Every BarWarden popup, while shown, is lifted to sit above the options

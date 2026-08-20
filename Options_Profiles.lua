@@ -266,20 +266,30 @@ local function CreateProfilesTab(parent)
 
     -- Second row of buttons
     local loadBtn = ns:CreateButton(frame, "Load", 80, function()
-        if not RequireSelectedProfile() then return end
-        local profile = ns.profiles[selectedProfileName]
-        if profile.data then
-            -- Back up first: loading a profile replaces the current layout.
-            if ns.BackupFrames then ns:BackupFrames("load profile") end
-            -- Per-section migration and default-backfill live in
-            -- ns:ApplyProfileData (DB.lua) so save, load, and import cannot
-            -- disagree about what a profile contains - which is exactly how
-            -- unit frames came to be missing from every exported profile.
-            ns:ApplyProfileData(profile.data)
-            ns.db.activeProfile = selectedProfileName
-            ns:FireCallback("OnProfileChanged", selectedProfileName)
-            frame:RefreshList()
-        end
+        local name = RequireSelectedProfile()
+        if not name then return end
+        -- Confirm first: Load replaces the whole live layout, exactly as
+        -- destructive as Delete or the starter buttons, and was the one
+        -- replace on this tab a single click on the wrong row could fire.
+        -- The name is captured at click time, not re-read at accept time:
+        -- the popup is not modal, so clicking another row behind it must
+        -- not switch the target (the wrong-row class fixed in v2.1.1).
+        StaticPopup_Show("BARWARDEN_CONFIRM_LOAD_PROFILE", name, nil, {
+            onAccept = function()
+                local profile = ns.profiles[name]
+                if not (profile and profile.data) then return end
+                -- Back up first: loading a profile replaces the current layout.
+                if ns.BackupFrames then ns:BackupFrames("load profile") end
+                -- Per-section migration and default-backfill live in
+                -- ns:ApplyProfileData (DB.lua) so save, load, and import cannot
+                -- disagree about what a profile contains - which is exactly how
+                -- unit frames came to be missing from every exported profile.
+                ns:ApplyProfileData(profile.data)
+                ns.db.activeProfile = name
+                ns:FireCallback("OnProfileChanged", name)
+                frame:RefreshList()
+            end,
+        })
     end)
     loadBtn:SetPoint("TOPLEFT", createBtn, "BOTTOMLEFT", 0, -4)
 
